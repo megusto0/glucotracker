@@ -1,0 +1,23 @@
+# Source: McDonald's USA product nutrition pages.
+# Values are approximate seed shortcuts; verify local/regional values before relying on them.
+source_url: "https://www.mcdonalds.com/us/en-us/full-menu.html"
+prefix: mc
+items:
+  - key: bigmac
+    display_name: "Big Mac"
+    default_grams: 215
+    default_carbs_g: 46
+    default_protein_g: 25
+    default_fat_g: 34
+    default_fiber_g: 3
+    default_kcal: 590
+    aliases: ["бигмак", "биг мак", "big mac", "bigmac"]
+  - key: fries_m
+    display_name: "Medium Fries"
+    default_grams: 117
+    default_carbs_g: 44
+    default_protein_g: 4
+    default_fat_g: 16
+    default_fiber_g: 4
+    default_kcal: 320
+    aliases: ["картошка", "фри", "medium fries", "fries"]

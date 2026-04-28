@@ -1,0 +1,419 @@
+prefix: vit
+source_name: Вкусно и точка official menu
+source_url: https://vkusnoitochka.ru/menu
+source_file: null
+items:
+- key: kombo_olesi_ivanchenko
+  display_name: Комбо Олеси Иванченко
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/a58/joxwn5dax23luavos79kwzzlt031rmq0/large.png
+  aliases:
+  - комбо олеси иванченко
+  - kombo olesi ivanchenko
+  - kombo_olesi_ivanchenko
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/kombo-olesi-ivanchenko
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: kombo_olesi_ivanchenko_2
+  display_name: Комбо Олеси Иванченко
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/7e6/ihbz18kuqzjr5nuru1tlr6r9ysp7woad/large.png
+  aliases:
+  - комбо олеси иванченко
+  - kombo olesi ivanchenko
+  - kombo_olesi_ivanchenko
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/kombo-olesi-ivanchenko_1
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: kombo_yuriya_stoyanova
+  display_name: Комбо Юрия Стоянова
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/f0b/smwwsu0pz3aar2v3tfrpa5orwodtzc91/large.png
+  aliases:
+  - комбо юрия стоянова
+  - kombo yuriya stoyanova
+  - kombo_yuriya_stoyanova
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/kombo-yuriya-stoyanova_1
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: kombo_yuriya_stoyanova_2
+  display_name: Комбо Юрия Стоянова
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/a1b/pytpd9jkdvajj90my52bmmiow2kyvptu/large.png
+  aliases:
+  - комбо юрия стоянова
+  - kombo yuriya stoyanova
+  - kombo_yuriya_stoyanova
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/kombo-yuriya-stoyanova
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: sous_chili_laim_pikador
+  display_name: Соус Чили-лайм PIKADOR
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/d21/3nz83o3jluj1pi5x342q36l3niclkv2v/large.png
+  aliases:
+  - соус чили-лайм pikador
+  - sous chili-laim pikador
+  - sous_chili_laim_pikador
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/sous-chili-laym-pikador
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: maffin_perets_gril
+  display_name: Маффин Перец гриль
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/371/9fa7a7itija1lfb5vbdremz8ep5puj84/large.png
+  aliases:
+  - маффин перец гриль
+  - maffin perets gril
+  - maffin_perets_gril
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/maffin-perets-gril
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: pirozhok_lesnye_yagody_kremchiz
+  display_name: Пирожок Лесные ягоды-кремчиз
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/806/w3up8rmklpiyrqmrpriwcivebimnzkzx/large.png
+  aliases:
+  - пирожок лесные ягоды-кремчиз
+  - pirozhok lesnye yagody-kremchiz
+  - pirozhok_lesnye_yagody_kremchiz
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/pirozhok-lesnye-yagody-kremchiz_1
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: espresso_tonik_granat
+  display_name: Эспрессо-тоник Гранат
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/50b/kmjuo99a35lycx1toxy9fz3432d0qm2a/large.png
+  aliases:
+  - эспрессо-тоник гранат
+  - espresso-tonik granat
+  - espresso_tonik_granat
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/espresso-tonik-granat
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: ais_matcha_kokos
+  display_name: Айс Матча Кокос
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/590/rnlcg9vymkpsb6pm00n6zbqdv8agv9dv/large.png
+  aliases:
+  - айс матча кокос
+  - ais matcha kokos
+  - ais_matcha_kokos
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/ays-matcha-kokos
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: babl_ti_ananas_lemongrass
+  display_name: Бабл-ти Ананас-лемонграсс
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/a16/cbjdcpnz5xrs76t7yx51uvk78dm7a0mr/large.png
+  aliases:
+  - бабл-ти ананас-лемонграсс
+  - babl-ti ananas-lemongrass
+  - babl_ti_ananas_lemongrass
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/babl-ti-ananas-lemongrass_2
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: limonad_dolche_mango
+  display_name: Лимонад Дольче манго
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/031/3nt8segq83xyfbb7slnyyufe23iaozm7/large.png
+  aliases:
+  - лимонад дольче манго
+  - limonad dolche mango
+  - limonad_dolche_mango
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/limonad-dolche-mango
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: sanraiz_dolche_mango
+  display_name: Санрайз Дольче манго
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/afb/vqtwgodhrtor2a4po4l4jyi99433nl56/large.png
+  aliases:
+  - санрайз дольче манго
+  - sanraiz dolche mango
+  - sanraiz_dolche_mango
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/sanrayz-dolche-mango
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: bambl_kofe
+  display_name: Бамбл кофе
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/1e7/k5mwgqtru9voz7iqztyxrrt3qdhg23df/large.png
+  aliases:
+  - бамбл кофе
+  - bambl kofe
+  - bambl_kofe
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/bambl-kofe
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: molochnyi_kokteil_chereshnya
+  display_name: Молочный коктейль Черешня
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/af7/eg1o1frfbs261zz63oenjtx41qxtq922/large.png
+  aliases:
+  - молочный коктейль черешня
+  - molochnyi kokteil chereshnya
+  - molochnyi_kokteil_chereshnya
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/molochnyy-kokteyl-chereshnya
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: ais_de_lyuks_ananas_pitahaiya
+  display_name: Айс Де Люкс Ананас-питахайя
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/6a9/a344hntkn0ipx13xho78uii7e60xbovr/large.png
+  aliases:
+  - айс де люкс ананас-питахайя
+  - ais de lyuks ananas-pitahaiya
+  - ais_de_lyuks_ananas_pitahaiya
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/ays-de-lyuks-ananas-pitakhayya
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: morozhenoe_marakuiya_s_kostochkoi
+  display_name: Мороженое Маракуйя с косточкой
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/544/smws190n1a9ghjlf4nptlspqg98qokj1/large.png
+  aliases:
+  - мороженое маракуйя с косточкой
+  - morozhenoe marakuiya s kostochkoi
+  - morozhenoe_marakuiya_s_kostochkoi
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/morozhenoe-marakuyya-s-kostochkoy
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: pirozhnoe_yagodnyi_kosmos
+  display_name: Пирожное «Ягодный космос»
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/9d1/y7esqh79jysjtcd99dj22twe7li6v6rd/large.png
+  aliases:
+  - пирожное «ягодный космос»
+  - pirozhnoe «yagodnyi kosmos»
+  - pirozhnoe_yagodnyi_kosmos
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/pirozhnoe-yagodnyy-kosmos
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false
+- key: kidz_kombo_bliny_s_igrushkoi
+  display_name: Кидз Комбо блины с игрушкой
+  default_grams: null
+  default_carbs_g: 0
+  default_protein_g: 0
+  default_fat_g: 0
+  default_fiber_g: 0
+  default_kcal: 0
+  per_100g_kcal: null
+  per_100g_carbs_g: null
+  per_100g_protein_g: null
+  per_100g_fat_g: null
+  image_url: https://vkusnoitochka.ru/resize/290x286/upload/iblock/e1c/m5xi70lk3sgtqdiulqliinsbw02jkb30/large.png
+  aliases:
+  - кидз комбо блины с игрушкой
+  - kidz kombo bliny s igrushkoi
+  - kidz_kombo_bliny_s_igrushkoi
+  source_name: Вкусно и точка official menu
+  source_url: https://vkusnoitochka.ru/novinki/kidz-kombo-bliny-s-igrushkoy
+  source_file: null
+  source_page: null
+  source_confidence: official_menu_partial
+  is_verified: false

@@ -1,0 +1,54 @@
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.log
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# SQLite and local runtime data
+*.db
+*.sqlite
+*.sqlite3
+backend/data/
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+desktop/dist/
+desktop/dist-ssr/
+
+# Tauri / Rust
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+
+# Local scratch outputs
+tmp/
+temp/
+
+# Editors and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

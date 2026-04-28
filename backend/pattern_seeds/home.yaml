@@ -1,0 +1,23 @@
+# Source: personal seed examples; replace with user-confirmed household portions.
+source_url: null
+prefix: home
+items:
+  - key: chicken_potato_greens
+    display_name: "Chicken, Potatoes, Greens"
+    default_grams: 520
+    default_carbs_g: 56
+    default_protein_g: 61
+    default_fat_g: 26
+    default_fiber_g: 9
+    default_kcal: 735
+    aliases:
+      ["курица картошка зелень", "chicken potato greens", "plate chicken"]
+  - key: greek_yogurt
+    display_name: "Greek Yogurt"
+    default_grams: 150
+    default_carbs_g: 8
+    default_protein_g: 15
+    default_fat_g: 4
+    default_fiber_g: 0
+    default_kcal: 128
+    aliases: ["йогурт", "greek yogurt", "yogurt"]

@@ -1,0 +1,58 @@
+# Source: Burger King USA nutrition PDF.
+# Values are approximate seed shortcuts; verify local/regional values before relying on them.
+source_url: "https://origin.bk.com/pdfs/nutrition.pdf"
+prefix: bk
+items:
+  - key: whopper
+    display_name: "Whopper"
+    default_grams: 270
+    default_carbs_g: 51
+    default_protein_g: 28
+    default_fat_g: 35
+    default_fiber_g: 3
+    default_kcal: 635
+    nutrients_json:
+      sodium_mg:
+        amount: 980
+        unit: mg
+      sugar_g:
+        amount: 11
+        unit: g
+    image_url: "https://cdn.prod.website-files.com/631b4b4e277091ef01450237/65947c9a2edd7ddb328fd61f_Whopper.png"
+    aliases: ["воппер", "вопер", "whopper", "vopper"]
+  - key: coke_zero_m
+    display_name: "Coca-Cola Zero Sugar, medium"
+    default_grams: 500
+    default_carbs_g: 0
+    default_protein_g: 0
+    default_fat_g: 0
+    default_fiber_g: 0
+    default_kcal: 0
+    nutrients_json:
+      sodium_mg:
+        amount: 60
+        unit: mg
+      caffeine_mg:
+        amount: 46
+        unit: mg
+    image_url: "https://www.coca-cola.com/content/dam/onexp/bt/en/home-images/brands/coca-cola-zero-sugar/coke%20zero%20300ml%20desktop.jpg"
+    aliases:
+      [
+        "кола зеро",
+        "кока кола зеро",
+        "кока-кола зеро",
+        "coke zero",
+        "cola zero",
+        "zero drink",
+        "drink",
+        "напиток",
+      ]
+  - key: cheeseburger
+    display_name: "Cheeseburger"
+    default_grams: 111
+    default_carbs_g: 28
+    default_protein_g: 15
+    default_fat_g: 13
+    default_fiber_g: 1
+    default_kcal: 290
+    aliases: ["чизбургер", "cheeseburger", "cheese burger"]

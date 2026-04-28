@@ -1,0 +1,695 @@
+glucotracker project explainer
+==============================
+
+Last updated: 2026-04-28
+
+Purpose
+-------
+
+glucotracker is a personal food diary for a type-1 diabetic. It logs meals,
+macros, calories, photos, product labels, restaurant shortcuts, and optional
+nutrients for journaling only.
+
+It is not used for insulin dosing. The app must never recommend insulin, bolus,
+correction, treatment, or medical decisions.
+
+Core rule:
+
+  Backend is the product.
+  Frontend is replaceable.
+  Backend owns the database, API semantics, macro math, draft lifecycle,
+  Gemini normalization, product memory, daily totals, and Nightscout sync.
+  The desktop UI is only one client implementation.
+
+
+Stack
+-----
+
+Backend:
+
+- Python 3.11+
+- FastAPI
+- SQLAlchemy 2.0 declarative models with Mapped[] annotations
+- Alembic
+- SQLite for local deployment, written through SQLAlchemy so moving to
+  Postgres later stays straightforward
+- Pydantic / pydantic-settings
+- httpx
+- pytest / pytest-asyncio
+- ruff
+
+Backend deployment:
+
+- Docker Compose on Ubuntu server
+
+Desktop client:
+
+- Tauri 2
+- React 18+
+- TypeScript strict
+- Tailwind
+- TanStack Query
+- Zustand
+- react-router-dom
+- generated TypeScript API client from OpenAPI
+
+Future Android client:
+
+- Separate Kotlin/Compose app
+- Same REST + JSON backend
+- No desktop-specific backend assumptions
+
+Auth:
+
+- Single bearer token from GLUCOTRACKER_TOKEN in backend .env
+- No OAuth
+- No users table
+
+Secrets:
+
+- Gemini API key lives only on backend
+- Nightscout settings live only on backend
+- Frontend must not contain Gemini or Nightscout secrets
+
+
+Repository layout
+-----------------
+
+backend/
+  glucotracker/
+    api/
+      routers/
+      schemas.py
+      dependencies.py
+      openapi.py
+    domain/
+      nutrition.py
+      drafts.py
+      estimation.py
+      known_components.py
+    infra/
+      db/
+      gemini/
+      nightscout/
+      storage/
+      importers/
+    workers/
+    config.py
+    main.py
+  alembic/
+  tests/
+  Dockerfile
+  docker-compose.yml
+
+desktop/
+  src/
+    api/
+      generated/
+      client.ts
+      queryKeys.ts
+    app/
+    design/
+    features/
+      chat/
+      feed/
+      stats/
+      settings/
+      database/
+      meals/
+      autocomplete/
+    components/
+    tests/
+
+docs/
+  DESIGN.md
+  api-contract.md
+  frontend-contract.md
+  project-explainer.txt
+
+
+Backend model overview
+----------------------
+
+Main tables:
+
+- meals
+- meal_items
+- photos
+- patterns
+- pattern_aliases
+- products
+- product_aliases
+- daily_totals
+- ai_runs / AI estimation run history
+- nutrient_definitions
+- meal_item_nutrients
+
+Important meal statuses:
+
+- draft: editable review state
+- accepted: journal entry counted in daily totals
+- discarded: hidden/cancelled draft or removed workflow state
+
+Important meal sources:
+
+- photo
+- pattern
+- manual
+- mixed
+
+Important item sources:
+
+- photo_estimate
+- label_calc
+- restaurant_db
+- product_db
+- pattern
+- manual
+
+Unknown optional nutrients are null, not 0. Manual overrides have the highest
+priority. Label/product/restaurant database values beat Gemini visual estimates.
+Gemini can extract visible facts, but backend performs deterministic
+calculation.
+
+
+API and lifecycle
+-----------------
+
+Public endpoints:
+
+- GET /health
+- GET /openapi.json
+
+Protected endpoints require:
+
+  Authorization: Bearer <GLUCOTRACKER_TOKEN>
+
+Core meal lifecycle:
+
+1. Create a meal as draft or accepted.
+2. Add manual items, pattern/product items, or upload photos.
+3. For photos, call estimate or estimate_and_save_draft.
+4. Gemini extracts label/visual information.
+5. Backend normalizes suggestions and calculates totals.
+6. UI displays draft items, evidence, assumptions, warnings, confidence.
+7. User edits draft.
+8. UI sends reviewed items to POST /meals/{id}/accept.
+9. Backend replaces items atomically, recalculates totals, and sets accepted.
+10. Accepted label_calc products may be remembered into the local product DB.
+11. Accepted meals count in dashboard/daily totals.
+12. Drafts do not count in daily totals.
+
+Important endpoints:
+
+- GET /meals
+- POST /meals
+- GET /meals/{id}
+- PATCH /meals/{id}
+- DELETE /meals/{id}
+- POST /meals/{id}/items
+- PATCH /meal_items/{id}
+- DELETE /meal_items/{id}
+- PUT /meals/{id}/items
+- POST /meals/{id}/accept
+- POST /meals/{id}/discard
+- POST /meals/{id}/photos
+- GET /photos/{id}/file
+- DELETE /photos/{id}
+- POST /meals/{id}/estimate
+- POST /meals/{id}/estimate_and_save_draft
+- POST /meals/{id}/reestimate
+- POST /meals/{id}/apply_estimation_run/{run_id}
+- GET /meals/{id}/ai_runs
+- GET /autocomplete
+- GET /database/items
+- GET /products
+- POST /products
+- POST /products/from_label
+- POST /meal_items/{id}/remember_product
+- GET /dashboard/today
+- GET /dashboard/range
+- GET /dashboard/heatmap
+- GET /dashboard/top_patterns
+- GET /dashboard/source_breakdown
+- GET /dashboard/data_quality
+- GET /nightscout/status
+- POST /meals/{id}/sync_nightscout
+- POST /meals/{id}/unsync_nightscout
+
+
+Desktop UI
+----------
+
+Routes:
+
+- /          Journal / today logging screen
+- /feed      History
+- /stats     Statistics
+- /database  Local food database
+- /settings  Backend URL, bearer token, Nightscout, recompute, OpenAPI
+
+Visual direction from docs/DESIGN.md:
+
+- off-white background
+- black text
+- thin beige/gray hairline borders
+- huge typography
+- mono macro numbers
+- sparse product ledger
+- right contextual panel
+- bottom command input
+- no dark theme
+- no gradients
+- no glow
+- no glassmorphism
+- no large rounded SaaS cards
+- no chat bubbles
+- no colorful medical UI
+
+The main Today page should feel like a daily ledger:
+
+  09:20   coffee + protein bar ................. 22C   310 kcal
+  13:45   bk:whopper + fries_m ................. 98C   1120 kcal
+
+Russian is the default UI language. Command tokens are not translated:
+
+- bk:
+- mc:
+- my:
+- product:
+
+Left rail:
+
+- Журнал
+- История
+- Статистика
+- База
+- Настройки
+
+Bottom composer:
+
+- visible without scrolling
+- command-style input
+- plus button
+- black submit arrow
+- one Фото button
+- Оценить only when photos are attached
+- autocomplete dropdown attached under input
+
+Right panel states:
+
+- selected accepted meal details
+- draft review
+- batch estimate result
+- pending photos
+- estimate loading/error
+- re-estimate comparison
+- database item details
+
+
+UX rules
+--------
+
+Meal rows:
+
+- show time on the left
+- show thumbnail when available
+- show title
+- show source/status subtitle
+- show dotted spacer
+- show carbs/protein/fat/kcal aligned to the right
+- show draft badge for drafts
+- show quantity badge, for example x2, when applicable
+- row totals reflect what was eaten, not per-unit values
+
+Drafts:
+
+- draft rows stay editable after click-away
+- selecting a draft reopens draft review mode
+- draft can be saved, edited, or discarded
+- clicking away does not accept or delete
+- draft does not count in daily totals
+
+Images:
+
+- uploaded photo has priority for photo meals
+- meal.thumbnail_url is preferred for row thumbnail
+- item image fields are fallback
+- broken image shows placeholder
+- database product images can be replaced from the database right panel
+
+Autocomplete:
+
+- plain text searches across saved products, personal patterns, restaurant
+  patterns, aliases, display names, brand, key/token
+- prefix search still narrows namespace, for example bk: or my:
+- saved personal/product results should rank above restaurant DB for plain
+  search
+- selecting saved product logs product_db item without Gemini
+
+Time handling:
+
+- desktop sends local wall-clock datetime without trailing Z
+- if user enters 12:30, the journal should save and display 12:30
+- local day filters also use local datetime boundaries
+
+
+Photo and Gemini estimation pipeline
+------------------------------------
+
+High-level flow:
+
+1. User attaches photos by file picker, drag/drop, or clipboard.
+2. UI keeps photos in pending state and shows thumbnails in right panel.
+3. User can add optional context, for example "100 г вареного риса".
+4. User clicks Оценить.
+5. UI creates a draft photo meal with local eaten_at.
+6. UI uploads photos to backend.
+7. Backend stores files under data/photos/YYYY/MM/{photo_id}.{ext}.
+8. Backend calls Gemini with:
+   - system prompt
+   - optional user context
+   - photo manifest with photo ids, filenames, and order
+   - selected patterns/products context where applicable
+   - image bytes in the same order as the manifest
+9. Gemini returns structured EstimationResult.
+10. Backend stores raw response in ai_runs and on first photo.
+11. Backend normalizes Gemini output into meal items.
+12. Backend calculates all deterministic totals.
+13. Backend may create one or many draft journal rows:
+    - unrelated photos/items become separate draft rows
+    - identical packages with split label evidence can remain one row with count
+14. UI shows draft review cards with photos, evidence, assumptions,
+    confidence, calculation details, source model, and totals.
+15. User edits and accepts or discards.
+
+Multiple photos:
+
+- Each photo has photo_id, upload order, filename, and file URL.
+- Gemini must return source_photo_ids/source_photo_indices for each item.
+- Drink photo + lavash photo should become two draft rows.
+- Two identical candies can become one row with count_detected = 2.
+- If multiple photos are uploaded but only one object is found, backend/UI
+  warns the user to check the result.
+
+Label photos:
+
+- LABEL_FULL: label facts and weight/volume visible.
+- LABEL_PARTIAL: label facts visible but weight/volume missing.
+- SPLIT_LABEL_IDENTICAL_ITEMS: nutrition facts visible on one identical package
+  and net weight visible on another.
+- Gemini extracts visible facts.
+- Backend calculates totals from per-100g/per-100ml/per-serving values.
+- Backend can create label_calc item.
+
+Plated food:
+
+- Gemini estimates components and macros.
+- Backend can use saved known components to replace model component values.
+- Example: if tortilla 40g is saved as product/component, backend uses its
+  known carbs/protein/fat/fiber/kcal instead of Gemini tortilla estimate.
+- Backend avoids double counting by replacing the raw component estimate, not
+  adding known values on top of full model total.
+
+Whole fruit on scale:
+
+- If an unpeeled orange/mandarin is seen on a scale, visible scale weight is
+  treated as gross weight including peel unless user context says it is peeled
+  or edible weight.
+- Backend applies edible-yield correction for supported fruit.
+- Example: orange 210g gross -> about 155.4g edible -> about 18.3g carbs.
+- Raw Gemini estimate remains in evidence.
+- Warning is stored that weight likely includes peel.
+
+Product memory:
+
+- Accepted label_calc items can be remembered into the local product database.
+- Saved products get aliases.
+- Later autocomplete can find them by plain text or product/my prefix.
+- Selecting product logs immediately from product_db without Gemini.
+
+Re-estimation:
+
+- Existing photo meal can be re-estimated with another model.
+- Re-estimate creates a comparison proposal.
+- It does not overwrite current meal until user applies it.
+- User can replace current, save as draft, or keep current.
+- AI run history stores model, result, errors, normalized items, and promotion.
+
+
+Gemini model routing and retry
+------------------------------
+
+Environment variables:
+
+- GEMINI_MODEL
+- GEMINI_FALLBACK_MODELS
+- GEMINI_CHEAP_MODEL
+- GEMINI_FREE_TEST_MODEL
+- GEMINI_FALLBACK_MODEL
+- GEMINI_MAX_RETRIES_PER_MODEL
+
+Current intended default:
+
+- GEMINI_MODEL=gemini-3-flash-preview
+- fallback examples: gemini-2.5-flash, gemini-3.1-flash-lite-preview
+
+Routing:
+
+- explicit model override from UI can be used for estimate/re-estimate
+- default route uses backend settings
+- cheap model may be used for simple label extraction or quota-saving modes
+- Pro models are not used automatically
+
+Error handling:
+
+- 503 UNAVAILABLE:
+  retry with bounded backoff, then fallback model
+- 429 RESOURCE_EXHAUSTED:
+  do not spam retries; report quota/rate-limit state
+- 400 invalid request:
+  do not retry as normal user failure
+- JSON/schema parse failure:
+  retry once or fallback
+
+AI run metadata:
+
+- model_requested
+- model_used
+- fallback_used
+- attempts
+- error_history
+- latency_ms
+
+
+Current Gemini prompt
+---------------------
+
+The source of truth is:
+
+  backend/glucotracker/infra/gemini/client.py
+  PHOTO_ESTIMATION_PROMPT_V1
+
+Clean readable version of the current prompt intent:
+
+  You are a nutrition estimator for a personal food diary. The user is a
+  type-1 diabetic who logs meals to track macros, but this is NOT used for
+  insulin dosing. Do not recommend insulin, bolus, correction, or treatment.
+
+  Input: one or more photos of one meal/snack. The user may attach multiple
+  photos. Each photo is identified in the PHOTO MANIFEST and image parts are
+  supplied in the same order.
+
+  The request may include USER CONTEXT supplied by the user, such as known
+  component weights, eaten quantity, or corrections like "100 г вареного риса".
+  Use this as user-provided evidence. Do not ignore visible photo evidence. If
+  it gives a known weight/count for a visible component, apply that context and
+  explain it in evidence or assumptions. Do not use user context for insulin or
+  medical treatment advice.
+
+  For each distinct visible item:
+
+  1. Identify the item and brand if recognizable.
+  2. Choose scenario:
+     - LABEL_FULL: nutrition facts and net weight/volume visible.
+     - LABEL_PARTIAL: nutrition facts visible but net weight/volume missing.
+     - PLATED: prepared food without label.
+     - BARCODE: barcode visible.
+     - SPLIT_LABEL_IDENTICAL_ITEMS: facts split across clearly matching
+       identical packages/photos.
+     - UNKNOWN: unclear.
+  3. For labels, extract facts exactly. Do not do final arithmetic. Put visible
+     Russian text into visible_label_facts and normalized per-100g values into
+     nutrition_per_100g when visible. Extract optional visible nutrients such as
+     fiber, sodium, caffeine, sugar, potassium, iron, calcium, magnesium. The
+     backend performs final arithmetic.
+  4. For missing weight/volume, provide assumption and reason.
+  5. For plated food, estimate grams and macros low/mid/high. Do not visually
+     guess sodium or caffeine. Fiber may be included only from known food
+     database/context and must be marked estimated.
+  6. Return component_estimates for plated food with component-level raw macros:
+     carbs, protein, fat, fiber, kcal. Identify reusable known components such
+     as tortilla/lavash, bread, rice, pasta, potato, sweet drink, candy/bar,
+     cereal/granola, bakery items, and branded/standard components. Mark them
+     should_use_database_if_available=true.
+  7. If a reference object exists, use it for rough scale.
+  8. Return confidence 0..1 and a one-sentence confidence reason.
+  9. Put evidence as short user-readable strings, preferably Russian when label
+     is Russian.
+  10. For every item, set source_photo_ids, source_photo_indices, and
+      primary_photo_id.
+
+  Do not merge unrelated photos. If multiple photos show different food/drink
+  items, return separate EstimatedItem objects. Do not merge a drink and a wrap
+  into one item. Only combine evidence across photos when photos clearly show
+  the same packaged product or identical packages.
+
+  For one coherent wrap/lavash/sandwich on one photo, return one EstimatedItem
+  with component_estimates, not separate final items for tortilla, chicken,
+  tomatoes, sauce, etc. Component breakdown belongs inside the item.
+
+  Component types:
+
+  - carb_base: tortilla/lavash/bread/rice/pasta/potato/sweet drink/candy/
+    cereal/bakery.
+  - protein: chicken/meat/fish/egg/tofu.
+  - vegetable: vegetables/greens.
+  - sauce: sauces/dressings.
+  - fat_source: oil/butter/cheese/nuts/avocado when primarily fat.
+  - known_component: any visible component that looks like a saved product or
+    pattern.
+  - unknown: unclear component.
+
+  Do not double count component macros. EstimatedItem mid totals should be the
+  sum of visible components. Component mid macros should represent each
+  component only, so backend can replace one component's raw values with saved
+  database values.
+
+  Russian output:
+
+  - Return user-facing names in Russian.
+  - Use display_name_ru for UI.
+  - Do not return English names like "Chicken and Vegetable Wrap" unless no
+    Russian identification is possible.
+  - Prefer names such as:
+      "Лаваш с курицей"
+      "Ролл с курицей"
+      "Напиток"
+      "Шоколадный батончик"
+      "Бисквит-сэндвич"
+
+  Russian label mapping:
+
+  - углеводы = carbs
+  - белки = protein
+  - жиры = fat
+  - клетчатка / пищевые волокна = fiber
+  - сахара = sugar
+  - соль = salt
+  - натрий = sodium
+  - кофеин = caffeine
+  - энергетическая ценность = kcal / energy
+  - масса нетто = net weight
+  - пищевая ценность на 100 г = nutrition per 100g
+
+  Split label evidence:
+
+  If multiple identical packaged items are visible and nutrition values are
+  visible on one package while net weight is visible on another, combine those
+  visible facts only when packages clearly appear identical. Keep scenario
+  LABEL_FULL, set evidence_is_split_across_identical_items=true, return count,
+  confidence, net weight per unit, total weight if directly derivable from
+  visible count, nutrition_per_100g, and evidence explaining which facts came
+  from which package. Do not calculate final macro totals; backend does that.
+
+  Count:
+
+  If multiple identical packages are visible, return count_detected. If
+  uncertain, lower count_confidence and add an assumption. Do not assume eaten
+  count is more than visible count.
+
+  Whole fruit on scales:
+
+  If unpeeled fruit such as orange, mandarin, banana, or similar whole fruit is
+  visible on a scale, treat visible scale weight as gross weight including peel
+  unless user context says it is peeled/edible weight. Explain this and lower
+  confidence if edible yield is uncertain. Do not report high confidence for
+  edible macros when only gross unpeeled weight is known.
+
+  Confidence rubric:
+
+  - >0.85: LABEL_FULL or strong product/pattern match.
+  - 0.60..0.85: LABEL_PARTIAL with plausible size assumption, or clear plated
+    item.
+  - <0.60: mixed plated food, unclear photo, no reference, ambiguous item.
+
+  Be conservative. Prefer uncertainty over fake precision.
+
+
+Checks and verification
+-----------------------
+
+Backend:
+
+  cd backend
+  .\.venv\Scripts\python.exe -m pytest -q
+  .\.venv\Scripts\python.exe -m ruff check .
+  alembic upgrade head
+
+Desktop:
+
+  cd desktop
+  npm test -- --run
+  npm run build
+  npm run tauri dev
+
+OpenAPI:
+
+  cd backend
+  .\scripts\export-openapi.sh
+
+Manual backend flow:
+
+1. Create manual meal.
+2. Add/edit/delete item.
+3. Upload photo.
+4. Call estimate.
+5. Inspect evidence, assumptions, confidence, calculation_method.
+6. Accept draft.
+7. Load patterns/products.
+8. Query autocomplete.
+9. Check dashboard.
+10. Check Nightscout status/sync behavior when not configured.
+
+Manual UI flow:
+
+1. Configure backend URL and bearer token.
+2. Type plain text and log a manual meal.
+3. Type bk: or a plain product name and select autocomplete item.
+4. Attach photo by file picker, drag/drop, or paste.
+5. Add optional photo context if needed.
+6. Estimate photo.
+7. Review draft evidence and assumptions.
+8. Save or discard draft.
+9. Reopen draft after click-away and verify it remains editable.
+10. Remember label-calculated product into database.
+11. Search saved product without Gemini.
+12. Edit meal name/time and verify journal/history/database behavior.
+
+
+Important safety checks
+-----------------------
+
+- No insulin advice.
+- No frontend Gemini key.
+- No Nightscout secrets in frontend.
+- Draft totals do not count in accepted daily totals.
+- Unknown nutrients are null, not zero.
+- Sodium and caffeine are not visually guessed from plated food.
+- Backend recalculates all accepted totals.
+- Frontend uses generated API types and does not own final macro math.
+- Multi-photo estimation preserves photo identity.
+- Unrelated photos create separate draft journal rows.
+- Same-product split-label evidence can become one counted row.
+- Product DB selection does not call Gemini.
+- Local wall-clock time remains local, not shifted by UTC conversion.

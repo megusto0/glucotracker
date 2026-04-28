@@ -1,0 +1,6139 @@
+prefix: bk
+source_name: Burger King official PDF
+source_url: https://burgerkingrus.ru/
+source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+items:
+- key: whopper
+  display_name: Воппер
+  default_grams: 274.0
+  default_carbs_g: 53.0
+  default_protein_g: 27.0
+  default_fat_g: 44.0
+  default_fiber_g: 0
+  default_kcal: 720.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 16.0
+  image_url: https://cdn.prod.website-files.com/631b4b4e277091ef01450237/65947c9a2edd7ddb328fd61f_Whopper.png
+  aliases:
+  - воппер
+  - vopper
+  - whopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 1
+  source_confidence: official_pdf
+  is_verified: false
+- key: whopper_cheese
+  display_name: Воппер С Сыром
+  default_grams: 295.0
+  default_carbs_g: 54.0
+  default_protein_g: 31.0
+  default_fat_g: 50.0
+  default_fiber_g: 0
+  default_kcal: 790.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - воппер с сыром
+  - vopper s syrom
+  - whopper_cheese
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 1
+  source_confidence: official_pdf
+  is_verified: false
+- key: dvoinoi_chizburger
+  display_name: Двойной Чизбургер
+  default_grams: 160.0
+  default_carbs_g: 35.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 530.0
+  per_100g_kcal: 330.0
+  per_100g_carbs_g: 22.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - двойной чизбургер
+  - dvoinoi chizburger
+  - dvoinoi_chizburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 2
+  source_confidence: official_pdf
+  is_verified: false
+- key: grand_chiz
+  display_name: Гранд Чиз
+  default_grams: 171.0
+  default_carbs_g: 33.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 520.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - гранд чиз
+  - grand chiz
+  - grand_chiz
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 3
+  source_confidence: official_pdf
+  is_verified: false
+- key: grand_chiz_fresh
+  display_name: Гранд Чиз Фреш
+  default_grams: 199.0
+  default_carbs_g: 34.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 520.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - гранд чиз фреш
+  - grand chiz fresh
+  - grand_chiz_fresh
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 4
+  source_confidence: official_pdf
+  is_verified: false
+- key: chizburger
+  display_name: Чизбургер
+  default_grams: 118.0
+  default_carbs_g: 34.0
+  default_protein_g: 15.0
+  default_fat_g: 18.0
+  default_fiber_g: 0
+  default_kcal: 360.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - чизбургер
+  - chizburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 5
+  source_confidence: official_pdf
+  is_verified: false
+- key: gamburger
+  display_name: Гамбургер
+  default_grams: 108.0
+  default_carbs_g: 34.0
+  default_protein_g: 13.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - гамбургер
+  - gamburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 6
+  source_confidence: official_pdf
+  is_verified: false
+- key: vopper_dzhunior
+  display_name: Воппер Джуниор
+  default_grams: 143.0
+  default_carbs_g: 33.0
+  default_protein_g: 13.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 9.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - воппер джуниор
+  - vopper dzhunior
+  - vopper_dzhunior
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 6
+  source_confidence: official_pdf
+  is_verified: false
+- key: grand_chiz_dvoinoi
+  display_name: Гранд Чиз Двойной
+  default_grams: 251.0
+  default_carbs_g: 36.0
+  default_protein_g: 42.0
+  default_fat_g: 55.0
+  default_fiber_g: 0
+  default_kcal: 810.0
+  per_100g_kcal: 320.0
+  per_100g_carbs_g: 14.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 22.0
+  image_url: null
+  aliases:
+  - гранд чиз двойной
+  - grand chiz dvoinoi
+  - grand_chiz_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 7
+  source_confidence: official_pdf
+  is_verified: false
+- key: grand_chiz_fresh_dvoinoi
+  display_name: Гранд Чиз Фреш Двойной
+  default_grams: 279.0
+  default_carbs_g: 37.0
+  default_protein_g: 42.0
+  default_fat_g: 55.0
+  default_fiber_g: 0
+  default_kcal: 810.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 13.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - гранд чиз фреш двойной
+  - grand chiz fresh dvoinoi
+  - grand_chiz_fresh_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 8
+  source_confidence: official_pdf
+  is_verified: false
+- key: dvoinoi_vopper_s_syrom
+  display_name: Двойной Воппер С Сыром
+  default_grams: 388.0
+  default_carbs_g: 58.0
+  default_protein_g: 51.0
+  default_fat_g: 76.0
+  default_fiber_g: 0
+  default_kcal: 1120.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - двойной воппер с сыром
+  - dvoinoi vopper s syrom
+  - dvoinoi_vopper_s_syrom
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 9
+  source_confidence: official_pdf
+  is_verified: false
+- key: dvoinoi_vopper
+  display_name: Двойной Воппер
+  default_grams: 367.0
+  default_carbs_g: 57.0
+  default_protein_g: 47.0
+  default_fat_g: 70.0
+  default_fiber_g: 0
+  default_kcal: 1050.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 16.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - двойной воппер
+  - dvoinoi vopper
+  - dvoinoi_vopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 9
+  source_confidence: official_pdf
+  is_verified: false
+- key: troinoi_vopper
+  display_name: Тройной Воппер
+  default_grams: 460.0
+  default_carbs_g: 61.0
+  default_protein_g: 66.0
+  default_fat_g: 97.0
+  default_fiber_g: 0
+  default_kcal: 1380.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 13.0
+  per_100g_protein_g: 14.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - тройной воппер
+  - troinoi vopper
+  - troinoi_vopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 10
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_shef
+  display_name: Ангус Шеф
+  default_grams: 338.0
+  default_carbs_g: 62.0
+  default_protein_g: 42.0
+  default_fat_g: 72.0
+  default_fiber_g: 0
+  default_kcal: 1060.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - ангус шеф
+  - angus shef
+  - angus_shef
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 11
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_shef_dvoinoi
+  display_name: Ангус Шеф Двойной
+  default_grams: 446.0
+  default_carbs_g: 67.0
+  default_protein_g: 67.0
+  default_fat_g: 103.0
+  default_fiber_g: 0
+  default_kcal: 1460.0
+  per_100g_kcal: 330.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 23.0
+  image_url: null
+  aliases:
+  - ангус шеф двойной
+  - angus shef dvoinoi
+  - angus_shef_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 11
+  source_confidence: official_pdf
+  is_verified: false
+- key: a4_burger
+  display_name: А4 Бургер
+  default_grams: 125.0
+  default_carbs_g: 31.0
+  default_protein_g: 15.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - а4 бургер
+  - a4 burger
+  - a4_burger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 12
+  source_confidence: official_pdf
+  is_verified: false
+- key: chikenburger
+  display_name: Чикенбургер
+  default_grams: 135.0
+  default_carbs_g: 39.0
+  default_protein_g: 13.0
+  default_fat_g: 17.0
+  default_fiber_g: 0
+  default_kcal: 360.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 9.5
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - чикенбургер
+  - chikenburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 13
+  source_confidence: official_pdf
+  is_verified: false
+- key: roboks_burger
+  display_name: Робокс Бургер
+  default_grams: 125.0
+  default_carbs_g: 31.0
+  default_protein_g: 15.0
+  default_fat_g: 24.0
+  default_fiber_g: 0
+  default_kcal: 400.0
+  per_100g_kcal: 320.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - робокс бургер
+  - roboks burger
+  - roboks_burger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 14
+  source_confidence: official_pdf
+  is_verified: false
+- key: roboks_chikenburger
+  display_name: Робокс Чикенбургер
+  default_grams: 135.0
+  default_carbs_g: 39.0
+  default_protein_g: 13.0
+  default_fat_g: 20.0
+  default_fiber_g: 0
+  default_kcal: 390.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 9.5
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - робокс чикенбургер
+  - roboks chikenburger
+  - roboks_chikenburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 15
+  source_confidence: official_pdf
+  is_verified: false
+- key: atomik_vopper
+  display_name: Атомик Воппер
+  default_grams: 266.0
+  default_carbs_g: 56.0
+  default_protein_g: 27.0
+  default_fat_g: 42.0
+  default_fiber_g: 0
+  default_kcal: 710.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 21.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - атомик воппер
+  - atomik vopper
+  - atomik_vopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 16
+  source_confidence: official_pdf
+  is_verified: false
+- key: atomik_vopper_s_kuritsei
+  display_name: Атомик Воппер С Курицей
+  default_grams: 290.0
+  default_carbs_g: 72.0
+  default_protein_g: 24.0
+  default_fat_g: 27.0
+  default_fiber_g: 0
+  default_kcal: 630.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 9.5
+  image_url: null
+  aliases:
+  - атомик воппер с курицей
+  - atomik vopper s kuritsei
+  - atomik_vopper_s_kuritsei
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 16
+  source_confidence: official_pdf
+  is_verified: false
+- key: chikenburger_2
+  display_name: Чикенбургер
+  default_grams: 137.0
+  default_carbs_g: 42.0
+  default_protein_g: 12.0
+  default_fat_g: 18.0
+  default_fiber_g: 0
+  default_kcal: 380.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 9.5
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - чикенбургер
+  - chikenburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 17
+  source_confidence: official_pdf
+  is_verified: false
+- key: tsezar_king
+  display_name: Цезарь Кинг
+  default_grams: 153.0
+  default_carbs_g: 44.0
+  default_protein_g: 13.0
+  default_fat_g: 25.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - цезарь кинг
+  - tsezar king
+  - tsezar_king
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 18
+  source_confidence: official_pdf
+  is_verified: false
+- key: chiken_tar_tar
+  display_name: Чикен Тар- Тар
+  default_grams: 191.0
+  default_carbs_g: 43.0
+  default_protein_g: 17.0
+  default_fat_g: 23.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 9.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - чикен тар- тар
+  - chiken tar- tar
+  - chiken_tar_tar
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 19
+  source_confidence: official_pdf
+  is_verified: false
+- key: fish_burger
+  display_name: Фиш Бургер
+  default_grams: 168.0
+  default_carbs_g: 42.0
+  default_protein_g: 14.0
+  default_fat_g: 20.0
+  default_fiber_g: 0
+  default_kcal: 400.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - фиш бургер
+  - fish burger
+  - fish_burger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 19
+  source_confidence: official_pdf
+  is_verified: false
+- key: fish_burger_dvoinoi
+  display_name: Фиш Бургер Двойной
+  default_grams: 245.0
+  default_carbs_g: 54.0
+  default_protein_g: 23.0
+  default_fat_g: 30.0
+  default_fiber_g: 0
+  default_kcal: 580.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 22.0
+  per_100g_protein_g: 9.5
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - фиш бургер двойной
+  - fish burger dvoinoi
+  - fish_burger_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 20
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_fish_burger
+  display_name: Острый Фиш Бургер
+  default_grams: 178.0
+  default_carbs_g: 45.0
+  default_protein_g: 14.0
+  default_fat_g: 20.0
+  default_fiber_g: 0
+  default_kcal: 420.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - острый фиш бургер
+  - ostryi fish burger
+  - ostryi_fish_burger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 21
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_fish_roll
+  display_name: Острый Фиш Ролл
+  default_grams: 179.0
+  default_carbs_g: 45.0
+  default_protein_g: 14.0
+  default_fat_g: 19.0
+  default_fiber_g: 0
+  default_kcal: 410.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - острый фиш ролл
+  - ostryi fish roll
+  - ostryi_fish_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 22
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_parmedzhano
+  display_name: Ангус Пармеджано
+  default_grams: 313.0
+  default_carbs_g: 59.0
+  default_protein_g: 37.0
+  default_fat_g: 55.0
+  default_fiber_g: 0
+  default_kcal: 880.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 18.0
+  image_url: null
+  aliases:
+  - ангус пармеджано
+  - angus parmedzhano
+  - angus_parmedzhano
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 22
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_parmedzhano_dvoinoi
+  display_name: Ангус Пармеджано Двойной
+  default_grams: 425.0
+  default_carbs_g: 61.0
+  default_protein_g: 62.0
+  default_fat_g: 90.0
+  default_fiber_g: 0
+  default_kcal: 1300.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 14.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - ангус пармеджано двойной
+  - angus parmedzhano dvoinoi
+  - angus_parmedzhano_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 23
+  source_confidence: official_pdf
+  is_verified: false
+- key: shavopper
+  display_name: Шавоппер
+  default_grams: 189.0
+  default_carbs_g: 36.0
+  default_protein_g: 21.0
+  default_fat_g: 38.0
+  default_fiber_g: 0
+  default_kcal: 570.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - шавоппер
+  - shavopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 24
+  source_confidence: official_pdf
+  is_verified: false
+- key: shavopper_s_kuritsei
+  display_name: Шавоппер С Курицей
+  default_grams: 195.0
+  default_carbs_g: 47.0
+  default_protein_g: 16.0
+  default_fat_g: 24.0
+  default_fiber_g: 0
+  default_kcal: 470.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 24.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - шавоппер с курицей
+  - shavopper s kuritsei
+  - shavopper_s_kuritsei
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 25
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_po_italyanski
+  display_name: Ангус По- Итальянски
+  default_grams: 313.0
+  default_carbs_g: 60.0
+  default_protein_g: 37.0
+  default_fat_g: 54.0
+  default_fiber_g: 0
+  default_kcal: 870.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - ангус по- итальянски
+  - angus po- italyanski
+  - angus_po_italyanski
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 25
+  source_confidence: official_pdf
+  is_verified: false
+- key: angus_po_italyanski_dvoinoi
+  display_name: Ангус По- Итальянски Двойной
+  default_grams: 425.0
+  default_carbs_g: 62.0
+  default_protein_g: 62.0
+  default_fat_g: 89.0
+  default_fiber_g: 0
+  default_kcal: 1300.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - ангус по- итальянски двойной
+  - angus po- italyanski dvoinoi
+  - angus_po_italyanski_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 27
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_po_italyanski
+  display_name: Острый Ангус По- Итальянски
+  default_grams: 327.0
+  default_carbs_g: 65.0
+  default_protein_g: 37.0
+  default_fat_g: 55.0
+  default_fiber_g: 0
+  default_kcal: 900.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - острый ангус по- итальянски
+  - ostryi angus po- italyanski
+  - ostryi_angus_po_italyanski
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 28
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_po_italyanski_dvoinoi
+  display_name: Острый Ангус По- Итальянски Двойной
+  default_grams: 439.0
+  default_carbs_g: 66.0
+  default_protein_g: 62.0
+  default_fat_g: 90.0
+  default_fiber_g: 0
+  default_kcal: 1320.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 14.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - острый ангус по- итальянски двойной
+  - ostryi angus po- italyanski dvoinoi
+  - ostryi_angus_po_italyanski_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 29
+  source_confidence: official_pdf
+  is_verified: false
+- key: vopper_po_italyanski
+  display_name: Воппер По- Итальянски
+  default_grams: 285.0
+  default_carbs_g: 56.0
+  default_protein_g: 29.0
+  default_fat_g: 45.0
+  default_fiber_g: 0
+  default_kcal: 750.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - воппер по- итальянски
+  - vopper po- italyanski
+  - vopper_po_italyanski
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 30
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper_po_italyanski
+  display_name: Острый Воппер По- Итальянски
+  default_grams: 299.0
+  default_carbs_g: 60.0
+  default_protein_g: 30.0
+  default_fat_g: 45.0
+  default_fiber_g: 0
+  default_kcal: 770.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - острый воппер по- итальянски
+  - ostryi vopper po- italyanski
+  - ostryi_vopper_po_italyanski
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 31
+  source_confidence: official_pdf
+  is_verified: false
+- key: vopper_po_italyanski_dvoinoi
+  display_name: Воппер По- Итальянски Двойной
+  default_grams: 377.0
+  default_carbs_g: 59.0
+  default_protein_g: 49.0
+  default_fat_g: 76.0
+  default_fiber_g: 0
+  default_kcal: 1120.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 16.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - воппер по- итальянски двойной
+  - vopper po- italyanski dvoinoi
+  - vopper_po_italyanski_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 32
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper_po_italyanski_dvoinoi
+  display_name: Острый Воппер По- Итальянски Двойной
+  default_grams: 391.0
+  default_carbs_g: 62.0
+  default_protein_g: 49.0
+  default_fat_g: 77.0
+  default_fiber_g: 0
+  default_kcal: 1140.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 16.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - острый воппер по- итальянски двойной
+  - ostryi vopper po- italyanski dvoinoi
+  - ostryi_vopper_po_italyanski_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 33
+  source_confidence: official_pdf
+  is_verified: false
+- key: pesto_chiken
+  display_name: Песто Чикен
+  default_grams: 309.0
+  default_carbs_g: 72.0
+  default_protein_g: 26.0
+  default_fat_g: 31.0
+  default_fiber_g: 0
+  default_kcal: 670.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - песто чикен
+  - pesto chiken
+  - pesto_chiken
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 34
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_pesto_chiken
+  display_name: Острый Песто Чикен
+  default_grams: 323.0
+  default_carbs_g: 76.0
+  default_protein_g: 26.0
+  default_fat_g: 31.0
+  default_fiber_g: 0
+  default_kcal: 690.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 24.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 9.5
+  image_url: null
+  aliases:
+  - острый песто чикен
+  - ostryi pesto chiken
+  - ostryi_pesto_chiken
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 35
+  source_confidence: official_pdf
+  is_verified: false
+- key: pesto_chiken_roll
+  display_name: Песто Чикен Ролл
+  default_grams: 203.0
+  default_carbs_g: 44.0
+  default_protein_g: 17.0
+  default_fat_g: 23.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 22.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - песто чикен ролл
+  - pesto chiken roll
+  - pesto_chiken_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 36
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_pesto_chiken_roll
+  display_name: Острый Песто Чикен Ролл
+  default_grams: 217.0
+  default_carbs_g: 48.0
+  default_protein_g: 18.0
+  default_fat_g: 23.0
+  default_fiber_g: 0
+  default_kcal: 470.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 22.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - острый песто чикен ролл
+  - ostryi pesto chiken roll
+  - ostryi_pesto_chiken_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 37
+  source_confidence: official_pdf
+  is_verified: false
+- key: pesto_shrimp_roll
+  display_name: Песто Шримп Ролл
+  default_grams: 182.0
+  default_carbs_g: 48.0
+  default_protein_g: 12.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 380.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 6.5
+  per_100g_fat_g: 8.0
+  image_url: null
+  aliases:
+  - песто шримп ролл
+  - pesto shrimp roll
+  - pesto_shrimp_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 38
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_pesto_shrimp_roll
+  display_name: Острый Песто Шримп Ролл
+  default_grams: 196.0
+  default_carbs_g: 52.0
+  default_protein_g: 13.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 400.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 27.0
+  per_100g_protein_g: 6.5
+  per_100g_fat_g: 7.5
+  image_url: null
+  aliases:
+  - острый песто шримп ролл
+  - ostryi pesto shrimp roll
+  - ostryi_pesto_shrimp_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 39
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_parmedzhano
+  display_name: Острый Ангус Пармеджано
+  default_grams: 327.0
+  default_carbs_g: 63.0
+  default_protein_g: 37.0
+  default_fat_g: 55.0
+  default_fiber_g: 0
+  default_kcal: 900.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - острый ангус пармеджано
+  - ostryi angus parmedzhano
+  - ostryi_angus_parmedzhano
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 40
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_parmedzhano_dvoinoi
+  display_name: Острый Ангус Пармеджано Двойной
+  default_grams: 439.0
+  default_carbs_g: 64.0
+  default_protein_g: 62.0
+  default_fat_g: 90.0
+  default_fiber_g: 0
+  default_kcal: 1310.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 14.0
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - острый ангус пармеджано двойной
+  - ostryi angus parmedzhano dvoinoi
+  - ostryi_angus_parmedzhano_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 41
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper
+  display_name: Острый Воппер
+  default_grams: 274.0
+  default_carbs_g: 53.0
+  default_protein_g: 27.0
+  default_fat_g: 44.0
+  default_fiber_g: 0
+  default_kcal: 720.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - острый воппер
+  - ostryi vopper
+  - ostryi_vopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 42
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_chizburger
+  display_name: Острый Чизбургер
+  default_grams: 118.0
+  default_carbs_g: 34.0
+  default_protein_g: 15.0
+  default_fat_g: 18.0
+  default_fiber_g: 0
+  default_kcal: 360.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - острый чизбургер
+  - ostryi chizburger
+  - ostryi_chizburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 43
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_chikenburger
+  display_name: Острый Чикенбургер
+  default_grams: 137.0
+  default_carbs_g: 42.0
+  default_protein_g: 12.0
+  default_fat_g: 18.0
+  default_fiber_g: 0
+  default_kcal: 380.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 9.0
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - острый чикенбургер
+  - ostryi chikenburger
+  - ostryi_chikenburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 44
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper_dzhunior
+  display_name: Острый Воппер Джуниор
+  default_grams: 143.0
+  default_carbs_g: 33.0
+  default_protein_g: 13.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 9.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - острый воппер джуниор
+  - ostryi vopper dzhunior
+  - ostryi_vopper_dzhunior
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 44
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_gamburger
+  display_name: Острый Гамбургер
+  default_grams: 108.0
+  default_carbs_g: 34.0
+  default_protein_g: 13.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - острый гамбургер
+  - ostryi gamburger
+  - ostryi_gamburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 45
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_chiken_tar_tar
+  display_name: Острый Чикен Тар- Тар
+  default_grams: 201.0
+  default_carbs_g: 46.0
+  default_protein_g: 17.0
+  default_fat_g: 23.0
+  default_fiber_g: 0
+  default_kcal: 460.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - острый чикен тар- тар
+  - ostryi chiken tar- tar
+  - ostryi_chiken_tar_tar
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 46
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_grand_chiz
+  display_name: Острый Гранд Чиз
+  default_grams: 171.0
+  default_carbs_g: 33.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 520.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - острый гранд чиз
+  - ostryi grand chiz
+  - ostryi_grand_chiz
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 47
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_tsezar_king
+  display_name: Острый Цезарь Кинг
+  default_grams: 163.0
+  default_carbs_g: 46.0
+  default_protein_g: 13.0
+  default_fat_g: 19.0
+  default_fiber_g: 0
+  default_kcal: 410.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 28.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - острый цезарь кинг
+  - ostryi tsezar king
+  - ostryi_tsezar_king
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 48
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_grand_chiz_fresh
+  display_name: Острый Гранд Чиз Фреш
+  default_grams: 199.0
+  default_carbs_g: 34.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 520.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 16.0
+  image_url: null
+  aliases:
+  - острый гранд чиз фреш
+  - ostryi grand chiz fresh
+  - ostryi_grand_chiz_fresh
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 48
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper_s_syrom
+  display_name: Острый Воппер С Сыром
+  default_grams: 295.0
+  default_carbs_g: 54.0
+  default_protein_g: 31.0
+  default_fat_g: 50.0
+  default_fiber_g: 0
+  default_kcal: 790.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - острый воппер с сыром
+  - ostryi vopper s syrom
+  - ostryi_vopper_s_syrom
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 49
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_shef
+  display_name: Острый Ангус Шеф
+  default_grams: 352.0
+  default_carbs_g: 66.0
+  default_protein_g: 42.0
+  default_fat_g: 71.0
+  default_fiber_g: 0
+  default_kcal: 1070.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 19.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - острый ангус шеф
+  - ostryi angus shef
+  - ostryi_angus_shef
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 50
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_angus_shef_dvoinoi
+  display_name: Острый Ангус Шеф Двойной
+  default_grams: 460.0
+  default_carbs_g: 68.0
+  default_protein_g: 67.0
+  default_fat_g: 103.0
+  default_fiber_g: 0
+  default_kcal: 1470.0
+  per_100g_kcal: 320.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 22.0
+  image_url: null
+  aliases:
+  - острый ангус шеф двойной
+  - ostryi angus shef dvoinoi
+  - ostryi_angus_shef_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 51
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_dvoinoi_chizburger
+  display_name: Острый Двойной Чизбургер
+  default_grams: 160.0
+  default_carbs_g: 35.0
+  default_protein_g: 25.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 530.0
+  per_100g_kcal: 330.0
+  per_100g_carbs_g: 22.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - острый двойной чизбургер
+  - ostryi dvoinoi chizburger
+  - ostryi_dvoinoi_chizburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 52
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_vopper_roll
+  display_name: Острый Воппер Ролл
+  default_grams: 193.0
+  default_carbs_g: 34.0
+  default_protein_g: 21.0
+  default_fat_g: 36.0
+  default_fiber_g: 0
+  default_kcal: 540.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - острый воппер ролл
+  - ostryi vopper roll
+  - ostryi_vopper_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 53
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_shrimp_roll
+  display_name: Острый Шримп Ролл
+  default_grams: 163.0
+  default_carbs_g: 49.0
+  default_protein_g: 12.0
+  default_fat_g: 16.0
+  default_fiber_g: 0
+  default_kcal: 390.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - острый шримп ролл
+  - ostryi shrimp roll
+  - ostryi_shrimp_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 53
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_tsezar_roll_so_stipsami
+  display_name: Острый Цезарь Ролл Со Стипсами
+  default_grams: 197.0
+  default_carbs_g: 45.0
+  default_protein_g: 17.0
+  default_fat_g: 22.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 11.0
+  image_url: null
+  aliases:
+  - острый цезарь ролл со стипсами
+  - ostryi tsezar roll so stipsami
+  - ostryi_tsezar_roll_so_stipsami
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 54
+  source_confidence: official_pdf
+  is_verified: false
+- key: vopper_roll
+  display_name: Воппер Ролл
+  default_grams: 193.0
+  default_carbs_g: 34.0
+  default_protein_g: 21.0
+  default_fat_g: 36.0
+  default_fiber_g: 0
+  default_kcal: 540.0
+  per_100g_kcal: 280.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - воппер ролл
+  - vopper roll
+  - vopper_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 55
+  source_confidence: official_pdf
+  is_verified: false
+- key: fish_roll
+  display_name: Фиш Ролл
+  default_grams: 165.0
+  default_carbs_g: 41.0
+  default_protein_g: 14.0
+  default_fat_g: 19.0
+  default_fiber_g: 0
+  default_kcal: 390.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - фиш ролл
+  - fish roll
+  - fish_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 55
+  source_confidence: official_pdf
+  is_verified: false
+- key: tsezar_roll_so_stripsami
+  display_name: Цезарь Ролл Со Стрипсами
+  default_grams: 183.0
+  default_carbs_g: 41.0
+  default_protein_g: 17.0
+  default_fat_g: 22.0
+  default_fiber_g: 0
+  default_kcal: 430.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 9.5
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - цезарь ролл со стрипсами
+  - tsezar roll so stripsami
+  - tsezar_roll_so_stripsami
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 56
+  source_confidence: official_pdf
+  is_verified: false
+- key: shrimp_roll
+  display_name: Шримп Ролл
+  default_grams: 149.0
+  default_carbs_g: 46.0
+  default_protein_g: 12.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - шримп ролл
+  - shrimp roll
+  - shrimp_roll
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 57
+  source_confidence: official_pdf
+  is_verified: false
+- key: kartofel_derevenskii_dzhunior
+  display_name: Картофель Деревенский Джуниор
+  default_grams: 83.0
+  default_carbs_g: 24.0
+  default_protein_g: 2.0
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 180.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - картофель деревенский джуниор
+  - kartofel derevenskii dzhunior
+  - kartofel_derevenskii_dzhunior
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 57
+  source_confidence: official_pdf
+  is_verified: false
+- key: kartofel_derevenskii_malyi
+  display_name: Картофель Деревенский Малый
+  default_grams: 120.0
+  default_carbs_g: 35.0
+  default_protein_g: 3.0
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 220.0
+  per_100g_kcal: 180.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - картофель деревенский малый
+  - kartofel derevenskii malyi
+  - kartofel_derevenskii_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 57
+  source_confidence: official_pdf
+  is_verified: false
+- key: kartofel_derevenskii_standartnyi
+  display_name: Картофель Деревенский Стандартный
+  default_grams: 153.0
+  default_carbs_g: 44.0
+  default_protein_g: 4.0
+  default_fat_g: 8.5
+  default_fiber_g: 0
+  default_kcal: 270.0
+  per_100g_kcal: 180.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - картофель деревенский стандартный
+  - kartofel derevenskii standartnyi
+  - kartofel_derevenskii_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 58
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_3_sht
+  display_name: Луковые Кольца (3 Шт)
+  default_grams: 33.0
+  default_carbs_g: 16.0
+  default_protein_g: 2.5
+  default_fat_g: 0.5
+  default_fiber_g: 0
+  default_kcal: 80.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (3 шт)
+  - lukovye koltsa (3 sht)
+  - lukovye_koltsa_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 58
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_6_sht
+  display_name: Луковые Кольца (6 Шт)
+  default_grams: 67.0
+  default_carbs_g: 32.0
+  default_protein_g: 5.0
+  default_fat_g: 1.5
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (6 шт)
+  - lukovye koltsa (6 sht)
+  - lukovye_koltsa_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 58
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_9_sht
+  display_name: Луковые Кольца (9 Шт)
+  default_grams: 100.0
+  default_carbs_g: 48.0
+  default_protein_g: 7.5
+  default_fat_g: 2.0
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (9 шт)
+  - lukovye koltsa (9 sht)
+  - lukovye_koltsa_9_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 58
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_12_sht
+  display_name: Луковые Кольца (12 Шт)
+  default_grams: 133.0
+  default_carbs_g: 63.0
+  default_protein_g: 9.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (12 шт)
+  - lukovye koltsa (12 sht)
+  - lukovye_koltsa_12_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 58
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_fri_malyi
+  display_name: Кинг Фри Малый
+  default_grams: 67.0
+  default_carbs_g: 22.0
+  default_protein_g: 2.5
+  default_fat_g: 4.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.0
+  image_url: null
+  aliases:
+  - кинг фри малый
+  - king fri malyi
+  - king_fri_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 59
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_fri_standartnyi
+  display_name: Кинг Фри Стандартный
+  default_grams: 100.0
+  default_carbs_g: 32.0
+  default_protein_g: 3.5
+  default_fat_g: 6.5
+  default_fiber_g: 0
+  default_kcal: 200.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.5
+  image_url: null
+  aliases:
+  - кинг фри стандартный
+  - king fri standartnyi
+  - king_fri_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 59
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_fri_bolshoi
+  display_name: Кинг Фри Большой
+  default_grams: 154.0
+  default_carbs_g: 50.0
+  default_protein_g: 5.5
+  default_fat_g: 9.5
+  default_fiber_g: 0
+  default_kcal: 310.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.5
+  image_url: null
+  aliases:
+  - кинг фри большой
+  - king fri bolshoi
+  - king_fri_bolshoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 59
+  source_confidence: official_pdf
+  is_verified: false
+- key: royal_fri
+  display_name: Роял Фри
+  default_grams: 238.0
+  default_carbs_g: 69.0
+  default_protein_g: 9.0
+  default_fat_g: 31.0
+  default_fiber_g: 0
+  default_kcal: 590.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 4.0
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - роял фри
+  - royal fri
+  - royal_fri
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 59
+  source_confidence: official_pdf
+  is_verified: false
+- key: naggetsy_3_sht
+  display_name: Наггетсы (3 Шт)
+  default_grams: 41.0
+  default_carbs_g: 8.0
+  default_protein_g: 6.5
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 120.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - наггетсы (3 шт)
+  - naggetsy (3 sht)
+  - naggetsy_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 60
+  source_confidence: official_pdf
+  is_verified: false
+- key: naggetsy_6_sht
+  display_name: Наггетсы (6 Шт)
+  default_grams: 82.0
+  default_carbs_g: 16.0
+  default_protein_g: 13.0
+  default_fat_g: 14.0
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - наггетсы (6 шт)
+  - naggetsy (6 sht)
+  - naggetsy_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 60
+  source_confidence: official_pdf
+  is_verified: false
+- key: naggetsy_9_sht
+  display_name: Наггетсы (9 Шт)
+  default_grams: 124.0
+  default_carbs_g: 24.0
+  default_protein_g: 19.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 360.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - наггетсы (9 шт)
+  - naggetsy (9 sht)
+  - naggetsy_9_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 60
+  source_confidence: official_pdf
+  is_verified: false
+- key: naggetsy_12_sht
+  display_name: Наггетсы (12 Шт)
+  default_grams: 165.0
+  default_carbs_g: 32.0
+  default_protein_g: 26.0
+  default_fat_g: 28.0
+  default_fiber_g: 0
+  default_kcal: 480.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - наггетсы (12 шт)
+  - naggetsy (12 sht)
+  - naggetsy_12_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 60
+  source_confidence: official_pdf
+  is_verified: false
+- key: stripsy_3_sht
+  display_name: Стрипсы (3 Шт)
+  default_grams: 103.0
+  default_carbs_g: 16.0
+  default_protein_g: 16.0
+  default_fat_g: 12.0
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - стрипсы (3 шт)
+  - stripsy (3 sht)
+  - stripsy_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 60
+  source_confidence: official_pdf
+  is_verified: false
+- key: stripsy_6_sht
+  display_name: Стрипсы (6 Шт)
+  default_grams: 206.0
+  default_carbs_g: 31.0
+  default_protein_g: 31.0
+  default_fat_g: 24.0
+  default_fiber_g: 0
+  default_kcal: 460.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - стрипсы (6 шт)
+  - stripsy (6 sht)
+  - stripsy_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 61
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_3_sht
+  display_name: Креветки (3 Шт)
+  default_grams: 48.0
+  default_carbs_g: 14.0
+  default_protein_g: 5.5
+  default_fat_g: 0.3
+  default_fiber_g: 0
+  default_kcal: 80.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (3 шт)
+  - krevetki (3 sht)
+  - krevetki_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 61
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_6_sht
+  display_name: Креветки (6 Шт)
+  default_grams: 96.0
+  default_carbs_g: 29.0
+  default_protein_g: 11.0
+  default_fat_g: 0.5
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (6 шт)
+  - krevetki (6 sht)
+  - krevetki_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 61
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_9_sht
+  display_name: Креветки (9 Шт)
+  default_grams: 144.0
+  default_carbs_g: 43.0
+  default_protein_g: 16.0
+  default_fat_g: 1.0
+  default_fiber_g: 0
+  default_kcal: 250.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (9 шт)
+  - krevetki (9 sht)
+  - krevetki_9_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 61
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_12_sht
+  display_name: Креветки (12 Шт)
+  default_grams: 192.0
+  default_carbs_g: 58.0
+  default_protein_g: 22.0
+  default_fat_g: 1.0
+  default_fiber_g: 0
+  default_kcal: 330.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (12 шт)
+  - krevetki (12 sht)
+  - krevetki_12_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 62
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_3_sht
+  display_name: Сырные Медальоны (3 Шт)
+  default_grams: 36.0
+  default_carbs_g: 11.0
+  default_protein_g: 5.0
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (3 шт)
+  - syrnye medalony (3 sht)
+  - syrnye_medalony_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 62
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_6_sht
+  display_name: Сырные Медальоны (6 Шт)
+  default_grams: 72.0
+  default_carbs_g: 23.0
+  default_protein_g: 10.0
+  default_fat_g: 11.0
+  default_fiber_g: 0
+  default_kcal: 230.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (6 шт)
+  - syrnye medalony (6 sht)
+  - syrnye_medalony_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 62
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_9_sht
+  display_name: Сырные Медальоны (9 Шт)
+  default_grams: 108.0
+  default_carbs_g: 34.0
+  default_protein_g: 15.0
+  default_fat_g: 16.0
+  default_fiber_g: 0
+  default_kcal: 340.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (9 шт)
+  - syrnye medalony (9 sht)
+  - syrnye_medalony_9_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 63
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_12_sht
+  display_name: Сырные Медальоны (12 Шт)
+  default_grams: 144.0
+  default_carbs_g: 45.0
+  default_protein_g: 20.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (12 шт)
+  - syrnye medalony (12 sht)
+  - syrnye_medalony_12_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 64
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_3_sht
+  display_name: Крылышки (3 Шт)
+  default_grams: 118.0
+  default_carbs_g: 3.5
+  default_protein_g: 20.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 250.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (3 шт)
+  - krylyshki (3 sht)
+  - krylyshki_3_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 64
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_6_sht
+  display_name: Крылышки (6 Шт)
+  default_grams: 235.0
+  default_carbs_g: 7.5
+  default_protein_g: 39.0
+  default_fat_g: 34.0
+  default_fiber_g: 0
+  default_kcal: 490.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (6 шт)
+  - krylyshki (6 sht)
+  - krylyshki_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 64
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_9_sht
+  display_name: Крылышки (9 Шт)
+  default_grams: 191.0
+  default_carbs_g: 11.0
+  default_protein_g: 59.0
+  default_fat_g: 51.0
+  default_fiber_g: 0
+  default_kcal: 740.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (9 шт)
+  - krylyshki (9 sht)
+  - krylyshki_9_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 65
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_12_sht
+  display_name: Крылышки (12 Шт)
+  default_grams: 471.0
+  default_carbs_g: 15.0
+  default_protein_g: 78.0
+  default_fat_g: 69.0
+  default_fiber_g: 0
+  default_kcal: 990.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (12 шт)
+  - krylyshki (12 sht)
+  - krylyshki_12_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 65
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_gou_derevenskii
+  display_name: Кинг Гоу Деревенский
+  default_grams: 188.0
+  default_carbs_g: 56.0
+  default_protein_g: 5.5
+  default_fat_g: 11.0
+  default_fiber_g: 0
+  default_kcal: 350.0
+  per_100g_kcal: 190.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 6.0
+  image_url: null
+  aliases:
+  - кинг гоу деревенский
+  - king gou derevenskii
+  - king_gou_derevenskii
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 65
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_gou_naggetsy
+  display_name: Кинг Гоу Наггетсы
+  default_grams: 156.0
+  default_carbs_g: 40.0
+  default_protein_g: 16.0
+  default_fat_g: 19.0
+  default_fiber_g: 0
+  default_kcal: 400.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - кинг гоу наггетсы
+  - king gou naggetsy
+  - king_gou_naggetsy
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 65
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_bolshoi_miks
+  display_name: Кинг Букет «Большой Микс»
+  default_grams: 694.0
+  default_carbs_g: 126.0
+  default_protein_g: 80.0
+  default_fat_g: 71.0
+  default_fiber_g: 0
+  default_kcal: 1460.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - кинг букет «большой микс»
+  - king buket «bolshoi miks»
+  - king_buket_bolshoi_miks
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 66
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_snek_miks
+  display_name: Кинг Букет «Снек-Микс»
+  default_grams: 440.0
+  default_carbs_g: 141.0
+  default_protein_g: 36.0
+  default_fat_g: 38.0
+  default_fiber_g: 0
+  default_kcal: 1050.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 8.5
+  image_url: null
+  aliases:
+  - кинг букет «снек-микс»
+  - king buket «snek-miks»
+  - king_buket_snek_miks
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 66
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krevetki
+  display_name: Кинг Букет «Креветки»
+  default_grams: 462.0
+  default_carbs_g: 162.0
+  default_protein_g: 33.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 920.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 7.0
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - кинг букет «креветки»
+  - king buket «krevetki»
+  - king_buket_krevetki
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 67
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krevetki_xxl
+  display_name: Кинг Букет Креветки Xxl
+  default_grams: 448.0
+  default_carbs_g: 134.0
+  default_protein_g: 50.0
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 760.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - кинг букет креветки xxl
+  - king buket krevetki xxl
+  - king_buket_krevetki_xxl
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 67
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krylyshki_xxl
+  display_name: Кинг Букет Крылышки Xxl
+  default_grams: 1098.0
+  default_carbs_g: 34.0
+  default_protein_g: 182.0
+  default_fat_g: 159.0
+  default_fiber_g: 0
+  default_kcal: 2300.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - кинг букет крылышки xxl
+  - king buket krylyshki xxl
+  - king_buket_krylyshki_xxl
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 67
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_3_sht_priprava_ostraya_shtuka
+  display_name: Луковые Кольца (3 Шт) + Приправа «Острая Штука»
+  default_grams: 33.0
+  default_carbs_g: 16.0
+  default_protein_g: 2.5
+  default_fat_g: 0.5
+  default_fiber_g: 0
+  default_kcal: 80.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (3 шт) + приправа «острая штука»
+  - lukovye koltsa (3 sht) + priprava «ostraya shtuka»
+  - lukovye_koltsa_3_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 68
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_12_sht_priprava_ostraya_shtuka
+  display_name: Луковые Кольца (12 Шт) + Приправа «Острая Штука»
+  default_grams: 133.0
+  default_carbs_g: 63.0
+  default_protein_g: 9.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (12 шт) + приправа «острая штука»
+  - lukovye koltsa (12 sht) + priprava «ostraya shtuka»
+  - lukovye_koltsa_12_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 69
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_fri_bolshoi_priprava_ostraya_shtuka
+  display_name: Кинг Фри Большой + Приправа «Острая Штука»
+  default_grams: 154.0
+  default_carbs_g: 50.0
+  default_protein_g: 5.5
+  default_fat_g: 9.5
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.5
+  image_url: null
+  aliases:
+  - кинг фри большой + приправа «острая штука»
+  - king fri bolshoi + priprava «ostraya shtuka»
+  - king_fri_bolshoi_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 70
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_royal_fri
+  display_name: Острый Роял Фри
+  default_grams: 238.0
+  default_carbs_g: 69.0
+  default_protein_g: 9.0
+  default_fat_g: 31.0
+  default_fiber_g: 0
+  default_kcal: 590.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 29.0
+  per_100g_protein_g: 4.0
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - острый роял фри
+  - ostryi royal fri
+  - ostryi_royal_fri
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 71
+  source_confidence: official_pdf
+  is_verified: false
+- key: stripsy_3_sht_priprava_ostraya_shtuka
+  display_name: Стрипсы (3 Шт) + Приправа «Острая Штука»
+  default_grams: 103.0
+  default_carbs_g: 16.0
+  default_protein_g: 16.0
+  default_fat_g: 12.0
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - стрипсы (3 шт) + приправа «острая штука»
+  - stripsy (3 sht) + priprava «ostraya shtuka»
+  - stripsy_3_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 72
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_6_sht_priprava_ostraya_shtuka
+  display_name: Креветки (6 Шт) + Приправа «Острая Штука»
+  default_grams: 96.0
+  default_carbs_g: 29.0
+  default_protein_g: 11.0
+  default_fat_g: 0.5
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 160.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (6 шт) + приправа «острая штука»
+  - krevetki (6 sht) + priprava «ostraya shtuka»
+  - krevetki_6_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 73
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_3_sht_priprava_ostraya_shtuka
+  display_name: Сырные Медальоны (3 Шт) + Приправа «Острая Штука»
+  default_grams: 36.0
+  default_carbs_g: 11.0
+  default_protein_g: 5.0
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (3 шт) + приправа «острая штука»
+  - syrnye medalony (3 sht) + priprava «ostraya shtuka»
+  - syrnye_medalony_3_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 74
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_6_sht_priprava_ostraya_shtuka
+  display_name: Сырные Медальоны (6 Шт) + Приправа «Острая Штука»
+  default_grams: 72.0
+  default_carbs_g: 23.0
+  default_protein_g: 10.0
+  default_fat_g: 11.0
+  default_fiber_g: 0
+  default_kcal: 230.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (6 шт) + приправа «острая штука»
+  - syrnye medalony (6 sht) + priprava «ostraya shtuka»
+  - syrnye_medalony_6_sht_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 75
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_6_sht_2
+  display_name: Крылышки (6 Шт) +
+  default_grams: 235.0
+  default_carbs_g: 7.5
+  default_protein_g: 39.0
+  default_fat_g: 34.0
+  default_fiber_g: 0
+  default_kcal: 490.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (6 шт) +
+  - krylyshki (6 sht) +
+  - krylyshki_6_sht
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 77
+  source_confidence: official_pdf
+  is_verified: false
+- key: priprava_ostraya_shtuka
+  display_name: Приправа «Острая Штука»
+  default_grams: 7.0
+  default_carbs_g: 3.0
+  default_protein_g: 1.0
+  default_fat_g: 0.3
+  default_fiber_g: 0
+  default_kcal: 20.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 40.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 4.0
+  image_url: null
+  aliases:
+  - приправа «острая штука»
+  - priprava «ostraya shtuka»
+  - priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 78
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_bolshoi_miks_priprava_ostraya_shtuka
+  display_name: Кинг Букет «Большой Микс» + Приправа «Острая Штука»
+  default_grams: 694.0
+  default_carbs_g: 126.0
+  default_protein_g: 80.0
+  default_fat_g: 71.0
+  default_fiber_g: 0
+  default_kcal: 1460.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 18.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - кинг букет «большой микс» + приправа «острая штука»
+  - king buket «bolshoi miks» + priprava «ostraya shtuka»
+  - king_buket_bolshoi_miks_priprava_ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 78
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krevetki_priprava
+  display_name: Кинг Букет «Креветки» + Приправа
+  default_grams: 462.0
+  default_carbs_g: 162.0
+  default_protein_g: 33.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 920.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 7.0
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - кинг букет «креветки» + приправа
+  - king buket «krevetki» + priprava
+  - king_buket_krevetki_priprava
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 79
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostraya_shtuka
+  display_name: «Острая Штука»
+  default_grams: 21.0
+  default_carbs_g: 9.0
+  default_protein_g: 3.0
+  default_fat_g: 1.0
+  default_fiber_g: 0
+  default_kcal: 60.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 40.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 4.0
+  image_url: null
+  aliases:
+  - «острая штука»
+  - «ostraya shtuka»
+  - ostraya_shtuka
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 80
+  source_confidence: official_pdf
+  is_verified: false
+- key: lukovye_koltsa_12_sht_priprava_smetana_i_luk
+  display_name: Луковые Кольца (12 Шт) + Приправа «Сметана И Лук»
+  default_grams: 133.0
+  default_carbs_g: 63.0
+  default_protein_g: 9.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 48.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - луковые кольца (12 шт) + приправа «сметана и лук»
+  - lukovye koltsa (12 sht) + priprava «smetana i luk»
+  - lukovye_koltsa_12_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 83
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_fri_standartnyi_priprava_smetana_i_luk
+  display_name: Кинг Фри Стандартный + Приправа «Сметана И Лук»
+  default_grams: 100.0
+  default_carbs_g: 32.0
+  default_protein_g: 3.5
+  default_fat_g: 6.5
+  default_fiber_g: 0
+  default_kcal: 200.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.5
+  image_url: null
+  aliases:
+  - кинг фри стандартный + приправа «сметана и лук»
+  - king fri standartnyi + priprava «smetana i luk»
+  - king_fri_standartnyi_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 84
+  source_confidence: official_pdf
+  is_verified: false
+- key: naggetsy_12_sht_priprava_smetana_i_luk
+  display_name: Наггетсы (12 Шт) + Приправа «Сметана И Лук»
+  default_grams: 165.0
+  default_carbs_g: 32.0
+  default_protein_g: 26.0
+  default_fat_g: 28.0
+  default_fiber_g: 0
+  default_kcal: 480.0
+  per_100g_kcal: 290.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 17.0
+  image_url: null
+  aliases:
+  - наггетсы (12 шт) + приправа «сметана и лук»
+  - naggetsy (12 sht) + priprava «smetana i luk»
+  - naggetsy_12_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 86
+  source_confidence: official_pdf
+  is_verified: false
+- key: stripsy_6_sht_priprava_smetana_i_luk
+  display_name: Стрипсы (6 Шт) + Приправа «Сметана И Лук»
+  default_grams: 206.0
+  default_carbs_g: 31.0
+  default_protein_g: 31.0
+  default_fat_g: 24.0
+  default_fiber_g: 0
+  default_kcal: 460.0
+  per_100g_kcal: 230.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 15.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - стрипсы (6 шт) + приправа «сметана и лук»
+  - stripsy (6 sht) + priprava «smetana i luk»
+  - stripsy_6_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 87
+  source_confidence: official_pdf
+  is_verified: false
+- key: krevetki_6_sht_priprava_smetana_i_luk
+  display_name: Креветки (6 Шт) + Приправа «Сметана И Лук»
+  default_grams: 96.0
+  default_carbs_g: 29.0
+  default_protein_g: 11.0
+  default_fat_g: 0.5
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 11.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - креветки (6 шт) + приправа «сметана и лук»
+  - krevetki (6 sht) + priprava «smetana i luk»
+  - krevetki_6_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 88
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_9_sht_priprava_smetana_i_luk
+  display_name: Сырные Медальоны (9 Шт) + Приправа «Сметана И Лук»
+  default_grams: 108.0
+  default_carbs_g: 34.0
+  default_protein_g: 15.0
+  default_fat_g: 16.0
+  default_fiber_g: 0
+  default_kcal: 340.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (9 шт) + приправа «сметана и лук»
+  - syrnye medalony (9 sht) + priprava «smetana i luk»
+  - syrnye_medalony_9_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 91
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnye_medalony_12_sht_priprava_smetana_i_luk
+  display_name: Сырные Медальоны (12 Шт) + Приправа «Сметана И Лук»
+  default_grams: 144.0
+  default_carbs_g: 45.0
+  default_protein_g: 20.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 300.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - сырные медальоны (12 шт) + приправа «сметана и лук»
+  - syrnye medalony (12 sht) + priprava «smetana i luk»
+  - syrnye_medalony_12_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 92
+  source_confidence: official_pdf
+  is_verified: false
+- key: krylyshki_6_sht_priprava_smetana_i_luk
+  display_name: Крылышки (6 Шт) + Приправа «Сметана И Лук»
+  default_grams: 235.0
+  default_carbs_g: 7.5
+  default_protein_g: 39.0
+  default_fat_g: 34.0
+  default_fiber_g: 0
+  default_kcal: 490.0
+  per_100g_kcal: 220.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 15.0
+  image_url: null
+  aliases:
+  - крылышки (6 шт) + приправа «сметана и лук»
+  - krylyshki (6 sht) + priprava «smetana i luk»
+  - krylyshki_6_sht_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 93
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_snek_miks_priprava_smetana_i_luk
+  display_name: Кинг Букет «Снек-Микс» + Приправа «Сметана И Лук»
+  default_grams: 440.0
+  default_carbs_g: 141.0
+  default_protein_g: 36.0
+  default_fat_g: 38.0
+  default_fiber_g: 0
+  default_kcal: 1050.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 8.5
+  per_100g_fat_g: 8.5
+  image_url: null
+  aliases:
+  - кинг букет «снек-микс» + приправа «сметана и лук»
+  - king buket «snek-miks» + priprava «smetana i luk»
+  - king_buket_snek_miks_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 95
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krevetki_priprava_smetana_i_luk
+  display_name: Кинг Букет «Креветки» + Приправа «Сметана И Лук»
+  default_grams: 462.0
+  default_carbs_g: 162.0
+  default_protein_g: 33.0
+  default_fat_g: 15.0
+  default_fiber_g: 0
+  default_kcal: 920.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 7.0
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - кинг букет «креветки» + приправа «сметана и лук»
+  - king buket «krevetki» + priprava «smetana i luk»
+  - king_buket_krevetki_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 96
+  source_confidence: official_pdf
+  is_verified: false
+- key: king_buket_krylyshki_xxl_priprava_smetana_i_luk
+  display_name: Кинг Букет «Крылышки Xxl» + Приправа «Сметана И Лук»
+  default_grams: 1098.0
+  default_carbs_g: 34.0
+  default_protein_g: 182.0
+  default_fat_g: 159.0
+  default_fiber_g: 0
+  default_kcal: 2300.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 14.0
+  image_url: null
+  aliases:
+  - кинг букет «крылышки xxl» + приправа «сметана и лук»
+  - king buket «krylyshki xxl» + priprava «smetana i luk»
+  - king_buket_krylyshki_xxl_priprava_smetana_i_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 97
+  source_confidence: official_pdf
+  is_verified: false
+- key: salat_tsezar
+  display_name: Салат Цезарь
+  default_grams: 161.0
+  default_carbs_g: 24.0
+  default_protein_g: 13.0
+  default_fat_g: 21.0
+  default_fiber_g: 0
+  default_kcal: 340.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 15.0
+  per_100g_protein_g: 8.0
+  per_100g_fat_g: 13.0
+  image_url: null
+  aliases:
+  - салат цезарь
+  - salat tsezar
+  - salat_tsezar
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 98
+  source_confidence: official_pdf
+  is_verified: false
+- key: salat_tsezar_s_krevetkami
+  display_name: Салат Цезарь С Креветками
+  default_grams: 160.0
+  default_carbs_g: 26.0
+  default_protein_g: 12.0
+  default_fat_g: 13.0
+  default_fiber_g: 0
+  default_kcal: 270.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 7.5
+  per_100g_fat_g: 8.0
+  image_url: null
+  aliases:
+  - салат цезарь с креветками
+  - salat tsezar s krevetkami
+  - salat_tsezar_s_krevetkami
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 99
+  source_confidence: official_pdf
+  is_verified: false
+- key: pirozhok_s_vishnei
+  display_name: Пирожок С Вишней
+  default_grams: 73.0
+  default_carbs_g: 33.0
+  default_protein_g: 3.5
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 230.0
+  per_100g_kcal: 320.0
+  per_100g_carbs_g: 45.0
+  per_100g_protein_g: 5.0
+  per_100g_fat_g: 12.0
+  image_url: null
+  aliases:
+  - пирожок с вишней
+  - pirozhok s vishnei
+  - pirozhok_s_vishnei
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 99
+  source_confidence: official_pdf
+  is_verified: false
+- key: pirozhok_lesnye_yagody
+  display_name: Пирожок Лесные Ягоды
+  default_grams: 73.0
+  default_carbs_g: 36.0
+  default_protein_g: 2.5
+  default_fat_g: 4.0
+  default_fiber_g: 0
+  default_kcal: 190.0
+  per_100g_kcal: 260.0
+  per_100g_carbs_g: 49.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - пирожок лесные ягоды
+  - pirozhok lesnye yagody
+  - pirozhok_lesnye_yagody
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 100
+  source_confidence: official_pdf
+  is_verified: false
+- key: goryachii_brauni_s_morozhenym
+  display_name: Горячий Брауни С Мороженым
+  default_grams: 130.0
+  default_carbs_g: 43.0
+  default_protein_g: 5.5
+  default_fat_g: 28.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 350.0
+  per_100g_carbs_g: 33.0
+  per_100g_protein_g: 4.0
+  per_100g_fat_g: 22.0
+  image_url: null
+  aliases:
+  - горячий брауни с мороженым
+  - goryachii brauni s morozhenym
+  - goryachii_brauni_s_morozhenym
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 100
+  source_confidence: official_pdf
+  is_verified: false
+- key: goryachii_brauni
+  display_name: Горячий Брауни
+  default_grams: 80.0
+  default_carbs_g: 31.0
+  default_protein_g: 4.0
+  default_fat_g: 26.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 470.0
+  per_100g_carbs_g: 39.0
+  per_100g_protein_g: 5.0
+  per_100g_fat_g: 33.0
+  image_url: null
+  aliases:
+  - горячий брауни
+  - goryachii brauni
+  - goryachii_brauni
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 100
+  source_confidence: official_pdf
+  is_verified: false
+- key: brauni_s_morozhenym_lesnye_yagody
+  display_name: Брауни С Мороженым Лесные Ягоды
+  default_grams: 146.0
+  default_carbs_g: 50.0
+  default_protein_g: 5.5
+  default_fat_g: 28.0
+  default_fiber_g: 0
+  default_kcal: 470.0
+  per_100g_kcal: 320.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 4.0
+  per_100g_fat_g: 19.0
+  image_url: null
+  aliases:
+  - брауни с мороженым лесные ягоды
+  - brauni s morozhenym lesnye yagody
+  - brauni_s_morozhenym_lesnye_yagody
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 101
+  source_confidence: official_pdf
+  is_verified: false
+- key: rozhok
+  display_name: Рожок
+  default_grams: 70.0
+  default_carbs_g: 18.0
+  default_protein_g: 2.5
+  default_fat_g: 2.5
+  default_fiber_g: 0
+  default_kcal: 100.0
+  per_100g_kcal: 150.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 3.5
+  image_url: null
+  aliases:
+  - рожок
+  - rozhok
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 101
+  source_confidence: official_pdf
+  is_verified: false
+- key: rozhok_lesnye_yagody
+  display_name: Рожок Лесные Ягоды
+  default_grams: 93.0
+  default_carbs_g: 31.0
+  default_protein_g: 3.0
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 170.0
+  per_100g_carbs_g: 33.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - рожок лесные ягоды
+  - rozhok lesnye yagody
+  - rozhok_lesnye_yagody
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 102
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_lesnye_yagody
+  display_name: Сандэй Лесные Ягоды
+  default_grams: 116.0
+  default_carbs_g: 30.0
+  default_protein_g: 3.0
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 140.0
+  per_100g_carbs_g: 26.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - сандэй лесные ягоды
+  - sandei lesnye yagody
+  - sandei_lesnye_yagody
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 102
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_shokoladnyi
+  display_name: Сандэй Шоколадный
+  default_grams: 120.0
+  default_carbs_g: 32.0
+  default_protein_g: 4.0
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 180.0
+  per_100g_kcal: 160.0
+  per_100g_carbs_g: 27.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 4.0
+  image_url: null
+  aliases:
+  - сандэй шоколадный
+  - sandei shokoladnyi
+  - sandei_shokoladnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 102
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_klubnichnyi
+  display_name: Сандэй Клубничный
+  default_grams: 120.0
+  default_carbs_g: 33.0
+  default_protein_g: 3.0
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 180.0
+  per_100g_kcal: 150.0
+  per_100g_carbs_g: 27.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 3.0
+  image_url: null
+  aliases:
+  - сандэй клубничный
+  - sandei klubnichnyi
+  - sandei_klubnichnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 103
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_vanilnyi
+  display_name: Сандэй Ванильный
+  default_grams: 100.0
+  default_carbs_g: 23.0
+  default_protein_g: 3.0
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 140.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 3.5
+  image_url: null
+  aliases:
+  - сандэй ванильный
+  - sandei vanilnyi
+  - sandei_vanilnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 103
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_klubnichnyi
+  display_name: Айс Твист Клубничный
+  default_grams: 160.0
+  default_carbs_g: 51.0
+  default_protein_g: 5.5
+  default_fat_g: 6.5
+  default_fiber_g: 0
+  default_kcal: 280.0
+  per_100g_kcal: 180.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 4.0
+  image_url: null
+  aliases:
+  - айс твист клубничный
+  - ais tvist klubnichnyi
+  - ais_tvist_klubnichnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 103
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_shokoladnyi
+  display_name: Айс Твист Шоколадный
+  default_grams: 160.0
+  default_carbs_g: 51.0
+  default_protein_g: 6.0
+  default_fat_g: 8.0
+  default_fiber_g: 0
+  default_kcal: 300.0
+  per_100g_kcal: 190.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 5.0
+  image_url: null
+  aliases:
+  - айс твист шоколадный
+  - ais tvist shokoladnyi
+  - ais_tvist_shokoladnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 103
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_lesnye_yagody
+  display_name: Айс Твист Лесные Ягоды
+  default_grams: 156.0
+  default_carbs_g: 49.0
+  default_protein_g: 5.5
+  default_fat_g: 6.5
+  default_fiber_g: 0
+  default_kcal: 280.0
+  per_100g_kcal: 180.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 4.0
+  image_url: null
+  aliases:
+  - айс твист лесные ягоды
+  - ais tvist lesnye yagody
+  - ais_tvist_lesnye_yagody
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 104
+  source_confidence: official_pdf
+  is_verified: false
+- key: rozhok_m_m_s
+  display_name: Рожок «M&M’S»
+  default_grams: 97.0
+  default_carbs_g: 38.0
+  default_protein_g: 4.0
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 250.0
+  per_100g_carbs_g: 39.0
+  per_100g_protein_g: 4.0
+  per_100g_fat_g: 7.5
+  image_url: null
+  aliases:
+  - рожок «m&m’s»
+  - rozhok «m&m’s»
+  - rozhok_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 104
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_klubnichnyi_m_m_s
+  display_name: Сандэй Клубничный «M&M’S»
+  default_grams: 140.0
+  default_carbs_g: 47.0
+  default_protein_g: 4.0
+  default_fat_g: 8.0
+  default_fiber_g: 0
+  default_kcal: 280.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - сандэй клубничный «m&m’s»
+  - sandei klubnichnyi «m&m’s»
+  - sandei_klubnichnyi_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 105
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_lesnye_yagody_m_m_s
+  display_name: Сандэй Лесные Ягоды «M&M’S»
+  default_grams: 136.0
+  default_carbs_g: 44.0
+  default_protein_g: 4.0
+  default_fat_g: 8.0
+  default_fiber_g: 0
+  default_kcal: 260.0
+  per_100g_kcal: 190.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 6.0
+  image_url: null
+  aliases:
+  - сандэй лесные ягоды «m&m’s»
+  - sandei lesnye yagody «m&m’s»
+  - sandei_lesnye_yagody_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 105
+  source_confidence: official_pdf
+  is_verified: false
+- key: sandei_shokoladnyi_m_m_s
+  display_name: Сандэй Шоколадный «M&M’S»
+  default_grams: 140.0
+  default_carbs_g: 47.0
+  default_protein_g: 5.0
+  default_fat_g: 9.5
+  default_fiber_g: 0
+  default_kcal: 290.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 34.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 7.0
+  image_url: null
+  aliases:
+  - сандэй шоколадный «m&m’s»
+  - sandei shokoladnyi «m&m’s»
+  - sandei_shokoladnyi_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 105
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_shokoladnyi_m_m_s
+  display_name: Айс Твист Шоколадный «M&M’S»
+  default_grams: 160.0
+  default_carbs_g: 52.0
+  default_protein_g: 5.5
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 33.0
+  per_100g_protein_g: 3.5
+  per_100g_fat_g: 6.5
+  image_url: null
+  aliases:
+  - айс твист шоколадный «m&m’s»
+  - ais tvist shokoladnyi «m&m’s»
+  - ais_tvist_shokoladnyi_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 106
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_lesnye_yagody_m_m_s
+  display_name: Айс Твист Лесные Ягоды «M&M’S»
+  default_grams: 156.0
+  default_carbs_g: 48.0
+  default_protein_g: 5.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 290.0
+  per_100g_kcal: 190.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 6.0
+  image_url: null
+  aliases:
+  - айс твист лесные ягоды «m&m’s»
+  - ais tvist lesnye yagody «m&m’s»
+  - ais_tvist_lesnye_yagody_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 106
+  source_confidence: official_pdf
+  is_verified: false
+- key: ais_tvist_klubnichnyi_m_m_s
+  display_name: Айс Твист Клубничный «M&M’S»
+  default_grams: 160.0
+  default_carbs_g: 51.0
+  default_protein_g: 5.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 310.0
+  per_100g_kcal: 190.0
+  per_100g_carbs_g: 32.0
+  per_100g_protein_g: 3.0
+  per_100g_fat_g: 5.5
+  image_url: null
+  aliases:
+  - айс твист клубничный «m&m’s»
+  - ais tvist klubnichnyi «m&m’s»
+  - ais_tvist_klubnichnyi_m_m_s
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 107
+  source_confidence: official_pdf
+  is_verified: false
+- key: klubnichnyi_sheik_malyi
+  display_name: Клубничный Шейк Малый
+  default_grams: 300.0
+  default_carbs_g: 56.0
+  default_protein_g: 6.0
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 300.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - клубничный шейк малый
+  - klubnichnyi sheik malyi
+  - klubnichnyi_sheik_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 107
+  source_confidence: official_pdf
+  is_verified: false
+- key: klubnichnyi_sheik_standartnyi
+  display_name: Клубничный Шейк Стандартный
+  default_grams: 400.0
+  default_carbs_g: 74.0
+  default_protein_g: 8.0
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 390.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - клубничный шейк стандартный
+  - klubnichnyi sheik standartnyi
+  - klubnichnyi_sheik_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 107
+  source_confidence: official_pdf
+  is_verified: false
+- key: klubnichnyi_sheik_bolshoi_0_5_l
+  display_name: Клубничный Шейк Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 93.0
+  default_protein_g: 10.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 490.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - клубничный шейк большой 0,5 л
+  - klubnichnyi sheik bolshoi 0,5 l
+  - klubnichnyi_sheik_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_plombir_malyi_0_3
+  display_name: Шейк «Пломбир Малый 0,3
+  default_grams: 300.0
+  default_carbs_g: 56.0
+  default_protein_g: 6.0
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 300.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк «пломбир малый 0,3
+  - sheik «plombir malyi 0,3
+  - sheik_plombir_malyi_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_plombir_standartnyi
+  display_name: Шейк «Пломбир» Стандартный
+  default_grams: 400.0
+  default_carbs_g: 75.0
+  default_protein_g: 8.0
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 400.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк «пломбир» стандартный
+  - sheik «plombir» standartnyi
+  - sheik_plombir_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_plombir_bolshoi_0_5
+  display_name: Шейк «Пломбир» Большой 0,5
+  default_grams: 500.0
+  default_carbs_g: 94.0
+  default_protein_g: 10.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 500.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 23.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк «пломбир» большой 0,5
+  - sheik «plombir» bolshoi 0,5
+  - sheik_plombir_bolshoi_0_5
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: shokoladnyi_sheik_malyi
+  display_name: Шоколадный Шейк Малый
+  default_grams: 300.0
+  default_carbs_g: 58.0
+  default_protein_g: 6.5
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 310.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 24.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шоколадный шейк малый
+  - shokoladnyi sheik malyi
+  - shokoladnyi_sheik_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: shokoladnyi_sheik_standartnyi
+  display_name: Шоколадный Шейк Стандартный
+  default_grams: 400.0
+  default_carbs_g: 78.0
+  default_protein_g: 9.0
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 420.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 24.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шоколадный шейк стандартный
+  - shokoladnyi sheik standartnyi
+  - shokoladnyi_sheik_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 108
+  source_confidence: official_pdf
+  is_verified: false
+- key: shokoladnyi_sheik_bolshoi_0_5_l
+  display_name: Шоколадный Шейк Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 97.0
+  default_protein_g: 11.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 510.0
+  per_100g_kcal: 120.0
+  per_100g_carbs_g: 24.0
+  per_100g_protein_g: 2.5
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шоколадный шейк большой 0,5 л
+  - shokoladnyi sheik bolshoi 0,5 l
+  - shokoladnyi_sheik_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 109
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_lesnye_yagody_malyi
+  display_name: Шейк Лесные Ягоды Малый
+  default_grams: 300.0
+  default_carbs_g: 52.0
+  default_protein_g: 6.0
+  default_fat_g: 5.5
+  default_fiber_g: 0
+  default_kcal: 280.0
+  per_100g_kcal: 95.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк лесные ягоды малый
+  - sheik lesnye yagody malyi
+  - sheik_lesnye_yagody_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 109
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_lesnye_yagody_standartnyi
+  display_name: Шейк Лесные Ягоды Стандартный
+  default_grams: 400.0
+  default_carbs_g: 68.0
+  default_protein_g: 8.0
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 370.0
+  per_100g_kcal: 95.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк лесные ягоды стандартный
+  - sheik lesnye yagody standartnyi
+  - sheik_lesnye_yagody_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 109
+  source_confidence: official_pdf
+  is_verified: false
+- key: sheik_lesnye_yagody_bolshoi_0_5_l
+  display_name: Шейк Лесные Ягоды Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 86.0
+  default_protein_g: 10.0
+  default_fat_g: 9.0
+  default_fiber_g: 0
+  default_kcal: 470.0
+  per_100g_kcal: 95.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - шейк лесные ягоды большой 0,5 л
+  - sheik lesnye yagody bolshoi 0,5 l
+  - sheik_lesnye_yagody_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 109
+  source_confidence: official_pdf
+  is_verified: false
+- key: kofe_malyi
+  display_name: Кофе Малый
+  default_grams: 200.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - кофе малый
+  - kofe malyi
+  - kofe_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: kofe_standartnyi
+  display_name: Кофе Стандартный
+  default_grams: 300.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - кофе стандартный
+  - kofe standartnyi
+  - kofe_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_malyi_0_2_l
+  display_name: Капучино Малый 0,2 Л
+  default_grams: 200.0
+  default_carbs_g: 4.0
+  default_protein_g: 2.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 50.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 2.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино малый 0,2 л
+  - kapuchino malyi 0,2 l
+  - kapuchino_malyi_0_2_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_standartnyi
+  display_name: Капучино Стандартный
+  default_grams: 300.0
+  default_carbs_g: 6.5
+  default_protein_g: 4.5
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 85.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 2.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино стандартный
+  - kapuchino standartnyi
+  - kapuchino_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_bolshoi_0_5_l
+  display_name: Капучино Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 11.0
+  default_protein_g: 7.5
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 2.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино большой 0,5 л
+  - kapuchino bolshoi 0,5 l
+  - kapuchino_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_malyi_0_2_l
+  display_name: Латте Малый 0,2 Л
+  default_grams: 200.0
+  default_carbs_g: 5.5
+  default_protein_g: 3.5
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 65.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - латте малый 0,2 л
+  - latte malyi 0,2 l
+  - latte_malyi_0_2_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 110
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_standartnyi
+  display_name: Латте Стандартный
+  default_grams: 300.0
+  default_carbs_g: 7.5
+  default_protein_g: 5.0
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 95.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 2.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - латте стандартный
+  - latte standartnyi
+  - latte_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 111
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_bolshoi_0_5_l
+  display_name: Латте Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 15.0
+  default_protein_g: 10.0
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 190.0
+  per_100g_kcal: 40.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - латте большой 0,5 л
+  - latte bolshoi 0,5 l
+  - latte_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 111
+  source_confidence: official_pdf
+  is_verified: false
+- key: kofe_glyase
+  display_name: Кофе Глясе
+  default_grams: 300.0
+  default_carbs_g: 11.0
+  default_protein_g: 1.5
+  default_fat_g: 2.0
+  default_fiber_g: 0
+  default_kcal: 65.0
+  per_100g_kcal: 20.0
+  per_100g_carbs_g: 3.5
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - кофе глясе
+  - kofe glyase
+  - kofe_glyase
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 111
+  source_confidence: official_pdf
+  is_verified: false
+- key: holodnyi_kapuchino
+  display_name: Холодный Капучино
+  default_grams: 300.0
+  default_carbs_g: 9.0
+  default_protein_g: 6.0
+  default_fat_g: 6.0
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - холодный капучино
+  - holodnyi kapuchino
+  - holodnyi_kapuchino
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 111
+  source_confidence: official_pdf
+  is_verified: false
+- key: kakao_0_3
+  display_name: Какао 0,3
+  default_grams: 300.0
+  default_carbs_g: 23.0
+  default_protein_g: 3.0
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 7.5
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 1.0
+  image_url: null
+  aliases:
+  - какао 0,3
+  - kakao 0,3
+  - kakao_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 111
+  source_confidence: official_pdf
+  is_verified: false
+- key: vanilnyi_kapuchino_standartnyi
+  display_name: Ванильный Капучино Стандартный
+  default_grams: 300.0
+  default_carbs_g: 18.0
+  default_protein_g: 4.5
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 6.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - ванильный капучино стандартный
+  - vanilnyi kapuchino standartnyi
+  - vanilnyi_kapuchino_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 112
+  source_confidence: official_pdf
+  is_verified: false
+- key: vanilnyi_kapuchino_bolshoi_0_5_l
+  display_name: Ванильный Капучино Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 32.0
+  default_protein_g: 7.5
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 230.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - ванильный капучино большой 0,5 л
+  - vanilnyi kapuchino bolshoi 0,5 l
+  - vanilnyi_kapuchino_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 112
+  source_confidence: official_pdf
+  is_verified: false
+- key: vanilnyi_latte_standartnyi
+  display_name: Ванильный Латте Стандартный
+  default_grams: 300.0
+  default_carbs_g: 21.0
+  default_protein_g: 5.0
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 150.0
+  per_100g_kcal: 50.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - ванильный латте стандартный
+  - vanilnyi latte standartnyi
+  - vanilnyi_latte_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 112
+  source_confidence: official_pdf
+  is_verified: false
+- key: vanilnyi_latte_bolshoi_0_5_l
+  display_name: Ванильный Латте Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 36.0
+  default_protein_g: 10.0
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 280.0
+  per_100g_kcal: 55.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - ванильный латте большой 0,5 л
+  - vanilnyi latte bolshoi 0,5 l
+  - vanilnyi_latte_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 112
+  source_confidence: official_pdf
+  is_verified: false
+- key: karamelnyi_kapuchino_standartnyi
+  display_name: Карамельный Капучино Стандартный
+  default_grams: 300.0
+  default_carbs_g: 19.0
+  default_protein_g: 4.5
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 6.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - карамельный капучино стандартный
+  - karamelnyi kapuchino standartnyi
+  - karamelnyi_kapuchino_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 112
+  source_confidence: official_pdf
+  is_verified: false
+- key: karamelnyi_kapuchino_bolshoi_0_5_l
+  display_name: Карамельный Капучино Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 34.0
+  default_protein_g: 7.5
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 240.0
+  per_100g_kcal: 50.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - карамельный капучино большой 0,5 л
+  - karamelnyi kapuchino bolshoi 0,5 l
+  - karamelnyi_kapuchino_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 113
+  source_confidence: official_pdf
+  is_verified: false
+- key: karamelnyi_latte_standartnyi
+  display_name: Карамельный Латте Стандартный
+  default_grams: 300.0
+  default_carbs_g: 23.0
+  default_protein_g: 5.0
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 55.0
+  per_100g_carbs_g: 7.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - карамельный латте стандартный
+  - karamelnyi latte standartnyi
+  - karamelnyi_latte_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 113
+  source_confidence: official_pdf
+  is_verified: false
+- key: karamelnyi_latte_bolshoi_0_5_l
+  display_name: Карамельный Латте Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 38.0
+  default_protein_g: 10.0
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 290.0
+  per_100g_kcal: 60.0
+  per_100g_carbs_g: 7.5
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - карамельный латте большой 0,5 л
+  - karamelnyi latte bolshoi 0,5 l
+  - karamelnyi_latte_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 113
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_tiramisu_malyi_0_2_l
+  display_name: Капучино Тирамису Малый 0,2 Л
+  default_grams: 200.0
+  default_carbs_g: 13.0
+  default_protein_g: 2.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 85.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино тирамису малый 0,2 л
+  - kapuchino tiramisu malyi 0,2 l
+  - kapuchino_tiramisu_malyi_0_2_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 113
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_tiramisu_standartnyi
+  display_name: Капучино Тирамису Стандартный
+  default_grams: 300.0
+  default_carbs_g: 24.0
+  default_protein_g: 4.5
+  default_fat_g: 4.5
+  default_fiber_g: 0
+  default_kcal: 150.0
+  per_100g_kcal: 50.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино тирамису стандартный
+  - kapuchino tiramisu standartnyi
+  - kapuchino_tiramisu_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 113
+  source_confidence: official_pdf
+  is_verified: false
+- key: kapuchino_tiramisu_bolshoi_0_5_l
+  display_name: Капучино Тирамису Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 37.0
+  default_protein_g: 7.5
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 250.0
+  per_100g_kcal: 50.0
+  per_100g_carbs_g: 7.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - капучино тирамису большой 0,5 л
+  - kapuchino tiramisu bolshoi 0,5 l
+  - kapuchino_tiramisu_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 114
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_tiramisu_malyi_0_2_l
+  display_name: Латте Тирамису Малый 0,2 Л
+  default_grams: 200.0
+  default_carbs_g: 14.0
+  default_protein_g: 3.5
+  default_fat_g: 3.5
+  default_fiber_g: 0
+  default_kcal: 100.0
+  per_100g_kcal: 50.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - латте тирамису малый 0,2 л
+  - latte tiramisu malyi 0,2 l
+  - latte_tiramisu_malyi_0_2_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 114
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_tiramisu_standartnyi
+  display_name: Латте Тирамису Стандартный
+  default_grams: 300.0
+  default_carbs_g: 25.0
+  default_protein_g: 5.0
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 170.0
+  per_100g_kcal: 55.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.5
+  image_url: null
+  aliases:
+  - латте тирамису стандартный
+  - latte tiramisu standartnyi
+  - latte_tiramisu_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 114
+  source_confidence: official_pdf
+  is_verified: false
+- key: latte_tiramisu_bolshoi_0_5_l
+  display_name: Латте Тирамису Большой 0,5 Л
+  default_grams: 500.0
+  default_carbs_g: 41.0
+  default_protein_g: 10.0
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 300.0
+  per_100g_kcal: 60.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 2.0
+  image_url: null
+  aliases:
+  - латте тирамису большой 0,5 л
+  - latte tiramisu bolshoi 0,5 l
+  - latte_tiramisu_bolshoi_0_5_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 114
+  source_confidence: official_pdf
+  is_verified: false
+- key: dvoinoi_espresso
+  display_name: Двойной Эспрессо
+  default_grams: 100.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 1.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - двойной эспрессо
+  - dvoinoi espresso
+  - dvoinoi_espresso
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 114
+  source_confidence: official_pdf
+  is_verified: false
+- key: chai_chernyi_malyi
+  display_name: Чай Черный Малый
+  default_grams: 200.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - чай черный малый
+  - chai chernyi malyi
+  - chai_chernyi_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: chai_chernyi_standartnyi
+  display_name: Чай Черный Стандартный
+  default_grams: 300.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - чай черный стандартный
+  - chai chernyi standartnyi
+  - chai_chernyi_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: chai_zelenyi_malyi
+  display_name: Чай Зеленый Малый
+  default_grams: 200.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - чай зеленый малый
+  - chai zelenyi malyi
+  - chai_zelenyi_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: chai_zelenyi_standartnyi
+  display_name: Чай Зеленый Стандартный
+  default_grams: 300.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 0.0
+  per_100g_kcal: 0.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - чай зеленый стандартный
+  - chai zelenyi standartnyi
+  - chai_zelenyi_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_grin_dzhunior_0_3
+  display_name: Липтон Грин Джуниор 0.3
+  default_grams: 300.0
+  default_carbs_g: 18.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 75.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон грин джуниор 0.3
+  - lipton grin dzhunior 0.3
+  - lipton_grin_dzhunior_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_grin_malyi_0_4_l
+  display_name: Липтон Грин Малый 0.4 Л
+  default_grams: 400.0
+  default_carbs_g: 27.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон грин малый 0.4 л
+  - lipton grin malyi 0.4 l
+  - lipton_grin_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_grin_standartnyi
+  display_name: Липтон Грин Стандартный
+  default_grams: 500.0
+  default_carbs_g: 33.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон грин стандартный
+  - lipton grin standartnyi
+  - lipton_grin_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_grin_bolshoi_0_8
+  display_name: Липтон Грин Большой 0.8
+  default_grams: 800.0
+  default_carbs_g: 53.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 210.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон грин большой 0.8
+  - lipton grin bolshoi 0.8
+  - lipton_grin_bolshoi_0_8
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 115
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_grin_xl_1_0_l
+  display_name: Липтон Грин Xl 1,0 Л
+  default_grams: 1000.0
+  default_carbs_g: 67.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 270.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон грин xl 1,0 л
+  - lipton grin xl 1,0 l
+  - lipton_grin_xl_1_0_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_limon_dzhunior_0_3
+  display_name: Липтон Лимон Джуниор 0,3
+  default_grams: 300.0
+  default_carbs_g: 18.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 75.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон лимон джуниор 0,3
+  - lipton limon dzhunior 0,3
+  - lipton_limon_dzhunior_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_limon_malyi_0_4_l
+  display_name: Липтон Лимон Малый 0.4 Л
+  default_grams: 400.0
+  default_carbs_g: 27.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон лимон малый 0.4 л
+  - lipton limon malyi 0.4 l
+  - lipton_limon_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_limon_standartnyi
+  display_name: Липтон Лимон Стандартный
+  default_grams: 500.0
+  default_carbs_g: 33.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон лимон стандартный
+  - lipton limon standartnyi
+  - lipton_limon_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_limon_bolshoi_0_8
+  display_name: Липтон Лимон Большой 0.8
+  default_grams: 800.0
+  default_carbs_g: 53.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 210.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон лимон большой 0.8
+  - lipton limon bolshoi 0.8
+  - lipton_limon_bolshoi_0_8
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: lipton_limon_xl_1_0
+  display_name: Липтон Лимон Xl 1,0
+  default_grams: 1000.0
+  default_carbs_g: 67.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 270.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - липтон лимон xl 1,0
+  - lipton limon xl 1,0
+  - lipton_limon_xl_1_0
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_blek_royal_dzhunior_0_3
+  display_name: Эвервесс Блэк Роял Джуниор 0,3
+  default_grams: 300.0
+  default_carbs_g: 24.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 95.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс блэк роял джуниор 0,3
+  - evervess blek royal dzhunior 0,3
+  - evervess_blek_royal_dzhunior_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_blek_royal_malyi_0_4_l
+  display_name: Эвервесс Блэк Роял Малый 0,4 Л
+  default_grams: 400.0
+  default_carbs_g: 32.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс блэк роял малый 0,4 л
+  - evervess blek royal malyi 0,4 l
+  - evervess_blek_royal_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_blek_royal_standartnyi
+  display_name: Эвервесс Блэк Роял Стандартный
+  default_grams: 500.0
+  default_carbs_g: 40.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 160.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс блэк роял стандартный
+  - evervess blek royal standartnyi
+  - evervess_blek_royal_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 116
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_blek_royal_bolshoi_0_8
+  display_name: Эвервесс Блэк Роял Большой 0,8
+  default_grams: 800.0
+  default_carbs_g: 64.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 260.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс блэк роял большой 0,8
+  - evervess blek royal bolshoi 0,8
+  - evervess_blek_royal_bolshoi_0_8
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_blek_royal_xl
+  display_name: Эвервесс Блэк Роял Xl
+  default_grams: 1000.0
+  default_carbs_g: 80.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 320.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 8.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс блэк роял xl
+  - evervess blek royal xl
+  - evervess_blek_royal_xl
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_kola_dzhunior_0_3
+  display_name: Эвервесс Кола Джуниор 0,3
+  default_grams: 300.0
+  default_carbs_g: 34.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 11.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс кола джуниор 0,3
+  - evervess kola dzhunior 0,3
+  - evervess_kola_dzhunior_0_3
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_kola_malyi
+  display_name: Эвервесс Кола Малый
+  default_grams: 400.0
+  default_carbs_g: 45.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 180.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 11.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс кола малый
+  - evervess kola malyi
+  - evervess_kola_malyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_kola_standartnyi
+  display_name: Эвервесс Кола Стандартный
+  default_grams: 500.0
+  default_carbs_g: 56.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 220.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 11.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс кола стандартный
+  - evervess kola standartnyi
+  - evervess_kola_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_kola_bolshoi_0_8
+  display_name: Эвервесс Кола Большой 0,8
+  default_grams: 800.0
+  default_carbs_g: 90.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 360.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 11.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс кола большой 0,8
+  - evervess kola bolshoi 0,8
+  - evervess_kola_bolshoi_0_8
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: evervess_kola_xl_1_0_l
+  display_name: Эвервесс Кола Xl 1,0 Л
+  default_grams: 1000.0
+  default_carbs_g: 112.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 450.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 11.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - эвервесс кола xl 1,0 л
+  - evervess kola xl 1,0 l
+  - evervess_kola_xl_1_0_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 117
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_limon_laim_dzhunior_0_3_l
+  display_name: Фрустайл Лимон Лайм Джуниор 0,3 Л
+  default_grams: 300.0
+  default_carbs_g: 22.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 85.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл лимон лайм джуниор 0,3 л
+  - frustail limon laim dzhunior 0,3 l
+  - frustail_limon_laim_dzhunior_0_3_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_limon_laim_malyi_0_4_l
+  display_name: Фрустайл Лимон Лайм Малый 0,4 Л
+  default_grams: 400.0
+  default_carbs_g: 29.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 120.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл лимон лайм малый 0,4 л
+  - frustail limon laim malyi 0,4 l
+  - frustail_limon_laim_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_limon_laim_standartnyi
+  display_name: Фрустайл Лимон Лайм Стандартный
+  default_grams: 500.0
+  default_carbs_g: 36.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл лимон лайм стандартный
+  - frustail limon laim standartnyi
+  - frustail_limon_laim_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_limon_laim_bolshoi_0_8_l
+  display_name: Фрустайл Лимон Лайм Большой 0,8 Л
+  default_grams: 800.0
+  default_carbs_g: 57.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 230.0
+  per_100g_kcal: 30.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл лимон лайм большой 0,8 л
+  - frustail limon laim bolshoi 0,8 l
+  - frustail_limon_laim_bolshoi_0_8_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_apelsin_dzhunior_0_3_l
+  display_name: Фрустайл Апельсин Джуниор 0,3 Л
+  default_grams: 300.0
+  default_carbs_g: 26.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 100.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл апельсин джуниор 0,3 л
+  - frustail apelsin dzhunior 0,3 l
+  - frustail_apelsin_dzhunior_0_3_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_apelsin_malyi_0_4_l
+  display_name: Фрустайл Апельсин Малый 0,4 Л
+  default_grams: 400.0
+  default_carbs_g: 34.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 140.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл апельсин малый 0,4 л
+  - frustail apelsin malyi 0,4 l
+  - frustail_apelsin_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_apelsin_standartnyi
+  display_name: Фрустайл Апельсин Стандартный
+  default_grams: 500.0
+  default_carbs_g: 42.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 170.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл апельсин стандартный
+  - frustail apelsin standartnyi
+  - frustail_apelsin_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: frustail_apelsin_bolshoi_0_8_l
+  display_name: Фрустайл Апельсин Большой 0,8 Л
+  default_grams: 800.0
+  default_carbs_g: 68.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 270.0
+  per_100g_kcal: 35.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - фрустайл апельсин большой 0,8 л
+  - frustail apelsin bolshoi 0,8 l
+  - frustail_apelsin_bolshoi_0_8_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: dyushes_dzhunior_0_3_l
+  display_name: Дюшес Джуниор 0,3 Л
+  default_grams: 300.0
+  default_carbs_g: 19.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 75.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - дюшес джуниор 0,3 л
+  - dyushes dzhunior 0,3 l
+  - dyushes_dzhunior_0_3_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 118
+  source_confidence: official_pdf
+  is_verified: false
+- key: dyushes_malyi_0_4_l
+  display_name: Дюшес Малый 0,4 Л
+  default_grams: 400.0
+  default_carbs_g: 26.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 100.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - дюшес малый 0,4 л
+  - dyushes malyi 0,4 l
+  - dyushes_malyi_0_4_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: dyushes_standartnyi
+  display_name: Дюшес Стандартный
+  default_grams: 500.0
+  default_carbs_g: 32.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - дюшес стандартный
+  - dyushes standartnyi
+  - dyushes_standartnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: dyushes_bolshoi_0_8_l
+  display_name: Дюшес Большой 0,8 Л
+  default_grams: 800.0
+  default_carbs_g: 51.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 210.0
+  per_100g_kcal: 25.0
+  per_100g_carbs_g: 6.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - дюшес большой 0,8 л
+  - dyushes bolshoi 0,8 l
+  - dyushes_bolshoi_0_8_l
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: kola_bez_sahara
+  display_name: '«Кола Без Сахара»:'
+  default_grams: 300.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 1.0
+  per_100g_kcal: 1.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - '«кола без сахара»:'
+  - '«kola bez sahara»:'
+  - kola_bez_sahara
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: kola_bez_sahara_2
+  display_name: '«Кола Без Сахара»:'
+  default_grams: 400.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 1.0
+  per_100g_kcal: 1.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - '«кола без сахара»:'
+  - '«kola bez sahara»:'
+  - kola_bez_sahara
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: kola_bez_sahara_3
+  display_name: '«Кола Без Сахара»:'
+  default_grams: 500.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 2.0
+  per_100g_kcal: 8.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - '«кола без сахара»:'
+  - '«kola bez sahara»:'
+  - kola_bez_sahara
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: kola_bez_sahara_4
+  display_name: '«Кола Без Сахара»:'
+  default_grams: 800.0
+  default_carbs_g: 0.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 3.0
+  per_100g_kcal: 12.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - '«кола без сахара»:'
+  - '«kola bez sahara»:'
+  - kola_bez_sahara
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 119
+  source_confidence: official_pdf
+  is_verified: false
+- key: pivo_tuborg_grin_0_5l_rozliv
+  display_name: Пиво Туборг Грин 0.5Л Розлив
+  default_grams: 500.0
+  default_carbs_g: 15.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 180.0
+  per_100g_kcal: 40.0
+  per_100g_carbs_g: 3.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - пиво туборг грин 0.5л розлив
+  - pivo tuborg grin 0.5l rozliv
+  - pivo_tuborg_grin_0_5l_rozliv
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: pivo_baltika_7_0_5l_rozliv
+  display_name: Пиво Балтика 7 0.5Л Розлив
+  default_grams: 500.0
+  default_carbs_g: 18.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 225.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 3.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - пиво балтика 7 0.5л розлив
+  - pivo baltika 7 0.5l rozliv
+  - pivo_baltika_7_0_5l_rozliv
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: pivo_gorkovskaya_brewery_weizen
+  display_name: Пиво Gorkovskaya Brewery Weizen
+  default_grams: 500.0
+  default_carbs_g: 20.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 200.0
+  per_100g_kcal: 40.0
+  per_100g_carbs_g: 4.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - пиво gorkovskaya brewery weizen
+  - pivo gorkovskaya brewery weizen
+  - pivo_gorkovskaya_brewery_weizen
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: einsiedler_weissbier_ainzindler_vaisbir
+  display_name: '«Einsiedler Weissbier» («Айнзиндлер Вайсбир»):'
+  default_grams: 500.0
+  default_carbs_g: 18.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 225.0
+  per_100g_kcal: 45.0
+  per_100g_carbs_g: 3.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - '«einsiedler weissbier» («айнзиндлер вайсбир»):'
+  - '«einsiedler weissbier» («ainzindler vaisbir»):'
+  - einsiedler_weissbier_ainzindler_vaisbir
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: pivo_cherri_nait_0_5l_rozliv
+  display_name: Пиво Черри Найт 0,5Л Розлив
+  default_grams: 500.0
+  default_carbs_g: 42.5
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 300.0
+  per_100g_kcal: 60.0
+  per_100g_carbs_g: 8.5
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - пиво черри найт 0,5л розлив
+  - pivo cherri nait 0,5l rozliv
+  - pivo_cherri_nait_0_5l_rozliv
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_syrnyi
+  display_name: Соус Сырный
+  default_grams: 25.0
+  default_carbs_g: 2.0
+  default_protein_g: 1.0
+  default_fat_g: 7.0
+  default_fiber_g: 0
+  default_kcal: 70.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 7.0
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 27.0
+  image_url: null
+  aliases:
+  - соус сырный
+  - sous syrnyi
+  - sous_syrnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 120
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_kislo_sladkii
+  display_name: Соус Кисло- Сладкий
+  default_grams: 25.0
+  default_carbs_g: 8.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 35.0
+  per_100g_kcal: 130.0
+  per_100g_carbs_g: 31.0
+  per_100g_protein_g: 0.2
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - соус кисло- сладкий
+  - sous kislo- sladkii
+  - sous_kislo_sladkii
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: syrnyi_sous_parmedzhano
+  display_name: Сырный Соус Пармеджано
+  default_grams: 25.0
+  default_carbs_g: 1.5
+  default_protein_g: 0.5
+  default_fat_g: 10.0
+  default_fiber_g: 0
+  default_kcal: 95.0
+  per_100g_kcal: 370.0
+  per_100g_carbs_g: 5.0
+  per_100g_protein_g: 2.0
+  per_100g_fat_g: 38.0
+  image_url: null
+  aliases:
+  - сырный соус пармеджано
+  - syrnyi sous parmedzhano
+  - syrnyi_sous_parmedzhano
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_barbekyu
+  display_name: Соус Барбекю
+  default_grams: 25.0
+  default_carbs_g: 8.0
+  default_protein_g: 0.3
+  default_fat_g: 0.8
+  default_fiber_g: 0
+  default_kcal: 35.0
+  per_100g_kcal: 130.0
+  per_100g_carbs_g: 30.0
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 0.3
+  image_url: null
+  aliases:
+  - соус барбекю
+  - sous barbekyu
+  - sous_barbekyu
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_1000_ostrovov
+  display_name: Соус 1000 Островов
+  default_grams: 25.0
+  default_carbs_g: 3.0
+  default_protein_g: 0.25
+  default_fat_g: 7.5
+  default_fiber_g: 0
+  default_kcal: 80.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 12.0
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 29.0
+  image_url: null
+  aliases:
+  - соус 1000 островов
+  - sous 1000 ostrovov
+  - sous_1000_ostrovov
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: ketchup
+  display_name: Кетчуп
+  default_grams: 25.0
+  default_carbs_g: 6.5
+  default_protein_g: 0.25
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 30.0
+  per_100g_kcal: 110.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 1.0
+  per_100g_fat_g: 0.1
+  image_url: null
+  aliases:
+  - кетчуп
+  - ketchup
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_karri
+  display_name: Соус Карри
+  default_grams: 25.0
+  default_carbs_g: 4.5
+  default_protein_g: 0.1
+  default_fat_g: 8.0
+  default_fiber_g: 0
+  default_kcal: 85.0
+  per_100g_kcal: 340.0
+  per_100g_carbs_g: 17.0
+  per_100g_protein_g: 0.5
+  per_100g_fat_g: 30.0
+  image_url: null
+  aliases:
+  - соус карри
+  - sous karri
+  - sous_karri
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_gorchichnyi
+  display_name: Соус Горчичный
+  default_grams: 25.0
+  default_carbs_g: 5.5
+  default_protein_g: 0.1
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 70.0
+  per_100g_kcal: 270.0
+  per_100g_carbs_g: 22.5
+  per_100g_protein_g: 0.5
+  per_100g_fat_g: 20.0
+  image_url: null
+  aliases:
+  - соус горчичный
+  - sous gorchichnyi
+  - sous_gorchichnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_chesnochnyi
+  display_name: Соус Чесночный
+  default_grams: 25.0
+  default_carbs_g: 2.5
+  default_protein_g: 0.2
+  default_fat_g: 11.0
+  default_fiber_g: 0
+  default_kcal: 110.0
+  per_100g_kcal: 420.0
+  per_100g_carbs_g: 10.0
+  per_100g_protein_g: 0.9
+  per_100g_fat_g: 42.0
+  image_url: null
+  aliases:
+  - соус чесночный
+  - sous chesnochnyi
+  - sous_chesnochnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: sous_brusnichnyi
+  display_name: Соус Брусничный
+  default_grams: 25.0
+  default_carbs_g: 9.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 35.0
+  per_100g_kcal: 140.0
+  per_100g_carbs_g: 34.2
+  per_100g_protein_g: 0.1
+  per_100g_fat_g: 0.1
+  image_url: null
+  aliases:
+  - соус брусничный
+  - sous brusnichnyi
+  - sous_brusnichnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 121
+  source_confidence: official_pdf
+  is_verified: false
+- key: xxl_sous_4_syra
+  display_name: Xxl Соус 4 Сыра
+  default_grams: 45.0
+  default_carbs_g: 4.5
+  default_protein_g: 0.7
+  default_fat_g: 18.0
+  default_fiber_g: 0
+  default_kcal: 180.0
+  per_100g_kcal: 400.0
+  per_100g_carbs_g: 9.5
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 40.0
+  image_url: null
+  aliases:
+  - xxl соус 4 сыра
+  - xxl sous 4 syra
+  - xxl_sous_4_syra
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ostryi_tomatnyi_sous
+  display_name: Острый Томатный Соус
+  default_grams: 25.0
+  default_carbs_g: 6.5
+  default_protein_g: 0.4
+  default_fat_g: 0.3
+  default_fiber_g: 0
+  default_kcal: 30.0
+  per_100g_kcal: 110.0
+  per_100g_carbs_g: 25.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 1.0
+  image_url: null
+  aliases:
+  - острый томатный соус
+  - ostryi tomatnyi sous
+  - ostryi_tomatnyi_sous
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_kotleta_gamburger
+  display_name: Экстра Котлета Гамбургер
+  default_grams: 48.2
+  default_carbs_g: 0.0
+  default_protein_g: 8.0
+  default_fat_g: 11.0
+  default_fiber_g: 0
+  default_kcal: 130.0
+  per_100g_kcal: 275.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 23.0
+  image_url: null
+  aliases:
+  - экстра котлета гамбургер
+  - ekstra kotleta gamburger
+  - ekstra_kotleta_gamburger
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_kotleta_vopper
+  display_name: Экстра Котлета Воппер
+  default_grams: 113.4
+  default_carbs_g: 0.0
+  default_protein_g: 19.0
+  default_fat_g: 26.0
+  default_fiber_g: 0
+  default_kcal: 310.0
+  per_100g_kcal: 275.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 17.0
+  per_100g_fat_g: 23.0
+  image_url: null
+  aliases:
+  - экстра котлета воппер
+  - ekstra kotleta vopper
+  - ekstra_kotleta_vopper
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_kotleta_grand_chiz
+  display_name: Экстра Котлета Гранд Чиз
+  default_grams: 70.0
+  default_carbs_g: 0.0
+  default_protein_g: 17.0
+  default_fat_g: 23.0
+  default_fiber_g: 0
+  default_kcal: 275.0
+  per_100g_kcal: 262.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 16.0
+  per_100g_fat_g: 22.0
+  image_url: null
+  aliases:
+  - экстра котлета гранд чиз
+  - ekstra kotleta grand chiz
+  - ekstra_kotleta_grand_chiz
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_kotleta_angus
+  display_name: Экстра Котлета Ангус
+  default_grams: 102.0
+  default_carbs_g: 0.0
+  default_protein_g: 24.0
+  default_fat_g: 32.0
+  default_fiber_g: 0
+  default_kcal: 380.0
+  per_100g_kcal: 254.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 16.3
+  per_100g_fat_g: 21.0
+  image_url: null
+  aliases:
+  - экстра котлета ангус
+  - ekstra kotleta angus
+  - ekstra_kotleta_angus
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_bekon
+  display_name: Экстра Бекон
+  default_grams: 16.3
+  default_carbs_g: 0.0
+  default_protein_g: 1.5
+  default_fat_g: 5.0
+  default_fiber_g: 0
+  default_kcal: 50.0
+  per_100g_kcal: 310.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 10.0
+  per_100g_fat_g: 30.0
+  image_url: null
+  aliases:
+  - экстра бекон
+  - ekstra bekon
+  - ekstra_bekon
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_krevetki
+  display_name: Экстра Креветки
+  default_grams: 32.0
+  default_carbs_g: 8.0
+  default_protein_g: 5.0
+  default_fat_g: 0.2
+  default_fiber_g: 0
+  default_kcal: 52.0
+  per_100g_kcal: 130.0
+  per_100g_carbs_g: 20.0
+  per_100g_protein_g: 12.0
+  per_100g_fat_g: 0.5
+  image_url: null
+  aliases:
+  - экстра креветки
+  - ekstra krevetki
+  - ekstra_krevetki
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_strips
+  display_name: Экстра Стрипс
+  default_grams: 40.0
+  default_carbs_g: 5.0
+  default_protein_g: 5.0
+  default_fat_g: 4.0
+  default_fiber_g: 0
+  default_kcal: 80.0
+  per_100g_kcal: 200.0
+  per_100g_carbs_g: 13.0
+  per_100g_protein_g: 13.0
+  per_100g_fat_g: 10.0
+  image_url: null
+  aliases:
+  - экстра стрипс
+  - ekstra strips
+  - ekstra_strips
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 122
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_syr
+  display_name: Экстра Сыр
+  default_grams: 10.5
+  default_carbs_g: 0.4
+  default_protein_g: 2.0
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 35.0
+  per_100g_kcal: 341.0
+  per_100g_carbs_g: 4.0
+  per_100g_protein_g: 19.0
+  per_100g_fat_g: 27.6
+  image_url: null
+  aliases:
+  - экстра сыр
+  - ekstra syr
+  - ekstra_syr
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_syr_dvoinoi
+  display_name: Экстра Сыр Двойной
+  default_grams: 21.0
+  default_carbs_g: 0.8
+  default_protein_g: 4.0
+  default_fat_g: 6.0
+  default_fiber_g: 0
+  default_kcal: 70.0
+  per_100g_kcal: 341.0
+  per_100g_carbs_g: 4.0
+  per_100g_protein_g: 19.0
+  per_100g_fat_g: 27.6
+  image_url: null
+  aliases:
+  - экстра сыр двойной
+  - ekstra syr dvoinoi
+  - ekstra_syr_dvoinoi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_parmezan
+  display_name: Экстра Пармезан
+  default_grams: 10.0
+  default_carbs_g: 0.0
+  default_protein_g: 3.0
+  default_fat_g: 2.5
+  default_fiber_g: 0
+  default_kcal: 35.0
+  per_100g_kcal: 327.0
+  per_100g_carbs_g: 0.0
+  per_100g_protein_g: 27.7
+  per_100g_fat_g: 24.0
+  image_url: null
+  aliases:
+  - экстра пармезан
+  - ekstra parmezan
+  - ekstra_parmezan
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_hrustyaschii_luk
+  display_name: Экстра Хрустящий Лук
+  default_grams: 7.0
+  default_carbs_g: 3.5
+  default_protein_g: 0.5
+  default_fat_g: 3.0
+  default_fiber_g: 0
+  default_kcal: 40.0
+  per_100g_kcal: 554.0
+  per_100g_carbs_g: 49.9
+  per_100g_protein_g: 5.5
+  per_100g_fat_g: 36.9
+  image_url: null
+  aliases:
+  - экстра хрустящий лук
+  - ekstra hrustyaschii luk
+  - ekstra_hrustyaschii_luk
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_salat_aisberg
+  display_name: Экстра Салат Айсберг
+  default_grams: 14.0
+  default_carbs_g: 0.3
+  default_protein_g: 0.2
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 2.0
+  per_100g_kcal: 16.0
+  per_100g_carbs_g: 2.0
+  per_100g_protein_g: 1.5
+  per_100g_fat_g: 0.2
+  image_url: null
+  aliases:
+  - экстра салат айсберг
+  - ekstra salat aisberg
+  - ekstra_salat_aisberg
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_pomidor
+  display_name: Экстра Помидор
+  default_grams: 17.5
+  default_carbs_g: 0.7
+  default_protein_g: 0.2
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 4.5
+  per_100g_kcal: 24.0
+  per_100g_carbs_g: 3.8
+  per_100g_protein_g: 1.1
+  per_100g_fat_g: 0.2
+  image_url: null
+  aliases:
+  - экстра помидор
+  - ekstra pomidor
+  - ekstra_pomidor
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_toping_shokoladnyi
+  display_name: Экстра Топинг Шоколадный
+  default_grams: 20.0
+  default_carbs_g: 9.5
+  default_protein_g: 0.5
+  default_fat_g: 1.0
+  default_fiber_g: 0
+  default_kcal: 50.0
+  per_100g_kcal: 261.0
+  per_100g_carbs_g: 48.3
+  per_100g_protein_g: 3.1
+  per_100g_fat_g: 6.2
+  image_url: null
+  aliases:
+  - экстра топинг шоколадный
+  - ekstra toping shokoladnyi
+  - ekstra_toping_shokoladnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_toping_klubnichnyi
+  display_name: Экстра Топинг Клубничный
+  default_grams: 20.0
+  default_carbs_g: 10.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 40.0
+  per_100g_kcal: 196.0
+  per_100g_carbs_g: 48.8
+  per_100g_protein_g: 0.1
+  per_100g_fat_g: 0.05
+  image_url: null
+  aliases:
+  - экстра топинг клубничный
+  - ekstra toping klubnichnyi
+  - ekstra_toping_klubnichnyi
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_frantsuzskaya_vanil_mal
+  display_name: Экстра Сироп «Французская Ваниль» Мал
+  default_grams: 10.0
+  default_carbs_g: 5.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 20.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 53.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «французская ваниль» мал
+  - ekstra sirop «frantsuzskaya vanil» mal
+  - ekstra_sirop_frantsuzskaya_vanil_mal
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 123
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_frantsuzskaya_vanil_stand
+  display_name: Экстра Сироп «Французская Ваниль» Станд
+  default_grams: 20.0
+  default_carbs_g: 10.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 40.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 53.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «французская ваниль» станд
+  - ekstra sirop «frantsuzskaya vanil» stand
+  - ekstra_sirop_frantsuzskaya_vanil_stand
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 124
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_frantsuzskaya_vanil_bol
+  display_name: Экстра Сироп «Французская Ваниль» Бол
+  default_grams: 30.0
+  default_carbs_g: 15.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 60.0
+  per_100g_kcal: 210.0
+  per_100g_carbs_g: 53.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «французская ваниль» бол
+  - ekstra sirop «frantsuzskaya vanil» bol
+  - ekstra_sirop_frantsuzskaya_vanil_bol
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 124
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_solenaya_karamel_mal
+  display_name: Экстра Сироп «Соленая Карамель» Мал
+  default_grams: 10.0
+  default_carbs_g: 6.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 25.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 60.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «соленая карамель» мал
+  - ekstra sirop «solenaya karamel» mal
+  - ekstra_sirop_solenaya_karamel_mal
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 124
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_solenaya_karamel_stand
+  display_name: Экстра Сироп «Соленая Карамель» Станд
+  default_grams: 20.0
+  default_carbs_g: 12.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 50.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 60.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «соленая карамель» станд
+  - ekstra sirop «solenaya karamel» stand
+  - ekstra_sirop_solenaya_karamel_stand
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 124
+  source_confidence: official_pdf
+  is_verified: false
+- key: ekstra_sirop_solenaya_karamel_bol
+  display_name: Экстра Сироп «Соленая Карамель» Бол
+  default_grams: 30.0
+  default_carbs_g: 18.0
+  default_protein_g: 0.0
+  default_fat_g: 0.0
+  default_fiber_g: 0
+  default_kcal: 75.0
+  per_100g_kcal: 240.0
+  per_100g_carbs_g: 60.0
+  per_100g_protein_g: 0.0
+  per_100g_fat_g: 0.0
+  image_url: null
+  aliases:
+  - экстра сироп «соленая карамель» бол
+  - ekstra sirop «solenaya karamel» bol
+  - ekstra_sirop_solenaya_karamel_bol
+  source_name: Burger King official PDF
+  source_url: https://burgerkingrus.ru/
+  source_file: 63751da2ff388af43630c54add8491b8f2df7568.pdf
+  source_page: 124
+  source_confidence: official_pdf
+  is_verified: false

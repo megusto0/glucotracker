@@ -1,0 +1,7 @@
+# Manual fallback for Вкусно и точка when official nutrition is unavailable.
+# Do not invent nutrition here. Add reviewed rows by hand and keep is_verified=false
+# until values are checked against an official or explicitly marked source.
+prefix: vit
+source_name: "Вкусно и точка manual fallback"
+source_url: "https://vkusnoitochka.ru/menu"
+items: []

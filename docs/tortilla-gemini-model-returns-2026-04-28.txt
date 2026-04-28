@@ -1,0 +1,300 @@
+Glucotracker - Gemini model returns for tortilla/lavash meal
+Date: 2026-04-28
+
+Source meal:
+- meal_id: 2ea7344b0b8d454eb0d68735944b99be
+- accepted title: Лаваш с курицей, овощами и майонезом
+- source photo_id: 1d3c368e-c886-44b1-8da9-b5387200c656
+- source filename: IMG20260428130533.jpg
+
+Important:
+- These values are photo estimates, not deterministic label calculations.
+- Backend stored the returned mid values as photo_estimate items.
+- The frontend/backend did not calculate the tortilla carbs from a visible label.
+
+================================================================================
+MODEL ATTEMPT SUMMARY
+================================================================================
+
+1. Initial route
+   Requested primary: gemini-2.5-flash
+   Result: failed twice with 503 UNAVAILABLE high demand.
+   Fallback used: gemini-3.1-flash-lite-preview
+   AI run id: fe572c7264584c338ef273ee247d0328
+   Saved state: accepted meal
+
+2. Re-estimate
+   Requested model: gemini-3-flash-preview
+   Model used: gemini-3-flash-preview
+   AI run id: 490b988517184e27a2d1c9e1348799fd
+   Saved state: saved as draft
+
+3. Re-estimate
+   Requested model: gemini-2.5-flash
+   Model used: gemini-2.5-flash
+   AI run id: 834d14c79f954a33bea247da8f089256
+   Saved state: saved as draft
+
+================================================================================
+1) gemini-3.1-flash-lite-preview fallback result
+================================================================================
+
+This was the fallback after gemini-2.5-flash returned 503 twice.
+
+Raw model item:
+- name: Tortilla with chicken, vegetables and mayonnaise
+- display_name_ru: Лаваш с курицей, овощами и майонезом
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 120 g
+- grams_mid: 150 g
+- grams_high: 180 g
+- carbs_g_low: 25 g
+- carbs_g_mid: 32 g
+- carbs_g_high: 40 g
+- protein_g_mid: 18 g
+- fat_g_mid: 12 g
+- fiber_g_mid: null
+- kcal_mid: 300 kcal
+- confidence: 0.75
+- confidence_reason: Visible components are identifiable, but weights are estimated based on typical portion size for a single open tortilla wrap.
+
+Assumptions returned:
+- Tortilla base is standard size (approx 40g)
+- Chicken portion is approximately 60-70g
+- Estimated vegetables and mayonnaise amount to 40-50g
+
+Evidence returned:
+- Tortilla wrap base
+- Breaded chicken pieces
+- Napa cabbage leaves
+- Tomato slices
+- Mayonnaise line
+
+Backend normalized accepted meal:
+- name: Лаваш с курицей, овощами и майонезом
+- grams: 150 g
+- carbs_g: 32 g
+- protein_g: 18 g
+- fat_g: 12 g
+- fiber_g: 0 g
+- kcal: 300 kcal
+
+Notes:
+- This is the current accepted estimate.
+- The 32 g carbs are the model's total mid estimate for the full wrap, not just the tortilla.
+- The model explicitly assumed a 40 g tortilla base.
+
+================================================================================
+2) gemini-3-flash-preview re-estimate result
+================================================================================
+
+Raw model item:
+- name: Chicken and Vegetable Wrap
+- display_name_ru: Лаваш с курицей и овощами
+- scenario: PLATED
+- item_type: plated_food
+- count_detected: 1
+- count_confidence: 0.9
+- grams_low: 160 g
+- grams_mid: 185 g
+- grams_high: 220 g
+- carbs_g_low: 30 g
+- carbs_g_mid: 38 g
+- carbs_g_high: 48 g
+- protein_g_mid: 19 g
+- fat_g_mid: 24 g
+- fiber_g_mid: 2 g
+- kcal_mid: 450 kcal
+- confidence: 0.75
+- confidence_reason: Все ингредиенты четко видны, а ручка рядом с блюдом позволяет сориентироваться в размерах порции.
+
+Assumptions returned:
+- Белый соус идентифицирован как майонезный
+- Курица считается обжаренной в небольшом количестве масла
+- Вес тортильи принят за стандартный (около 50г)
+- Клетчатка оценена на основе состава овощей
+
+Evidence returned:
+- Тортилья/лаваш
+- Жареная курица
+- Помидоры черри
+- Пекинская капуста
+- Белый соус
+- Ручка для масштаба
+
+Backend normalized draft:
+- draft meal_id: 2ac3102ed8ec4affb5ffb80edb97a702
+- title: Лаваш с курицей и овощами
+- status: draft
+- grams: 185 g
+- carbs_g: 38 g
+- protein_g: 19 g
+- fat_g: 24 g
+- fiber_g: 2 g
+- kcal: 450 kcal
+
+Notes:
+- This model kept the meal as one combined wrap item.
+- It estimated a larger portion than the fallback result.
+- The main increase is fat/kcal, likely from mayo/oil/fried chicken assumptions.
+
+================================================================================
+3) gemini-2.5-flash re-estimate result
+================================================================================
+
+This later 2.5 run succeeded and was saved as a draft.
+
+Created draft:
+- draft meal_id: 87582be006364cd29000737ee02e5cda
+- title: Переоценка · 5 позиции
+- status: draft
+- total_carbs_g: 58.3 g
+- total_protein_g: 30.95 g
+- total_fat_g: 49.69 g
+- total_fiber_g: 0 g
+- total_kcal: 804 kcal
+
+Raw/normalized items:
+
+3.1 Тортилья
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 60 g
+- grams_mid: 70 g
+- grams_high: 80 g
+- carbs_g_mid: 35 g
+- protein_g_mid: 5.6 g
+- fat_g_mid: 3.5 g
+- fiber_g_mid: null -> backend normalized to 0 g
+- kcal_mid: 194 kcal
+- confidence: 0.75
+- confidence_reason: Количество и тип продукта определены визуально с использованием ручки как объекта сравнения.
+- assumptions:
+  - Предполагается стандартный размер тортильи.
+  - Предполагаются средние питательные значения для тортильи.
+- evidence:
+  - Видна одна тортилья
+  - Видна ручка рядом как объект сравнения
+
+3.2 Жареная курица
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 100 g
+- grams_mid: 120 g
+- grams_high: 140 g
+- carbs_g_mid: 18 g
+- protein_g_mid: 24 g
+- fat_g_mid: 18 g
+- fiber_g_mid: null -> backend normalized to 0 g
+- kcal_mid: 330 kcal
+- confidence: 0.70
+- confidence_reason: Количество и тип продукта определены визуально с использованием ручки как объекта сравнения.
+- assumptions:
+  - Предполагаются средние питательные значения для жареной курицы.
+  - Предполагается стандартный размер порции.
+- evidence:
+  - Видны кусочки жареной курицы
+  - Видна ручка рядом как объект сравнения
+
+3.3 Салат Айсберг
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 20 g
+- grams_mid: 25 g
+- grams_high: 30 g
+- carbs_g_mid: 0.5 g
+- protein_g_mid: 0.25 g
+- fat_g_mid: 0.05 g
+- fiber_g_mid: null -> backend normalized to 0 g
+- kcal_mid: 3 kcal
+- confidence: 0.75
+- confidence_reason: Количество и тип продукта определены визуально с использованием ручки как объекта сравнения.
+- assumptions:
+  - Предполагаются средние питательные значения для салата.
+  - Предполагается стандартный размер порции.
+- evidence:
+  - Видны листья салата
+  - Видна ручка рядом как объект сравнения
+
+3.4 Помидоры
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 60 g
+- grams_mid: 70 g
+- grams_high: 80 g
+- carbs_g_mid: 2.8 g
+- protein_g_mid: 0.7 g
+- fat_g_mid: 0.14 g
+- fiber_g_mid: null -> backend normalized to 0 g
+- kcal_mid: 15 kcal
+- confidence: 0.75
+- confidence_reason: Количество и тип продукта определены визуально с использованием ручки как объекта сравнения.
+- assumptions:
+  - Предполагаются средние питательные значения для помидоров.
+  - Предполагается стандартный размер порции.
+- evidence:
+  - Видны нарезанные помидоры
+  - Видна ручка рядом как объект сравнения
+
+3.5 Белый соус
+- scenario: PLATED
+- item_type: plated_food
+- grams_low: 30 g
+- grams_mid: 40 g
+- grams_high: 50 g
+- carbs_g_mid: 2 g
+- protein_g_mid: 0.4 g
+- fat_g_mid: 28 g
+- fiber_g_mid: null -> backend normalized to 0 g
+- kcal_mid: 262 kcal
+- confidence: 0.65
+- confidence_reason: Количество и тип соуса определены визуально с использованием ручки как объекта сравнения. Тип соуса является предположением.
+- assumptions:
+  - Предполагается, что соус - майонез или аналогичная сливочная заправка.
+  - Предполагаются средние питательные значения для сливочного соуса.
+  - Предполагается стандартный размер порции.
+- evidence:
+  - Виден белый кремовый соус
+  - Видна ручка рядом как объект сравнения
+
+Notes:
+- Gemini 2.5 split the wrap into 5 separate ingredient items.
+- The high total is mostly caused by:
+  - Тортилья: 70 g -> 35 g carbs
+  - Белый соус: 40 g -> 28 g fat / 262 kcal
+- This is why the 2.5 draft total jumps to 804 kcal.
+
+================================================================================
+COMPARISON
+================================================================================
+
+Accepted current estimate:
+- model used: gemini-3.1-flash-lite-preview fallback
+- one combined item
+- 150 g
+- 32 g carbs
+- 18 g protein
+- 12 g fat
+- 300 kcal
+
+Gemini 3 Flash re-estimate:
+- one combined item
+- 185 g
+- 38 g carbs
+- 19 g protein
+- 24 g fat
+- 450 kcal
+
+Gemini 2.5 Flash re-estimate:
+- five separate ingredient items
+- 325 g combined item grams
+- 58.3 g carbs
+- 30.95 g protein
+- 49.69 g fat
+- 804 kcal
+
+Practical reading:
+- The accepted fallback estimate is the most conservative.
+- Gemini 3 Flash increased portion size and fat but still kept one coherent meal.
+- Gemini 2.5 Flash over-split the food and likely inflated tortilla carbs and sauce fat.
