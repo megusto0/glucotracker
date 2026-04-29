@@ -1,7 +1,9 @@
 """Application configuration loaded from environment variables."""
 
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -88,12 +90,32 @@ class Settings(BaseSettings):
             "GLUCOTRACKER_NIGHTSCOUT_TOKEN",
         ),
     )
+    app_timezone: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APP_TIMEZONE", "GLUCOTRACKER_APP_TIMEZONE"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=(BACKEND_DIR / ".env", ".env"),
         env_prefix="GLUCOTRACKER_",
         extra="ignore",
     )
+
+    @property
+    def local_zoneinfo(self) -> ZoneInfo:
+        """Return the configured app timezone or the host local timezone."""
+        if self.app_timezone:
+            try:
+                return ZoneInfo(self.app_timezone)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError(
+                    f"Unknown APP_TIMEZONE value: {self.app_timezone}"
+                ) from exc
+
+        local_tz = datetime.now().astimezone().tzinfo
+        if isinstance(local_tz, ZoneInfo):
+            return local_tz
+        return ZoneInfo("UTC")
 
 
 @lru_cache

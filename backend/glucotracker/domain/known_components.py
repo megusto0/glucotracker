@@ -48,6 +48,8 @@ KNOWN_COMPONENT_TERMS = {
 
 MATCH_STOPWORDS = {
     "and",
+    "base",
+    "component",
     "for",
     "from",
     "the",
@@ -65,7 +67,9 @@ MATCH_STOPWORDS = {
     "г",
     "гр",
     "из",
+    "компонент",
     "к",
+    "основа",
     "с",
     "у",
     "в",

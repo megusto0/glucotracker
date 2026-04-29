@@ -54,6 +54,15 @@ class PhotoScenario(StrEnum):
     unknown = "unknown"
 
 
+class NightscoutSyncStatus(StrEnum):
+    """Local Nightscout synchronization state for one meal."""
+
+    not_synced = "not_synced"
+    synced = "synced"
+    failed = "failed"
+    skipped = "skipped"
+
+
 @dataclass(frozen=True)
 class ValidationWarning:
     """Pure-domain warning raised by nutrition consistency checks."""

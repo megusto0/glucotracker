@@ -562,6 +562,9 @@ class MealResponse(BaseModel):
     confidence: float | None = None
     nightscout_synced_at: datetime | None = None
     nightscout_id: str | None = None
+    nightscout_sync_status: str = "not_synced"
+    nightscout_sync_error: str | None = None
+    nightscout_last_attempt_at: datetime | None = None
     thumbnail_url: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -888,11 +891,53 @@ class AutocompleteSuggestion(BaseModel):
     matched_alias: str | None = None
 
 
+class NightscoutSettingsPatch(BaseModel):
+    """Update server-side Nightscout settings."""
+
+    nightscout_enabled: bool | None = None
+    nightscout_url: str | None = None
+    nightscout_api_secret: str | None = None
+    sync_glucose: bool | None = None
+    show_glucose_in_journal: bool | None = None
+    import_insulin_events: bool | None = None
+    allow_meal_send: bool | None = None
+    confirm_before_send: bool | None = None
+    autosend_meals: bool | None = None
+
+
+class NightscoutSettingsResponse(BaseModel):
+    """Masked server-side Nightscout settings response."""
+
+    enabled: bool
+    configured: bool
+    connected: bool
+    url: str | None = None
+    secret_is_set: bool
+    last_status_check_at: datetime | None = None
+    last_error: str | None = None
+    sync_glucose: bool
+    show_glucose_in_journal: bool
+    import_insulin_events: bool
+    allow_meal_send: bool
+    confirm_before_send: bool
+    autosend_meals: bool
+
+
 class NightscoutStatusResponse(BaseModel):
     """Nightscout optional integration status."""
 
     configured: bool
     status: dict[str, Any] | None = None
+
+
+class NightscoutTestResponse(BaseModel):
+    """Nightscout connection test result."""
+
+    ok: bool
+    status: dict[str, Any] | None = None
+    server_name: str | None = None
+    version: str | None = None
+    error: str | None = None
 
 
 class NightscoutSyncResponse(BaseModel):
@@ -901,7 +946,79 @@ class NightscoutSyncResponse(BaseModel):
     synced: bool
     nightscout_id: str | None = None
     nightscout_synced_at: datetime | None = None
+    nightscout_sync_status: str | None = None
+    nightscout_sync_error: str | None = None
     response: dict[str, Any] | None = None
+
+
+class NightscoutSyncTodayRequest(BaseModel):
+    """Request to manually sync one diary day to Nightscout."""
+
+    date: date_type
+    confirm: bool = True
+
+
+class NightscoutSyncTodayMealResult(BaseModel):
+    """Result for one meal in a day sync run."""
+
+    meal_id: UUID
+    title: str | None = None
+    status: Literal["sent", "skipped", "failed"]
+    nightscout_id: str | None = None
+    error: str | None = None
+
+
+class NightscoutSyncTodayResponse(BaseModel):
+    """Manual day sync summary."""
+
+    date: date_type
+    total_candidates: int
+    sent_count: int
+    skipped_count: int
+    failed_count: int
+    results: list[NightscoutSyncTodayMealResult]
+
+
+class NightscoutDayStatusResponse(BaseModel):
+    """Nightscout sync status for one diary day."""
+
+    date: date_type
+    connected: bool
+    configured: bool
+    accepted_meals_count: int
+    unsynced_meals_count: int
+    synced_meals_count: int
+    failed_meals_count: int
+    last_sync_at: datetime | None = None
+
+
+class NightscoutGlucoseEntryResponse(BaseModel):
+    """Read-only Nightscout glucose entry normalized for UI context."""
+
+    timestamp: datetime
+    value: float
+    unit: str = "mmol/L"
+    trend: str | None = None
+    source: str | None = None
+
+
+class NightscoutInsulinEventResponse(BaseModel):
+    """Read-only Nightscout insulin event."""
+
+    timestamp: datetime
+    insulin_units: float | None = None
+    eventType: str | None = None
+    insulin_type: str | None = None
+    enteredBy: str | None = None
+    notes: str | None = None
+    nightscout_id: str | None = None
+
+
+class NightscoutEventsResponse(BaseModel):
+    """Combined read-only Nightscout context events."""
+
+    glucose: list[NightscoutGlucoseEntryResponse]
+    insulin: list[NightscoutInsulinEventResponse]
 
 
 class AdminRecalculateResponse(BaseModel):

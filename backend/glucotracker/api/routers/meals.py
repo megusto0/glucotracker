@@ -25,7 +25,9 @@ from glucotracker.api.schemas import (
     ProductResponse,
     RememberProductRequest,
 )
-from glucotracker.domain.drafts import accept_meal_draft, discard_meal_draft
+from glucotracker.application.daily_totals import DailyTotalsService
+from glucotracker.application.meal_drafts import MealDraftService
+from glucotracker.application.product_memory import ProductMemoryService
 from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
 from glucotracker.domain.nutrients import (
     DEFAULT_NUTRIENT_DEFINITIONS,
@@ -36,6 +38,7 @@ from glucotracker.domain.nutrients import (
 )
 from glucotracker.domain.nutrition import (
     calculate_item_from_per_100g,
+    calculate_label_item_totals,
     calculate_meal_totals,
     compute_meal_confidence,
     validate_macros_consistency,
@@ -48,11 +51,8 @@ from glucotracker.infra.db.models import (
     Pattern,
     Photo,
     Product,
-    ProductAlias,
     utc_now,
 )
-from glucotracker.infra.db.product_merge import merge_duplicate_source_photo_products
-from glucotracker.workers.daily_totals import schedule_and_recalculate
 
 router = APIRouter(
     tags=["meals"],
@@ -332,6 +332,127 @@ def _apply_product_database_values(session: SessionDep, item: MealItem) -> None:
         product.image_url = _product_image_url_from_history(session, product.id)
 
 
+def _label_item_weight_or_volume(
+    facts: dict[str, object],
+    *,
+    use_assumed_size: bool,
+) -> tuple[float | None, float | None]:
+    """Return label weight/volume evidence for backend recalculation."""
+    weight_key = "assumed_weight_g" if use_assumed_size else "visible_weight_g"
+    volume_key = "assumed_volume_ml" if use_assumed_size else "visible_volume_ml"
+    weight_g = _as_float(facts.get(weight_key)) or _as_float(
+        facts.get("visible_weight_g")
+    )
+    volume_ml = _as_float(facts.get(volume_key)) or _as_float(
+        facts.get("visible_volume_ml")
+    )
+    return weight_g, volume_ml
+
+
+def _scale_item_from_per_100ml(
+    facts: dict[str, object],
+    volume_ml: float,
+) -> dict[str, float]:
+    """Scale per-100ml label facts to a concrete drink volume."""
+    scale = volume_ml / 100.0
+    carbs_g = (_as_float(facts.get("carbs_per_100ml")) or 0.0) * scale
+    protein_g = (_as_float(facts.get("protein_per_100ml")) or 0.0) * scale
+    fat_g = (_as_float(facts.get("fat_per_100ml")) or 0.0) * scale
+    fiber_g = (_as_float(facts.get("fiber_per_100ml")) or 0.0) * scale
+    kcal_per_100ml = _as_float(facts.get("kcal_per_100ml"))
+    kcal = (
+        kcal_per_100ml * scale
+        if kcal_per_100ml is not None
+        else carbs_g * 4 + protein_g * 4 + fat_g * 9
+    )
+    return {
+        "grams": volume_ml,
+        "carbs_g": carbs_g,
+        "protein_g": protein_g,
+        "fat_g": fat_g,
+        "fiber_g": fiber_g,
+        "kcal": kcal,
+    }
+
+
+def _label_totals_from_evidence(item: MealItem) -> dict[str, float | None] | None:
+    """Recalculate label item totals from evidence instead of trusting clients."""
+    source_kind = getattr(item.source_kind, "value", item.source_kind)
+    if source_kind != ItemSourceKind.label_calc.value and not (
+        item.calculation_method or ""
+    ).startswith("label_"):
+        return None
+    if not isinstance(item.evidence, dict):
+        return None
+
+    facts = item.evidence.get("extracted_facts")
+    use_assumed_size = "assumed" in (item.calculation_method or "")
+    if isinstance(facts, dict):
+        weight_g, volume_ml = _label_item_weight_or_volume(
+            facts,
+            use_assumed_size=use_assumed_size,
+        )
+        if weight_g is not None and _as_float(facts.get("carbs_per_100g")) is not None:
+            scaled = calculate_item_from_per_100g(
+                _as_float(facts.get("carbs_per_100g")),
+                _as_float(facts.get("protein_per_100g")),
+                _as_float(facts.get("fat_per_100g")),
+                _as_float(facts.get("fiber_per_100g")),
+                _as_float(facts.get("kcal_per_100g")),
+                weight_g,
+            )
+            return {
+                "grams": float(scaled["grams"]),
+                "carbs_g": float(scaled["carbs_g"]),
+                "protein_g": float(scaled["protein_g"]),
+                "fat_g": float(scaled["fat_g"]),
+                "fiber_g": float(scaled["fiber_g"]),
+                "kcal": float(scaled["kcal"]),
+            }
+        if (
+            volume_ml is not None
+            and _as_float(facts.get("carbs_per_100ml")) is not None
+        ):
+            return _scale_item_from_per_100ml(facts, volume_ml)
+
+    nutrition_per_100g = item.evidence.get("nutrition_per_100g")
+    if not isinstance(nutrition_per_100g, dict):
+        return None
+
+    total_weight_g = _as_float(item.evidence.get("total_weight_g"))
+    net_weight_per_unit_g = _as_float(item.evidence.get("net_weight_per_unit_g"))
+    count_detected = _as_float(item.evidence.get("count_detected"))
+    if total_weight_g is not None:
+        net_weight_per_unit_g = total_weight_g
+        count_detected = 1
+    if net_weight_per_unit_g is None or count_detected is None:
+        return None
+
+    totals = calculate_label_item_totals(
+        nutrition_per_100g,
+        net_weight_per_unit_g,
+        int(count_detected),
+    )
+    return {
+        "grams": totals["total_weight_g"],
+        "carbs_g": totals["carbs_g"],
+        "protein_g": totals["protein_g"],
+        "fat_g": totals["fat_g"],
+        "fiber_g": totals["fiber_g"],
+        "kcal": totals["kcal"],
+    }
+
+
+def _apply_label_database_values(item: MealItem) -> None:
+    """Keep accepted label items aligned with backend-owned label math."""
+    values = _label_totals_from_evidence(item)
+    if values is None:
+        return
+    for field, value in values.items():
+        if value is not None:
+            setattr(item, field, float(value))
+
+
 def _build_item(
     payload: MealItemCreate,
     meal_id: UUID,
@@ -340,6 +461,7 @@ def _build_item(
     """Build a meal item ORM object from an API payload."""
     item = MealItem(meal_id=meal_id, **payload.model_dump(exclude={"nutrients"}))
     _apply_product_database_values(session, item)
+    _apply_label_database_values(item)
     item.warnings = list(payload.warnings) + _warning_payload(item)
     source_nutrients = _source_nutrients_for_item(session, item)
     payload_nutrients = normalize_nutrients_object(
@@ -413,300 +535,6 @@ def _as_float(value: object) -> float | None:
         return None
 
 
-def _item_evidence(item: MealItem) -> dict:
-    """Return an item's evidence as a mapping."""
-    return item.evidence if isinstance(item.evidence, dict) else {}
-
-
-def _nutrition_per_100g_from_evidence(item: MealItem) -> dict[str, float | None]:
-    """Extract per-100g label facts from a label-calculated item."""
-    evidence = _item_evidence(item)
-    nutrition_per_100g = evidence.get("nutrition_per_100g")
-    if isinstance(nutrition_per_100g, dict):
-        return {
-            "carbs_per_100g": _as_float(nutrition_per_100g.get("carbs_g")),
-            "protein_per_100g": _as_float(nutrition_per_100g.get("protein_g")),
-            "fat_per_100g": _as_float(nutrition_per_100g.get("fat_g")),
-            "fiber_per_100g": _as_float(nutrition_per_100g.get("fiber_g")),
-            "kcal_per_100g": _as_float(nutrition_per_100g.get("kcal")),
-        }
-
-    extracted_facts = evidence.get("extracted_facts")
-    if isinstance(extracted_facts, dict):
-        return {
-            "carbs_per_100g": _as_float(extracted_facts.get("carbs_per_100g")),
-            "protein_per_100g": _as_float(extracted_facts.get("protein_per_100g")),
-            "fat_per_100g": _as_float(extracted_facts.get("fat_per_100g")),
-            "fiber_per_100g": _as_float(extracted_facts.get("fiber_per_100g")),
-            "kcal_per_100g": _as_float(extracted_facts.get("kcal_per_100g")),
-        }
-    return {}
-
-
-def _default_label_serving_size(item: MealItem) -> float | None:
-    """Return the best default package or serving size for a label item."""
-    evidence = _item_evidence(item)
-    for key in ("net_weight_per_unit_g", "total_weight_g"):
-        value = _as_float(evidence.get(key))
-        if value is not None:
-            return value
-
-    extracted_facts = evidence.get("extracted_facts")
-    if isinstance(extracted_facts, dict):
-        for key in (
-            "visible_weight_g",
-            "assumed_weight_g",
-            "visible_volume_ml",
-            "assumed_volume_ml",
-        ):
-            value = _as_float(extracted_facts.get(key))
-            if value is not None:
-                return value
-    return item.grams
-
-
-def _per_serving_label_values(
-    item: MealItem,
-    nutrition_per_100g: dict[str, float | None],
-    default_grams: float | None,
-) -> dict[str, float | None]:
-    """Calculate per-serving product values from accepted label facts."""
-    if default_grams is None or not any(
-        value is not None for value in nutrition_per_100g.values()
-    ):
-        return {
-            "carbs_per_serving": item.carbs_g,
-            "protein_per_serving": item.protein_g,
-            "fat_per_serving": item.fat_g,
-            "fiber_per_serving": item.fiber_g,
-            "kcal_per_serving": item.kcal,
-        }
-
-    scale = default_grams / 100
-    return {
-        "carbs_per_serving": (
-            round(nutrition_per_100g["carbs_per_100g"] * scale, 1)
-            if nutrition_per_100g.get("carbs_per_100g") is not None
-            else None
-        ),
-        "protein_per_serving": (
-            round(nutrition_per_100g["protein_per_100g"] * scale, 1)
-            if nutrition_per_100g.get("protein_per_100g") is not None
-            else None
-        ),
-        "fat_per_serving": (
-            round(nutrition_per_100g["fat_per_100g"] * scale, 1)
-            if nutrition_per_100g.get("fat_per_100g") is not None
-            else None
-        ),
-        "fiber_per_serving": (
-            round(nutrition_per_100g["fiber_per_100g"] * scale, 1)
-            if nutrition_per_100g.get("fiber_per_100g") is not None
-            else None
-        ),
-        "kcal_per_serving": (
-            round(nutrition_per_100g["kcal_per_100g"] * scale)
-            if nutrition_per_100g.get("kcal_per_100g") is not None
-            else None
-        ),
-    }
-
-
-def _label_product_aliases(item: MealItem) -> list[str]:
-    """Return aliases that make a remembered label item searchable."""
-    aliases = [item.name, item.name.casefold()]
-    if item.brand:
-        aliases.append(f"{item.brand} {item.name}")
-        aliases.append(f"{item.brand} {item.name}".casefold())
-    lowered = item.name.casefold()
-    if "сырок" in lowered:
-        aliases.extend(["сырок", "глазированный сырок", "творожный сырок"])
-    if "бисквит" in lowered and ("сэндвич" in lowered or "сандвич" in lowered):
-        aliases.extend(["бисквит", "бисквит-сэндвич", "сэндвич"])
-    return aliases
-
-
-def _merge_product_aliases(product: Product, aliases: list[str]) -> None:
-    """Append new aliases without removing existing user-entered aliases."""
-    existing = {alias.alias.casefold() for alias in product.aliases}
-    for alias in aliases:
-        normalized = alias.strip()
-        if not normalized or normalized.casefold() in existing:
-            continue
-        product.aliases.append(ProductAlias(alias=normalized))
-        existing.add(normalized.casefold())
-
-
-def _product_response(product: Product) -> ProductResponse:
-    """Convert a product row into an API response."""
-    return ProductResponse.model_validate(
-        {
-            "id": product.id,
-            "barcode": product.barcode,
-            "brand": product.brand,
-            "name": product.name,
-            "default_grams": product.default_grams,
-            "default_serving_text": product.default_serving_text,
-            "carbs_per_100g": product.carbs_per_100g,
-            "protein_per_100g": product.protein_per_100g,
-            "fat_per_100g": product.fat_per_100g,
-            "fiber_per_100g": product.fiber_per_100g,
-            "kcal_per_100g": product.kcal_per_100g,
-            "carbs_per_serving": product.carbs_per_serving,
-            "protein_per_serving": product.protein_per_serving,
-            "fat_per_serving": product.fat_per_serving,
-            "fiber_per_serving": product.fiber_per_serving,
-            "kcal_per_serving": product.kcal_per_serving,
-            "source_kind": product.source_kind,
-            "source_url": product.source_url,
-            "image_url": product.image_url,
-            "nutrients_json": product.nutrients_json,
-            "usage_count": product.usage_count,
-            "last_used_at": product.last_used_at,
-            "created_at": product.created_at,
-            "updated_at": product.updated_at,
-            "aliases": [alias.alias for alias in product.aliases],
-        }
-    )
-
-
-def _nutrients_json_from_item(item: MealItem) -> dict:
-    """Copy confirmed item nutrients into a remembered product record."""
-    return {
-        nutrient.nutrient_code: {
-            "amount": nutrient.amount,
-            "unit": nutrient.unit,
-            "source_kind": nutrient.source_kind,
-            "confidence": nutrient.confidence,
-            "evidence_json": nutrient.evidence_json,
-            "assumptions_json": nutrient.assumptions_json,
-        }
-        for nutrient in item.nutrients
-    }
-
-
-def _find_existing_label_product(session: SessionDep, item: MealItem) -> Product | None:
-    """Find a product row that should be updated by an accepted label item."""
-    if item.product_id is not None:
-        product = session.scalar(
-            select(Product)
-            .where(Product.id == item.product_id)
-            .options(selectinload(Product.aliases))
-        )
-        if product is not None:
-            return product
-
-    evidence = _item_evidence(item)
-    barcode = evidence.get("identified_barcode")
-    if barcode:
-        product = session.scalar(
-            select(Product)
-            .where(Product.barcode == str(barcode))
-            .options(selectinload(Product.aliases))
-        )
-        if product is not None:
-            return product
-
-    image_url = _photo_file_url(item.photo_id) or _first_meal_photo_url(
-        session,
-        item.meal_id,
-    )
-    if image_url:
-        product = session.scalar(
-            select(Product)
-            .where(Product.image_url == image_url)
-            .options(selectinload(Product.aliases))
-        )
-        if product is not None:
-            return product
-
-    if not item.name.strip():
-        return None
-    filters = [Product.name == item.name]
-    if item.brand is None:
-        filters.append(Product.brand.is_(None))
-    else:
-        filters.append(Product.brand == item.brand)
-    return session.scalar(
-        select(Product).where(*filters).options(selectinload(Product.aliases))
-    )
-
-
-def _remember_label_item_as_product(session: SessionDep, item: MealItem) -> None:
-    """Persist an accepted label-calculated meal item into the product database."""
-    is_label_item = item.source_kind == ItemSourceKind.label_calc or (
-        item.calculation_method or ""
-    ).startswith("label_")
-    if not is_label_item or not item.name.strip():
-        return
-
-    nutrition_per_100g = _nutrition_per_100g_from_evidence(item)
-    default_grams = _default_label_serving_size(item)
-    serving_values = _per_serving_label_values(
-        item,
-        nutrition_per_100g,
-        default_grams,
-    )
-    evidence = _item_evidence(item)
-    barcode = evidence.get("identified_barcode")
-    nutrients_json = _nutrients_json_from_item(item)
-    image_url = _photo_file_url(item.photo_id) or _first_meal_photo_url(
-        session,
-        item.meal_id,
-    )
-    product = _find_existing_label_product(session, item)
-
-    product_values = {
-        "barcode": str(barcode) if barcode else None,
-        "brand": item.brand,
-        "name": item.name,
-        "default_grams": default_grams,
-        "default_serving_text": (
-            "1 упаковка"
-            if evidence.get("net_weight_per_unit_g") is not None
-            else item.serving_text
-        ),
-        **nutrition_per_100g,
-        **serving_values,
-        "source_kind": "label_calc",
-        "image_url": image_url,
-        "nutrients_json": nutrients_json,
-    }
-
-    if product is None:
-        product = Product(
-            **{
-                key: value
-                for key, value in product_values.items()
-                if value is not None or key in {"name", "source_kind", "nutrients_json"}
-            }
-        )
-        session.add(product)
-    else:
-        for key, value in product_values.items():
-            if value is not None or key in {"name", "source_kind"}:
-                setattr(product, key, value)
-        if image_url and not product.image_url:
-            product.image_url = image_url
-        if nutrients_json:
-            product.nutrients_json = nutrients_json
-        product.updated_at = utc_now()
-
-    _merge_product_aliases(product, _label_product_aliases(item))
-    session.flush()
-    item.product_id = product.id
-    merge_duplicate_source_photo_products(session, product)
-
-
-def _remember_label_items_as_products(
-    session: SessionDep,
-    items: list[MealItem],
-) -> None:
-    """Persist accepted label-calculated items into the local product database."""
-    for item in items:
-        _remember_label_item_as_product(session, item)
-
-
 @router.post(
     "/meals",
     response_model=MealResponse,
@@ -729,7 +557,7 @@ def create_meal(payload: MealCreate, session: SessionDep) -> Meal:
     for item in meal.items:
         _increment_usage_counters(session, item)
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
 
     session.commit()
     return _meal_response(session, meal.id)
@@ -807,7 +635,7 @@ def patch_meal(meal_id: UUID, payload: MealPatch, session: SessionDep) -> Meal:
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(meal, field, value)
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [old_eaten_at, meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([old_eaten_at, meal.eaten_at])
 
     session.commit()
     return _meal_response(session, meal.id)
@@ -824,7 +652,7 @@ def delete_meal(meal_id: UUID, session: SessionDep) -> DeleteResponse:
     eaten_at = meal.eaten_at
     session.delete(meal)
     session.flush()
-    schedule_and_recalculate(session, [eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([eaten_at])
     session.commit()
     return DeleteResponse(deleted=True)
 
@@ -846,7 +674,7 @@ def add_meal_item(
     meal.items.append(item)
     _increment_usage_counters(session, item)
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
 
     session.commit()
     session.refresh(item)
@@ -871,7 +699,7 @@ def patch_meal_item(
     if "pattern_id" in changed_fields or "product_id" in changed_fields:
         _increment_usage_counters(session, item)
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
 
     session.commit()
     session.refresh(item)
@@ -890,27 +718,10 @@ def remember_product_from_meal_item(
 ) -> ProductResponse:
     """Persist a confirmed label item into the local product database."""
     item = _get_item(session, item_id)
-    _remember_label_item_as_product(session, item)
-    if item.product_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Meal item does not contain enough label data to remember.",
-        )
-
-    product = session.scalar(
-        select(Product)
-        .where(Product.id == item.product_id)
-        .options(selectinload(Product.aliases))
-    )
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found.",
-        )
-    _merge_product_aliases(product, payload.aliases)
-    product.updated_at = utc_now()
+    product_memory = ProductMemoryService(session)
+    product = product_memory.remember_item(item, payload.aliases)
     session.commit()
-    return _product_response(product)
+    return product_memory.response(product)
 
 
 @router.delete(
@@ -925,7 +736,7 @@ def delete_meal_item(item_id: UUID, session: SessionDep) -> DeleteResponse:
     meal.items = [existing for existing in meal.items if existing.id != item.id]
     session.flush()
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
 
     session.commit()
     return DeleteResponse(deleted=True)
@@ -948,7 +759,7 @@ def replace_meal_items(
         item.position = position
         _increment_usage_counters(session, item)
     _recalculate_meal(meal)
-    schedule_and_recalculate(session, [meal.eaten_at])
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
 
     session.commit()
     return _meal_response(session, meal.id)
@@ -967,12 +778,10 @@ def accept_meal(
     """Accept a draft by atomically replacing Gemini-suggested items."""
     meal = _get_meal(session, meal_id)
     final_items = [_build_item(item, meal.id, session) for item in payload.items]
-    _remember_label_items_as_products(session, final_items)
+    ProductMemoryService(session).remember_items(final_items)
     for item in final_items:
         _increment_usage_counters(session, item)
-    accept_meal_draft(meal, final_items)
-    session.flush()
-    schedule_and_recalculate(session, [meal.eaten_at])
+    MealDraftService(session).accept(meal, final_items)
 
     session.commit()
     return _meal_response(session, meal.id)
@@ -986,9 +795,7 @@ def accept_meal(
 def discard_meal(meal_id: UUID, session: SessionDep) -> Meal:
     """Discard a meal draft."""
     meal = _get_meal(session, meal_id)
-    eaten_at = meal.eaten_at
-    discard_meal_draft(meal)
-    schedule_and_recalculate(session, [eaten_at])
+    MealDraftService(session).discard(meal)
 
     session.commit()
     return _meal_response(session, meal.id)

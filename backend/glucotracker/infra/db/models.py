@@ -30,6 +30,7 @@ from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
     MealStatus,
+    NightscoutSyncStatus,
     PhotoReferenceKind,
     PhotoScenario,
 )
@@ -132,6 +133,18 @@ class Meal(Base, TimestampMixin):
         nullable=True,
     )
     nightscout_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    nightscout_sync_status: Mapped[NightscoutSyncStatus] = enum_column(
+        NightscoutSyncStatus,
+        "nightscout_sync_status",
+        default=NightscoutSyncStatus.not_synced,
+        server_default=NightscoutSyncStatus.not_synced.value,
+        nullable=False,
+    )
+    nightscout_sync_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    nightscout_last_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     items: Mapped[list[MealItem]] = relationship(
         back_populates="meal",
@@ -680,6 +693,63 @@ class DailyTotal(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+
+
+class NightscoutSettings(Base, TimestampMixin):
+    """Server-side Nightscout connection and display settings."""
+
+    __tablename__ = "nightscout_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    api_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    sync_glucose: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+    show_glucose_in_journal: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+    import_insulin_events: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+    allow_meal_send: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+    confirm_before_send: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+    autosend_meals: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )
+    last_status_check_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class AIRun(Base):

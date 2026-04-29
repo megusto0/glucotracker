@@ -21,9 +21,13 @@ export function useMeals() {
 }
 
 export function useTodayMeals() {
+  return useMealsForDate(new Date());
+}
+
+export function useMealsForDate(date: Date) {
   const config = useApiConfig();
-  const start = toLocalDateTimeString(startOfLocalDay(new Date()));
-  const end = toLocalDateTimeString(addDays(new Date(), 1));
+  const start = toLocalDateTimeString(startOfLocalDay(date));
+  const end = toLocalDateTimeString(addDays(date, 1));
 
   return useQuery({
     queryKey: queryKeys.meals({ from: start, to: end, limit: 100, offset: 0 }),

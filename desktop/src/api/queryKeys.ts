@@ -14,4 +14,9 @@ export const queryKeys = {
   dashboardDataQuality: (days: number) =>
     ["dashboard", "data-quality", days] as const,
   nightscoutStatus: ["nightscout", "status"] as const,
+  nightscoutSettings: ["nightscout", "settings"] as const,
+  nightscoutDayStatus: (date: string) =>
+    ["nightscout", "day-status", date] as const,
+  nightscoutEvents: (from: string, to: string) =>
+    ["nightscout", "events", from, to] as const,
 };

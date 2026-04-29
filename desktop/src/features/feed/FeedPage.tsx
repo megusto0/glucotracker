@@ -13,6 +13,12 @@ import {
   RightPanel,
   SelectedMealPanel,
 } from "../meals/MealLedger";
+import {
+  useNightscoutEvents,
+  useNightscoutSettings,
+  useResyncMealToNightscout,
+  useSyncMealToNightscout,
+} from "../nightscout/useNightscout";
 import { useApiConfig } from "../settings/settingsStore";
 import {
   buildFeedMealQuery,
@@ -70,6 +76,15 @@ const groupMealsByDay = (meals: MealResponse[]): DayGroup[] => {
   return Array.from(groups.values());
 };
 
+const eventRange = (filters: FeedFilters) => {
+  const now = new Date();
+  const from = filters.from
+    ? new Date(`${filters.from}T00:00:00`)
+    : new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const to = filters.to ? new Date(`${filters.to}T23:59:59`) : now;
+  return { from: from.toISOString(), to: to.toISOString() };
+};
+
 const uniqueSortedMeals = (pages: MealResponse[][]) => {
   const byId = new Map<string, MealResponse>();
   pages.flat().forEach((meal) => {
@@ -93,6 +108,15 @@ export function FeedPage() {
     status: "active",
     to: "",
   });
+  const range = useMemo(() => eventRange(filters), [filters.from, filters.to]);
+  const nightscoutSettings = useNightscoutSettings();
+  const nightscoutEvents = useNightscoutEvents(
+    range.from,
+    range.to,
+    Boolean(nightscoutSettings.data?.configured),
+  );
+  const syncMealNightscout = useSyncMealToNightscout();
+  const resyncMealNightscout = useResyncMealToNightscout();
 
   const feed = useInfiniteQuery({
     queryKey: queryKeys.feedMeals(filters),
@@ -294,6 +318,12 @@ export function FeedPage() {
         </section>
 
         <section className="mt-12 grid gap-12">
+          {nightscoutEvents.data &&
+          (nightscoutEvents.data.insulin.length ||
+            nightscoutEvents.data.glucose.length) ? (
+            <NightscoutEpisodeBlock events={nightscoutEvents.data} />
+          ) : null}
+
           {!config.token.trim() ? (
             <EmptyLog message="Укажите адрес backend и токен в настройках." />
           ) : null}
@@ -349,8 +379,13 @@ export function FeedPage() {
             onUpdateName={(meal, name) =>
               updateMealName.mutate({ meal, name })
             }
+            onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
+            onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
             onUpdateTime={(meal, eatenAt) =>
               updateMealTime.mutate({ eatenAt, mealId: meal.id })
+            }
+            syncNightscoutPending={
+              syncMealNightscout.isPending || resyncMealNightscout.isPending
             }
             updateNamePending={updateMealName.isPending}
             updateTimePending={updateMealTime.isPending}
@@ -358,5 +393,61 @@ export function FeedPage() {
         ) : null}
       </RightPanel>
     </div>
+  );
+}
+
+function NightscoutEpisodeBlock({
+  events,
+}: {
+  events: {
+    glucose: Array<{ timestamp: string; value: number; unit: string }>;
+    insulin: Array<{
+      timestamp: string;
+      insulin_units?: number | null;
+      eventType?: string | null;
+    }>;
+  };
+}) {
+  const glucoseValues = events.glucose.map((entry) => entry.value);
+  const minGlucose = glucoseValues.length ? Math.min(...glucoseValues) : null;
+  const maxGlucose = glucoseValues.length ? Math.max(...glucoseValues) : null;
+  const formatTime = (iso: string) =>
+    new Intl.DateTimeFormat("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
+
+  return (
+    <section className="border border-[var(--hairline)] bg-[rgba(255,255,255,0.35)] p-5">
+      <div className="grid gap-1 border-b border-[var(--hairline)] pb-4">
+        <h2 className="text-[24px] font-normal">Пищевой эпизод</h2>
+        <p className="text-[12px] text-[var(--muted)]">
+          Связанные события показаны по времени, без назначения доз.
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {events.insulin.slice(0, 4).map((event) => (
+          <div
+            className="grid grid-cols-[64px_1fr_auto] border-b border-[var(--hairline)] py-2 text-[13px]"
+            key={`${event.timestamp}-${event.eventType}`}
+          >
+            <span className="font-mono">{formatTime(event.timestamp)}</span>
+            <span>Инсулин рядом по времени · Nightscout</span>
+            <span className="font-mono">
+              {event.insulin_units ?? "--"} Ед
+            </span>
+          </div>
+        ))}
+        {minGlucose !== null && maxGlucose !== null ? (
+          <div className="grid grid-cols-[64px_1fr_auto] py-2 text-[13px]">
+            <span className="font-mono">CGM</span>
+            <span>Глюкоза вокруг события</span>
+            <span className="font-mono">
+              {minGlucose}–{maxGlucose} mmol/L
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }

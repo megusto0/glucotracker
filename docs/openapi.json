@@ -2968,6 +2968,34 @@
             ],
             "title": "Nightscout Id"
           },
+          "nightscout_last_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Last Attempt At"
+          },
+          "nightscout_sync_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Sync Error"
+          },
+          "nightscout_sync_status": {
+            "default": "not_synced",
+            "title": "Nightscout Sync Status",
+            "type": "string"
+          },
           "nightscout_synced_at": {
             "anyOf": [
               {
@@ -3138,6 +3166,415 @@
         "title": "MealTotalsResponse",
         "type": "object"
       },
+      "NightscoutDayStatusResponse": {
+        "description": "Nightscout sync status for one diary day.",
+        "properties": {
+          "accepted_meals_count": {
+            "title": "Accepted Meals Count",
+            "type": "integer"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "failed_meals_count": {
+            "title": "Failed Meals Count",
+            "type": "integer"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "synced_meals_count": {
+            "title": "Synced Meals Count",
+            "type": "integer"
+          },
+          "unsynced_meals_count": {
+            "title": "Unsynced Meals Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "connected",
+          "configured",
+          "accepted_meals_count",
+          "unsynced_meals_count",
+          "synced_meals_count",
+          "failed_meals_count"
+        ],
+        "title": "NightscoutDayStatusResponse",
+        "type": "object"
+      },
+      "NightscoutEventsResponse": {
+        "description": "Combined read-only Nightscout context events.",
+        "properties": {
+          "glucose": {
+            "items": {
+              "$ref": "#/components/schemas/NightscoutGlucoseEntryResponse"
+            },
+            "title": "Glucose",
+            "type": "array"
+          },
+          "insulin": {
+            "items": {
+              "$ref": "#/components/schemas/NightscoutInsulinEventResponse"
+            },
+            "title": "Insulin",
+            "type": "array"
+          }
+        },
+        "required": [
+          "glucose",
+          "insulin"
+        ],
+        "title": "NightscoutEventsResponse",
+        "type": "object"
+      },
+      "NightscoutGlucoseEntryResponse": {
+        "description": "Read-only Nightscout glucose entry normalized for UI context.",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend"
+          },
+          "unit": {
+            "default": "mmol/L",
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "timestamp",
+          "value"
+        ],
+        "title": "NightscoutGlucoseEntryResponse",
+        "type": "object"
+      },
+      "NightscoutInsulinEventResponse": {
+        "description": "Read-only Nightscout insulin event.",
+        "properties": {
+          "enteredBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enteredby"
+          },
+          "eventType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventtype"
+          },
+          "insulin_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Type"
+          },
+          "insulin_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Units"
+          },
+          "nightscout_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp"
+        ],
+        "title": "NightscoutInsulinEventResponse",
+        "type": "object"
+      },
+      "NightscoutSettingsPatch": {
+        "description": "Update server-side Nightscout settings.",
+        "properties": {
+          "allow_meal_send": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Meal Send"
+          },
+          "autosend_meals": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autosend Meals"
+          },
+          "confirm_before_send": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Before Send"
+          },
+          "import_insulin_events": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Insulin Events"
+          },
+          "nightscout_api_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Api Secret"
+          },
+          "nightscout_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Enabled"
+          },
+          "nightscout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Url"
+          },
+          "show_glucose_in_journal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Glucose In Journal"
+          },
+          "sync_glucose": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Glucose"
+          }
+        },
+        "title": "NightscoutSettingsPatch",
+        "type": "object"
+      },
+      "NightscoutSettingsResponse": {
+        "description": "Masked server-side Nightscout settings response.",
+        "properties": {
+          "allow_meal_send": {
+            "title": "Allow Meal Send",
+            "type": "boolean"
+          },
+          "autosend_meals": {
+            "title": "Autosend Meals",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "confirm_before_send": {
+            "title": "Confirm Before Send",
+            "type": "boolean"
+          },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "import_insulin_events": {
+            "title": "Import Insulin Events",
+            "type": "boolean"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_status_check_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status Check At"
+          },
+          "secret_is_set": {
+            "title": "Secret Is Set",
+            "type": "boolean"
+          },
+          "show_glucose_in_journal": {
+            "title": "Show Glucose In Journal",
+            "type": "boolean"
+          },
+          "sync_glucose": {
+            "title": "Sync Glucose",
+            "type": "boolean"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "enabled",
+          "configured",
+          "connected",
+          "secret_is_set",
+          "sync_glucose",
+          "show_glucose_in_journal",
+          "import_insulin_events",
+          "allow_meal_send",
+          "confirm_before_send",
+          "autosend_meals"
+        ],
+        "title": "NightscoutSettingsResponse",
+        "type": "object"
+      },
       "NightscoutStatusResponse": {
         "description": "Nightscout optional integration status.",
         "properties": {
@@ -3178,6 +3615,28 @@
             ],
             "title": "Nightscout Id"
           },
+          "nightscout_sync_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Sync Error"
+          },
+          "nightscout_sync_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Sync Status"
+          },
           "nightscout_synced_at": {
             "anyOf": [
               {
@@ -3211,6 +3670,186 @@
           "synced"
         ],
         "title": "NightscoutSyncResponse",
+        "type": "object"
+      },
+      "NightscoutSyncTodayMealResult": {
+        "description": "Result for one meal in a day sync run.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meal_id": {
+            "format": "uuid",
+            "title": "Meal Id",
+            "type": "string"
+          },
+          "nightscout_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nightscout Id"
+          },
+          "status": {
+            "enum": [
+              "sent",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "meal_id",
+          "status"
+        ],
+        "title": "NightscoutSyncTodayMealResult",
+        "type": "object"
+      },
+      "NightscoutSyncTodayRequest": {
+        "description": "Request to manually sync one diary day to Nightscout.",
+        "properties": {
+          "confirm": {
+            "default": true,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "NightscoutSyncTodayRequest",
+        "type": "object"
+      },
+      "NightscoutSyncTodayResponse": {
+        "description": "Manual day sync summary.",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "failed_count": {
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/NightscoutSyncTodayMealResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "sent_count": {
+            "title": "Sent Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "total_candidates": {
+            "title": "Total Candidates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "total_candidates",
+          "sent_count",
+          "skipped_count",
+          "failed_count",
+          "results"
+        ],
+        "title": "NightscoutSyncTodayResponse",
+        "type": "object"
+      },
+      "NightscoutTestResponse": {
+        "description": "Nightscout connection test result.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "server_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "NightscoutTestResponse",
         "type": "object"
       },
       "NutrientDefinitionResponse": {
@@ -7553,6 +8192,240 @@
         ]
       }
     },
+    "/nightscout/day_status": {
+      "get": {
+        "description": "Return Nightscout manual-sync counters for a selected day.",
+        "operationId": "getNightscoutDayStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutDayStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Nightscout Day Status",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
+    "/nightscout/events": {
+      "get": {
+        "description": "Return combined read-only Nightscout glucose and insulin context events.",
+        "operationId": "getNightscoutEvents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutEventsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Nightscout Events",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
+    "/nightscout/glucose": {
+      "get": {
+        "description": "Return read-only Nightscout glucose entries as gentle context.",
+        "operationId": "getNightscoutGlucose",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NightscoutGlucoseEntryResponse"
+                  },
+                  "title": "Response Getnightscoutglucose",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Nightscout Glucose",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
+    "/nightscout/insulin": {
+      "get": {
+        "description": "Return read-only Nightscout insulin events without linking to dosing.",
+        "operationId": "getNightscoutInsulin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NightscoutInsulinEventResponse"
+                  },
+                  "title": "Response Getnightscoutinsulin",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Nightscout Insulin",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
     "/nightscout/status": {
       "get": {
         "description": "Return optional Nightscout status without breaking local use.",
@@ -7575,6 +8448,53 @@
           }
         ],
         "summary": "Get Nightscout Status",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
+    "/nightscout/sync/today": {
+      "post": {
+        "description": "Manually send accepted unsynced meals for a selected day.",
+        "operationId": "syncTodayToNightscout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NightscoutSyncTodayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutSyncTodayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Today To Nightscout",
         "tags": [
           "nightscout"
         ]
@@ -8474,6 +9394,105 @@
         "summary": "Get Product Image File",
         "tags": [
           "products"
+        ]
+      }
+    },
+    "/settings/nightscout": {
+      "get": {
+        "description": "Return masked server-side Nightscout settings.",
+        "operationId": "getNightscoutSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Nightscout Settings",
+        "tags": [
+          "nightscout"
+        ]
+      },
+      "put": {
+        "description": "Update server-side Nightscout settings. Secret is write-only.",
+        "operationId": "updateNightscoutSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NightscoutSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Nightscout Settings",
+        "tags": [
+          "nightscout"
+        ]
+      }
+    },
+    "/settings/nightscout/test": {
+      "post": {
+        "description": "Test Nightscout connection and persist masked status.",
+        "operationId": "testNightscoutConnection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Nightscout Connection",
+        "tags": [
+          "nightscout"
         ]
       }
     }

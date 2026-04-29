@@ -35,6 +35,75 @@ export const server = setupServer(
   http.get("http://api.test/nightscout/status", () =>
     HttpResponse.json({ configured: false, status: null }),
   ),
+  http.get("http://api.test/settings/nightscout", () =>
+    HttpResponse.json({
+      enabled: false,
+      configured: false,
+      connected: false,
+      url: null,
+      secret_is_set: false,
+      last_status_check_at: null,
+      last_error: null,
+      sync_glucose: true,
+      show_glucose_in_journal: true,
+      import_insulin_events: true,
+      allow_meal_send: true,
+      confirm_before_send: true,
+      autosend_meals: false,
+    }),
+  ),
+  http.put("http://api.test/settings/nightscout", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      enabled: Boolean(body.nightscout_enabled),
+      configured: Boolean(body.nightscout_url && body.nightscout_api_secret),
+      connected: false,
+      url: body.nightscout_url ?? null,
+      secret_is_set: Boolean(body.nightscout_api_secret),
+      last_status_check_at: null,
+      last_error: null,
+      sync_glucose: body.sync_glucose ?? true,
+      show_glucose_in_journal: body.show_glucose_in_journal ?? true,
+      import_insulin_events: body.import_insulin_events ?? true,
+      allow_meal_send: body.allow_meal_send ?? true,
+      confirm_before_send: body.confirm_before_send ?? true,
+      autosend_meals: false,
+    });
+  }),
+  http.post("http://api.test/settings/nightscout/test", () =>
+    HttpResponse.json({
+      ok: false,
+      status: null,
+      server_name: null,
+      version: null,
+      error: "Nightscout не подключён",
+    }),
+  ),
+  http.get("http://api.test/nightscout/day_status", () =>
+    HttpResponse.json({
+      connected: false,
+      configured: false,
+      accepted_meals_count: 0,
+      unsynced_meals_count: 0,
+      synced_meals_count: 0,
+      failed_meals_count: 0,
+      last_sync_at: null,
+    }),
+  ),
+  http.post("http://api.test/nightscout/sync/today", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      date: body.date ?? "2026-04-28",
+      total_candidates: 0,
+      sent_count: 0,
+      skipped_count: 0,
+      failed_count: 0,
+      results: [],
+    });
+  }),
+  http.get("http://api.test/nightscout/events", () =>
+    HttpResponse.json({ glucose: [], insulin: [] }),
+  ),
   http.get("http://api.test/meals", () =>
     HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
   ),

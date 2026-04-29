@@ -524,6 +524,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nightscout/day_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Day Status
+         * @description Return Nightscout manual-sync counters for a selected day.
+         */
+        get: operations["getNightscoutDayStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nightscout/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Events
+         * @description Return combined read-only Nightscout glucose and insulin context events.
+         */
+        get: operations["getNightscoutEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nightscout/glucose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Glucose
+         * @description Return read-only Nightscout glucose entries as gentle context.
+         */
+        get: operations["getNightscoutGlucose"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nightscout/insulin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Insulin
+         * @description Return read-only Nightscout insulin events without linking to dosing.
+         */
+        get: operations["getNightscoutInsulin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nightscout/status": {
         parameters: {
             query?: never;
@@ -538,6 +618,26 @@ export interface paths {
         get: operations["getNightscoutStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nightscout/sync/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Today To Nightscout
+         * @description Manually send accepted unsynced meals for a selected day.
+         */
+        post: operations["syncTodayToNightscout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -798,6 +898,50 @@ export interface paths {
         get: operations["getProductImageFile"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/nightscout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Settings
+         * @description Return masked server-side Nightscout settings.
+         */
+        get: operations["getNightscoutSettings"];
+        /**
+         * Update Nightscout Settings
+         * @description Update server-side Nightscout settings. Secret is write-only.
+         */
+        put: operations["updateNightscoutSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/nightscout/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Nightscout Connection
+         * @description Test Nightscout connection and persist masked status.
+         */
+        post: operations["testNightscoutConnection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1998,6 +2142,15 @@ export interface components {
             items?: components["schemas"]["MealItemResponse"][];
             /** Nightscout Id */
             nightscout_id?: string | null;
+            /** Nightscout Last Attempt At */
+            nightscout_last_attempt_at?: string | null;
+            /** Nightscout Sync Error */
+            nightscout_sync_error?: string | null;
+            /**
+             * Nightscout Sync Status
+             * @default not_synced
+             */
+            nightscout_sync_status: string;
             /** Nightscout Synced At */
             nightscout_synced_at?: string | null;
             /** Note */
@@ -2070,6 +2223,142 @@ export interface components {
             total_protein_g: number;
         };
         /**
+         * NightscoutDayStatusResponse
+         * @description Nightscout sync status for one diary day.
+         */
+        NightscoutDayStatusResponse: {
+            /** Accepted Meals Count */
+            accepted_meals_count: number;
+            /** Configured */
+            configured: boolean;
+            /** Connected */
+            connected: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Failed Meals Count */
+            failed_meals_count: number;
+            /** Last Sync At */
+            last_sync_at?: string | null;
+            /** Synced Meals Count */
+            synced_meals_count: number;
+            /** Unsynced Meals Count */
+            unsynced_meals_count: number;
+        };
+        /**
+         * NightscoutEventsResponse
+         * @description Combined read-only Nightscout context events.
+         */
+        NightscoutEventsResponse: {
+            /** Glucose */
+            glucose: components["schemas"]["NightscoutGlucoseEntryResponse"][];
+            /** Insulin */
+            insulin: components["schemas"]["NightscoutInsulinEventResponse"][];
+        };
+        /**
+         * NightscoutGlucoseEntryResponse
+         * @description Read-only Nightscout glucose entry normalized for UI context.
+         */
+        NightscoutGlucoseEntryResponse: {
+            /** Source */
+            source?: string | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Trend */
+            trend?: string | null;
+            /**
+             * Unit
+             * @default mmol/L
+             */
+            unit: string;
+            /** Value */
+            value: number;
+        };
+        /**
+         * NightscoutInsulinEventResponse
+         * @description Read-only Nightscout insulin event.
+         */
+        NightscoutInsulinEventResponse: {
+            /** Enteredby */
+            enteredBy?: string | null;
+            /** Eventtype */
+            eventType?: string | null;
+            /** Insulin Type */
+            insulin_type?: string | null;
+            /** Insulin Units */
+            insulin_units?: number | null;
+            /** Nightscout Id */
+            nightscout_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /**
+         * NightscoutSettingsPatch
+         * @description Update server-side Nightscout settings.
+         */
+        NightscoutSettingsPatch: {
+            /** Allow Meal Send */
+            allow_meal_send?: boolean | null;
+            /** Autosend Meals */
+            autosend_meals?: boolean | null;
+            /** Confirm Before Send */
+            confirm_before_send?: boolean | null;
+            /** Import Insulin Events */
+            import_insulin_events?: boolean | null;
+            /** Nightscout Api Secret */
+            nightscout_api_secret?: string | null;
+            /** Nightscout Enabled */
+            nightscout_enabled?: boolean | null;
+            /** Nightscout Url */
+            nightscout_url?: string | null;
+            /** Show Glucose In Journal */
+            show_glucose_in_journal?: boolean | null;
+            /** Sync Glucose */
+            sync_glucose?: boolean | null;
+        };
+        /**
+         * NightscoutSettingsResponse
+         * @description Masked server-side Nightscout settings response.
+         */
+        NightscoutSettingsResponse: {
+            /** Allow Meal Send */
+            allow_meal_send: boolean;
+            /** Autosend Meals */
+            autosend_meals: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Confirm Before Send */
+            confirm_before_send: boolean;
+            /** Connected */
+            connected: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Import Insulin Events */
+            import_insulin_events: boolean;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Status Check At */
+            last_status_check_at?: string | null;
+            /** Secret Is Set */
+            secret_is_set: boolean;
+            /** Show Glucose In Journal */
+            show_glucose_in_journal: boolean;
+            /** Sync Glucose */
+            sync_glucose: boolean;
+            /** Url */
+            url?: string | null;
+        };
+        /**
          * NightscoutStatusResponse
          * @description Nightscout optional integration status.
          */
@@ -2088,6 +2377,10 @@ export interface components {
         NightscoutSyncResponse: {
             /** Nightscout Id */
             nightscout_id?: string | null;
+            /** Nightscout Sync Error */
+            nightscout_sync_error?: string | null;
+            /** Nightscout Sync Status */
+            nightscout_sync_status?: string | null;
             /** Nightscout Synced At */
             nightscout_synced_at?: string | null;
             /** Response */
@@ -2096,6 +2389,83 @@ export interface components {
             } | null;
             /** Synced */
             synced: boolean;
+        };
+        /**
+         * NightscoutSyncTodayMealResult
+         * @description Result for one meal in a day sync run.
+         */
+        NightscoutSyncTodayMealResult: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Meal Id
+             * Format: uuid
+             */
+            meal_id: string;
+            /** Nightscout Id */
+            nightscout_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "sent" | "skipped" | "failed";
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * NightscoutSyncTodayRequest
+         * @description Request to manually sync one diary day to Nightscout.
+         */
+        NightscoutSyncTodayRequest: {
+            /**
+             * Confirm
+             * @default true
+             */
+            confirm: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+        };
+        /**
+         * NightscoutSyncTodayResponse
+         * @description Manual day sync summary.
+         */
+        NightscoutSyncTodayResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Failed Count */
+            failed_count: number;
+            /** Results */
+            results: components["schemas"]["NightscoutSyncTodayMealResult"][];
+            /** Sent Count */
+            sent_count: number;
+            /** Skipped Count */
+            skipped_count: number;
+            /** Total Candidates */
+            total_candidates: number;
+        };
+        /**
+         * NightscoutTestResponse
+         * @description Nightscout connection test result.
+         */
+        NightscoutTestResponse: {
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Server Name */
+            server_name?: string | null;
+            /** Status */
+            status?: {
+                [key: string]: unknown;
+            } | null;
+            /** Version */
+            version?: string | null;
         };
         /**
          * NutrientDefinitionResponse
@@ -4073,6 +4443,133 @@ export interface operations {
             };
         };
     };
+    getNightscoutDayStatus: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutDayStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNightscoutEvents: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutEventsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNightscoutGlucose: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutGlucoseEntryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNightscoutInsulin: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutInsulinEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getNightscoutStatus: {
         parameters: {
             query?: never;
@@ -4089,6 +4586,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NightscoutStatusResponse"];
+                };
+            };
+        };
+    };
+    syncTodayToNightscout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NightscoutSyncTodayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutSyncTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4628,6 +5158,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNightscoutSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutSettingsResponse"];
+                };
+            };
+        };
+    };
+    updateNightscoutSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NightscoutSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    testNightscoutConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutTestResponse"];
                 };
             };
         };

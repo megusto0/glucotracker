@@ -37,6 +37,20 @@ export type DashboardDataQualityResponse =
   components["schemas"]["DashboardDataQualityResponse"];
 export type NightscoutStatusResponse =
   components["schemas"]["NightscoutStatusResponse"];
+export type NightscoutSettingsPatch =
+  components["schemas"]["NightscoutSettingsPatch"];
+export type NightscoutSettingsResponse =
+  components["schemas"]["NightscoutSettingsResponse"];
+export type NightscoutTestResponse =
+  components["schemas"]["NightscoutTestResponse"];
+export type NightscoutDayStatusResponse =
+  components["schemas"]["NightscoutDayStatusResponse"];
+export type NightscoutSyncResponse =
+  components["schemas"]["NightscoutSyncResponse"];
+export type NightscoutSyncTodayResponse =
+  components["schemas"]["NightscoutSyncTodayResponse"];
+export type NightscoutEventsResponse =
+  components["schemas"]["NightscoutEventsResponse"];
 export type AdminRecalculateResponse =
   components["schemas"]["AdminRecalculateResponse"];
 export type DatabaseItemResponse =
@@ -435,6 +449,53 @@ export const apiClient = {
 
   getNightscoutStatus: (config: ApiConfig) =>
     apiRequest<NightscoutStatusResponse>("/nightscout/status", config),
+
+  getNightscoutSettings: (config: ApiConfig) =>
+    apiRequest<NightscoutSettingsResponse>("/settings/nightscout", config),
+
+  updateNightscoutSettings: (
+    config: ApiConfig,
+    body: NightscoutSettingsPatch,
+  ) =>
+    apiRequest<NightscoutSettingsResponse>("/settings/nightscout", config, {
+      method: "PUT",
+      body,
+    }),
+
+  testNightscoutConnection: (config: ApiConfig) =>
+    apiRequest<NightscoutTestResponse>("/settings/nightscout/test", config, {
+      method: "POST",
+    }),
+
+  getNightscoutDayStatus: (config: ApiConfig, date: string) =>
+    apiRequest<NightscoutDayStatusResponse>("/nightscout/day_status", config, {
+      query: { date },
+    }),
+
+  syncTodayToNightscout: (config: ApiConfig, date: string) =>
+    apiRequest<NightscoutSyncTodayResponse>("/nightscout/sync/today", config, {
+      method: "POST",
+      body: { date, confirm: true },
+    }),
+
+  syncMealToNightscout: (config: ApiConfig, mealId: string) =>
+    apiRequest<NightscoutSyncResponse>(
+      `/meals/${mealId}/sync_nightscout`,
+      config,
+      { method: "POST" },
+    ),
+
+  unsyncMealFromNightscout: (config: ApiConfig, mealId: string) =>
+    apiRequest<NightscoutSyncResponse>(
+      `/meals/${mealId}/unsync_nightscout`,
+      config,
+      { method: "POST" },
+    ),
+
+  getNightscoutEvents: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<NightscoutEventsResponse>("/nightscout/events", config, {
+      query: { from, to },
+    }),
 
   adminRecalculate: (config: ApiConfig, from: string, to: string) =>
     apiRequest<AdminRecalculateResponse>("/admin/recalculate", config, {

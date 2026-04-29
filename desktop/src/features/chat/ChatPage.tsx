@@ -39,7 +39,14 @@ import {
   readableItemSourceKind,
 } from "../meals/MealLedger";
 import { useBlobObjectUrl } from "../../components/useBlobObjectUrl";
-import { useTodayMeals } from "../meals/useMeals";
+import { useMealsForDate } from "../meals/useMeals";
+import {
+  localDateKey,
+  useNightscoutDayStatus,
+  useResyncMealToNightscout,
+  useSyncMealToNightscout,
+  useSyncTodayToNightscout,
+} from "../nightscout/useNightscout";
 import { useApiConfig } from "../settings/settingsStore";
 
 type Chip = AutocompleteSuggestion & {
@@ -80,19 +87,61 @@ type DayTotals = {
   fiber: number;
 };
 
-const formatTodayTitle = () =>
+const formatTodayTitle = (date: Date) =>
   new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
     year: "numeric",
   })
-    .format(new Date())
+    .format(date)
     .replace(" г.", "");
 
-const formatWeekday = () =>
+const formatWeekday = (date: Date) =>
   new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
-  }).format(new Date());
+  }).format(date);
+
+void formatTodayTitle;
+void formatWeekday;
+
+const startOfLocalDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const addDays = (date: Date, days: number) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+
+const isSameLocalDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const formatDayTitle = (date: Date) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(date)
+    .replace(" Рі.", "");
+
+const formatDayWeekday = (date: Date) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+  }).format(date);
+
+const buildSelectedDayDateTime = (selectedDate: Date) => {
+  const now = new Date();
+  return toLocalDateTimeString(
+    new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+    ),
+  );
+};
 
 const sumDayTotals = (meals: MealResponse[]): DayTotals =>
   meals
@@ -349,7 +398,10 @@ const confirmDiscardDraft = () => {
 export function ChatPage() {
   const config = useApiConfig();
   const queryClient = useQueryClient();
-  const meals = useTodayMeals();
+  const [selectedDate, setSelectedDate] = useState(() =>
+    startOfLocalDay(new Date()),
+  );
+  const meals = useMealsForDate(selectedDate);
   const [input, setInput] = useState("");
   const [chips, setChips] = useState<Chip[]>([]);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
@@ -412,8 +464,15 @@ export function ChatPage() {
     enabled: Boolean(config.token.trim() && debouncedCommand && autocompleteOpen),
   });
 
+  const today = startOfLocalDay(new Date());
+  const isViewingToday = isSameLocalDay(selectedDate, today);
   const todayMeals = meals.data?.items ?? [];
   const dayTotals = sumDayTotals(todayMeals);
+  const selectedDayKey = localDateKey(selectedDate);
+  const nightscoutDay = useNightscoutDayStatus(selectedDayKey);
+  const syncTodayNightscout = useSyncTodayToNightscout(selectedDayKey);
+  const syncMealNightscout = useSyncMealToNightscout(selectedDayKey);
+  const resyncMealNightscout = useResyncMealToNightscout(selectedDayKey);
   const selectedMeal =
     todayMeals.find((meal) => meal.id === selectedMealId) ?? null;
   const selectedDraftMeal =
@@ -590,7 +649,7 @@ export function ChatPage() {
       if (!mealId) {
         setEstimatePhase("reading label");
         const meal = await apiClient.createMeal(config, {
-          eaten_at: toLocalDateTimeString(new Date()),
+          eaten_at: buildSelectedDayDateTime(selectedDate),
           title: input.trim() || "Еда по фото",
           source: "photo",
           status: "draft",
@@ -764,7 +823,7 @@ export function ChatPage() {
 
     if (chips.length) {
       createMeal.mutate({
-        eaten_at: toLocalDateTimeString(new Date()),
+        eaten_at: buildSelectedDayDateTime(selectedDate),
         title: chips.map((chip) => chip.display_name).join(", "),
         source: chips.every((chip) => chip.kind === "pattern")
           ? "pattern"
@@ -777,7 +836,7 @@ export function ChatPage() {
 
     if (text) {
       createMeal.mutate({
-        eaten_at: toLocalDateTimeString(new Date()),
+        eaten_at: buildSelectedDayDateTime(selectedDate),
         title: text,
         source: "manual",
         status: "accepted",
@@ -973,6 +1032,46 @@ export function ChatPage() {
     setPhotoPanelOpen(false);
   };
 
+  const clearActivePanelState = () => {
+    setSelectedMealId(null);
+    setSelectedDraftItems([]);
+    setSelectedDraftEdited(false);
+    setPhotoPanelOpen(false);
+    setReestimateComparison(null);
+    setReestimateError(null);
+    if (estimation) {
+      setEstimation(null);
+      setDraftMealId(null);
+      setEstimateItems([]);
+      setEstimateEdited(false);
+    }
+    if (batchEstimation) {
+      setBatchEstimation(null);
+    }
+  };
+
+  const navigateToDate = (nextDate: Date) => {
+    persistActiveDraftEdits();
+    clearActivePanelState();
+    setSelectedDate(startOfLocalDay(nextDate));
+  };
+
+  const handleGoToPreviousDay = () => navigateToDate(addDays(selectedDate, -1));
+
+  const handleGoToToday = () => navigateToDate(today);
+
+  const handleGoToNextDay = () => {
+    if (isViewingToday) {
+      return;
+    }
+    const nextDate = addDays(selectedDate, 1);
+    navigateToDate(nextDate > today ? today : nextDate);
+  };
+
+  const emptyDayMessage = isViewingToday
+    ? "Сегодня пока нет записей."
+    : `За ${formatDayTitle(selectedDate)} пока нет записей.`;
+
   return (
     <div
       className="h-screen overflow-hidden bg-[var(--bg)]"
@@ -988,26 +1087,35 @@ export function ChatPage() {
         <header className="shrink-0 grid gap-7">
           <div className="grid grid-cols-[1fr_auto] items-start gap-8">
             <div>
-              <p className="text-[16px] text-[var(--fg)]">{formatWeekday()}</p>
+              <p className="text-[16px] text-[var(--fg)]">
+                {formatDayWeekday(selectedDate)}
+              </p>
               <h1 className="mt-5 whitespace-nowrap font-mono text-[56px] font-normal leading-none text-[var(--fg)]">
-                {formatTodayTitle()}
+                {formatDayTitle(selectedDate)}
               </h1>
             </div>
             <div className="hidden items-center gap-3 pt-12 xl:flex">
               <button
                 className="h-10 w-10 border border-[var(--hairline)] bg-[var(--surface)] text-[18px]"
+                onClick={handleGoToPreviousDay}
+                aria-label="Предыдущий день"
                 type="button"
               >
                 {"<"}
               </button>
               <button
                 className="h-10 border border-[var(--hairline)] bg-[var(--surface)] px-5 text-[13px] font-medium"
+                onClick={handleGoToToday}
+                aria-label="Вернуться к сегодня"
                 type="button"
               >
                 Сегодня
               </button>
               <button
-                className="h-10 w-10 border border-[var(--hairline)] bg-[var(--surface)] text-[18px]"
+                aria-label="Следующий день"
+                className="h-10 w-10 border border-[var(--hairline)] bg-[var(--surface)] text-[18px] disabled:opacity-40"
+                disabled={isViewingToday}
+                onClick={handleGoToNextDay}
                 type="button"
               >
                 {">"}
@@ -1015,6 +1123,62 @@ export function ChatPage() {
             </div>
           </div>
           <DailySummary totals={dayTotals} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[var(--hairline)] py-3 text-[12px] text-[var(--muted)]">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  nightscoutDay.data?.connected
+                    ? "bg-[var(--ok)]"
+                    : "bg-[var(--hairline)]"
+                }`}
+              />
+              <span>
+                {nightscoutDay.data?.connected
+                  ? "Nightscout подключён"
+                  : "Nightscout не подключён"}
+              </span>
+              {nightscoutDay.data?.configured ? (
+                <>
+                  <span>несинхронизировано: {nightscoutDay.data.unsynced_meals_count}</span>
+                  {nightscoutDay.data.last_sync_at ? (
+                    <span>
+                      последняя синхронизация:{" "}
+                      {new Intl.DateTimeFormat("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(nightscoutDay.data.last_sync_at))}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <a className="underline" href="/settings">
+                  Настроить
+                </a>
+              )}
+            </div>
+            <button
+              className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[12px] uppercase tracking-[0.06em] disabled:opacity-40"
+              disabled={
+                !nightscoutDay.data?.configured ||
+                !nightscoutDay.data?.connected ||
+                !nightscoutDay.data?.unsynced_meals_count ||
+                syncTodayNightscout.isPending
+              }
+              onClick={() => syncTodayNightscout.mutate()}
+              type="button"
+            >
+              {syncTodayNightscout.isPending
+                ? "Отправляю..."
+                : "Отправить день в Nightscout"}
+            </button>
+            {syncTodayNightscout.data ? (
+              <span className="w-full text-[12px] text-[var(--fg)]">
+                Отправлено: {syncTodayNightscout.data.sent_count}, пропущено:{" "}
+                {syncTodayNightscout.data.skipped_count}, ошибок:{" "}
+                {syncTodayNightscout.data.failed_count}
+              </span>
+            ) : null}
+          </div>
         </header>
 
         <section className="mt-7 min-h-0 flex-1 overflow-y-auto pr-2">
@@ -1026,7 +1190,7 @@ export function ChatPage() {
               <EmptyLog message="Загружаю еду." />
             ) : null}
             {config.token.trim() && meals.isSuccess && !todayMeals.length ? (
-              <EmptyLog message="Сегодня пока нет записей." />
+              <EmptyLog message={emptyDayMessage} />
             ) : null}
             {todayMeals.map((meal) => (
               <MealRow
@@ -1239,6 +1403,8 @@ export function ChatPage() {
             onRememberProduct={(item, aliases) =>
               rememberProduct.mutate({ aliases, itemId: item.id })
             }
+            onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
+            onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
             onUpdateName={(meal, name) =>
               updateMealName.mutate({ meal, name })
             }
@@ -1251,6 +1417,9 @@ export function ChatPage() {
             reestimateModel={reestimateModel}
             reestimatePending={reestimateMeal.isPending}
             onReestimateModelChange={setReestimateModel}
+            syncNightscoutPending={
+              syncMealNightscout.isPending || resyncMealNightscout.isPending
+            }
             updateNamePending={updateMealName.isPending}
             updateTimePending={updateMealTime.isPending}
           />

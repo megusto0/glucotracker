@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 
 from glucotracker.api.dependencies import SessionDep, verify_token
 from glucotracker.api.schemas import AdminRecalculateResponse
-from glucotracker.workers.daily_totals import recalculate_range
+from glucotracker.application.daily_totals import DailyTotalsService
 
 router = APIRouter(
     tags=["admin"],
@@ -28,7 +28,7 @@ def admin_recalculate_daily_totals(
     to_date: Annotated[date_type, Query(alias="to")],
 ) -> AdminRecalculateResponse:
     """Backfill daily totals for an inclusive date range."""
-    totals = recalculate_range(from_date, to_date, session=session)
+    totals = DailyTotalsService(session).recalculate_range(from_date, to_date)
     session.commit()
     return AdminRecalculateResponse(
         from_date=from_date,

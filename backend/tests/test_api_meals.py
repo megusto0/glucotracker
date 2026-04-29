@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
@@ -288,6 +289,81 @@ def test_accept_label_calc_item_remembers_product(
     rows = database.json()["items"]
     row = next(row for row in rows if row["display_name"] == "Бисквит-сэндвич")
     assert row["image_url"] == f"/photos/{photo['id']}/file"
+
+
+def test_accept_label_calc_recalculates_per_100ml_payload_from_evidence(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Accepted label items use backend evidence math, not client totals."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(source="photo", status="draft", items=[]),
+    ).json()
+    photo = api_client.post(
+        f"/meals/{created['id']}/photos",
+        files={"file": ("cola.jpg", b"\xff\xd8fake-jpeg", "image/jpeg")},
+    ).json()
+
+    accepted = api_client.post(
+        f"/meals/{created['id']}/accept",
+        json={
+            "items": [
+                {
+                    "name": "Кола Ориджинал",
+                    "brand": "Черноголовка",
+                    "grams": 330,
+                    "serving_text": "330 ml",
+                    "carbs_g": 15515.51,
+                    "protein_g": 999,
+                    "fat_g": 999,
+                    "fiber_g": 999,
+                    "kcal": 999,
+                    "source_kind": "label_calc",
+                    "calculation_method": "label_assumed_weight_backend_calc",
+                    "evidence": {
+                        "identified_barcode": "4602441024742",
+                        "extracted_facts": {
+                            "carbs_per_100ml": 4.7,
+                            "protein_per_100ml": 0,
+                            "fat_per_100ml": 0,
+                            "fiber_per_100ml": 0,
+                            "kcal_per_100ml": 19,
+                            "assumed_volume_ml": 330,
+                        },
+                        "nutrition_per_100g": {
+                            "carbs_g": 4.7,
+                            "protein_g": 0,
+                            "fat_g": 0,
+                            "fiber_g": None,
+                            "kcal": 19,
+                        },
+                    },
+                    "photo_id": photo["id"],
+                }
+            ]
+        },
+    )
+
+    assert accepted.status_code == 200
+    body = accepted.json()
+    item = body["items"][0]
+    assert item["carbs_g"] == pytest.approx(15.51)
+    assert item["protein_g"] == pytest.approx(0)
+    assert item["fat_g"] == pytest.approx(0)
+    assert item["fiber_g"] == pytest.approx(0)
+    assert item["kcal"] == pytest.approx(62.7)
+    assert body["total_carbs_g"] == pytest.approx(15.51)
+    assert body["total_kcal"] == pytest.approx(62.7)
+
+    with Session(db_engine) as session:
+        product = session.get(Product, UUID(item["product_id"]))
+        assert product is not None
+        assert product.carbs_per_100g == pytest.approx(4.7)
+        assert product.carbs_per_serving == pytest.approx(15.5)
+        stored_item = session.get(MealItem, UUID(item["id"]))
+        assert stored_item is not None
+        assert stored_item.carbs_g == pytest.approx(15.51)
 
 
 def test_product_db_meal_backfills_missing_product_image_from_history(

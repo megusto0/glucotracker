@@ -35,6 +35,10 @@ from glucotracker.api.schemas import (
     ReestimateMealRequest,
     ReestimateMealResponse,
 )
+from glucotracker.application.photo_estimation import (
+    PhotoEstimationDependencies,
+    PhotoEstimationService,
+)
 from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
@@ -75,6 +79,35 @@ router = APIRouter(
 
 GeminiClientDep = Annotated[GeminiClient, Depends(get_gemini_client)]
 UploadFileDep = Annotated[UploadFile, File(description="JPEG, PNG, or WebP photo.")]
+
+
+def _photo_estimation_service(
+    session: SessionDep,
+    gemini_client: GeminiClient,
+) -> PhotoEstimationService:
+    """Build the application service with router-local helper dependencies."""
+    return PhotoEstimationService(
+        session=session,
+        gemini_client=gemini_client,
+        dependencies=PhotoEstimationDependencies(
+            get_meal=_get_meal,
+            load_pattern_context=_load_pattern_context,
+            load_product_context=_load_product_context,
+            ordered_photos=_ordered_photos,
+            photo_inputs=_photo_inputs,
+            clean_context_note=_clean_context_note,
+            ai_run_summary=_ai_run_summary,
+            photo_reference_kind=_photo_reference_kind,
+            photo_scenario=_photo_scenario,
+            products_by_barcode=_products_by_barcode,
+            load_known_components=_load_known_components,
+            attach_user_context_to_items=_attach_user_context_to_items,
+            set_photo_ids=_set_photo_ids,
+            items_json=_items_json,
+            save_suggested_items_as_drafts=_save_suggested_items_as_drafts,
+            estimation_response=_estimation_response,
+        ),
+    )
 
 
 def _get_photo(session: SessionDep, photo_id: UUID) -> Photo:
@@ -985,124 +1018,6 @@ def _ai_run_summary(gemini_client: GeminiClient) -> dict[str, Any]:
     }
 
 
-def _estimate_meal(
-    *,
-    meal_id: UUID,
-    payload: EstimateMealRequest,
-    session: SessionDep,
-    gemini_client: GeminiClient,
-    save_draft: bool,
-) -> EstimateMealResponse:
-    """Run Gemini estimation and optionally save suggested items as a draft."""
-    meal = _get_meal(session, meal_id)
-    if not meal.photos:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Meal has no photos to estimate.",
-        )
-
-    patterns_context = _load_pattern_context(session, payload.use_patterns)
-    products_context = _load_product_context(session, payload.use_products)
-    ordered_photos = _ordered_photos(meal.photos)
-    photo_inputs = _photo_inputs(ordered_photos)
-    model_override = None if payload.model == "default" else payload.model
-    context_note = _clean_context_note(payload.context_note)
-
-    try:
-        result = gemini_client.estimate_photos(
-            photo_inputs,
-            patterns_context=patterns_context,
-            products_context=products_context,
-            scenario_hint=payload.scenario_hint,
-            model_override=model_override,
-            user_context=context_note,
-        )
-    except GeminiClientError as exc:
-        raise HTTPException(
-            status_code=getattr(
-                exc,
-                "http_status_code",
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-            ),
-            detail=str(exc),
-        ) from exc
-
-    if getattr(gemini_client, "last_fallback_used", False) and any(
-        error.get("category") == "overload"
-        for error in getattr(gemini_client, "last_error_history", [])
-    ):
-        result.image_quality_warnings.append(
-            "Основная модель была перегружена, использована запасная модель."
-        )
-
-    result_raw = result.model_dump(mode="json")
-    ai_summary = _ai_run_summary(gemini_client)
-    ai_run = AIRun(
-        meal_id=meal.id,
-        model=getattr(gemini_client, "last_used_model", None) or gemini_client.model,
-        prompt_version=PHOTO_ESTIMATION_PROMPT_VERSION,
-        provider="gemini",
-        model_requested=ai_summary["model_requested"],
-        model_used=ai_summary["model_used"],
-        fallback_used=ai_summary["fallback_used"],
-        status="success",
-        request_type="initial_estimate" if save_draft else "estimate",
-        source_photo_ids=[str(photo.id) for photo in meal.photos],
-        error_history_json=ai_summary["error_history"],
-        request_summary={
-            "photo_ids": [str(photo.id) for photo in meal.photos],
-            "use_patterns": [str(pattern_id) for pattern_id in payload.use_patterns],
-            "use_products": [str(product_id) for product_id in payload.use_products],
-            "requested_model": payload.model,
-            "context_note": context_note,
-            "scenario_hint": payload.scenario_hint,
-            **ai_summary,
-        },
-        response_raw=result_raw,
-    )
-    session.add(ai_run)
-
-    first_photo = ordered_photos[0]
-    first_photo.gemini_response_raw = result_raw
-    first_photo.reference_kind = _photo_reference_kind(result.reference_object_detected)
-    first_photo.has_reference_object = (
-        first_photo.reference_kind != PhotoReferenceKind.none
-    )
-    first_photo.scenario = _photo_scenario(result)
-
-    suggested_items = normalize_estimation_to_items(
-        result,
-        products_by_barcode=_products_by_barcode(session, result),
-        known_components=_load_known_components(session),
-    )
-    _attach_user_context_to_items(suggested_items, context_note)
-    _set_photo_ids(suggested_items, ordered_photos)
-    ai_run.normalized_items_json = _items_json(suggested_items)
-
-    created_drafts: list[EstimateCreatedDraftResponse] = []
-    if save_draft:
-        created_drafts = _save_suggested_items_as_drafts(
-            source_meal=meal,
-            suggested_items=suggested_items,
-            result=result,
-            photos=ordered_photos,
-            session=session,
-        )
-        schedule_and_recalculate(session, [meal.eaten_at])
-
-    session.flush()
-    response = _estimation_response(
-        meal,
-        suggested_items,
-        result,
-        ai_run.id,
-        source_photos=ordered_photos,
-        created_drafts=created_drafts,
-    )
-    session.commit()
-    return response
-
-
 @router.post(
     "/meals/{meal_id}/reestimate",
     response_model=ReestimateMealResponse,
@@ -1408,11 +1323,9 @@ def estimate_meal_photos(
     gemini_client: GeminiClientDep,
 ) -> EstimateMealResponse:
     """Estimate draft items from meal photos without saving them."""
-    return _estimate_meal(
+    return _photo_estimation_service(session, gemini_client).estimate(
         meal_id=meal_id,
         payload=payload,
-        session=session,
-        gemini_client=gemini_client,
         save_draft=False,
     )
 
@@ -1429,10 +1342,8 @@ def estimate_and_save_meal_draft(
     gemini_client: GeminiClientDep,
 ) -> EstimateMealResponse:
     """Estimate draft items from meal photos and save them to the draft meal."""
-    return _estimate_meal(
+    return _photo_estimation_service(session, gemini_client).estimate(
         meal_id=meal_id,
         payload=payload,
-        session=session,
-        gemini_client=gemini_client,
         save_draft=True,
     )

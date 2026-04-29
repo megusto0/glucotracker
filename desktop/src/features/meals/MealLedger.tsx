@@ -598,7 +598,9 @@ export function SelectedMealPanel({
   onReestimateCancel,
   onReestimateModelChange,
   onRememberProduct,
+  onResyncNightscout,
   onSave,
+  onSyncNightscout,
   onUpdateName,
   onUpdateTime,
   rememberPending = false,
@@ -607,6 +609,7 @@ export function SelectedMealPanel({
   reestimateModel = "gemini-3-flash-preview",
   reestimatePending = false,
   saveLabel = "Сохранить",
+  syncNightscoutPending = false,
   updateNamePending = false,
   updateTimePending = false,
 }: {
@@ -629,7 +632,9 @@ export function SelectedMealPanel({
     item: NonNullable<MealResponse["items"]>[number],
     aliases: string[],
   ) => void;
+  onResyncNightscout?: (meal: MealResponse) => void;
   onSave?: (meal: MealResponse) => void;
+  onSyncNightscout?: (meal: MealResponse) => void;
   onUpdateName?: (meal: MealResponse, name: string) => void;
   onUpdateTime?: (meal: MealResponse, eatenAt: string) => void;
   rememberPending?: boolean;
@@ -638,6 +643,7 @@ export function SelectedMealPanel({
   reestimateModel?: ReestimateModel;
   reestimatePending?: boolean;
   saveLabel?: string;
+  syncNightscoutPending?: boolean;
   updateNamePending?: boolean;
   updateTimePending?: boolean;
 }) {
@@ -912,6 +918,56 @@ export function SelectedMealPanel({
                   : "проверить"}
           </div>
         </InfoBlock>
+      </section>
+
+      <section className="mt-6 border-b border-[var(--hairline)] pb-6">
+        <h3 className="text-[13px] uppercase tracking-[0.02em]">Nightscout</h3>
+        <div className="mt-3 grid gap-3 text-[13px] text-[var(--fg)]">
+          {meal.nightscout_id || meal.nightscout_synced_at ? (
+            <div className="grid gap-1">
+              <span>Отправлено в Nightscout</span>
+              <span className="font-mono text-[12px] text-[var(--muted)]">
+                {meal.nightscout_synced_at
+                  ? new Intl.DateTimeFormat("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(meal.nightscout_synced_at))
+                  : meal.nightscout_id}
+              </span>
+            </div>
+          ) : meal.nightscout_sync_status === "failed" ? (
+            <p className="text-[var(--danger)]">
+              ошибка NS: {meal.nightscout_sync_error ?? "не удалось отправить"}
+            </p>
+          ) : (
+            <p className="text-[var(--muted)]">Запись ещё не отправлена.</p>
+          )}
+          {onSyncNightscout &&
+          meal.status === "accepted" &&
+          !meal.nightscout_id ? (
+            <Button
+              disabled={syncNightscoutPending}
+              onClick={() => onSyncNightscout(meal)}
+            >
+              {syncNightscoutPending ? "Отправляю..." : "Отправить в Nightscout"}
+            </Button>
+          ) : null}
+          {onResyncNightscout &&
+          meal.status === "accepted" &&
+          meal.nightscout_id ? (
+            <Button
+              disabled={syncNightscoutPending}
+              onClick={() => onResyncNightscout(meal)}
+            >
+              {syncNightscoutPending
+                ? "Переотправляю..."
+                : "Переотправить в Nightscout"}
+            </Button>
+          ) : null}
+          <p className="text-[12px] text-[var(--muted)]">
+            Это запись дневника. Инсулин не отправляется и не рассчитывается.
+          </p>
+        </div>
       </section>
 
       {primaryItem ? <KnownComponentSection item={primaryItem} /> : null}

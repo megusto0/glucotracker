@@ -5,6 +5,41 @@ import App from "../App";
 import { useSettingsStore } from "../features/settings/settingsStore";
 import { server } from "./msw";
 
+const currentDateHeading = new RegExp(
+  new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(new Date())
+    .replace(" г.", ""),
+  "i",
+);
+
+const formatDayHeading = (date: Date) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(date)
+    .replace(" Рі.", "");
+
+const startOfLocalDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const addDays = (date: Date, days: number) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+
+const toLocalDateTimeString = (date: Date) => {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds(),
+  )}`;
+};
+
 const configureApi = () => {
   useSettingsStore.setState({
     baseUrl: "http://api.test",
@@ -206,17 +241,68 @@ const useDashboardFixture = () => {
 test("app renders", () => {
   render(<App />);
 
+  expect(screen.getByRole("heading", { name: currentDateHeading })).toBeInTheDocument();
+});
+
+test("journal previous day button loads yesterday meals", async () => {
+  configureApi();
+  const user = userEvent.setup();
+  const today = startOfLocalDay(new Date());
+  const yesterday = addDays(today, -1);
+  const todayFrom = toLocalDateTimeString(today);
+  const yesterdayFrom = toLocalDateTimeString(yesterday);
+
+  server.use(
+    http.get("http://api.test/meals", ({ request }) => {
+      const from = new URL(request.url).searchParams.get("from");
+      const items =
+        from === yesterdayFrom
+          ? [
+              mealFixture({
+                id: "meal-yesterday",
+                eaten_at: new Date(
+                  yesterday.getFullYear(),
+                  yesterday.getMonth(),
+                  yesterday.getDate(),
+                  12,
+                  30,
+                  0,
+                ).toISOString(),
+                title: "Yesterday meal",
+              }),
+            ]
+          : from === todayFrom
+            ? []
+            : [];
+
+      return HttpResponse.json({
+        items,
+        total: items.length,
+        limit: 100,
+        offset: 0,
+      });
+    }),
+  );
+
+  render(<App />);
+
+  expect(await screen.findByRole("button", { name: "Предыдущий день" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Предыдущий день" }));
+
+  expect(await screen.findByText("Yesterday meal")).toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: /28 апреля 2026/i }),
+    screen.getByRole("heading", {
+      name: new RegExp(formatDayHeading(yesterday), "i"),
+    }),
   ).toBeInTheDocument();
 });
 
 test.each([
-  { path: "/", heading: /28 апреля 2026/i },
+  { path: "/", heading: currentDateHeading },
   { path: "/feed", heading: /^История$/i },
   { path: "/stats", heading: /^Статистика$/i },
   { path: "/database", heading: /^База$/i },
-  { path: "/settings", heading: /^Настройки$/i },
+  { path: "/settings", heading: /^Интеграция: Nightscout$/i },
 ])("smoke renders $path route", ({ path, heading }) => {
   window.history.pushState({}, "", path);
 
@@ -265,9 +351,7 @@ test("test connection calls health and OpenAPI", async () => {
   await user.click(screen.getByRole("link", { name: "Настройки" }));
   await user.clear(screen.getByLabelText("Адрес backend"));
   await user.type(screen.getByLabelText("Адрес backend"), "http://api.test");
-  await user.click(
-    screen.getByRole("button", { name: "Проверить подключение" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Проверить backend" }));
 
   await waitFor(() => {
     expect(screen.getByText("ok / v0.1.0")).toBeInTheDocument();
@@ -281,10 +365,8 @@ test("settings Nightscout block handles not configured", async () => {
 
   render(<App />);
 
-  expect(
-    await screen.findByText("Опциональная синхронизация"),
-  ).toBeInTheDocument();
-  expect(await screen.findAllByText("не настроен")).not.toHaveLength(0);
+  expect(await screen.findByText("Синхронизация")).toBeInTheDocument();
+  expect(await screen.findAllByText("не подключено")).not.toHaveLength(0);
 });
 
 test("white background token is applied", () => {

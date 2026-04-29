@@ -1179,6 +1179,90 @@ def test_known_component_missing_database_keeps_visual_estimate_with_warning(
     )
 
 
+def test_known_component_matching_rejects_generic_cake_base_alias(
+    api_client: TestClient,
+) -> None:
+    """Generic component token overlap must not turn cake base into tortilla."""
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"], "cake.jpg")
+    response = api_client.post(
+        "/products",
+        json={
+            "name": "Тортилья 40 г",
+            "default_grams": 40,
+            "default_serving_text": "1 шт",
+            "carbs_per_serving": 22.1,
+            "protein_per_serving": 3,
+            "fat_per_serving": 2.45,
+            "fiber_per_serving": 1.1,
+            "kcal_per_serving": 124,
+            "source_kind": "personal_component",
+            "aliases": ["тортилья", "лаваш", "tortilla", "основа ролла"],
+        },
+    )
+    assert response.status_code == 201
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Cake slice",
+                    display_name_ru="Кусочек торта",
+                    scenario="PLATED",
+                    item_type="plated_food",
+                    grams_mid=117,
+                    carbs_g_mid=52,
+                    protein_g_mid=6,
+                    fat_g_mid=28,
+                    fiber_g_mid=1,
+                    kcal_mid=480,
+                    component_estimates=[
+                        EstimatedComponent(
+                            name_ru="Основа торта (бисквит/коржи)",
+                            component_type="carb_base",
+                            estimated_grams_mid=80,
+                            carbs_g_mid=35,
+                            protein_g_mid=4,
+                            fat_g_mid=15,
+                            fiber_g_mid=0.5,
+                            kcal_mid=290,
+                            should_use_database_if_available=True,
+                        ),
+                        EstimatedComponent(
+                            name_ru="Крем и меренга",
+                            component_type="fat_source",
+                            estimated_grams_mid=37,
+                            carbs_g_mid=17,
+                            protein_g_mid=2,
+                            fat_g_mid=13,
+                            fiber_g_mid=0.5,
+                            kcal_mid=190,
+                            should_use_database_if_available=True,
+                        ),
+                    ],
+                    confidence=0.92,
+                    confidence_reason="Scale weight is visible.",
+                    evidence=["Вес 117 г виден на дисплее весов"],
+                )
+            ],
+            overall_notes="Cake slice on scales.",
+        )
+    )
+
+    estimate = api_client.post(
+        f"/meals/{meal['id']}/estimate",
+        json={"scenario_hint": "PLATED"},
+    )
+
+    assert estimate.status_code == 200
+    item = estimate.json()["suggested_items"][0]
+    assert item["calculation_method"] == "visual_estimate_gemini_mid"
+    assert item["carbs_g"] == pytest.approx(52)
+    assert item["fat_g"] == pytest.approx(28)
+    assert item["kcal"] == pytest.approx(480)
+    assert "known_component" not in item["evidence"]
+    assert "carb_anchor" not in item["evidence"]
+
+
 def test_known_component_matching_ignores_unrelated_saved_components(
     api_client: TestClient,
 ) -> None:
