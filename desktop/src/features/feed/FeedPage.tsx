@@ -76,7 +76,7 @@ const eventRange = (filters: FeedFilters) => {
   const now = new Date();
   const from = filters.from
     ? new Date(`${filters.from}T00:00:00`)
-    : new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const to = filters.to ? new Date(`${filters.to}T23:59:59`) : now;
   return { from: toLocalDateTimeString(from), to: toLocalDateTimeString(to) };
 };
