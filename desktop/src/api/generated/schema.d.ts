@@ -584,6 +584,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nightscout/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Nightscout Context
+         * @description Fetch Nightscout glucose/insulin context and cache it locally.
+         */
+        post: operations["importNightscoutContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nightscout/insulin": {
         parameters: {
             query?: never;
@@ -942,6 +962,26 @@ export interface paths {
          * @description Test Nightscout connection and persist masked status.
          */
         post: operations["testNightscoutConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Timeline
+         * @description Return backend-owned food episodes with local Nightscout context.
+         */
+        get: operations["getTimeline"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1630,6 +1670,37 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * FoodEpisodeResponse
+         * @description Computed grouping of meal, insulin, and local CGM context.
+         */
+        FoodEpisodeResponse: {
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Glucose */
+            glucose?: components["schemas"]["NightscoutGlucoseEntryResponse"][];
+            glucose_summary: components["schemas"]["TimelineGlucoseSummary"];
+            /** Id */
+            id: string;
+            /** Insulin */
+            insulin?: components["schemas"]["NightscoutInsulinEventResponse"][];
+            /** Meals */
+            meals: components["schemas"]["MealResponse"][];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Title */
+            title: string;
+            /** Total Carbs G */
+            total_carbs_g: number;
+            /** Total Kcal */
+            total_kcal: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2278,6 +2349,58 @@ export interface components {
             unit: string;
             /** Value */
             value: number;
+        };
+        /**
+         * NightscoutImportRequest
+         * @description Import Nightscout context into the local read-only cache.
+         */
+        NightscoutImportRequest: {
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /**
+             * Import Insulin Events
+             * @default true
+             */
+            import_insulin_events: boolean;
+            /**
+             * Sync Glucose
+             * @default true
+             */
+            sync_glucose: boolean;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+        };
+        /**
+         * NightscoutImportResponse
+         * @description Nightscout local cache import summary.
+         */
+        NightscoutImportResponse: {
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /** Glucose Imported */
+            glucose_imported: number;
+            /** Glucose Total */
+            glucose_total: number;
+            /** Insulin Imported */
+            insulin_imported: number;
+            /** Insulin Total */
+            insulin_total: number;
+            /** Last Error */
+            last_error?: string | null;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
         };
         /**
          * NightscoutInsulinEventResponse
@@ -3452,6 +3575,72 @@ export interface components {
              */
             aliases?: string[];
         };
+        /**
+         * TimelineGlucoseSummary
+         * @description Small CGM summary for a computed food episode.
+         */
+        TimelineGlucoseSummary: {
+            /** Before Value */
+            before_value?: number | null;
+            /** Latest Value */
+            latest_value?: number | null;
+            /** Max Value */
+            max_value?: number | null;
+            /** Min Value */
+            min_value?: number | null;
+            /** Peak Value */
+            peak_value?: number | null;
+            /**
+             * Unit
+             * @default mmol/L
+             */
+            unit: string;
+        };
+        /**
+         * TimelineInsulinEventResponse
+         * @description Read-only insulin event not grouped into a food episode.
+         */
+        TimelineInsulinEventResponse: {
+            /** Enteredby */
+            enteredBy?: string | null;
+            /** Eventtype */
+            eventType?: string | null;
+            /** Insulin Type */
+            insulin_type?: string | null;
+            /** Insulin Units */
+            insulin_units?: number | null;
+            /** Linked Episode Id */
+            linked_episode_id?: string | null;
+            /** Nightscout Id */
+            nightscout_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /**
+         * TimelineResponse
+         * @description History timeline response with backend-owned computed food episodes.
+         */
+        TimelineResponse: {
+            /** Episodes */
+            episodes: components["schemas"]["FoodEpisodeResponse"][];
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+            /** Ungrouped Insulin */
+            ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -4538,6 +4727,39 @@ export interface operations {
             };
         };
     };
+    importNightscoutContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NightscoutImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getNightscoutInsulin: {
         parameters: {
             query: {
@@ -5231,6 +5453,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NightscoutTestResponse"];
+                };
+            };
+        };
+    };
+    getTimeline: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

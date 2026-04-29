@@ -104,6 +104,22 @@ export const server = setupServer(
   http.get("http://api.test/nightscout/events", () =>
     HttpResponse.json({ glucose: [], insulin: [] }),
   ),
+  http.post("http://api.test/nightscout/import", () =>
+    HttpResponse.json({
+      from_datetime: "2026-04-28T00:00:00",
+      to_datetime: "2026-04-28T23:59:59",
+      glucose_count: 0,
+      insulin_count: 0,
+    }),
+  ),
+  http.get("http://api.test/timeline", () =>
+    HttpResponse.json({
+      from_datetime: "2026-04-28T00:00:00",
+      to_datetime: "2026-04-28T23:59:59",
+      episodes: [],
+      ungrouped_insulin: [],
+    }),
+  ),
   http.get("http://api.test/meals", () =>
     HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
   ),

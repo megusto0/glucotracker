@@ -23,12 +23,13 @@ Backend owns:
 
 - database schema and migrations
 - REST API semantics and OpenAPI contract
+- application-service orchestration
 - macro and nutrient math
 - draft, accept, discard, and re-estimate lifecycle
 - Gemini normalization and model-routing behavior
 - product memory and autocomplete semantics
 - daily totals and dashboard data
-- Nightscout sync boundaries
+- Nightscout sync, local import, and timeline boundaries
 
 The Tauri desktop app is one client. A future Android client should consume the
 same backend API without backend changes for desktop-specific behavior.
@@ -58,7 +59,16 @@ same backend API without backend changes for desktop-specific behavior.
 - Manual overrides beat product, restaurant, pattern, and Gemini estimates.
 - Label/product/restaurant data beats visual estimates.
 - Backend recalculates accepted totals; frontend does not own final macro math.
+- Accepting `label_calc` items recalculates totals from label evidence and
+  extracted facts; client-submitted label totals are not authoritative.
+- Known-component replacement must require specific aliases or terms. Generic
+  overlap such as `base`, `component`, or Russian `osnova` is not enough.
 - Gemini API keys and Nightscout secrets stay backend-only.
+- Nightscout insulin is imported as read-only context only; do not turn it into
+  dosing advice or editable glucotracker treatment data.
+- Food episodes are computed projections over accepted meal rows, local CGM,
+  and read-only Nightscout insulin context. Do not merge or replace meals when
+  building the history timeline.
 - Multi-photo estimation must preserve photo identity.
 - Unrelated photos should not be merged into one food item.
 - Local wall-clock meal times should not be shifted through UTC conversion.
@@ -68,10 +78,15 @@ same backend API without backend changes for desktop-specific behavior.
 
 - `backend/glucotracker/main.py` - FastAPI app and router registration.
 - `backend/glucotracker/api/routers/` - REST endpoints by resource.
+- `backend/glucotracker/application/` - use-case orchestration services.
 - `backend/glucotracker/domain/` - food diary rules and deterministic logic.
+- `backend/glucotracker/domain/known_components.py` - saved component matching guardrails.
 - `backend/glucotracker/infra/db/` - SQLAlchemy models/session/seed helpers.
 - `backend/glucotracker/infra/gemini/client.py` - Gemini prompt/client logic.
 - `backend/glucotracker/application/photo_estimation.py` - photo estimate flow.
+- `backend/glucotracker/application/product_memory.py` - accepted label product upserts.
+- `backend/glucotracker/application/nightscout_sync.py` - optional Nightscout sync orchestration.
+- `backend/glucotracker/application/nightscout_context.py` - local Nightscout import and computed food episodes.
 - `desktop/src/features/chat/ChatPage.tsx` - main journal/photo draft screen.
 - `desktop/src/features/meals/MealLedger.tsx` - meal rows and detail panels.
 - `desktop/src/api/client.ts` - desktop API wrapper.

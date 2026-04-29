@@ -4,7 +4,12 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { apiClient, type MealResponse } from "../../api/client";
+import {
+  apiClient,
+  type FoodEpisodeResponse,
+  type MealResponse,
+  type TimelineResponse,
+} from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { Button } from "../../design/primitives/Button";
 import {
@@ -14,10 +19,11 @@ import {
   SelectedMealPanel,
 } from "../meals/MealLedger";
 import {
-  useNightscoutEvents,
+  useImportNightscoutContext,
   useNightscoutSettings,
   useResyncMealToNightscout,
   useSyncMealToNightscout,
+  useTimeline,
 } from "../nightscout/useNightscout";
 import { useApiConfig } from "../settings/settingsStore";
 import {
@@ -31,8 +37,18 @@ import {
 type DayGroup = {
   key: string;
   label: string;
-  meals: MealResponse[];
+  items: FeedItem[];
 };
+
+type FeedItem =
+  | { kind: "episode"; id: string; startAt: string; episode: FoodEpisodeResponse }
+  | { kind: "meal"; id: string; startAt: string; meal: MealResponse }
+  | {
+      kind: "insulin";
+      id: string;
+      startAt: string;
+      event: NonNullable<TimelineResponse["ungrouped_insulin"]>[number];
+    };
 
 type MealItem = NonNullable<MealResponse["items"]>[number];
 
@@ -58,23 +74,30 @@ const dayLabel = (iso: string) =>
     .format(new Date(iso))
     .toLowerCase();
 
-const groupMealsByDay = (meals: MealResponse[]): DayGroup[] => {
+const groupFeedItemsByDay = (items: FeedItem[]): DayGroup[] => {
   const groups = new Map<string, DayGroup>();
-  meals.forEach((meal) => {
-    const key = localDayKey(meal.eaten_at);
+  items.forEach((item) => {
+    const key = localDayKey(item.startAt);
     const existing = groups.get(key);
     if (existing) {
-      existing.meals.push(meal);
+      existing.items.push(item);
       return;
     }
     groups.set(key, {
       key,
-      label: dayLabel(meal.eaten_at),
-      meals: [meal],
+      label: dayLabel(item.startAt),
+      items: [item],
     });
   });
   return Array.from(groups.values());
 };
+
+const toLocalDateTimeString = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds(),
+  )}`;
 
 const eventRange = (filters: FeedFilters) => {
   const now = new Date();
@@ -82,7 +105,7 @@ const eventRange = (filters: FeedFilters) => {
     ? new Date(`${filters.from}T00:00:00`)
     : new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const to = filters.to ? new Date(`${filters.to}T23:59:59`) : now;
-  return { from: from.toISOString(), to: to.toISOString() };
+  return { from: toLocalDateTimeString(from), to: toLocalDateTimeString(to) };
 };
 
 const uniqueSortedMeals = (pages: MealResponse[][]) => {
@@ -110,11 +133,13 @@ export function FeedPage() {
   });
   const range = useMemo(() => eventRange(filters), [filters.from, filters.to]);
   const nightscoutSettings = useNightscoutSettings();
-  const nightscoutEvents = useNightscoutEvents(
+  const timelineEnabled = Boolean(nightscoutSettings.data?.configured);
+  const timeline = useTimeline(
     range.from,
     range.to,
-    Boolean(nightscoutSettings.data?.configured),
+    timelineEnabled,
   );
+  const importNightscout = useImportNightscoutContext(range.from, range.to);
   const syncMealNightscout = useSyncMealToNightscout();
   const resyncMealNightscout = useResyncMealToNightscout();
 
@@ -145,8 +170,61 @@ export function FeedPage() {
     }
     return sortedMeals.filter((meal) => meal.status !== "discarded");
   }, [feed.data, filters.status]);
-  const groups = useMemo(() => groupMealsByDay(meals), [meals]);
+  const feedItems = useMemo(() => {
+    const episodes = timeline.data?.episodes ?? [];
+    const episodeMealIds = new Set(
+      episodes.flatMap((episode) => episode.meals.map((meal) => meal.id)),
+    );
+    const episodeItems: FeedItem[] = episodes.map((episode) => ({
+      kind: "episode",
+      id: episode.id,
+      startAt: episode.start_at,
+      episode,
+    }));
+    const mealItems: FeedItem[] = meals
+      .filter((meal) => !episodeMealIds.has(meal.id))
+      .map((meal) => ({
+        kind: "meal",
+        id: meal.id,
+        startAt: meal.eaten_at,
+        meal,
+      }));
+    const insulinItems: FeedItem[] = (
+      timeline.data?.ungrouped_insulin ?? []
+    ).map((event) => ({
+      kind: "insulin",
+      id: event.nightscout_id ?? event.timestamp,
+      startAt: event.timestamp,
+      event,
+    }));
+
+    return [...episodeItems, ...mealItems, ...insulinItems].sort(
+      (first, second) => Date.parse(second.startAt) - Date.parse(first.startAt),
+    );
+  }, [meals, timeline.data]);
+  const groups = useMemo(() => groupFeedItemsByDay(feedItems), [feedItems]);
   const selectedMeal = meals.find((meal) => meal.id === selectedMealId) ?? null;
+
+  useEffect(() => {
+    const settings = nightscoutSettings.data;
+    if (!settings?.configured) {
+      return;
+    }
+    if (!settings.sync_glucose && !settings.import_insulin_events) {
+      return;
+    }
+    importNightscout.mutate({
+      sync_glucose: settings.sync_glucose,
+      import_insulin_events: settings.import_insulin_events,
+    });
+  }, [
+    importNightscout.mutate,
+    nightscoutSettings.data?.configured,
+    nightscoutSettings.data?.import_insulin_events,
+    nightscoutSettings.data?.sync_glucose,
+    range.from,
+    range.to,
+  ]);
 
   useEffect(() => {
     if (selectedMealId && !selectedMeal) {
@@ -318,12 +396,6 @@ export function FeedPage() {
         </section>
 
         <section className="mt-12 grid gap-12">
-          {nightscoutEvents.data &&
-          (nightscoutEvents.data.insulin.length ||
-            nightscoutEvents.data.glucose.length) ? (
-            <NightscoutEpisodeBlock events={nightscoutEvents.data} />
-          ) : null}
-
           {!config.token.trim() ? (
             <EmptyLog message="Укажите адрес backend и токен в настройках." />
           ) : null}
@@ -342,18 +414,37 @@ export function FeedPage() {
               <h2 className="sticky top-0 z-10 border-y border-[var(--hairline)] bg-[var(--bg)] py-4 text-[40px] font-normal leading-none text-[var(--fg)]">
                 {group.label}
               </h2>
-              {group.meals.map((meal) => (
-                <MealRow
-                  key={meal.id}
-                  meal={meal}
-                  selected={selectedMealId === meal.id}
-                  onToggle={() =>
-                    setSelectedMealId((current) =>
-                      current === meal.id ? null : meal.id,
-                    )
-                  }
-                />
-              ))}
+              {group.items.map((item) => {
+                if (item.kind === "episode") {
+                  return (
+                    <FoodEpisodeCard
+                      episode={item.episode}
+                      key={item.id}
+                      selectedMealId={selectedMealId}
+                      onMealToggle={(mealId) =>
+                        setSelectedMealId((current) =>
+                          current === mealId ? null : mealId,
+                        )
+                      }
+                    />
+                  );
+                }
+                if (item.kind === "insulin") {
+                  return <UngroupedInsulinRow event={item.event} key={item.id} />;
+                }
+                return (
+                  <MealRow
+                    key={item.id}
+                    meal={item.meal}
+                    selected={selectedMealId === item.meal.id}
+                    onToggle={() =>
+                      setSelectedMealId((current) =>
+                        current === item.meal.id ? null : item.meal.id,
+                      )
+                    }
+                  />
+                );
+              })}
             </section>
           ))}
         </section>
@@ -396,58 +487,180 @@ export function FeedPage() {
   );
 }
 
-function NightscoutEpisodeBlock({
-  events,
+const formatTime = (iso: string) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+
+const formatEpisodeRange = (startAt: string, endAt: string) => {
+  const start = formatTime(startAt);
+  const end = formatTime(endAt);
+  return start === end ? start : `${start}-${end}`;
+};
+
+function FoodEpisodeCard({
+  episode,
+  onMealToggle,
+  selectedMealId,
 }: {
-  events: {
-    glucose: Array<{ timestamp: string; value: number; unit: string }>;
-    insulin: Array<{
-      timestamp: string;
-      insulin_units?: number | null;
-      eventType?: string | null;
-    }>;
-  };
+  episode: FoodEpisodeResponse;
+  onMealToggle: (mealId: string) => void;
+  selectedMealId: string | null;
 }) {
-  const glucoseValues = events.glucose.map((entry) => entry.value);
-  const minGlucose = glucoseValues.length ? Math.min(...glucoseValues) : null;
-  const maxGlucose = glucoseValues.length ? Math.max(...glucoseValues) : null;
-  const formatTime = (iso: string) =>
-    new Intl.DateTimeFormat("ru-RU", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(iso));
+  const glucose = episode.glucose ?? [];
+  const insulin = episode.insulin ?? [];
+  const eventCount = episode.meals.length + insulin.length;
 
   return (
-    <section className="border border-[var(--hairline)] bg-[rgba(255,255,255,0.35)] p-5">
-      <div className="grid gap-1 border-b border-[var(--hairline)] pb-4">
-        <h2 className="text-[24px] font-normal">Пищевой эпизод</h2>
-        <p className="text-[12px] text-[var(--muted)]">
-          Связанные события показаны по времени, без назначения доз.
-        </p>
+    <section className="border border-[var(--hairline)] bg-[rgba(255,255,255,0.34)]">
+      <div className="grid gap-4 border-b border-[var(--hairline)] p-5 lg:grid-cols-[72px_1fr_260px]">
+        <div className="font-mono text-[13px] leading-6">
+          <div>{formatTime(episode.start_at)}</div>
+          <div>{formatTime(episode.end_at)}</div>
+        </div>
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-[24px] font-normal">Пищевой эпизод</h3>
+            <span className="border border-[var(--hairline)] bg-[var(--bg)] px-2 py-1 text-[11px]">
+              {formatEpisodeRange(episode.start_at, episode.end_at)}
+            </span>
+          </div>
+          <p className="text-[13px] text-[var(--muted)]">
+            {eventCount} события · {Math.round(episode.total_kcal)} ккал ·{" "}
+            {episode.total_carbs_g} г углеводов
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-[12px] text-[var(--muted)]">
+            <span>Глюкоза (CGM)</span>
+            <span>
+              {episode.glucose_summary.min_value ?? "--"}-
+              {episode.glucose_summary.max_value ?? "--"} ммоль/л
+            </span>
+          </div>
+          <MiniGlucoseChart entries={glucose} />
+        </div>
       </div>
-      <div className="mt-4 grid gap-3">
-        {events.insulin.slice(0, 4).map((event) => (
+
+      <div className="grid">
+        {episode.meals.map((meal) => (
+          <EpisodeMealLine
+            key={meal.id}
+            meal={meal}
+            selected={selectedMealId === meal.id}
+            onToggle={() => onMealToggle(meal.id)}
+          />
+        ))}
+        {insulin.map((event) => (
           <div
-            className="grid grid-cols-[64px_1fr_auto] border-b border-[var(--hairline)] py-2 text-[13px]"
-            key={`${event.timestamp}-${event.eventType}`}
+            className="grid grid-cols-[72px_1fr_auto] items-center border-t border-[var(--hairline)] px-5 py-3 text-[14px]"
+            key={event.nightscout_id ?? event.timestamp}
           >
             <span className="font-mono">{formatTime(event.timestamp)}</span>
-            <span>Инсулин рядом по времени · Nightscout</span>
-            <span className="font-mono">
-              {event.insulin_units ?? "--"} Ед
-            </span>
+            <span>Инсулин из Nightscout</span>
+            <span className="font-mono">{event.insulin_units ?? "--"} ЕД</span>
           </div>
         ))}
-        {minGlucose !== null && maxGlucose !== null ? (
-          <div className="grid grid-cols-[64px_1fr_auto] py-2 text-[13px]">
-            <span className="font-mono">CGM</span>
-            <span>Глюкоза вокруг события</span>
-            <span className="font-mono">
-              {minGlucose}–{maxGlucose} mmol/L
-            </span>
-          </div>
-        ) : null}
       </div>
     </section>
+  );
+}
+
+function EpisodeMealLine({
+  meal,
+  onToggle,
+  selected,
+}: {
+  meal: MealResponse;
+  onToggle: () => void;
+  selected: boolean;
+}) {
+  const title = meal.title || meal.items?.[0]?.name || "Приём пищи";
+  return (
+    <button
+      className={`grid grid-cols-[72px_1fr_auto] items-center border-t border-[var(--hairline)] px-5 py-3 text-left text-[14px] transition hover:bg-[var(--surface)] ${
+        selected ? "bg-[var(--surface)]" : ""
+      }`}
+      onClick={onToggle}
+      type="button"
+    >
+      <span className="font-mono">{formatTime(meal.eaten_at)}</span>
+      <span className="grid gap-1">
+        <span>{title}</span>
+        <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          еда / принято
+        </span>
+      </span>
+      <span className="grid grid-cols-[64px_72px] gap-4 text-right font-mono">
+        <span>{meal.total_carbs_g} г</span>
+        <span>{Math.round(meal.total_kcal)} ккал</span>
+      </span>
+    </button>
+  );
+}
+
+function UngroupedInsulinRow({
+  event,
+}: {
+  event: NonNullable<TimelineResponse["ungrouped_insulin"]>[number];
+}) {
+  return (
+    <div className="grid grid-cols-[96px_1fr_auto] items-center border-b border-[var(--hairline)] py-4 text-[14px]">
+      <span className="font-mono">{formatTime(event.timestamp)}</span>
+      <span>Инсулин из Nightscout</span>
+      <span className="font-mono">{event.insulin_units ?? "--"} ЕД</span>
+    </div>
+  );
+}
+
+function MiniGlucoseChart({
+  entries,
+}: {
+  entries: NonNullable<FoodEpisodeResponse["glucose"]>;
+}) {
+  if (entries.length < 2) {
+    return (
+      <div className="grid h-20 place-items-center border border-[var(--hairline)] text-[12px] text-[var(--muted)]">
+        нет локальных точек CGM
+      </div>
+    );
+  }
+  const values = entries.map((entry) => entry.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(max - min, 0.1);
+  const points = entries
+    .map((entry, index) => {
+      const x = (index / (entries.length - 1)) * 100;
+      const y = 64 - ((entry.value - min) / span) * 52;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      aria-label="Мини-график глюкозы вокруг пищевого эпизода"
+      className="h-20 w-full border border-[var(--hairline)] bg-[var(--bg)]"
+      role="img"
+      viewBox="0 0 100 72"
+    >
+      <line
+        stroke="var(--hairline)"
+        strokeWidth="0.5"
+        x1="0"
+        x2="100"
+        y1="36"
+        y2="36"
+      />
+      <polyline
+        fill="none"
+        points={points}
+        stroke="var(--fg)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
   );
 }

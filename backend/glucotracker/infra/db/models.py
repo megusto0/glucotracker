@@ -752,6 +752,94 @@ class NightscoutSettings(Base, TimestampMixin):
     last_error: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class NightscoutGlucoseEntry(Base, TimestampMixin):
+    """Locally cached read-only CGM entry imported from Nightscout."""
+
+    __tablename__ = "nightscout_glucose_entries"
+    __table_args__ = (
+        UniqueConstraint("source_key", name="uq_nightscout_glucose_source_key"),
+        Index("ix_nightscout_glucose_timestamp", "timestamp"),
+        Index("ix_nightscout_glucose_nightscout_id", "nightscout_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    source_key: Mapped[str] = mapped_column(String, nullable=False)
+    nightscout_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    value_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    value_mg_dl: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trend: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
+class NightscoutInsulinEvent(Base, TimestampMixin):
+    """Locally cached read-only insulin treatment imported from Nightscout."""
+
+    __tablename__ = "nightscout_insulin_events"
+    __table_args__ = (
+        UniqueConstraint("source_key", name="uq_nightscout_insulin_source_key"),
+        Index("ix_nightscout_insulin_timestamp", "timestamp"),
+        Index("ix_nightscout_insulin_nightscout_id", "nightscout_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    source_key: Mapped[str] = mapped_column(String, nullable=False)
+    nightscout_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    insulin_units: Mapped[float | None] = mapped_column(Float, nullable=True)
+    event_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    insulin_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    entered_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
+class NightscoutImportState(Base):
+    """Singleton import watermark for local Nightscout context cache."""
+
+    __tablename__ = "nightscout_import_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    last_glucose_import_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_insulin_import_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
 class AIRun(Base):
     """Recorded AI request and response payload for a meal."""
 

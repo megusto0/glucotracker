@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, type NightscoutSettingsPatch } from "../../api/client";
+import {
+  apiClient,
+  type NightscoutImportRequest,
+  type NightscoutSettingsPatch,
+} from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { useApiConfig } from "../settings/settingsStore";
 
@@ -106,6 +110,32 @@ export function useNightscoutEvents(from: string, to: string, enabled: boolean) 
   return useQuery({
     queryKey: queryKeys.nightscoutEvents(from, to),
     queryFn: () => apiClient.getNightscoutEvents(config, from, to),
+    enabled: Boolean(config.token.trim()) && enabled,
+  });
+}
+
+export function useImportNightscoutContext(from: string, to: string) {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload?: Partial<NightscoutImportRequest>) =>
+      apiClient.importNightscoutContext(config, {
+        from_datetime: from,
+        to_datetime: to,
+        sync_glucose: payload?.sync_glucose ?? true,
+        import_insulin_events: payload?.import_insulin_events ?? true,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.timeline(from, to) });
+    },
+  });
+}
+
+export function useTimeline(from: string, to: string, enabled: boolean) {
+  const config = useApiConfig();
+  return useQuery({
+    queryKey: queryKeys.timeline(from, to),
+    queryFn: () => apiClient.getTimeline(config, from, to),
     enabled: Boolean(config.token.trim()) && enabled,
   });
 }

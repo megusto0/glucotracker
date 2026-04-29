@@ -4,7 +4,7 @@ Personal food diary monorepo for a type-1 diabetic. This app is an informational
 
 ## Layout
 
-- `backend/` - FastAPI service, SQLAlchemy/Alembic database layer, workers, and external integration adapters.
+- `backend/` - FastAPI service, application services, SQLAlchemy/Alembic database layer, workers, and external integration adapters.
 - `desktop/` - Tauri 2 desktop client with React, TypeScript, and Tailwind.
 - `docs/` - Architecture, frontend contract, API contract notes, manual testing, and shared design tokens.
 - `scripts/` - Project helper scripts and generated-client automation hooks.
@@ -77,7 +77,7 @@ npm install
 npm run tauri dev
 ```
 
-Generated API types will be produced from the FastAPI OpenAPI document when API endpoints are added:
+Regenerate API types from the FastAPI OpenAPI document after backend API changes:
 
 ```powershell
 cd desktop

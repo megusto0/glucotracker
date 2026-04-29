@@ -417,6 +417,91 @@ def test_nightscout_read_glucose_and_insulin_events(api_client: TestClient) -> N
     assert events.json()["insulin"][0]["nightscout_id"] == "insulin-1"
 
 
+def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
+    api_client: TestClient,
+) -> None:
+    """Imported Nightscout context is stored locally and grouped around meals."""
+    fake = FakeNightscoutClient(
+        glucose_rows=[
+            {
+                "dateString": "2026-04-28T11:45:00+04:00",
+                "sgv": 100,
+                "direction": "Flat",
+                "device": "CGM",
+                "_id": "glucose-before",
+            },
+            {
+                "dateString": "2026-04-28T12:40:00+04:00",
+                "sgv": 176,
+                "direction": "SingleUp",
+                "device": "CGM",
+                "_id": "glucose-peak",
+            },
+        ],
+        insulin_rows=[
+            {
+                "created_at": "2026-04-28T12:08:00+04:00",
+                "insulin": 4,
+                "eventType": "Correction Bolus",
+                "enteredBy": "Nightscout",
+                "_id": "insulin-episode",
+            }
+        ],
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    first = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-04-28T12:00:00",
+            "title": "Сырок глазированный",
+            "source": "manual",
+            "status": "accepted",
+            "items": [_manual_item(name="Сырок", carbs_g=17, kcal=160)],
+        },
+    )
+    second = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-04-28T12:20:00",
+            "title": "Ролл с курицей",
+            "source": "manual",
+            "status": "accepted",
+            "items": [_manual_item(name="Ролл", carbs_g=51, kcal=465)],
+        },
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    payload = {
+        "from_datetime": "2026-04-28T11:00:00",
+        "to_datetime": "2026-04-28T15:00:00",
+    }
+    imported = api_client.post("/nightscout/import", json=payload)
+    imported_again = api_client.post("/nightscout/import", json=payload)
+    timeline = api_client.get(
+        "/timeline",
+        params={"from": payload["from_datetime"], "to": payload["to_datetime"]},
+    )
+
+    assert imported.status_code == 200
+    assert imported.json()["glucose_total"] == 2
+    assert imported.json()["insulin_total"] == 1
+    assert imported_again.status_code == 200
+    assert imported_again.json()["glucose_total"] == 2
+    assert imported_again.json()["insulin_total"] == 1
+    assert timeline.status_code == 200
+    episodes = timeline.json()["episodes"]
+    assert len(episodes) == 1
+    assert [meal["title"] for meal in episodes[0]["meals"]] == [
+        "Сырок глазированный",
+        "Ролл с курицей",
+    ]
+    assert episodes[0]["insulin"][0]["nightscout_id"] == "insulin-episode"
+    assert episodes[0]["glucose_summary"]["before_value"] == 5.5
+    assert episodes[0]["glucose_summary"]["peak_value"] == 9.8
+    assert episodes[0]["total_carbs_g"] == 68
+
+
 def test_daily_totals_recalculate_on_create_update_delete(
     api_client: TestClient,
     db_engine: Engine,

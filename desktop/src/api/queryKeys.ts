@@ -19,4 +19,5 @@ export const queryKeys = {
     ["nightscout", "day-status", date] as const,
   nightscoutEvents: (from: string, to: string) =>
     ["nightscout", "events", from, to] as const,
+  timeline: (from: string, to: string) => ["timeline", from, to] as const,
 };

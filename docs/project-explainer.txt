@@ -1,7 +1,7 @@
 glucotracker project explainer
 ==============================
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 Purpose
 -------
@@ -17,8 +17,9 @@ Core rule:
 
   Backend is the product.
   Frontend is replaceable.
-  Backend owns the database, API semantics, macro math, draft lifecycle,
-  Gemini normalization, product memory, daily totals, and Nightscout sync.
+  Backend owns the database, API semantics, application-service orchestration,
+  macro math, draft lifecycle, Gemini normalization, product memory, daily
+  totals, and Nightscout sync.
   The desktop UI is only one client implementation.
 
 
@@ -82,6 +83,12 @@ backend/
       schemas.py
       dependencies.py
       openapi.py
+    application/
+      daily_totals.py
+      meal_drafts.py
+      nightscout_sync.py
+      photo_estimation.py
+      product_memory.py
     domain/
       nutrition.py
       drafts.py
@@ -140,6 +147,9 @@ Main tables:
 - products
 - product_aliases
 - daily_totals
+- nightscout_glucose_entries
+- nightscout_insulin_events
+- nightscout_import_state
 - ai_runs / AI estimation run history
 - nutrient_definitions
 - meal_item_nutrients
@@ -195,6 +205,8 @@ Core meal lifecycle:
 7. User edits draft.
 8. UI sends reviewed items to POST /meals/{id}/accept.
 9. Backend replaces items atomically, recalculates totals, and sets accepted.
+   For label_calc items, backend recalculates label totals from extracted
+   facts/evidence before persistence instead of trusting submitted item totals.
 10. Accepted label_calc products may be remembered into the local product DB.
 11. Accepted meals count in dashboard/daily totals.
 12. Drafts do not count in daily totals.
@@ -233,6 +245,8 @@ Important endpoints:
 - GET /dashboard/source_breakdown
 - GET /dashboard/data_quality
 - GET /nightscout/status
+- POST /nightscout/import
+- GET /timeline
 - POST /meals/{id}/sync_nightscout
 - POST /meals/{id}/unsync_nightscout
 
@@ -353,6 +367,22 @@ Time handling:
 - if user enters 12:30, the journal should save and display 12:30
 - local day filters also use local datetime boundaries
 
+Nightscout timeline:
+
+- Nightscout insulin is read-only context imported from Nightscout.
+- Insulin context is shown as a manual Nightscout event, not as a local meal
+  item and never as dosing advice.
+- Food remains a stream of meal rows. The backend computes food episodes for
+  history display; it does not merge or replace the underlying meals.
+- Episode grouping rule: consecutive accepted meals within 30 minutes belong to
+  the same food episode.
+- Episode context rule: insulin is linked from 30 minutes before the first meal
+  to 90 minutes after the last meal.
+- CGM context rule: local Nightscout glucose points are linked from 60 minutes
+  before the first meal to 180 minutes after the last meal.
+- The desktop history screen should render the episode as one visual block with
+  nested food rows, insulin context rows, and a small CGM graph.
+
 
 Photo and Gemini estimation pipeline
 ------------------------------------
@@ -410,6 +440,9 @@ Plated food:
   known carbs/protein/fat/fiber/kcal instead of Gemini tortilla estimate.
 - Backend avoids double counting by replacing the raw component estimate, not
   adding known values on top of full model total.
+- Known-component matching must be specific. Generic overlap such as "base",
+  "component", "osnova", or "komponent" must not connect unrelated foods such
+  as cake base and tortilla/lavash.
 
 Whole fruit on scale:
 
@@ -687,6 +720,9 @@ Important safety checks
 - Unknown nutrients are null, not zero.
 - Sodium and caffeine are not visually guessed from plated food.
 - Backend recalculates all accepted totals.
+- Accepting label_calc items recalculates from label evidence/extracted facts,
+  not from client-submitted total macros.
+- Known-component matching is conservative; generic token overlap is ignored.
 - Frontend uses generated API types and does not own final macro math.
 - Multi-photo estimation preserves photo identity.
 - Unrelated photos create separate draft journal rows.

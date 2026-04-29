@@ -17,9 +17,10 @@ Optional nutrient tracking is backend-owned too. Unknown nutrient amounts are `n
 5. The user edits draft items.
 6. The frontend sends the final reviewed items to `POST /meals/{id}/accept`.
 7. The backend atomically replaces items, recalculates totals, computes confidence, and sets `status=accepted`.
-8. Accepted `label_calc` items are remembered in the local `products` database. The backend upserts by barcode when available, otherwise by brand/name, links the accepted `meal_item.product_id` to the remembered product, and uses the source meal photo as `product.image_url` when available.
-9. Drafts can be discarded with `POST /meals/{id}/discard`.
-10. Accepted meals remain editable, but every item edit or replacement recalculates backend totals.
+8. For `label_calc` items, accepted totals are recalculated from label evidence and extracted facts before persistence; client-submitted macro totals are review input, not the source of truth for label arithmetic.
+9. Accepted `label_calc` items are remembered in the local `products` database. The backend upserts by barcode when available, otherwise by brand/name, links the accepted `meal_item.product_id` to the remembered product, and uses the source meal photo as `product.image_url` when available.
+10. Drafts can be discarded with `POST /meals/{id}/discard`.
+11. Accepted meals remain editable, but every item edit or replacement recalculates backend totals.
 
 ## Enums
 
@@ -245,7 +246,7 @@ For multi-photo estimates, the backend sends Gemini an ordered photo manifest an
 
 When `estimate_and_save_draft` receives multiple unrelated `EstimatedItem` values, the backend creates one `draft` meal row per item instead of one combined meal. Same-product evidence, such as `SPLIT_LABEL_IDENTICAL_ITEMS` or `count_detected > 1`, stays as one draft row with totals for the detected count.
 
-For `PLATED` visual estimates, Gemini may return `component_estimates`. Reusable components such as tortilla/lavash, bread, rice, pasta, potato, sweet drinks, candy, cereal, bakery items, and other saved products can be marked as `component_type="carb_base"` or `component_type="known_component"` with `should_use_database_if_available=true`. The backend searches saved products/patterns and aliases for matching personal components before finalizing the item. If a match is found, known component values replace the model's raw component values per field: carbs, protein, fat, fiber, kcal, and optional nutrients when present. Unknown saved fields remain `null` and do not overwrite model values with zero. `evidence.known_component` records matched components, raw Gemini values, field sources, and backend-adjusted totals. If no match is found, the backend keeps the visual estimate and adds the Russian warning `Углеводная основа не найдена в базе. Значение оценено визуально.`
+For `PLATED` visual estimates, Gemini may return `component_estimates`. Reusable components such as tortilla/lavash, bread, rice, pasta, potato, sweet drinks, candy, cereal, bakery items, and other saved products can be marked as `component_type="carb_base"` or `component_type="known_component"` with `should_use_database_if_available=true`. The backend searches saved products/patterns and aliases for matching personal components before finalizing the item. Matching is conservative: generic words such as `base`, `component`, `osnova`, and `komponent` are stopwords and must not link unrelated foods by themselves. If a match is found, known component values replace the model's raw component values per field: carbs, protein, fat, fiber, kcal, and optional nutrients when present. Unknown saved fields remain `null` and do not overwrite model values with zero. `evidence.known_component` records matched components, raw Gemini values, field sources, and backend-adjusted totals. If no specific match is found, the backend keeps the visual estimate and adds the Russian warning `Углеводная основа не найдена в базе. Значение оценено визуально.`
 
 `calculation_breakdowns` is presentation-ready evidence, not a separate source of truth. It can include `count_detected`, `net_weight_per_unit_g`, `total_weight_g`, `nutrition_per_100g`, `calculated_per_unit`, `calculated_total`, `calculation_steps`, `evidence`, and `assumptions`. Frontends should render these fields as readable review context and still submit `suggested_items` to `/accept`.
 
@@ -352,6 +353,10 @@ Daily totals are backend-owned and include accepted meals only. Meal and item mu
 Nightscout is optional. If `NIGHTSCOUT_URL` or `NIGHTSCOUT_API_SECRET` is missing, local meal, photo, pattern, product, autocomplete, and dashboard endpoints continue working. Sync endpoints return HTTP 503 with `Nightscout not configured`.
 
 Synced meals are posted as Nightscout treatments with `eventType="Carb Correction"`, meal carbs/protein/fat, notes, and `enteredBy="glucotracker"`. Insulin is never included.
+
+Nightscout context import is read-only. `POST /nightscout/import` can fetch glucose and insulin treatment context into local backend tables for a selected range. Imported insulin is displayed as Nightscout context only; it is not editable in glucotracker and is never used for dosing advice. Imported CGM values are normalized to mmol/L and stored with app-local wall-clock timestamps so journal grouping does not shift through UTC conversion.
+
+`GET /timeline` returns computed history episodes. The backend groups accepted food rows into food episodes when consecutive meals are within a 30-minute window. For each episode, the backend links local Nightscout insulin events from 30 minutes before the first meal through 90 minutes after the last meal, and local CGM points from 60 minutes before through 180 minutes after. Food episodes are API projections only; they do not replace or merge underlying meal rows.
 
 ## Endpoint Examples
 
@@ -748,6 +753,8 @@ Canonical endpoint for accepting Gemini draft suggestions. The frontend sends th
 
 For accepted `label_calc` items, the backend also remembers the item in the local product database. This is backend-owned so replaceable frontends do not need to duplicate product-upsert rules. For visible label facts, per-100g values and per-serving values are copied from the accepted item evidence; unknown fields remain `null`. If the accepted item references an uploaded photo, the product row receives an authenticated backend photo URL such as `/photos/{photo_id}/file`; frontends must load it through the API client with Bearer auth rather than as an unauthenticated raw image URL.
 
+For accepted `label_calc` payloads, the backend treats `evidence.extracted_facts`, `nutrition_per_100g`, visible or assumed weight/volume/count, and serving facts as authoritative for label math. It recalculates item carbs, protein, fat, fiber, kcal, and supported optional nutrients before saving, so a frontend typo or stale edited total cannot multiply label values into the journal.
+
 ```bash
 curl -X POST "$BASE/meals/{meal_id}/accept" \
   -H "$AUTH" \
@@ -1032,6 +1039,49 @@ Unset response:
 
 ```json
 { "configured": false, "status": null }
+```
+
+### `POST /nightscout/import`
+
+Fetch read-only Nightscout context into local tables for a range. The request
+flags are intersected with saved Nightscout settings, so disabled sync options
+stay disabled even if a client sends `true`.
+
+```bash
+curl -X POST "$BASE/nightscout/import" \
+  -H "$AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_datetime": "2026-04-28T00:00:00",
+    "to_datetime": "2026-04-28T23:59:59",
+    "sync_glucose": true,
+    "import_insulin_events": true
+  }'
+```
+
+Response shape:
+
+```json
+{
+  "from_datetime": "2026-04-28T00:00:00",
+  "to_datetime": "2026-04-28T23:59:59",
+  "glucose_imported": 24,
+  "insulin_imported": 2,
+  "glucose_total": 24,
+  "insulin_total": 2,
+  "last_error": null
+}
+```
+
+### `GET /timeline`
+
+Return backend-computed food episodes for history screens. Query parameters are
+local datetimes named `from` and `to`. The response includes grouped accepted
+meals, linked read-only Nightscout insulin context, nearby local CGM points, and
+summary glucose values.
+
+```bash
+curl -H "$AUTH" "$BASE/timeline?from=2026-04-28T00:00:00&to=2026-04-28T23:59:59"
 ```
 
 ### `POST /meals/{id}/sync_nightscout`

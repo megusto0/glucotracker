@@ -364,9 +364,8 @@ test("settings Nightscout block handles not configured", async () => {
   settingsRoute();
 
   render(<App />);
-
   expect(await screen.findByText("Синхронизация")).toBeInTheDocument();
-  expect(await screen.findAllByText("не подключено")).not.toHaveLength(0);
+  expect(await screen.findAllByText("не настроено")).not.toHaveLength(0);
 });
 
 test("white background token is applied", () => {
@@ -2423,6 +2422,131 @@ test("feed groups meals by day", async () => {
   expect(
     screen.getByRole("heading", { name: /понедельник, 27 апреля/i }),
   ).toBeInTheDocument();
+});
+
+test("feed renders computed Nightscout food episode", async () => {
+  configureApi();
+  feedRoute();
+  let importCalled = 0;
+  const mealWrap = mealFixture({
+    id: "meal-wrap",
+    eaten_at: "2026-04-28T12:00:00",
+    title: "Лаваш с курицей",
+    total_carbs_g: 42,
+    total_kcal: 510,
+  });
+  const mealCola = mealFixture({
+    id: "meal-cola",
+    eaten_at: "2026-04-28T12:20:00",
+    title: "Кола оригинал",
+    total_carbs_g: 26,
+    total_kcal: 104,
+  });
+
+  server.use(
+    http.get("http://api.test/settings/nightscout", () =>
+      HttpResponse.json({
+        enabled: true,
+        configured: true,
+        connected: true,
+        url: "https://nightscout.example",
+        secret_is_set: true,
+        last_status_check_at: null,
+        last_error: null,
+        sync_glucose: true,
+        show_glucose_in_journal: true,
+        import_insulin_events: true,
+        allow_meal_send: true,
+        confirm_before_send: true,
+        autosend_meals: false,
+      }),
+    ),
+    http.post("http://api.test/nightscout/import", () => {
+      importCalled += 1;
+      return HttpResponse.json({
+        from_datetime: "2026-04-28T00:00:00",
+        to_datetime: "2026-04-28T23:59:59",
+        glucose_imported: 3,
+        insulin_imported: 1,
+        glucose_total: 3,
+        insulin_total: 1,
+        last_error: null,
+      });
+    }),
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({
+        items: [mealWrap, mealCola],
+        total: 2,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+    http.get("http://api.test/timeline", () =>
+      HttpResponse.json({
+        from_datetime: "2026-04-28T00:00:00",
+        to_datetime: "2026-04-28T23:59:59",
+        episodes: [
+          {
+            id: "episode-wrap-cola",
+            start_at: "2026-04-28T12:00:00",
+            end_at: "2026-04-28T12:20:00",
+            title: "Пищевой эпизод",
+            meals: [mealWrap, mealCola],
+            insulin: [
+              {
+                timestamp: "2026-04-28T12:05:00",
+                insulin_units: 4,
+                eventType: "Meal Bolus",
+                insulin_type: "rapid",
+                enteredBy: "nightscout",
+                notes: null,
+                nightscout_id: "insulin-1",
+              },
+            ],
+            glucose: [
+              {
+                timestamp: "2026-04-28T11:55:00",
+                value: 5.5,
+                unit: "mmol/L",
+                trend: "Flat",
+                source: "Nightscout",
+              },
+              {
+                timestamp: "2026-04-28T12:25:00",
+                value: 8.8,
+                unit: "mmol/L",
+                trend: "FortyFiveUp",
+                source: "Nightscout",
+              },
+            ],
+            glucose_summary: {
+              before_value: 5.5,
+              peak_value: 8.8,
+              latest_value: 8.8,
+              min_value: 5.5,
+              max_value: 8.8,
+            },
+            total_carbs_g: 68,
+            total_kcal: 614,
+          },
+        ],
+        ungrouped_insulin: [],
+      }),
+    ),
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("Пищевой эпизод")).toBeInTheDocument();
+  expect(screen.getByText("Лаваш с курицей")).toBeInTheDocument();
+  expect(screen.getByText("Кола оригинал")).toBeInTheDocument();
+  expect(screen.getByText("Инсулин из Nightscout")).toBeInTheDocument();
+  expect(
+    screen.getByRole("img", {
+      name: "Мини-график глюкозы вокруг пищевого эпизода",
+    }),
+  ).toBeInTheDocument();
+  await waitFor(() => expect(importCalled).toBeGreaterThan(0));
 });
 
 test("feed paginates with cursor", async () => {

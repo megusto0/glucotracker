@@ -1021,6 +1021,68 @@ class NightscoutEventsResponse(BaseModel):
     insulin: list[NightscoutInsulinEventResponse]
 
 
+class NightscoutImportRequest(BaseModel):
+    """Import Nightscout context into the local read-only cache."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    sync_glucose: bool = True
+    import_insulin_events: bool = True
+
+
+class NightscoutImportResponse(BaseModel):
+    """Nightscout local cache import summary."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    glucose_imported: int
+    insulin_imported: int
+    glucose_total: int
+    insulin_total: int
+    last_error: str | None = None
+
+
+class TimelineGlucoseSummary(BaseModel):
+    """Small CGM summary for a computed food episode."""
+
+    before_value: float | None = None
+    peak_value: float | None = None
+    latest_value: float | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+    unit: str = "mmol/L"
+
+
+class FoodEpisodeResponse(BaseModel):
+    """Computed grouping of meal, insulin, and local CGM context."""
+
+    id: str
+    start_at: datetime
+    end_at: datetime
+    title: str
+    meals: list[MealResponse]
+    insulin: list[NightscoutInsulinEventResponse] = Field(default_factory=list)
+    glucose: list[NightscoutGlucoseEntryResponse] = Field(default_factory=list)
+    glucose_summary: TimelineGlucoseSummary
+    total_carbs_g: float
+    total_kcal: float
+
+
+class TimelineInsulinEventResponse(NightscoutInsulinEventResponse):
+    """Read-only insulin event not grouped into a food episode."""
+
+    linked_episode_id: str | None = None
+
+
+class TimelineResponse(BaseModel):
+    """History timeline response with backend-owned computed food episodes."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    episodes: list[FoodEpisodeResponse]
+    ungrouped_insulin: list[TimelineInsulinEventResponse] = Field(default_factory=list)
+
+
 class AdminRecalculateResponse(BaseModel):
     """Daily total backfill response."""
 

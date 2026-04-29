@@ -14,6 +14,8 @@ from glucotracker.api.schemas import (
     NightscoutDayStatusResponse,
     NightscoutEventsResponse,
     NightscoutGlucoseEntryResponse,
+    NightscoutImportRequest,
+    NightscoutImportResponse,
     NightscoutInsulinEventResponse,
     NightscoutSettingsPatch,
     NightscoutSettingsResponse,
@@ -22,6 +24,11 @@ from glucotracker.api.schemas import (
     NightscoutSyncTodayRequest,
     NightscoutSyncTodayResponse,
     NightscoutTestResponse,
+    TimelineResponse,
+)
+from glucotracker.application.nightscout_context import (
+    FoodEpisodeService,
+    NightscoutContextImportService,
 )
 from glucotracker.application.nightscout_sync import (
     NightscoutSettingsService,
@@ -200,3 +207,40 @@ async def get_nightscout_events(
         from_datetime,
         to_datetime,
     )
+
+
+@router.post(
+    "/nightscout/import",
+    response_model=NightscoutImportResponse,
+    operation_id="importNightscoutContext",
+)
+async def import_nightscout_context(
+    payload: NightscoutImportRequest,
+    session: SessionDep,
+    client: NightscoutDep,
+) -> NightscoutImportResponse:
+    """Fetch Nightscout glucose/insulin context and cache it locally."""
+    settings = NightscoutSettingsService(session)
+    row = settings.get_or_create()
+    effective_client = settings.client(client)
+    return await NightscoutContextImportService(session, effective_client).import_range(
+        payload.from_datetime,
+        payload.to_datetime,
+        sync_glucose=payload.sync_glucose and row.sync_glucose,
+        import_insulin_events=payload.import_insulin_events
+        and row.import_insulin_events,
+    )
+
+
+@router.get(
+    "/timeline",
+    response_model=TimelineResponse,
+    operation_id="getTimeline",
+)
+def get_timeline(
+    session: SessionDep,
+    from_datetime: Annotated[datetime, Query(alias="from")],
+    to_datetime: Annotated[datetime, Query(alias="to")],
+) -> TimelineResponse:
+    """Return backend-owned food episodes with local Nightscout context."""
+    return FoodEpisodeService(session).timeline(from_datetime, to_datetime)

@@ -51,6 +51,13 @@ export type NightscoutSyncTodayResponse =
   components["schemas"]["NightscoutSyncTodayResponse"];
 export type NightscoutEventsResponse =
   components["schemas"]["NightscoutEventsResponse"];
+export type NightscoutImportRequest =
+  components["schemas"]["NightscoutImportRequest"];
+export type NightscoutImportResponse =
+  components["schemas"]["NightscoutImportResponse"];
+export type TimelineResponse = components["schemas"]["TimelineResponse"];
+export type FoodEpisodeResponse =
+  components["schemas"]["FoodEpisodeResponse"];
 export type AdminRecalculateResponse =
   components["schemas"]["AdminRecalculateResponse"];
 export type DatabaseItemResponse =
@@ -494,6 +501,20 @@ export const apiClient = {
 
   getNightscoutEvents: (config: ApiConfig, from: string, to: string) =>
     apiRequest<NightscoutEventsResponse>("/nightscout/events", config, {
+      query: { from, to },
+    }),
+
+  importNightscoutContext: (
+    config: ApiConfig,
+    body: NightscoutImportRequest,
+  ) =>
+    apiRequest<NightscoutImportResponse>("/nightscout/import", config, {
+      method: "POST",
+      body,
+    }),
+
+  getTimeline: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<TimelineResponse>("/timeline", config, {
       query: { from, to },
     }),
 

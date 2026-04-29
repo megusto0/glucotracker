@@ -26,11 +26,15 @@ REST route modules, schemas, dependencies, and OpenAPI helpers live here. Endpoi
 
 ### `backend/glucotracker/api/routers`
 
-FastAPI routers are grouped here by resource. Routers should describe HTTP boundaries and delegate real rules to domain services when those services are added.
+FastAPI routers are grouped here by resource. Routers should describe HTTP boundaries, validate request/response semantics, and delegate orchestration to application services and deterministic rules to domain services.
+
+### `backend/glucotracker/application`
+
+Application services live here. This layer coordinates use cases such as photo estimation, draft creation, product memory, daily-total recalculation, and Nightscout sync. Application services may compose domain rules and infrastructure adapters, while keeping routers thin and client-neutral.
 
 ### `backend/glucotracker/domain`
 
-Domain entities and services belong here. This layer should describe food diary concepts and rules without depending on FastAPI, SQLite, Tauri, or external service SDKs.
+Domain entities and services belong here. This layer should describe food diary concepts and deterministic rules without depending on FastAPI, SQLite, Tauri, or external service SDKs.
 
 ### `backend/glucotracker/infra/db`
 
@@ -42,7 +46,11 @@ Gemini integration code belongs here if optional AI-assisted features are added 
 
 ### `backend/glucotracker/infra/nightscout`
 
-Nightscout integration code belongs here for future read-only import or correlation workflows. Nightscout URL, token, and related settings must stay in backend environment configuration and must not be exposed to frontend clients.
+Nightscout integration code belongs here for optional meal sync and read-only context import. Nightscout URL, token, and related settings must stay in backend environment/configured settings and must not be exposed to frontend clients.
+
+### `backend/glucotracker/application/nightscout_context.py`
+
+Nightscout glucose and insulin context is imported into local backend-owned tables, then used to build computed timeline episodes. Food entries remain normal meal rows; the backend groups accepted meals into food episodes by time windows and links nearby read-only Nightscout context for display. These episodes are computed API responses, not persisted meal replacements.
 
 ### `backend/glucotracker/infra/storage`
 
@@ -50,7 +58,7 @@ Server-side file storage adapters belong here. The first implementation can stay
 
 ### `backend/glucotracker/workers`
 
-Background jobs and scheduled maintenance tasks belong here. Workers should depend on backend services and infrastructure adapters, not on desktop behavior.
+Background jobs and scheduled maintenance tasks belong here. Workers should depend on application services and infrastructure adapters, not on desktop behavior.
 
 ### `desktop`
 
