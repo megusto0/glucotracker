@@ -38,6 +38,14 @@ body {
   box-sizing: border-box;
 }
 
+*::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
 button,
 input,
 textarea {
