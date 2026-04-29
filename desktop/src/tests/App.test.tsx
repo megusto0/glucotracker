@@ -2537,7 +2537,7 @@ test("feed renders computed Nightscout food episode", async () => {
 
   render(<App />);
 
-  expect(await screen.findByText("Пищевой эпизод")).toBeInTheDocument();
+  expect(await screen.findByText("Приём пищи")).toBeInTheDocument();
   expect(screen.getByText("Лаваш с курицей")).toBeInTheDocument();
   expect(screen.getByText("Кола оригинал")).toBeInTheDocument();
   expect(screen.getByText("Инсулин из Nightscout")).toBeInTheDocument();
