@@ -15,6 +15,7 @@ from glucotracker.api.routers import (
     patterns_router,
     photos_router,
     products_router,
+    reports_router,
 )
 from glucotracker.api.schemas import HealthResponse
 from glucotracker.config import get_settings
@@ -35,6 +36,7 @@ app.include_router(nutrients_router)
 app.include_router(patterns_router)
 app.include_router(photos_router)
 app.include_router(products_router)
+app.include_router(reports_router)
 app.openapi = lambda: build_openapi(app)
 
 

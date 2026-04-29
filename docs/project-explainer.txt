@@ -1,7 +1,7 @@
 glucotracker project explainer
 ==============================
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 Purpose
 -------
@@ -154,6 +154,16 @@ Main tables:
 - nutrient_definitions
 - meal_item_nutrients
 
+Computed report data:
+
+- GET /reports/endocrinologist returns presentation-ready JSON for the
+  endocrinologist PDF.
+- It is computed on demand from accepted meals and local Nightscout context.
+- It is not persisted as PDF-specific rows.
+- Food episodes, linked insulin, observed ratio, TIR, glucose windows, daily
+  summaries, warnings, and footer safety text are backend-owned.
+- Frontend renders and saves the PDF only.
+
 Important meal statuses:
 
 - draft: editable review state
@@ -247,6 +257,7 @@ Important endpoints:
 - GET /nightscout/status
 - POST /nightscout/import
 - GET /timeline
+- GET /reports/endocrinologist
 - POST /meals/{id}/sync_nightscout
 - POST /meals/{id}/unsync_nightscout
 
@@ -382,6 +393,19 @@ Nightscout timeline:
   before the first meal to 180 minutes after the last meal.
 - The desktop history screen should render the episode as one visual block with
   nested food rows, insulin context rows, and a small CGM graph.
+
+Endocrinologist report:
+
+- The report is informational only.
+- The label is "НАБЛЮДАЕМЫЙ УК" / "Наблюдаемый УК", never "recommended".
+- Observed UK uses grams of carbs per registered meal-linked insulin unit:
+  Σ carbs / Σ meal-linked insulin.
+- Unlinked insulin/corrections count in daily total insulin but must not
+  distort breakfast/lunch/dinner observed ratio.
+- The desktop Settings page chooses date range, imports Nightscout context if
+  enabled, calls GET /reports/endocrinologist, renders the A4 PDF with
+  @react-pdf/renderer, and saves it through Tauri.
+- Do not duplicate report aggregation math in React components.
 
 
 Photo and Gemini estimation pipeline

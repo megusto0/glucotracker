@@ -358,6 +358,20 @@ Nightscout context import is read-only. `POST /nightscout/import` can fetch gluc
 
 `GET /timeline` returns computed history episodes. The backend groups accepted food rows into food episodes when consecutive meals are within a 30-minute window. For each episode, the backend links local Nightscout insulin events from 30 minutes before the first meal through 90 minutes after the last meal, and local CGM points from 60 minutes before through 180 minutes after. Food episodes are API projections only; they do not replace or merge underlying meal rows.
 
+### Endocrinologist report
+
+`GET /reports/endocrinologist?from=YYYY-MM-DD&to=YYYY-MM-DD` returns presentation-ready data for the one-page A4 PDF report. The response is JSON, not a PDF binary, so clients can render platform-native output while keeping all report math backend-owned.
+
+The backend aggregates by food episodes, not raw meal rows alone. Consecutive accepted meals within 30 minutes form one food episode. Meal-linked insulin is assigned from local Nightscout insulin events in `[first meal - 30 min, last meal + 90 min]`, without double-counting events across episodes. Unlinked insulin is included in daily total insulin but excluded from breakfast/lunch/dinner observed carb ratio.
+
+Glucose windows:
+
+- before food: median CGM in `[first meal - 30 min, first meal - 15 min]`, with nearest-value fallback in `[first meal - 45 min, first meal + 5 min]`
+- after food: median CGM in `[last meal + 90 min, last meal + 150 min]`, with nearest-value fallback around `last meal + 120 min`
+- TIR: selected-period CGM readings in `3.9..10.0 mmol/L`
+
+The report uses the label `НАБЛЮДАЕМЫЙ УК`, unit `г/ЕД`, and formula `Σ carbs / Σ meal-linked insulin`. This is an empirical observation only; API responses and PDF text must never imply a recommended ratio or treatment decision.
+
 ## Endpoint Examples
 
 Set a token once:
@@ -1082,6 +1096,55 @@ summary glucose values.
 
 ```bash
 curl -H "$AUTH" "$BASE/timeline?from=2026-04-28T00:00:00&to=2026-04-28T23:59:59"
+```
+
+### `GET /reports/endocrinologist`
+
+Return presentation-ready JSON for the endocrinologist PDF report. Query
+parameters are inclusive local dates named `from` and `to`.
+
+```bash
+curl -H "$AUTH" "$BASE/reports/endocrinologist?from=2026-04-16&to=2026-04-29"
+```
+
+Response shape:
+
+```json
+{
+  "app_name": "glucotracker",
+  "title": "Отчёт для эндокринолога",
+  "period_label": "Период: 16-29 апреля 2026",
+  "generated_label": "Сгенерировано: 30 апреля 2026",
+  "chips": [{ "label": "14 дней" }],
+  "warning": null,
+  "notes": [],
+  "kpis": [
+    {
+      "label": "НАБЛЮДАЕМЫЙ УК",
+      "value": "13,0",
+      "unit": "г/ЕД",
+      "caption": "по всем эпизодам"
+    }
+  ],
+  "meal_profile_rows": [],
+  "daily_rows": [],
+  "shown_daily_rows": [],
+  "daily_median_row": {
+    "date": "median",
+    "date_label": "Медиана",
+    "carbs": "—",
+    "insulin": "—",
+    "tir": "—",
+    "hypo": "0",
+    "breakfast": "—",
+    "lunch": "—",
+    "dinner": "—",
+    "flagged": false
+  },
+  "daily_rows_note": null,
+  "bottom_metrics": [],
+  "footer": "Отчёт информационный и не является медицинской рекомендацией."
+}
 ```
 
 ### `POST /meals/{id}/sync_nightscout`

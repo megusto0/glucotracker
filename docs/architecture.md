@@ -52,6 +52,14 @@ Nightscout integration code belongs here for optional meal sync and read-only co
 
 Nightscout glucose and insulin context is imported into local backend-owned tables, then used to build computed timeline episodes. Food entries remain normal meal rows; the backend groups accepted meals into food episodes by time windows and links nearby read-only Nightscout context for display. These episodes are computed API responses, not persisted meal replacements.
 
+### `backend/glucotracker/application/endocrinologist_report.py`
+
+The endocrinologist report data model is backend-owned. The backend reads accepted meals plus local Nightscout CGM/insulin context, builds food episodes, calculates report KPIs, meal-profile rows, daily rows, completeness notes, and safety footer text, then exposes that presentation-ready JSON through `GET /reports/endocrinologist`.
+
+The desktop PDF generator must stay presentational: it may choose a date range, trigger Nightscout import, call the report endpoint, render the one-page A4 PDF, and save it locally. It must not duplicate observed ratio, TIR, food-episode grouping, insulin-linking, or glucose-window math.
+
+Report rows are computed on demand from local raw facts for now. Do not persist report snapshots unless we need audit history or performance caching; if that becomes necessary, cache deterministic daily/episode facts rather than PDF-specific layout rows.
+
 ### `backend/glucotracker/infra/storage`
 
 Server-side file storage adapters belong here. The first implementation can stay local, while the interface can later support object storage if needed.

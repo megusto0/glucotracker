@@ -8,8 +8,6 @@ export type QuickFilter = {
 };
 
 const DEFAULT_CHIPS: QuickFilter[] = [
-  { key: "today", label: "Сегодня" },
-  { key: "7days", label: "7 дней" },
   { key: "hasCGM", label: "С CGM", icon: Activity },
   { key: "hasInsulin", label: "С инсулином", icon: Syringe },
   { key: "lowConfidence", label: "Низкая уверенность", icon: ShieldAlert },

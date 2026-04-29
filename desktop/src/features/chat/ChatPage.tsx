@@ -1034,6 +1034,7 @@ export function ChatPage() {
   const emptyDayMessage = isViewingToday
     ? "Сегодня пока нет записей."
     : `За ${formatDayTitle(selectedDate)} пока нет записей.`;
+  const dayNavLabel = isViewingToday ? "Сегодня" : formatDayTitle(selectedDate);
 
   return (
     <div
@@ -1069,10 +1070,14 @@ export function ChatPage() {
               <button
                 className="h-10 border border-[var(--hairline)] bg-[var(--surface)] px-5 text-[13px] font-medium"
                 onClick={handleGoToToday}
-                aria-label="Вернуться к сегодня"
+                aria-label={
+                  isViewingToday
+                    ? "Сегодня выбранный день"
+                    : "Вернуться к сегодня"
+                }
                 type="button"
               >
-                Сегодня
+                {dayNavLabel}
               </button>
               <button
                 aria-label="Следующий день"

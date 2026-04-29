@@ -73,6 +73,8 @@ export type ApplyEstimationRunRequest =
   components["schemas"]["ApplyEstimationRunRequest"];
 export type ApplyEstimationRunResponse =
   components["schemas"]["ApplyEstimationRunResponse"];
+export type EndocrinologistReportResponse =
+  components["schemas"]["EndocrinologistReportResponse"];
 
 export type ApiConfig = {
   baseUrl: string;
@@ -517,6 +519,13 @@ export const apiClient = {
     apiRequest<TimelineResponse>("/timeline", config, {
       query: { from, to },
     }),
+
+  getEndocrinologistReport: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<EndocrinologistReportResponse>(
+      "/reports/endocrinologist",
+      config,
+      { query: { from, to } },
+    ),
 
   adminRecalculate: (config: ApiConfig, from: string, to: string) =>
     apiRequest<AdminRecalculateResponse>("/admin/recalculate", config, {

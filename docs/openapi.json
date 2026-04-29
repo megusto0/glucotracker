@@ -1142,6 +1142,288 @@
         "title": "DeleteResponse",
         "type": "object"
       },
+      "EndocrinologistBottomMetric": {
+        "description": "Bottom strip report metric.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "EndocrinologistBottomMetric",
+        "type": "object"
+      },
+      "EndocrinologistDailySummaryRow": {
+        "description": "Daily report table row.",
+        "properties": {
+          "breakfast": {
+            "title": "Breakfast",
+            "type": "string"
+          },
+          "carbs": {
+            "title": "Carbs",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "date_label": {
+            "title": "Date Label",
+            "type": "string"
+          },
+          "dinner": {
+            "title": "Dinner",
+            "type": "string"
+          },
+          "flagged": {
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "hypo": {
+            "title": "Hypo",
+            "type": "string"
+          },
+          "insulin": {
+            "title": "Insulin",
+            "type": "string"
+          },
+          "lunch": {
+            "title": "Lunch",
+            "type": "string"
+          },
+          "tir": {
+            "title": "Tir",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "date_label",
+          "carbs",
+          "insulin",
+          "tir",
+          "hypo",
+          "breakfast",
+          "lunch",
+          "dinner",
+          "flagged"
+        ],
+        "title": "EndocrinologistDailySummaryRow",
+        "type": "object"
+      },
+      "EndocrinologistMealProfileRow": {
+        "description": "Meal profile report table row.",
+        "properties": {
+          "carbs": {
+            "title": "Carbs",
+            "type": "string"
+          },
+          "episodes": {
+            "title": "Episodes",
+            "type": "string"
+          },
+          "glucose_after": {
+            "title": "Glucose After",
+            "type": "string"
+          },
+          "glucose_before": {
+            "title": "Glucose Before",
+            "type": "string"
+          },
+          "insulin": {
+            "title": "Insulin",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "observed_ratio": {
+            "title": "Observed Ratio",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "episodes",
+          "carbs",
+          "insulin",
+          "glucose_before",
+          "glucose_after",
+          "observed_ratio"
+        ],
+        "title": "EndocrinologistMealProfileRow",
+        "type": "object"
+      },
+      "EndocrinologistReportKpi": {
+        "description": "Top report KPI tile.",
+        "properties": {
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value",
+          "unit",
+          "caption"
+        ],
+        "title": "EndocrinologistReportKpi",
+        "type": "object"
+      },
+      "EndocrinologistReportResponse": {
+        "description": "Presentation-ready endocrinologist report data.",
+        "properties": {
+          "app_name": {
+            "title": "App Name",
+            "type": "string"
+          },
+          "bottom_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/EndocrinologistBottomMetric"
+            },
+            "title": "Bottom Metrics",
+            "type": "array"
+          },
+          "chips": {
+            "items": {
+              "$ref": "#/components/schemas/ReportChipResponse"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "daily_median_row": {
+            "$ref": "#/components/schemas/EndocrinologistDailySummaryRow"
+          },
+          "daily_rows": {
+            "items": {
+              "$ref": "#/components/schemas/EndocrinologistDailySummaryRow"
+            },
+            "title": "Daily Rows",
+            "type": "array"
+          },
+          "daily_rows_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Rows Note"
+          },
+          "footer": {
+            "title": "Footer",
+            "type": "string"
+          },
+          "generated_label": {
+            "title": "Generated Label",
+            "type": "string"
+          },
+          "kpis": {
+            "items": {
+              "$ref": "#/components/schemas/EndocrinologistReportKpi"
+            },
+            "title": "Kpis",
+            "type": "array"
+          },
+          "meal_profile_rows": {
+            "items": {
+              "$ref": "#/components/schemas/EndocrinologistMealProfileRow"
+            },
+            "title": "Meal Profile Rows",
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "shown_daily_rows": {
+            "items": {
+              "$ref": "#/components/schemas/EndocrinologistDailySummaryRow"
+            },
+            "title": "Shown Daily Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "app_name",
+          "title",
+          "period_label",
+          "generated_label",
+          "chips",
+          "kpis",
+          "meal_profile_rows",
+          "daily_rows",
+          "shown_daily_rows",
+          "daily_median_row",
+          "bottom_metrics",
+          "footer"
+        ],
+        "title": "EndocrinologistReportResponse",
+        "type": "object"
+      },
       "EstimateCalculationBreakdown": {
         "description": "Readable backend-prepared calculation evidence for one suggested item.",
         "properties": {
@@ -6534,6 +6816,20 @@
         "title": "RememberProductRequest",
         "type": "object"
       },
+      "ReportChipResponse": {
+        "description": "Compact report metadata chip.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ReportChipResponse",
+        "type": "object"
+      },
       "TimelineGlucoseSummary": {
         "description": "Small CGM summary for a computed food episode.",
         "properties": {
@@ -9786,6 +10082,65 @@
         "summary": "Get Product Image File",
         "tags": [
           "products"
+        ]
+      }
+    },
+    "/reports/endocrinologist": {
+      "get": {
+        "description": "Return one-page endocrinologist report data.",
+        "operationId": "getEndocrinologistReport",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndocrinologistReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Endocrinologist Report",
+        "tags": [
+          "reports"
         ]
       }
     },

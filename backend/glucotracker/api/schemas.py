@@ -1083,6 +1083,77 @@ class TimelineResponse(BaseModel):
     ungrouped_insulin: list[TimelineInsulinEventResponse] = Field(default_factory=list)
 
 
+class ReportChipResponse(BaseModel):
+    """Compact report metadata chip."""
+
+    label: str
+
+
+class EndocrinologistReportKpi(BaseModel):
+    """Top report KPI tile."""
+
+    label: str
+    value: str
+    unit: str
+    caption: str
+
+
+class EndocrinologistMealProfileRow(BaseModel):
+    """Meal profile report table row."""
+
+    key: str
+    label: str
+    episodes: str
+    carbs: str
+    insulin: str
+    glucose_before: str
+    glucose_after: str
+    observed_ratio: str
+
+
+class EndocrinologistDailySummaryRow(BaseModel):
+    """Daily report table row."""
+
+    date: str
+    date_label: str
+    carbs: str
+    insulin: str
+    tir: str
+    hypo: str
+    breakfast: str
+    lunch: str
+    dinner: str
+    flagged: bool
+
+
+class EndocrinologistBottomMetric(BaseModel):
+    """Bottom strip report metric."""
+
+    label: str
+    value: str
+    unit: str | None = None
+
+
+class EndocrinologistReportResponse(BaseModel):
+    """Presentation-ready endocrinologist report data."""
+
+    app_name: str
+    title: str
+    period_label: str
+    generated_label: str
+    chips: list[ReportChipResponse]
+    warning: str | None = None
+    notes: list[str] = Field(default_factory=list)
+    kpis: list[EndocrinologistReportKpi]
+    meal_profile_rows: list[EndocrinologistMealProfileRow]
+    daily_rows: list[EndocrinologistDailySummaryRow]
+    shown_daily_rows: list[EndocrinologistDailySummaryRow]
+    daily_median_row: EndocrinologistDailySummaryRow
+    daily_rows_note: str | None = None
+    bottom_metrics: list[EndocrinologistBottomMetric]
+    footer: str
+
+
 class AdminRecalculateResponse(BaseModel):
     """Daily total backfill response."""
 

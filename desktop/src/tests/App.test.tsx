@@ -291,6 +291,9 @@ test("journal previous day button loads yesterday meals", async () => {
 
   expect(await screen.findByText("Yesterday meal")).toBeInTheDocument();
   expect(
+    screen.getByRole("button", { name: "Вернуться к сегодня" }),
+  ).toHaveTextContent(formatDayHeading(yesterday));
+  expect(
     screen.getByRole("heading", {
       name: new RegExp(formatDayHeading(yesterday), "i"),
     }),

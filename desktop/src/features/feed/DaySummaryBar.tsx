@@ -4,33 +4,36 @@ export function DaySummaryBar({ items }: { items: FeedItem[] }) {
   const stats = computeDayStats(items);
   if (!stats.totalMeals && !stats.totalInsulin) return null;
 
-  const parts: string[] = [];
+  const cells: { label: string; value: string }[] = [];
   if (stats.totalMeals) {
-    const word = stats.totalMeals === 1 ? "приём" : stats.totalMeals < 5 ? "приёма" : "приёмов";
-    parts.push(`${stats.totalMeals} ${word}`);
+    cells.push({ label: "приёмов", value: String(stats.totalMeals) });
   }
   if (stats.totalCarbs > 0) {
-    parts.push(`${Math.round(stats.totalCarbs)} г углеводов`);
+    cells.push({ label: "углеводы", value: `${Math.round(stats.totalCarbs)} г` });
   }
   if (stats.totalKcal > 0) {
-    parts.push(`${Math.round(stats.totalKcal)} ккал`);
+    cells.push({ label: "ккал", value: String(Math.round(stats.totalKcal)) });
   }
   if (stats.totalInsulin) {
-    const word = stats.totalInsulin === 1 ? "событие" : stats.totalInsulin < 5 ? "события" : "событий";
-    parts.push(`${stats.totalInsulin} NS-${word}`);
-  }
-  if (stats.hasCGM) {
-    parts.push("CGM есть");
+    cells.push({ label: "NS-события", value: String(stats.totalInsulin) });
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--hairline)] px-0 py-2 text-[12px] text-[var(--muted)]">
-      {parts.map((part, i) => (
-        <span key={i}>
-          {i > 0 ? <span className="mr-4 text-[var(--hairline)]">·</span> : null}
-          {part}
-        </span>
+    <div className="flex items-stretch border-b border-[var(--hairline)]">
+      {cells.map((cell, i) => (
+        <div
+          className="flex items-baseline gap-2 border-r border-[var(--hairline)] px-4 py-2 last:border-r-0"
+          key={i}
+        >
+          <span className="font-mono text-[18px] leading-none text-[var(--fg)]">{cell.value}</span>
+          <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">{cell.label}</span>
+        </div>
       ))}
+      {stats.hasCGM ? (
+        <div className="flex items-center px-4 py-2 text-[10px] uppercase tracking-[0.06em] text-[var(--ok)]">
+          CGM
+        </div>
+      ) : null}
     </div>
   );
 }

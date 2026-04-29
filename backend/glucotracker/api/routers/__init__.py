@@ -10,6 +10,7 @@ from glucotracker.api.routers.nutrients import router as nutrients_router
 from glucotracker.api.routers.patterns import router as patterns_router
 from glucotracker.api.routers.photos import router as photos_router
 from glucotracker.api.routers.products import router as products_router
+from glucotracker.api.routers.reports import router as reports_router
 
 __all__ = [
     "admin_router",
@@ -22,4 +23,5 @@ __all__ = [
     "patterns_router",
     "photos_router",
     "products_router",
+    "reports_router",
 ]

@@ -1,0 +1,165 @@
+
+
+Reference screenshots C:\Users\hecol\Documents\New project 3\glucotracker\docs\design-references reference.png:
+- Current History page: shows flat food episode blocks, sparse hierarchy, mini CGM charts, repeated insulin rows, and right detail panel.
+- Target mockup: shows a more structured History page with top filters, quick chips, day summary row, clearer food episode cards, selected row highlighting, larger CGM context, and polished right detail panel.
+
+Primary implementation targets:
+
+1. History page header and filters
+- Add/restore a large page title: “История”.
+- Add a compact filter row:
+  - search field labeled “Поиск” with placeholder “еда, заметка, позиция”
+  - date filters “От” and “До”
+  - status dropdown “Статус: Активные”
+- Add quick filter chips below:
+  - “Сегодня”
+  - “7 дней”
+  - “С CGM”
+  - “С инсулином”
+  - “Низкая уверенность”
+  - button “Доп. фильтры”
+- Chips should be visually close to the target mockup.
+- Implement real filtering only if the underlying data makes it straightforward. Otherwise, wire the UI state and leave clear TODOs.
+
+2. Day section summary
+- Under the day header, add a horizontal day summary strip.
+- Example for 29 April:
+  - “4 приёма”
+  - “238 г углеводов”
+  - “2823 ккал”
+  - “4 NS-события”
+  - “CGM обновлён 12:08”
+- Compute these client-side from the already loaded timeline/page data where possible.
+- If some values are unavailable, show a graceful fallback instead of fake data.
+- Keep the summary visual style minimal: thin border, subtle dividers, small icons if existing icon set supports them.
+
+3. Food episode card redesign
+Refactor the food episode UI to match the target structure.
+
+For expanded food episodes:
+- Left column:
+  - stacked start/end times, e.g. “18:39” and “18:54”
+- Main title block:
+  - title: “Приём пищи”
+  - subtitle: “Сгруппировано: события рядом по времени”
+  - meta line: “3 события · 308 ккал · 45.5 г углеводов · 1 запись инсулина”
+- Right chart block:
+  - title: “Глюкоза (CGM)”
+  - range label, e.g. “2.3–5.6 ммоль/л”
+  - mini chart with food markers
+  - one tiny factual summary line if derivable, e.g. “5.2 → пик 6.8 через 74 мин”
+- Do not present this factual summary as advice or a medical interpretation.
+
+Inside the expanded episode:
+- Render child rows with subtle separators.
+- Meal rows:
+  - time
+  - thumbnail if available
+  - name
+  - source/status line, e.g. “ЕДА / ПРИНЯТО”
+  - carbs
+  - kcal
+  - kebab/more icon if already used
+- Insulin rows:
+  - time
+  - syringe or context icon
+  - label: “Инсулин из Nightscout”
+  - secondary line: “ИНСУЛИН / NS”
+  - units, e.g. “4 ЕД”
+  - must be visually read-only/contextual
+  - clicking should not open an editable meal panel
+- Add a centered low-emphasis action row: “Показать все детали эпизода”.
+
+For collapsed food episodes:
+- Show time range, “Приём пищи”, meta line, compact CGM chart, and chevron.
+- Keep vertical density close to the target mockup.
+
+4. Selected row state
+- When a meal row is selected and the right detail panel is open, the corresponding row inside the episode must be visibly highlighted.
+- Use subtle background or left accent, consistent with the design system.
+- This is important: the user must immediately understand why the right panel shows that item.
+
+5. Right detail panel polish
+- Keep existing behavior and data model.
+- Make styling closer to the target mockup where safe:
+  - cleaner top area with thumbnail, title, kcal
+  - compact tags: “фото”, “принято”
+  - section headings: “НАЗВАНИЕ”, “ВРЕМЯ”, “ПИЩЕВАЯ ЦЕННОСТЬ”, “ИСТОЧНИК”, “УВЕРЕННОСТЬ”, “NIGHTSCOUT”
+  - macro cards laid out as 4 columns
+  - Nightscout status and retry button clearly separated
+  - delete action lower and visually secondary/danger
+- Be careful if the same SelectedMealPanel is shared with Journal. Do not break Journal. If needed, add a small `variant="history"` prop or make only safe global visual refinements.
+
+6. CGM chart behavior
+- Reuse the existing MiniGlucoseChart if available.
+- Improve sizing and layout rather than replacing chart logic.
+- Chart must handle missing CGM gracefully:
+  - show “CGM нет за этот период” or similar
+  - no broken empty boxes
+- Food markers should remain placed on the curve if existing logic supports it.
+- Do not introduce a heavy charting dependency unless already present.
+
+7. Layout
+- Preserve the app shell and left sidebar.
+- Main area should be scrollable.
+- Right panel should remain fixed/sticky on the right, around the existing width.
+- Target desktop size is approximately 1440×900 / 1672×941.
+- Avoid horizontal overflow.
+- Keep infinite scroll / “load more” behavior intact.
+
+8. Code organization
+Before coding, inspect the current implementation. Likely relevant files include:
+- `desktop/src/features/feed/FeedPage.tsx`
+- feed/timeline components near `desktop/src/features/feed/`
+- shared meal row/detail components near `desktop/src/features/meals/`
+- API client/types near `desktop/src/api/client.ts`
+
+Prefer extracting small presentational components:
+- `FeedFilters`
+- `QuickFilterChips`
+- `DaySummaryBar`
+- `FoodEpisodeCard`
+- `EpisodeEventRow`
+- `EpisodeChartPanel`
+
+Keep data transformation separate from JSX where practical.
+
+9. Styling
+- Use existing Tailwind/design tokens/classes where possible.
+- No new visual system.
+- No heavy shadows.
+- No gradients.
+- No dark mode changes.
+- Use mono/tabular numbers for times/macros if existing styles support it.
+- Keep Russian UI text.
+
+10. Acceptance criteria
+- `/feed` visually matches the target mockup much more closely:
+  - title + filters + chips visible
+  - day summary visible
+  - food episode card hierarchy clear
+  - selected meal row highlighted
+  - insulin rows clearly read-only Nightscout context
+  - right panel polished and readable
+- Existing Journal page still works.
+- Meal selection/editing still works.
+- Infinite scroll still works.
+- Nightscout insulin events are not editable as meals.
+- No medical advice is introduced.
+- No backend API contract is broken.
+
+11. Verification
+Run:
+- `cd desktop && npm test -- --run`
+- `cd desktop && npm run build`
+
+If backend files are touched, also run:
+- `cd backend && .\.venv\Scripts\python.exe -m pytest -q`
+- `cd backend && .\.venv\Scripts\python.exe -m ruff check .`
+
+Deliver:
+- Summary of changed files
+- Notes on any behavior changes
+- Any TODOs or limitations
+- Screenshot or description comparing current vs target

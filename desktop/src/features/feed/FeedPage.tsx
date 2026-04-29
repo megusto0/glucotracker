@@ -216,8 +216,8 @@ export function FeedPage() {
   }, [feed.fetchNextPage, feed.hasNextPage, feed.isFetchingNextPage]);
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <div className={`min-h-screen px-14 py-12 transition-[padding] duration-200 ease-out ${selectedMeal ? "pr-[404px]" : ""}`}>
+    <div className="h-full min-h-0 overflow-y-auto bg-[var(--bg)]">
+      <div className={`min-h-full px-14 py-12 pb-24 transition-[padding] duration-200 ease-out ${selectedMeal ? "pr-[404px]" : ""}`}>
         <header className="grid gap-3">
           <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">история</p>
           <h1 className="text-[56px] font-normal leading-none text-[var(--fg)]">История</h1>
@@ -414,18 +414,20 @@ function EpisodeMealLine({
   const title = mealTitle(meal);
   return (
     <button
-      className={`grid grid-cols-[72px_44px_1fr_auto] items-center gap-4 border-t border-[var(--hairline)] px-5 py-3 text-left text-[14px] transition hover:bg-[var(--surface)] ${
+      className={`grid grid-cols-[72px_1fr_auto] items-center gap-4 border-t border-[var(--hairline)] px-5 py-3 text-left text-[14px] transition hover:bg-[var(--surface)] ${
         selected ? "border-l-2 border-l-[var(--accent)] bg-[var(--surface)]" : ""
       }`}
       onClick={onToggle}
       type="button"
     >
       <span className="font-mono text-[13px]">{formatTime(meal.eaten_at)}</span>
-      <span className="text-[13px]">{title}</span>
-      <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-        еда / {meal.status === "accepted" ? "принято" : meal.status === "draft" ? "черновик" : meal.status}
+      <span className="flex items-baseline gap-3 truncate">
+        <span className="truncate text-[13px]">{title}</span>
+        <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          еда / {meal.status === "accepted" ? "принято" : meal.status === "draft" ? "черновик" : meal.status}
+        </span>
       </span>
-      <span className="grid grid-cols-[64px_72px] gap-4 text-right font-mono text-[13px]">
+      <span className="grid shrink-0 grid-cols-[64px_72px] gap-4 text-right font-mono text-[13px]">
         <span>{meal.total_carbs_g} г</span>
         <span>{Math.round(meal.total_kcal)} ккал</span>
       </span>
@@ -527,21 +529,22 @@ function MiniGlucoseChart({
     .map((entry, i) => `${xForTime(timestamps[i])},${yForValue(entry.value)}`)
     .join(" ");
 
-  const fmtMin = (ts: number) => {
-    const d = new Date(ts);
-    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  const mealTimestamps = (meals ?? [])
+    .map((meal) => new Date(meal.eaten_at).getTime())
+    .sort((a, b) => a - b);
+  const anchorTs = mealTimestamps[0] ?? tMin;
+  const relativeLabel = (ts: number) => {
+    const minutes = Math.round((ts - anchorTs) / 60000);
+    if (minutes === 0) return "еда";
+    return `${minutes > 0 ? "+" : ""}${minutes}м`;
   };
-
-  const tickCount = Math.min(entries.length, 4);
-  const tickIndices = Array.from(
-    { length: tickCount },
-    (_, i) => Math.round((i / (tickCount - 1)) * (entries.length - 1)),
+  const tickTimestamps = Array.from(new Set([tMin, anchorTs, tMax])).filter(
+    (ts) => ts >= tMin && ts <= tMax,
   );
-
   const mealPoints = (meals ?? []).map((m) => {
     const ts = new Date(m.eaten_at).getTime();
-    return { label: fmtMin(ts), ts, x: xForTime(ts), y: interpolateY(ts) };
-  });
+    return { label: relativeLabel(ts), ts, x: xForTime(ts), y: interpolateY(ts) };
+  }).filter((point) => point.ts >= tMin && point.ts <= tMax);
 
   return (
     <svg
@@ -566,16 +569,32 @@ function MiniGlucoseChart({
         strokeWidth="1"
       />
       {mealPoints.map((mp, i) => (
-        <circle cx={mp.x} cy={mp.y} fill="var(--accent)" key={`d-${i}`} r="2.5" stroke="var(--bg)" strokeWidth="1" />
-      ))}
-      {tickIndices.map((idx) => (
-        <text fill="var(--muted)" fontSize="6" key={`t-${idx}`} textAnchor="middle" x={xForTime(timestamps[idx])} y={viewBoxH - 2}>
-          {fmtMin(timestamps[idx])}
-        </text>
+        <line
+          key={`meal-line-${i}`}
+          stroke="var(--accent)"
+          strokeDasharray="2 2"
+          strokeOpacity="0.55"
+          strokeWidth="0.7"
+          x1={mp.x}
+          x2={mp.x}
+          y1={padTop}
+          y2={padTop + chartH}
+        />
       ))}
       {mealPoints.map((mp, i) => (
-        <text fill="var(--accent)" fontSize="6" fontWeight="600" key={`ml-${i}`} textAnchor="middle" x={mp.x} y={viewBoxH - 2}>
+        <circle cx={mp.x} cy={mp.y} fill="var(--accent)" key={`d-${i}`} r="2.5" stroke="var(--bg)" strokeWidth="1" />
+      ))}
+      {mealPoints.map((mp, i) => (
+        <text fill="var(--accent)" fontSize="6" fontWeight="600" key={`meal-label-${i}`} textAnchor="middle" x={mp.x} y={padTop + 6}>
           {mp.label}
+        </text>
+      ))}
+      <text fill="var(--muted)" fontSize="5.5" textAnchor="end" x={viewBoxW - 6} y={padTop}>
+        мин от еды
+      </text>
+      {tickTimestamps.map((ts) => (
+        <text fill="var(--muted)" fontSize="6" key={`t-${ts}`} textAnchor="middle" x={xForTime(ts)} y={viewBoxH - 3}>
+          {relativeLabel(ts)}
         </text>
       ))}
     </svg>
