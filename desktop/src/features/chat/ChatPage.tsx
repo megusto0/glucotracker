@@ -38,6 +38,10 @@ import {
   readableCalculationMethod,
   readableItemSourceKind,
 } from "../meals/MealLedger";
+import {
+  useUpdateMealName,
+  useUpdateMealTime,
+} from "../meals/useMealMutations";
 import { useBlobObjectUrl } from "../../components/useBlobObjectUrl";
 import { useMealsForDate } from "../meals/useMeals";
 import {
@@ -322,10 +326,6 @@ const extractFilesFromClipboard = (clipboardData: DataTransfer) => {
 
 type MealItemResponse = NonNullable<MealResponse["items"]>[number];
 
-const isRememberableLabelItem = (item: MealItemResponse) =>
-  item.source_kind === "label_calc" ||
-  (item.calculation_method ?? "").startsWith("label_");
-
 const mealItemToCreate = (
   item: MealItemResponse,
   position: number,
@@ -532,46 +532,9 @@ export function ChatPage() {
     },
   });
 
-  const updateMealTime = useMutation({
-    mutationFn: ({ eatenAt, mealId }: { eatenAt: string; mealId: string }) =>
-      apiClient.updateMeal(config, mealId, { eaten_at: eatenAt }),
-    onSuccess: () => {
-      invalidateMeals();
-      queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-  });
+  const updateMealTime = useUpdateMealTime();
 
-  const updateMealName = useMutation({
-    mutationFn: async ({ meal, name }: { meal: MealResponse; name: string }) => {
-      const updatedMeal = await apiClient.updateMeal(config, meal.id, {
-        title: name,
-      });
-      const onlyItem = meal.items?.length === 1 ? meal.items[0] : null;
-      if (onlyItem) {
-        await apiClient.updateMealItem(config, onlyItem.id, { name });
-        if (onlyItem.product_id) {
-          await apiClient.updateProduct(config, onlyItem.product_id, { name });
-        } else if (isRememberableLabelItem(onlyItem)) {
-          const product = await apiClient.rememberProductFromMealItem(
-            config,
-            onlyItem.id,
-            [],
-          );
-          await apiClient.updateProduct(config, product.id, { name });
-        }
-      }
-      return updatedMeal;
-    },
-    onSuccess: () => {
-      invalidateMeals();
-      queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["autocomplete"] });
-      queryClient.invalidateQueries({ queryKey: ["database"] });
-      queryClient.invalidateQueries({ queryKey: ["database-items"] });
-    },
-  });
+  const updateMealName = useUpdateMealName();
 
   const saveDraftItems = useMutation({
     mutationFn: ({

@@ -89,6 +89,7 @@ same backend API without backend changes for desktop-specific behavior.
 - `backend/glucotracker/application/nightscout_context.py` - local Nightscout import and computed food episodes.
 - `desktop/src/features/chat/ChatPage.tsx` - main journal/photo draft screen.
 - `desktop/src/features/meals/MealLedger.tsx` - meal rows and detail panels.
+- `desktop/src/features/meals/useMealMutations.ts` - shared meal mutations (updateMealName, updateMealTime, duplicateMeal).
 - `desktop/src/api/client.ts` - desktop API wrapper.
 
 ## Verification Commands
