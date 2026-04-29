@@ -539,7 +539,10 @@ function FoodEpisodeCard({
               {episode.glucose_summary.max_value ?? "--"} ммоль/л
             </span>
           </div>
-          <MiniGlucoseChart entries={glucose} />
+          <MiniGlucoseChart
+            entries={glucose}
+            meals={episode.meals}
+          />
         </div>
       </div>
 
@@ -616,51 +619,154 @@ function UngroupedInsulinRow({
 
 function MiniGlucoseChart({
   entries,
+  meals,
 }: {
   entries: NonNullable<FoodEpisodeResponse["glucose"]>;
+  meals?: FoodEpisodeResponse["meals"];
+  episodeStart?: string;
+  episodeEnd?: string;
 }) {
   if (entries.length < 2) {
     return (
-      <div className="grid h-20 place-items-center border border-[var(--hairline)] text-[12px] text-[var(--muted)]">
+      <div className="grid h-[80px] place-items-center border border-[var(--hairline)] text-[12px] text-[var(--muted)]">
         нет локальных точек CGM
       </div>
     );
   }
-  const values = entries.map((entry) => entry.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(max - min, 0.1);
+
+  const viewBoxW = 260;
+  const viewBoxH = 80;
+  const padLeft = 24;
+  const padRight = 4;
+  const padTop = 8;
+  const padBottom = 16;
+  const chartW = viewBoxW - padLeft - padRight;
+  const chartH = viewBoxH - padTop - padBottom;
+
+  const values = entries.map((e) => e.value);
+  const timestamps = entries.map((e) => new Date(e.timestamp).getTime());
+  const tMin = timestamps[0];
+  const tMax = timestamps[timestamps.length - 1];
+  const tSpan = Math.max(tMax - tMin, 1);
+  const vMin = Math.min(...values);
+  const vMax = Math.max(...values);
+  const vPad = (vMax - vMin) * 0.1 || 0.5;
+  const vLo = vMin - vPad;
+  const vHi = vMax + vPad;
+  const vSpan = vHi - vLo;
+
+  const xForTime = (ts: number) =>
+    padLeft + ((ts - tMin) / tSpan) * chartW;
+  const yForValue = (v: number) =>
+    padTop + chartH - ((v - vLo) / vSpan) * chartH;
+
+  const interpolateY = (ts: number) => {
+    if (ts <= tMin) return yForValue(entries[0].value);
+    if (ts >= tMax) return yForValue(entries[entries.length - 1].value);
+    for (let i = 0; i < timestamps.length - 1; i++) {
+      if (ts >= timestamps[i] && ts <= timestamps[i + 1]) {
+        const ratio = (ts - timestamps[i]) / (timestamps[i + 1] - timestamps[i]);
+        const v = entries[i].value + ratio * (entries[i + 1].value - entries[i].value);
+        return yForValue(v);
+      }
+    }
+    return yForValue(entries[entries.length - 1].value);
+  };
+
   const points = entries
-    .map((entry, index) => {
-      const x = (index / (entries.length - 1)) * 100;
-      const y = 64 - ((entry.value - min) / span) * 52;
-      return `${x},${y}`;
-    })
+    .map((entry, i) => `${xForTime(timestamps[i])},${yForValue(entry.value)}`)
     .join(" ");
+
+  const formatMinute = (ts: number) => {
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  };
+
+  const tickCount = Math.min(entries.length, 4);
+  const tickIndices = Array.from(
+    { length: tickCount },
+    (_, i) => Math.round((i / (tickCount - 1)) * (entries.length - 1)),
+  );
+
+  const mealPoints = (meals ?? []).map((m) => {
+    const ts = new Date(m.eaten_at).getTime();
+    return { label: formatMinute(ts), ts, x: xForTime(ts), y: interpolateY(ts) };
+  });
 
   return (
     <svg
       aria-label="Мини-график глюкозы вокруг пищевого эпизода"
-      className="h-20 w-full border border-[var(--hairline)] bg-[var(--bg)]"
+      className="h-[80px] w-full border border-[var(--hairline)] bg-[var(--bg)]"
+      preserveAspectRatio="xMidYMid meet"
       role="img"
-      viewBox="0 0 100 72"
+      viewBox={`0 0 ${viewBoxW} ${viewBoxH}`}
     >
-      <line
-        stroke="var(--hairline)"
-        strokeWidth="0.5"
-        x1="0"
-        x2="100"
-        y1="36"
-        y2="36"
-      />
+      <text
+        fill="var(--muted)"
+        fontSize="6"
+        textAnchor="end"
+        x={padLeft - 2}
+        y={yForValue(vHi) + 2}
+      >
+        {vMax.toFixed(1)}
+      </text>
+      <text
+        fill="var(--muted)"
+        fontSize="6"
+        textAnchor="end"
+        x={padLeft - 2}
+        y={yForValue(vLo) + 2}
+      >
+        {vMin.toFixed(1)}
+      </text>
+
       <polyline
         fill="none"
         points={points}
         stroke="var(--fg)"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.5"
+        strokeWidth="1"
       />
+
+      {mealPoints.map((mp, i) => (
+        <circle
+          cx={mp.x}
+          cy={mp.y}
+          fill="var(--accent)"
+          key={`meal-dot-${i}`}
+          r="2.5"
+          stroke="var(--bg)"
+          strokeWidth="1"
+        />
+      ))}
+
+      {tickIndices.map((idx) => (
+        <text
+          fill="var(--muted)"
+          fontSize="6"
+          key={`tick-${idx}`}
+          textAnchor="middle"
+          x={xForTime(timestamps[idx])}
+          y={viewBoxH - 2}
+        >
+          {formatMinute(timestamps[idx])}
+        </text>
+      ))}
+
+      {mealPoints.map((mp, i) => (
+        <text
+          fill="var(--accent)"
+          fontSize="6"
+          fontWeight="600"
+          key={`meal-label-${i}`}
+          textAnchor="middle"
+          x={mp.x}
+          y={viewBoxH - 2}
+        >
+          {mp.label}
+        </text>
+      ))}
     </svg>
   );
 }

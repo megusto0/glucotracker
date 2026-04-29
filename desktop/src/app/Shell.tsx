@@ -63,7 +63,7 @@ export function Shell() {
           </div>
         </div>
       </aside>
-      <main className="ml-[192px] h-screen overflow-hidden">{element}</main>
+      <main className="ml-[192px] h-screen overflow-y-auto">{element}</main>
     </div>
   );
 }
