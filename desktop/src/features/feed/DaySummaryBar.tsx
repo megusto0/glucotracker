@@ -1,4 +1,5 @@
 import type { FeedItem } from "./FeedPage.types";
+import { isValidCGM } from "./cgmUtils";
 
 export function DaySummaryBar({ items }: { items: FeedItem[] }) {
   const stats = computeDayStats(items);
@@ -55,7 +56,7 @@ function computeDayStats(items: FeedItem[]) {
       totalCarbs += item.episode.total_carbs_g;
       totalKcal += item.episode.total_kcal;
       totalInsulin += (item.episode.insulin ?? []).length;
-      if ((item.episode.glucose ?? []).length > 0) hasCGM = true;
+      if ((item.episode.glucose ?? []).some((e) => isValidCGM(e.value))) hasCGM = true;
     } else if (item.kind === "insulin") {
       totalInsulin++;
     }

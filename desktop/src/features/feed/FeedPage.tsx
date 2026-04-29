@@ -32,6 +32,7 @@ import { DaySummaryBar } from "./DaySummaryBar";
 import { FeedFiltersBar } from "./FeedFiltersBar";
 import type { DayGroup, FeedItem } from "./FeedPage.types";
 import { QuickFilterChips, useQuickFilterChips } from "./QuickFilterChips";
+import { filterValidCGM } from "./cgmUtils";
 import {
   buildFeedMealQuery,
   FEED_PAGE_SIZE,
@@ -95,8 +96,7 @@ const applyQuickFilters = (items: FeedItem[], active: Set<string>) => {
   if (active.size === 0) return items;
   return items.filter((item) => {
     if (active.has("hasCGM")) {
-      if (item.kind === "episode" && (item.episode.glucose ?? []).length > 0) return true;
-      if (item.kind !== "episode") return false;
+      if (item.kind === "episode" && filterValidCGM(item.episode.glucose ?? []).length > 0) return true;
       return false;
     }
     if (active.has("hasInsulin")) {
@@ -313,12 +313,13 @@ function glucosePeakSummary(
   entries: NonNullable<FoodEpisodeResponse["glucose"]>,
   meals: FoodEpisodeResponse["meals"],
 ) {
-  if (entries.length < 2 || !meals.length) return null;
+  const valid = filterValidCGM(entries);
+  if (valid.length < 2 || !meals.length) return null;
   const firstMealTs = Math.min(...meals.map((m) => new Date(m.eaten_at).getTime()));
-  const afterMeal = entries.filter((e) => new Date(e.timestamp).getTime() >= firstMealTs);
+  const afterMeal = valid.filter((e) => new Date(e.timestamp).getTime() >= firstMealTs);
   if (afterMeal.length < 2) return null;
 
-  const beforeValue = entries.find(
+  const beforeValue = valid.find(
     (e) => new Date(e.timestamp).getTime() <= firstMealTs,
   )?.value;
   if (beforeValue === undefined) return null;
@@ -343,11 +344,15 @@ function FoodEpisodeCard({
   onMealToggle: (mealId: string) => void;
   selectedMealId: string | null;
 }) {
-  const glucose = episode.glucose ?? [];
+  const rawGlucose = episode.glucose ?? [];
+  const glucose = filterValidCGM(rawGlucose);
   const insulin = episode.insulin ?? [];
   const eventCount = episode.meals.length + insulin.length;
   const insulinLabel = insulin.length === 1 ? "запись инсулина" : insulin.length < 5 ? "записи инсулина" : "записей инсулина";
   const peakSummary = glucosePeakSummary(glucose, episode.meals);
+  const glucoseValues = glucose.map((e) => e.value);
+  const glMin = glucoseValues.length ? Math.min(...glucoseValues) : null;
+  const glMax = glucoseValues.length ? Math.max(...glucoseValues) : null;
 
   return (
     <section className="border border-[var(--hairline)] bg-[rgba(255,255,255,0.34)]">
@@ -374,9 +379,9 @@ function FoodEpisodeCard({
         <div className="grid gap-1">
           <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
             <span>Глюкоза (CGM)</span>
-            <span className="font-mono">
-              {episode.glucose_summary.min_value ?? "--"}–{episode.glucose_summary.max_value ?? "--"} ммоль/л
-            </span>
+              <span className="font-mono">
+                {glMin ?? "--"}–{glMax ?? "--"} ммоль/л
+              </span>
           </div>
           <MiniGlucoseChart entries={glucose} meals={episode.meals} />
           {peakSummary ? (
