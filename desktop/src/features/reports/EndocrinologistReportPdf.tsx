@@ -35,6 +35,21 @@ Font.register({
 
 Font.registerHyphenationCallback((word) => [word]);
 
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const MARGIN_X = 28;
+const MARGIN_Y = 24;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
+
+const KPI_GAP = 6;
+const KPI_CARD_WIDTH = (CONTENT_WIDTH - KPI_GAP * 3) / 4;
+const KPI_CARD_HEIGHT = 54;
+
+const TABLE_FONT = 7.5;
+const ROW_H = 16;
+const HEAD_H = 17;
+const TOTAL_H = 17;
+
 export function EndocrinologistReportPdf({
   data,
 }: {
@@ -46,19 +61,17 @@ export function EndocrinologistReportPdf({
       subject="Informational T1D food diary report"
       title={data.title}
     >
-      <Page size="A4" style={styles.page}>
-        <View style={styles.paper}>
-          <Header data={data} />
-          <KpiGrid items={data.kpis} />
-          <MealProfileTable rows={data.mealProfileRows} />
-          <DailyTable
-            medianRow={data.dailyMedianRow}
-            note={data.dailyRowsNote}
-            rows={data.shownDailyRows}
-          />
-          <BottomStrip metrics={data.bottomMetrics} />
-          <Text style={styles.footer}>{data.footer}</Text>
-        </View>
+      <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }} style={styles.page}>
+        <Header data={data} />
+        <KpiBlock items={data.kpis} />
+        <MealProfileSection rows={data.mealProfileRows} />
+        <DailySection
+          medianRow={data.dailyMedianRow}
+          note={data.dailyRowsNote}
+          rows={data.shownDailyRows}
+        />
+        <BottomStrip metrics={data.bottomMetrics} />
+        <Text style={styles.footer}>{data.footer}</Text>
       </Page>
     </Document>
   );
@@ -66,12 +79,14 @@ export function EndocrinologistReportPdf({
 
 function Header({ data }: { data: EndocrinologistReportData }) {
   return (
-    <View>
-      <Text style={styles.appName}>{data.appName}</Text>
-      <Text style={styles.title}>{data.title}</Text>
-      <Text style={styles.subtitle}>
-        {data.periodLabel} · {data.generatedLabel}
-      </Text>
+    <View style={styles.header} fixed>
+      <View style={styles.headerRow}>
+        <Text style={styles.appName}>{data.appName}</Text>
+        <Text style={styles.subtitle}>
+          {data.periodLabel} · {data.generatedLabel}
+        </Text>
+      </View>
+      <Text style={styles.title}>Сводка за период</Text>
       <View style={styles.chipsRow}>
         {data.chips.map((chip) => (
           <View key={chip.label} style={styles.chip}>
@@ -92,53 +107,75 @@ function Header({ data }: { data: EndocrinologistReportData }) {
   );
 }
 
-function KpiGrid({ items }: { items: ReportKpi[] }) {
+function KpiBlock({ items }: { items: ReportKpi[] }) {
+  const rows: ReportKpi[][] = [];
+  for (let i = 0; i < items.length; i += 4) {
+    rows.push(items.slice(i, i + 4));
+  }
+
   return (
-    <View style={styles.kpiGrid}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>{item.label}</Text>
-          <View style={styles.kpiValueRow}>
-            <Text style={styles.kpiValue}>{item.value}</Text>
-            {item.unit ? <Text style={styles.kpiUnit}>{item.unit}</Text> : null}
-          </View>
-          <Text style={styles.kpiCaption}>{item.caption}</Text>
+    <View style={styles.kpiBlock}>
+      {rows.map((row, ri) => (
+        <View key={ri} style={[styles.kpiRow, ri > 0 ? { marginTop: KPI_GAP } : {}]}>
+          {row.map((item) => (
+            <View key={item.label} style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>{item.label}</Text>
+              <View style={styles.kpiValueRow}>
+                <Text style={styles.kpiValue}>{item.value}</Text>
+                {item.unit ? <Text style={styles.kpiUnit}>{item.unit}</Text> : null}
+              </View>
+              <Text style={styles.kpiCaption}>{item.caption}</Text>
+            </View>
+          ))}
+          {row.length < 4
+            ? Array.from({ length: 4 - row.length }, (_, i) => (
+                <View key={`empty-${i}`} style={styles.kpiCard} />
+              ))
+            : null}
         </View>
       ))}
     </View>
   );
 }
 
-function MealProfileTable({ rows }: { rows: MealProfileRow[] }) {
+const MEAL_COLS = [
+  { key: "label", label: "Приём пищи", width: 100, align: "left" as const },
+  { key: "episodes", label: "Эпиз.", width: 48, align: "center" as const },
+  { key: "carbs", label: "Угл., г", width: 52, align: "center" as const },
+  { key: "insulin", label: "Инс., ЕД", width: 56, align: "center" as const },
+  { key: "glucoseBefore", label: "Сахар до", width: 56, align: "center" as const },
+  { key: "glucoseAfter", label: "Сахар +2ч", width: 58, align: "center" as const },
+  { key: "observedRatio", label: "УК", width: 56, align: "center" as const },
+] as const;
+
+function MealProfileSection({ rows }: { rows: MealProfileRow[] }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Профиль приёмов пищи</Text>
       <View style={styles.table}>
-        <View style={[styles.tableRow, styles.tableHead]}>
-          <TableCell text="Приём пищи" width={108} />
-          <TableCell align="center" text="Эпизодов" width={64} />
-          <TableCell align="center" text="Угл., г" width={56} />
-          <TableCell align="center" text="Инсулин, ЕД" width={74} />
-          <TableCell align="center" text="Сахар до" width={67} />
-          <TableCell align="center" text="Сахар +2ч" width={72} />
-          <TableCell align="center" text="УК" width={72} />
+        <View style={[styles.tableRow, styles.tableHead, { height: HEAD_H }]}>
+          {MEAL_COLS.map((col) => (
+            <Cell key={col.key} align={col.align} text={col.label} width={col.width} />
+          ))}
         </View>
         {rows.map((row) => (
           <View
             key={row.key}
-            style={
-              row.key === "total"
-                ? [styles.tableRow, styles.totalRow]
-                : styles.tableRow
-            }
+            style={[
+              styles.tableRow,
+              { height: row.key === "total" ? TOTAL_H : ROW_H },
+              ...(row.key === "total" ? [styles.totalRow] : []),
+            ]}
           >
-            <TableCell strong={row.key === "total"} text={row.label} width={108} />
-            <TableCell align="center" text={row.episodes} width={64} />
-            <TableCell align="center" text={row.carbs} width={56} />
-            <TableCell align="center" text={row.insulin} width={74} />
-            <TableCell align="center" text={row.glucoseBefore} width={67} />
-            <TableCell align="center" text={row.glucoseAfter} width={72} />
-            <TableCell align="center" text={row.observedRatio} width={72} />
+            {MEAL_COLS.map((col) => (
+              <Cell
+                key={col.key}
+                align={col.align}
+                strong={row.key === "total"}
+                text={row[col.key as keyof MealProfileRow] as string}
+                width={col.width}
+              />
+            ))}
           </View>
         ))}
       </View>
@@ -146,7 +183,18 @@ function MealProfileTable({ rows }: { rows: MealProfileRow[] }) {
   );
 }
 
-function DailyTable({
+const DAILY_COLS = [
+  { key: "dateLabel", label: "Дата", width: 50 },
+  { key: "carbs", label: "Угл.", width: 44 },
+  { key: "insulin", label: "Инс., ЕД", width: 52 },
+  { key: "tir", label: "TIR", width: 40 },
+  { key: "hypo", label: "Гипо", width: 38 },
+  { key: "breakfast", label: "Завтрак", width: 62 },
+  { key: "lunch", label: "Обед", width: 62 },
+  { key: "dinner", label: "Ужин", width: 62 },
+] as const;
+
+function DailySection({
   medianRow,
   note,
   rows,
@@ -155,6 +203,9 @@ function DailyTable({
   note: string | null;
   rows: DailySummaryRow[];
 }) {
+  const maxRows = 6;
+  const displayRows = rows.slice(0, maxRows);
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionTitleRow}>
@@ -162,55 +213,59 @@ function DailyTable({
         {note ? <Text style={styles.sectionNote}>{note}</Text> : null}
       </View>
       <View style={styles.table}>
-        <View style={[styles.tableRow, styles.tableHead]}>
-          <TableCell align="center" text="Дата" width={56} />
-          <TableCell align="center" text="Угл., г" width={58} />
-          <TableCell align="center" text="Инсулин, ЕД" width={74} />
-          <TableCell align="center" text="TIR" width={58} />
-          <TableCell align="center" text="Гипо" width={52} />
-          <TableCell align="center" text="Завтрак" width={72} />
-          <TableCell align="center" text="Обед" width={72} />
-          <TableCell align="center" text="Ужин" width={72} />
+        <View style={[styles.tableRow, styles.tableHead, { height: HEAD_H }]}>
+          {DAILY_COLS.map((col) => (
+            <Cell key={col.key} align="center" text={col.label} width={col.width} />
+          ))}
         </View>
-        {rows.map((row) => (
-          <DailyRow key={row.date} row={row} />
+        {displayRows.map((row) => (
+          <View
+            key={row.date}
+            style={[
+              styles.tableRow,
+              { height: ROW_H },
+              ...(row.flagged ? [styles.flaggedRow] : []),
+            ]}
+          >
+            {DAILY_COLS.map((col) => (
+              <Cell
+                key={col.key}
+                align="center"
+                text={row[col.key as keyof DailySummaryRow] as string}
+                width={col.width}
+              />
+            ))}
+          </View>
         ))}
-        <DailyRow median row={medianRow} />
+        <View style={[styles.tableRow, styles.totalRow, { height: TOTAL_H }]}>
+          {DAILY_COLS.map((col) => (
+            <Cell
+              key={col.key}
+              align="center"
+              strong
+              text={medianRow[col.key as keyof DailySummaryRow] as string}
+              width={col.width}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
 }
 
-function DailyRow({ median = false, row }: { median?: boolean; row: DailySummaryRow }) {
-  return (
-    <View
-      style={[
-        styles.tableRow,
-        ...(median ? [styles.totalRow] : []),
-        ...(row.flagged ? [styles.flaggedRow] : []),
-      ]}
-    >
-      <TableCell align="center" strong={median} text={row.dateLabel} width={56} />
-      <TableCell align="center" text={row.carbs} width={58} />
-      <TableCell align="center" text={row.insulin} width={74} />
-      <TableCell align="center" text={row.tir} width={58} />
-      <TableCell align="center" text={row.hypo} width={52} />
-      <TableCell align="center" text={row.breakfast} width={72} />
-      <TableCell align="center" text={row.lunch} width={72} />
-      <TableCell align="center" text={row.dinner} width={72} />
-    </View>
-  );
-}
-
 function BottomStrip({ metrics }: { metrics: ReportBottomMetric[] }) {
+  const count = metrics.length || 1;
+  const cellWidth = CONTENT_WIDTH / count;
+
   return (
     <View style={styles.bottomStrip}>
-      {metrics.map((metric, index) => (
+      {metrics.map((metric, i) => (
         <View
           key={metric.label}
           style={[
-            styles.bottomMetric,
-            ...(index === metrics.length - 1 ? [styles.bottomMetricLast] : []),
+            styles.bottomCell,
+            { width: cellWidth },
+            ...(i === metrics.length - 1 ? [styles.bottomCellLast] : []),
           ]}
         >
           <Text style={styles.bottomLabel}>{metric.label}</Text>
@@ -224,7 +279,7 @@ function BottomStrip({ metrics }: { metrics: ReportBottomMetric[] }) {
   );
 }
 
-function TableCell({
+function Cell({
   align = "left",
   strong = false,
   text,
@@ -238,7 +293,7 @@ function TableCell({
   return (
     <Text
       style={[
-        styles.tableCell,
+        styles.cell,
         { textAlign: align, width },
         ...(strong ? [styles.strongCell] : []),
       ]}
@@ -248,236 +303,230 @@ function TableCell({
   );
 }
 
-const colors = {
+const c = {
   amberBg: "#FFF8EA",
   amberBorder: "#D9B77A",
   amberText: "#8A6330",
   border: "#D8D0C3",
   fill: "#F6F4EE",
-  paper: "#FFFFFF",
   secondary: "#6F6A61",
   text: "#0A0A0A",
 };
 
 const styles = StyleSheet.create({
   appName: {
-    color: colors.text,
+    color: c.secondary,
     fontFamily: "JetBrainsMono",
-    fontSize: 14,
+    fontSize: 9,
     letterSpacing: 0.2,
-    marginBottom: 10,
+  },
+  bottomCell: {
+    borderRightColor: c.border,
+    borderRightWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  bottomCellLast: {
+    borderRightWidth: 0,
   },
   bottomLabel: {
-    color: colors.secondary,
-    fontSize: 8,
+    color: c.secondary,
+    fontSize: 7,
     marginBottom: 2,
   },
-  bottomMetric: {
-    borderRightColor: colors.border,
-    borderRightWidth: 1,
-    flexGrow: 1,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  bottomMetricLast: {
-    borderRightWidth: 0,
-    flexGrow: 1.6,
-  },
   bottomStrip: {
-    backgroundColor: colors.fill,
-    borderColor: colors.border,
-    borderRadius: 5,
+    backgroundColor: c.fill,
+    borderColor: c.border,
     borderWidth: 1,
     flexDirection: "row",
-    marginTop: 12,
+    marginTop: 10,
   },
   bottomUnit: {
-    color: colors.text,
-    fontSize: 9,
-    marginLeft: 4,
-    paddingTop: 5,
+    color: c.text,
+    fontSize: 8,
+    marginLeft: 3,
+    paddingTop: 3,
   },
   bottomValue: {
-    color: colors.text,
+    color: c.text,
     fontFamily: "JetBrainsMono",
-    fontSize: 17,
+    fontSize: 13,
   },
   bottomValueRow: {
     alignItems: "baseline",
     flexDirection: "row",
   },
+  cell: {
+    borderRightColor: c.border,
+    borderRightWidth: 1,
+    color: c.text,
+    fontSize: TABLE_FONT,
+    lineHeight: 1.15,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
   chip: {
-    borderColor: colors.border,
-    borderRadius: 12,
+    borderColor: c.border,
     borderWidth: 1,
-    marginRight: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    marginRight: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
   chipText: {
-    color: colors.text,
-    fontSize: 9,
+    color: c.text,
+    fontSize: 8,
   },
   chipsRow: {
     flexDirection: "row",
-    marginBottom: 10,
-    marginTop: 12,
+    marginBottom: 4,
+    marginTop: 6,
   },
   flaggedRow: {
     backgroundColor: "#FFFDF7",
   },
   footer: {
-    color: colors.secondary,
-    fontSize: 8.8,
-    lineHeight: 1.35,
-    marginTop: 12,
+    color: c.secondary,
+    fontSize: 6.5,
+    lineHeight: 1.25,
+    marginTop: 8,
   },
-  kpiCaption: {
-    color: colors.secondary,
-    fontSize: 8.5,
+  header: {
+    marginBottom: 8,
   },
-  kpiCard: {
-    borderColor: colors.border,
-    borderRadius: 4,
-    borderWidth: 1,
-    height: 75,
-    marginBottom: 6,
-    marginRight: 6,
-    padding: 10,
-    width: 126.5,
-  },
-  kpiGrid: {
+  headerRow: {
+    alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  kpiBlock: {
     marginBottom: 10,
   },
+  kpiCaption: {
+    color: c.secondary,
+    fontSize: 6.5,
+  },
+  kpiCard: {
+    borderColor: c.border,
+    borderWidth: 1,
+    height: KPI_CARD_HEIGHT,
+    padding: 7,
+    width: KPI_CARD_WIDTH,
+  },
   kpiLabel: {
-    color: colors.text,
+    color: c.text,
     fontFamily: "NotoSans",
-    fontSize: 8.8,
+    fontSize: 6.5,
     fontWeight: 700,
-    letterSpacing: 1.1,
-    marginBottom: 6,
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  kpiRow: {
+    flexDirection: "row",
+    gap: KPI_GAP,
   },
   kpiUnit: {
-    color: colors.text,
-    fontSize: 12,
-    marginLeft: 5,
-    paddingTop: 15,
+    color: c.text,
+    fontSize: 8,
+    marginLeft: 2,
+    paddingTop: 7,
   },
   kpiValue: {
-    color: colors.text,
+    color: c.text,
     fontFamily: "JetBrainsMono",
-    fontSize: 30,
-    letterSpacing: 0.3,
+    fontSize: 22,
+    letterSpacing: 0.2,
   },
   kpiValueRow: {
     alignItems: "baseline",
     flexDirection: "row",
-    marginBottom: 3,
+    marginBottom: 2,
   },
   notes: {
-    color: colors.secondary,
-    fontSize: 8,
-    marginBottom: 6,
+    color: c.secondary,
+    fontSize: 7,
+    marginBottom: 4,
   },
   page: {
-    backgroundColor: "#EFECE5",
+    backgroundColor: "#FFFFFF",
     fontFamily: "NotoSans",
-    padding: 10,
-  },
-  paper: {
-    backgroundColor: colors.paper,
-    borderColor: colors.border,
-    borderWidth: 1,
-    height: "100%",
-    paddingHorizontal: 25,
-    paddingVertical: 22,
+    paddingHorizontal: MARGIN_X,
+    paddingVertical: MARGIN_Y,
   },
   section: {
-    marginTop: 7,
+    marginTop: 10,
   },
   sectionNote: {
-    color: colors.secondary,
-    fontSize: 8,
+    color: c.secondary,
+    fontSize: 7,
   },
   sectionTitle: {
-    color: colors.text,
+    color: c.text,
     fontFamily: "NotoSans",
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: 700,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   sectionTitleRow: {
     alignItems: "baseline",
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 4,
   },
   strongCell: {
     fontWeight: 700,
   },
   subtitle: {
-    color: colors.secondary,
-    fontSize: 10.5,
-    marginTop: 4,
+    color: c.secondary,
+    fontSize: 8,
   },
   table: {
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
     borderTopWidth: 1,
   },
-  tableCell: {
-    borderRightColor: colors.border,
-    borderRightWidth: 1,
-    color: colors.text,
-    fontSize: 8.6,
-    lineHeight: 1.2,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-  },
   tableHead: {
-    backgroundColor: colors.fill,
+    backgroundColor: c.fill,
   },
   tableRow: {
-    borderBottomColor: colors.border,
+    borderBottomColor: c.border,
     borderBottomWidth: 1,
     flexDirection: "row",
-    minHeight: 23,
+    minHeight: ROW_H,
   },
   title: {
-    color: colors.text,
+    color: c.text,
     fontFamily: "NotoSans",
-    fontSize: 27,
+    fontSize: 18,
     fontWeight: 700,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    marginBottom: 2,
   },
   totalRow: {
-    backgroundColor: colors.fill,
+    backgroundColor: c.fill,
   },
   warning: {
     alignItems: "center",
-    backgroundColor: colors.amberBg,
-    borderColor: colors.amberBorder,
-    borderRadius: 3,
+    backgroundColor: c.amberBg,
+    borderColor: c.amberBorder,
     borderWidth: 1,
     flexDirection: "row",
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    marginBottom: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   warningIcon: {
-    borderColor: colors.amberText,
-    borderRadius: 8,
+    borderColor: c.amberText,
+    borderRadius: 6,
     borderWidth: 1,
-    color: colors.amberText,
-    fontSize: 10,
-    height: 16,
-    marginRight: 10,
+    color: c.amberText,
+    fontSize: 8,
+    height: 12,
+    marginRight: 8,
     textAlign: "center",
-    width: 16,
+    width: 12,
   },
   warningText: {
-    color: colors.amberText,
-    fontSize: 10,
+    color: c.amberText,
+    fontSize: 7.5,
   },
 });

@@ -1,7 +1,9 @@
 import {
   ExternalLink,
   FileJson,
+  Moon,
   RefreshCw,
+  Sun,
   Trash2,
   UploadCloud,
   Wifi,
@@ -21,7 +23,7 @@ import {
   useRecalculateTotals,
 } from "./useSettingsChecks";
 import { EndocrinologistReportSection } from "./EndocrinologistReportSection";
-import { useSettingsStore } from "./settingsStore";
+import { type Theme, useSettingsStore } from "./settingsStore";
 
 const openApiHref = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, "") || "http://127.0.0.1:8000"}/openapi.json`;
@@ -36,7 +38,9 @@ export function SettingsPage() {
   const token = useSettingsStore((state) => state.token);
   const clearUiSettings = useSettingsStore((state) => state.clearUiSettings);
   const setBackendUrl = useSettingsStore((state) => state.setBackendUrl);
+  const setTheme = useSettingsStore((state) => state.setTheme);
   const setToken = useSettingsStore((state) => state.setToken);
+  const theme = useSettingsStore((state) => state.theme);
   const connection = useConnectionTest();
   const recalculate = useRecalculateTotals();
   const nightscout = useNightscoutSettings();
@@ -342,6 +346,8 @@ export function SettingsPage() {
             ) : null}
           </section>
 
+          <ThemeSwitch theme={theme} onThemeChange={setTheme} />
+
           <section className="border border-[var(--hairline)] p-5">
             <p className="text-[14px]">API Secret</p>
             <p className="mt-3 text-[13px] leading-5 text-[var(--muted)]">
@@ -412,5 +418,42 @@ function ToggleRow({
         type="checkbox"
       />
     </label>
+  );
+}
+
+const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
+  { value: "light", label: "Светлая", icon: Sun },
+  { value: "dark", label: "Тёмная", icon: Moon },
+  { value: "system", label: "Системная", icon: null as unknown as typeof Sun },
+];
+
+function ThemeSwitch({
+  theme,
+  onThemeChange,
+}: {
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
+}) {
+  return (
+    <section className="grid gap-3 border border-[var(--hairline)] bg-[var(--surface)] p-5">
+      <p className="text-[14px]">Оформление</p>
+      <div className="flex gap-2">
+        {themeOptions.map(({ value, label, icon: Icon }) => (
+          <button
+            className={`flex h-9 items-center gap-2 border px-3 text-[12px] uppercase tracking-[0.06em] transition duration-200 ease-out ${
+              theme === value
+                ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
+                : "border-[var(--hairline)] text-[var(--muted)] hover:border-[var(--fg)]"
+            }`}
+            key={value}
+            onClick={() => onThemeChange(value)}
+            type="button"
+          >
+            {Icon ? <Icon size={14} /> : null}
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

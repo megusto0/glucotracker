@@ -1,4 +1,5 @@
 import {
+  Activity,
   BarChart3,
   CircleDot,
   Database,
@@ -6,19 +7,39 @@ import {
   Settings,
   SquarePen,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, useRoutes } from "react-router-dom";
+import { useSettingsStore } from "../features/settings/settingsStore";
 import { routes } from "./routes";
 
 const navItems = [
   { to: "/", label: "Журнал", icon: SquarePen },
   { to: "/feed", label: "История", icon: List },
   { to: "/stats", label: "Статистика", icon: BarChart3 },
+  { to: "/glucose", label: "Глюкоза", icon: Activity },
   { to: "/database", label: "База", icon: Database },
   { to: "/settings", label: "Настройки", icon: Settings },
 ];
 
 export function Shell() {
   const element = useRoutes(routes);
+  const theme = useSettingsStore((s) => s.theme);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const apply = (dark: boolean) =>
+      root.classList.toggle("dark", dark);
+
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      apply(mq.matches);
+      const handler = (e: MediaQueryListEvent) => apply(e.matches);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+    apply(theme === "dark");
+    return () => apply(false);
+  }, [theme]);
 
   return (
     <div className="h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]">
@@ -33,7 +54,7 @@ export function Shell() {
               className={({ isActive }) =>
                 `relative mx-3 flex h-12 items-center gap-4 px-4 text-[14px] text-[var(--muted)] transition duration-200 ease-out hover:text-[var(--fg)] ${
                   isActive
-                    ? "border-l-2 border-[var(--fg)] bg-[rgba(255,255,255,0.38)] text-[var(--fg)]"
+                    ? "border-l-2 border-[var(--fg)] bg-[var(--surface)] text-[var(--fg)]"
                     : "border-l-2 border-transparent"
                 }`
               }

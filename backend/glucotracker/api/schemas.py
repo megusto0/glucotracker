@@ -1083,6 +1083,194 @@ class TimelineResponse(BaseModel):
     ungrouped_insulin: list[TimelineInsulinEventResponse] = Field(default_factory=list)
 
 
+class SensorSessionBase(BaseModel):
+    """Shared CGM sensor session fields."""
+
+    source: str = Field(default="manual", examples=["manual"])
+    vendor: str | None = Field(default=None, examples=["Ottai"])
+    model: str | None = Field(default=None, examples=["Ottai"])
+    label: str | None = Field(default=None, examples=["Ottai #4"])
+    started_at: datetime
+    ended_at: datetime | None = None
+    expected_life_days: float = Field(default=15, gt=0)
+    notes: str | None = None
+
+
+class SensorSessionCreate(SensorSessionBase):
+    """Create a display analytics sensor session."""
+
+
+class SensorSessionPatch(BaseModel):
+    """Patch a display analytics sensor session."""
+
+    source: str | None = None
+    vendor: str | None = None
+    model: str | None = None
+    label: str | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    expected_life_days: float | None = Field(default=None, gt=0)
+    notes: str | None = None
+
+
+class SensorSessionResponse(SensorSessionBase):
+    """Stored display analytics sensor session."""
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FingerstickReadingCreate(BaseModel):
+    """Create a manual capillary glucose reading."""
+
+    measured_at: datetime
+    glucose_mmol_l: float = Field(gt=0, le=40)
+    meter_name: str | None = None
+    notes: str | None = None
+
+
+class FingerstickReadingResponse(FingerstickReadingCreate):
+    """Stored manual capillary glucose reading."""
+
+    id: UUID
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CgmCalibrationModelResponse(BaseModel):
+    """Persisted display-only CGM calibration model."""
+
+    id: UUID
+    sensor_session_id: UUID
+    model_version: str
+    created_at: datetime
+    params_json: dict[str, Any]
+    metrics_json: dict[str, Any]
+    confidence: Literal["none", "low", "medium", "high"]
+    active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SensorWarmupMetricsResponse(BaseModel):
+    """Warmup-only residual metrics for display analytics."""
+
+    initial_residual_mmol_l: float | None = None
+    max_warmup_residual_mmol_l: float | None = None
+    plateau_residual_mmol_l: float | None = None
+    time_to_stabilize_hours: float | None = None
+    warmup_instability_score: float | None = None
+    residual_sequence_mmol_l: list[float] = Field(default_factory=list)
+
+
+class SensorQualityResponse(BaseModel):
+    """Computed sensor quality and calibration metrics."""
+
+    sensor: SensorSessionResponse | None = None
+    sensor_age_days: float | None = None
+    sensor_phase: Literal["warmup", "stable", "end_of_life"] | None = None
+    fingerstick_count: int
+    valid_calibration_points: int
+    matched_calibration_points: int = 0
+    stable_calibration_points: int = 0
+    warmup_calibration_points: int = 0
+    calibration_basis: (
+        Literal["stable_after_48h", "warmup_after_12h_fallback", "insufficient"]
+        | None
+    ) = None
+    warmup_metrics: SensorWarmupMetricsResponse | None = None
+    median_bias_mmol_l: float | None = None
+    mad_mmol_l: float | None = None
+    mard_percent: float | None = None
+    drift_mmol_l_per_day: float | None = None
+    residual_mad_mmol_l: float | None = None
+    missing_data_pct: float | None = None
+    suspected_compression_count: int
+    noise_score: float
+    quality_score: int
+    confidence: Literal["none", "low", "medium", "high"]
+    notes: list[str] = Field(default_factory=list)
+    active_model: CgmCalibrationModelResponse | None = None
+
+
+class GlucoseDashboardPoint(BaseModel):
+    """One glucose dashboard display point."""
+
+    timestamp: datetime
+    raw_value: float
+    smoothed_value: float | None = None
+    normalized_value: float | None = None
+    display_value: float
+    correction_mmol_l: float | None = None
+    flags: list[str] = Field(default_factory=list)
+
+
+class GlucoseDashboardFoodEvent(BaseModel):
+    """Food marker for glucose dashboard overlays."""
+
+    timestamp: datetime
+    title: str
+    carbs_g: float
+
+
+class GlucoseDashboardInsulinEvent(BaseModel):
+    """Read-only insulin marker for glucose dashboard overlays."""
+
+    timestamp: datetime
+    insulin_units: float | None = None
+    event_type: str | None = None
+    notes: str | None = None
+
+
+class GlucoseArtifactInterval(BaseModel):
+    """Suspected artifact interval for display shading."""
+
+    start_at: datetime
+    end_at: datetime
+    kind: Literal[
+        "compression_suspected",
+        "jump_suspected",
+        "gap",
+        "low_confidence_calibration",
+        "end_of_life_noise",
+    ]
+    label: str
+
+
+class GlucoseDashboardSummary(BaseModel):
+    """Compact dashboard status values."""
+
+    current_glucose: float | None = None
+    current_glucose_at: datetime | None = None
+    sensor_age_days: float | None = None
+    bias_mmol_l: float | None = None
+    drift_mmol_l_per_day: float | None = None
+    calibration_confidence: Literal["none", "low", "medium", "high"]
+    suspected_compression_count: int
+
+
+class GlucoseDashboardResponse(BaseModel):
+    """Nightscout-like glucose dashboard response."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    mode: Literal["raw", "smoothed", "normalized"]
+    points: list[GlucoseDashboardPoint]
+    fingersticks: list[FingerstickReadingResponse]
+    food_events: list[GlucoseDashboardFoodEvent]
+    insulin_events: list[GlucoseDashboardInsulinEvent]
+    artifacts: list[GlucoseArtifactInterval]
+    current_sensor: SensorSessionResponse | None = None
+    sensors: list[SensorSessionResponse]
+    quality: SensorQualityResponse
+    summary: GlucoseDashboardSummary
+    notes: list[str] = Field(default_factory=list)
+
+
 class ReportChipResponse(BaseModel):
     """Compact report metadata chip."""
 

@@ -29,6 +29,19 @@
   -webkit-text-size-adjust: 100%;
 }
 
+:root.dark {
+  --bg: #161614;
+  --surface: #1e1e1c;
+  --fg: #e8e4da;
+  --muted: #8a857a;
+  --line: #33312c;
+  --hairline: var(--line);
+  --accent: #d4a04a;
+  --danger: #e05545;
+  --success: #5aad5e;
+  --ok: var(--success);
+}
+
 body {
   margin: 0;
   background-color: var(--bg);

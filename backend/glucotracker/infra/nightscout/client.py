@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -107,6 +108,7 @@ def _meal_treatment_payload(meal: Meal) -> dict[str, Any]:
         "notes": _meal_notes(meal),
         "enteredBy": "glucotracker",
         "glucotracker_meal_id": str(meal.id),
+        "identifier": f"glucotracker:{meal.id}",
         "source": "glucotracker",
     }
 
@@ -209,6 +211,21 @@ class NightscoutClient:
             json_payload=_meal_treatment_payload(meal),
         )
 
+    async def find_meal_treatment(self, meal: Meal) -> dict[str, Any] | None:
+        """Find a just-posted meal treatment when Nightscout omits id in POST."""
+        payload = _meal_treatment_payload(meal)
+        meal_time = _meal_datetime(meal.eaten_at)
+        from_datetime = meal_time - timedelta(minutes=10)
+        to_datetime = meal_time + timedelta(minutes=10)
+        for attempt in range(3):
+            treatments = await self.fetch_treatments(from_datetime, to_datetime)
+            matched = _matching_meal_treatment(treatments, meal, payload)
+            if matched is not None:
+                return matched
+            if attempt < 2:
+                await asyncio.sleep(0.25)
+        return None
+
     async def delete_treatment(self, nightscout_id: str) -> dict[str, Any]:
         """Delete a Nightscout treatment by id."""
         return await self._request("DELETE", f"/api/v1/treatments/{nightscout_id}")
@@ -270,3 +287,50 @@ def get_nightscout_client() -> NightscoutClient | None:
     if not is_nightscout_configured():
         return None
     return NightscoutClient()
+
+
+def _matching_meal_treatment(
+    treatments: list[dict[str, Any]],
+    meal: Meal,
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    meal_id = str(meal.id)
+    identifier = f"glucotracker:{meal_id}"
+    for treatment in treatments:
+        remote_meal_id = treatment.get("glucotracker_meal_id")
+        remote_identifier = treatment.get("identifier")
+        if str(remote_meal_id) == meal_id or str(remote_identifier) == identifier:
+            return treatment
+
+    for treatment in treatments:
+        if not _same_treatment_shape(treatment, payload):
+            continue
+        return treatment
+    return None
+
+
+def _same_treatment_shape(
+    treatment: dict[str, Any],
+    payload: dict[str, Any],
+) -> bool:
+    event_type = str(treatment.get("eventType") or "")
+    if event_type != payload["eventType"]:
+        return False
+    if str(treatment.get("enteredBy") or "") != payload["enteredBy"]:
+        return False
+    if str(treatment.get("source") or "") not in {"", payload["source"]}:
+        return False
+    if not _numbers_close(treatment.get("carbs"), payload["carbs"]):
+        return False
+
+    same_created_at = treatment.get("created_at") == payload["created_at"]
+    same_date = _numbers_close(treatment.get("date"), payload["date"])
+    same_notes = treatment.get("notes") == payload["notes"]
+    return bool(same_notes and (same_created_at or same_date))
+
+
+def _numbers_close(left: Any, right: Any) -> bool:
+    try:
+        return abs(float(left) - float(right)) < 0.01
+    except (TypeError, ValueError):
+        return False

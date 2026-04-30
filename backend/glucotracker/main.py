@@ -9,6 +9,7 @@ from glucotracker.api.routers import (
     autocomplete_router,
     dashboard_router,
     database_router,
+    glucose_router,
     meals_router,
     nightscout_router,
     nutrients_router,
@@ -30,6 +31,7 @@ app.include_router(admin_router)
 app.include_router(autocomplete_router)
 app.include_router(dashboard_router)
 app.include_router(database_router)
+app.include_router(glucose_router)
 app.include_router(meals_router)
 app.include_router(nightscout_router)
 app.include_router(nutrients_router)

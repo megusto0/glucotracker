@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router-dom";
 import { ChatPage } from "../features/chat/ChatPage";
 import { DatabasePage } from "../features/database/DatabasePage";
 import { FeedPage } from "../features/feed/FeedPage";
+import { GlucosePage } from "../features/glucose/GlucosePage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { StatsPage } from "../features/stats/StatsPage";
 
@@ -17,6 +18,10 @@ export const routes: RouteObject[] = [
   {
     path: "/stats",
     element: <StatsPage />,
+  },
+  {
+    path: "/glucose",
+    element: <GlucosePage />,
   },
   {
     path: "/database",

@@ -237,6 +237,8 @@ class EndocrinologistReportService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[NightscoutGlucoseEntry]:
+        # Future: keep reports on raw CGM unless normalized display data becomes
+        # an explicit report option with separate labeling.
         return list(
             self.session.scalars(
                 select(NightscoutGlucoseEntry)

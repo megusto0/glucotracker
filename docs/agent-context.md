@@ -1,6 +1,6 @@
 # Agent Context
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 This is the short future-agent orientation note. For full detail, read
 `docs/project-explainer.txt`, `docs/architecture.md`, `docs/api-contract.md`,
@@ -66,6 +66,13 @@ same backend API without backend changes for desktop-specific behavior.
 - Gemini API keys and Nightscout secrets stay backend-only.
 - Nightscout insulin is imported as read-only context only; do not turn it into
   dosing advice or editable glucotracker treatment data.
+- Raw Nightscout CGM is immutable. Sensor quality and normalized glucose are
+  display-only derived layers; do not make reports/history depend on normalized
+  values unless that is explicitly designed later.
+- Sensor quality is phase-aware: warmup `<48h`, stable `48h..12d`, end of life
+  `>=12d`. First-48-hour fingerstick residuals are warmup context; stable
+  offset/drift should prefer points after 48h and only fall back after 12h with
+  lower confidence.
 - Food episodes are computed projections over accepted meal rows, local CGM,
   and read-only Nightscout insulin context. Do not merge or replace meals when
   building the history timeline.
@@ -87,6 +94,8 @@ same backend API without backend changes for desktop-specific behavior.
 - `backend/glucotracker/application/product_memory.py` - accepted label product upserts.
 - `backend/glucotracker/application/nightscout_sync.py` - optional Nightscout sync orchestration.
 - `backend/glucotracker/application/nightscout_context.py` - local Nightscout import and computed food episodes.
+- `backend/glucotracker/application/glucose_dashboard.py` - glucose dashboard, fingerstick matching, sensor quality, and display-only calibration.
+- `desktop/src/features/glucose/GlucosePage.tsx` - `/glucose` dashboard page.
 - `desktop/src/features/chat/ChatPage.tsx` - main journal/photo draft screen.
 - `desktop/src/features/meals/MealLedger.tsx` - meal rows and detail panels.
 - `desktop/src/features/meals/useMealMutations.ts` - shared meal mutations (updateMealName, updateMealTime, duplicateMeal).

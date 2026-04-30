@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from glucotracker.api.dependencies import SessionDep, verify_token
 from glucotracker.api.schemas import (
@@ -35,6 +35,7 @@ from glucotracker.application.nightscout_sync import (
     NightscoutSyncService,
 )
 from glucotracker.infra.nightscout.client import (
+    NIGHTSCOUT_NOT_CONFIGURED,
     NightscoutClient,
     get_nightscout_client,
 )
@@ -220,15 +221,47 @@ async def import_nightscout_context(
     client: NightscoutDep,
 ) -> NightscoutImportResponse:
     """Fetch Nightscout glucose/insulin context and cache it locally."""
-    settings = NightscoutSettingsService(session)
-    row = settings.get_or_create()
-    effective_client = settings.client(client)
-    return await NightscoutContextImportService(session, effective_client).import_range(
+    settings_svc = NightscoutSettingsService(session)
+    row = settings_svc.get_or_create()
+    effective_client = settings_svc.client(client)
+    effective_client_obj = effective_client or client
+
+    if not effective_client_obj or not effective_client_obj.configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=NIGHTSCOUT_NOT_CONFIGURED,
+        )
+
+    do_glucose = payload.sync_glucose and row.sync_glucose
+    do_insulin = payload.import_insulin_events and row.import_insulin_events
+
+    if not do_glucose and not do_insulin:
+        svc = NightscoutContextImportService(
+            session, effective_client_obj,
+        )
+        return svc.import_range(
+            payload.from_datetime,
+            payload.to_datetime,
+            sync_glucose=False,
+            import_insulin_events=False,
+        )
+
+    glucose_rows = []
+    insulin_rows = []
+    if do_glucose:
+        glucose_rows = await effective_client_obj.fetch_glucose_entries(
+            payload.from_datetime, payload.to_datetime,
+        )
+    if do_insulin:
+        insulin_rows = await effective_client_obj.fetch_insulin_events(
+            payload.from_datetime, payload.to_datetime,
+        )
+
+    return NightscoutContextImportService(session, effective_client_obj).import_fetched(
         payload.from_datetime,
         payload.to_datetime,
-        sync_glucose=payload.sync_glucose and row.sync_glucose,
-        import_insulin_events=payload.import_insulin_events
-        and row.import_insulin_events,
+        glucose_rows=glucose_rows,
+        insulin_rows=insulin_rows,
     )
 
 

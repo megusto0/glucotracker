@@ -69,28 +69,46 @@ class NightscoutContextImportService:
                 detail=NIGHTSCOUT_NOT_CONFIGURED,
             )
 
+        glucose_rows = []
+        insulin_rows = []
+        if sync_glucose:
+            glucose_rows = await self.client.fetch_glucose_entries(
+                from_datetime, to_datetime,
+            )
+        if import_insulin_events:
+            insulin_rows = await self.client.fetch_insulin_events(
+                from_datetime, to_datetime,
+            )
+
+        return self.import_fetched(
+            from_datetime, to_datetime,
+            glucose_rows=glucose_rows,
+            insulin_rows=insulin_rows,
+        )
+
+    def import_fetched(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+        *,
+        glucose_rows: list[dict[str, Any]],
+        insulin_rows: list[dict[str, Any]],
+    ) -> NightscoutImportResponse:
+        """Upsert pre-fetched Nightscout data into the local cache."""
         glucose_imported = 0
         insulin_imported = 0
         state = self._state()
         try:
-            if sync_glucose:
-                rows = await self.client.fetch_glucose_entries(
-                    from_datetime,
-                    to_datetime,
-                )
-                for row in rows:
-                    if self._upsert_glucose(row):
-                        glucose_imported += 1
+            for row in glucose_rows:
+                if self._upsert_glucose(row):
+                    glucose_imported += 1
+            if glucose_rows:
                 state.last_glucose_import_at = utc_now()
 
-            if import_insulin_events:
-                rows = await self.client.fetch_insulin_events(
-                    from_datetime,
-                    to_datetime,
-                )
-                for row in rows:
-                    if self._upsert_insulin(row):
-                        insulin_imported += 1
+            for row in insulin_rows:
+                if self._upsert_insulin(row):
+                    insulin_imported += 1
+            if insulin_rows:
                 state.last_insulin_import_at = utc_now()
 
             state.last_error = None
@@ -103,10 +121,8 @@ class NightscoutContextImportService:
             raise
 
         return self._response(
-            from_datetime,
-            to_datetime,
-            glucose_imported,
-            insulin_imported,
+            from_datetime, to_datetime,
+            glucose_imported, insulin_imported,
         )
 
     def _response(
@@ -299,6 +315,8 @@ class FoodEpisodeService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[NightscoutGlucoseEntry]:
+        # Future: history should stay on raw CGM by default; normalized display
+        # data needs an explicit opt-in path and clear UI labeling.
         return list(
             self.session.scalars(
                 select(NightscoutGlucoseEntry)

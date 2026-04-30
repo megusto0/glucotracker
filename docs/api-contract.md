@@ -358,6 +358,43 @@ Nightscout context import is read-only. `POST /nightscout/import` can fetch gluc
 
 `GET /timeline` returns computed history episodes. The backend groups accepted food rows into food episodes when consecutive meals are within a 30-minute window. For each episode, the backend links local Nightscout insulin events from 30 minutes before the first meal through 90 minutes after the last meal, and local CGM points from 60 minutes before through 180 minutes after. Food episodes are API projections only; they do not replace or merge underlying meal rows.
 
+### Glucose dashboard
+
+`GET /glucose/dashboard?from=&to=&mode=raw|smoothed|normalized` returns a
+Nightscout-like informational glucose view built from local raw CGM facts,
+manual fingerstick readings, and sensor-session metadata. The response includes
+raw points, display points, fingerstick markers, food markers, insulin markers,
+artifact intervals, current sensor, sensor list, quality metrics, summary
+values, and missing-data notes.
+
+Sensor quality uses separate backend-owned resources:
+
+- `GET /sensors`, `POST /sensors`, `PATCH /sensors/{id}`
+- `GET /sensors/{id}/quality`
+- `POST /sensors/{id}/recalculate-calibration`
+- `GET /fingersticks?from=&to=`
+- `POST /fingersticks`
+
+Raw Nightscout CGM rows are never overwritten. Normalized glucose is a
+display-only derived value from active calibration params and must not be used
+as the default source for history, reports, daily totals, or treatment
+decisions. If there are fewer than two valid fingerstick/CGM matches, normalized
+values are unavailable and the API returns explicit notes instead of fake data.
+
+Sensor quality responses include `sensor_phase`:
+
+- `warmup`: sensor age `<48h`
+- `stable`: `48h <= age < 12d`
+- `end_of_life`: `age >= 12d`
+
+Warmup residuals are modeled separately in `warmup_metrics`: initial residual in
+the first 2 hours, max absolute residual in the first 12 hours, plateau residual
+from 12 to 48 hours, optional time to stabilization, instability score, and a
+compact residual sequence for UI copy. Stable display calibration prefers
+fingerstick points after 48 hours. If there are not enough such points, it may
+fall back to points after 12 hours with lower confidence. First-12-hour points
+are informational and must not dominate stable offset/drift.
+
 ### Endocrinologist report
 
 `GET /reports/endocrinologist?from=YYYY-MM-DD&to=YYYY-MM-DD` returns presentation-ready data for the one-page A4 PDF report. The response is JSON, not a PDF binary, so clients can render platform-native output while keeping all report math backend-owned.
@@ -1097,6 +1134,50 @@ summary glucose values.
 ```bash
 curl -H "$AUTH" "$BASE/timeline?from=2026-04-28T00:00:00&to=2026-04-28T23:59:59"
 ```
+
+### `GET /glucose/dashboard`
+
+Return raw and display-only derived CGM series plus sensor-quality context for
+the glucose screen. Query parameters are local datetimes named `from` and `to`,
+and `mode=raw|smoothed|normalized`.
+
+```bash
+curl -H "$AUTH" "$BASE/glucose/dashboard?from=2026-04-28T04:00:00&to=2026-04-28T10:00:00&mode=normalized"
+```
+
+### `POST /fingersticks`
+
+Create a manual fingerstick reading in mmol/L.
+
+```bash
+curl -X POST "$BASE/fingersticks" \
+  -H "$AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{"measured_at":"2026-04-28T08:10:00","glucose_mmol_l":7.2}'
+```
+
+### `GET /sensors` / `POST /sensors` / `PATCH /sensors/{id}`
+
+Manage backend-owned sensor sessions. Timestamps are app-local wall-clock
+datetimes. Sensor metadata powers quality and display calibration; it does not
+change imported CGM facts.
+
+```bash
+curl -X POST "$BASE/sensors" \
+  -H "$AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{"source":"manual","vendor":"Ottai","model":"Ottai","started_at":"2026-04-28T00:00:00"}'
+```
+
+### `GET /sensors/{id}/quality`
+
+Return quality metrics for one sensor: age, bias, drift, MARD/MAD, noise,
+suspected compression count, fingerstick counts, confidence, and active model.
+
+### `POST /sensors/{id}/recalculate-calibration`
+
+Recalculate and persist a new active display-only calibration model for one
+sensor. Previous models are marked inactive. Raw CGM is not updated.
 
 ### `GET /reports/endocrinologist`
 

@@ -1,165 +1,306 @@
+I need a new page for my glucotracker. It nightscout-dasboard like panel, glucos graph with food and insulin. Справа всплывающеая правая кнопкао к в журнале только теперь здесь только список сенсоров и их качества. У меня несколько проблем с моими сенсорами ottai. Оснобенно с последними партиями они могут занижать. Мне нужна глубокая математическая модель каллибровки для информационного отображения в моем приложении на основании записей из пальца. Например вначале глюкоза соответствовала графику сенсора а потом сенсор стал асе больше занижать. Ну или он из коробки занижает, всякие проблеммы бывают. Так же нужно сглаживание необьяснимых рывков(не аггресивное) например когда ночью рука ледит на сенсоре. Так же к конце жизни сенсора(14-15 дней) кривая менее прямая всегда. Нужно архитектурно подготовить чтобы в отчетах и в истории испорщваьась нормалищованная глбкоща но не в первой версии. Запись и время глюкозы пальца
 
+You are working on Glucotracker.
 
-Reference screenshots C:\Users\hecol\Documents\New project 3\glucotracker\docs\design-references reference.png:
-- Current History page: shows flat food episode blocks, sparse hierarchy, mini CGM charts, repeated insulin rows, and right detail panel.
-- Target mockup: shows a more structured History page with top filters, quick chips, day summary row, clearer food episode cards, selected row highlighting, larger CGM context, and polished right detail panel.
+Goal:
+Add a new desktop page `/glucose`: a Nightscout-like glucose dashboard with food and insulin overlays, plus a right-side sensor quality panel. Also prepare backend architecture for future display-only normalized glucose based on fingerstick readings.
 
-Primary implementation targets:
+Important safety:
+- This is informational display only.
+- Never use words like “true glucose” or “recommended”.
+- Never suggest insulin dosing, bolus, correction, or treatment decisions.
+- Raw CGM data must never be overwritten.
+- Normalized/calibrated glucose is a derived display/analytics layer.
+- In v1, History and PDF reports continue using raw CGM unless explicitly wired later.
+- Nightscout insulin remains read-only context.
 
-1. History page header and filters
-- Add/restore a large page title: “История”.
-- Add a compact filter row:
-  - search field labeled “Поиск” with placeholder “еда, заметка, позиция”
-  - date filters “От” and “До”
-  - status dropdown “Статус: Активные”
-- Add quick filter chips below:
-  - “Сегодня”
-  - “7 дней”
-  - “С CGM”
-  - “С инсулином”
-  - “Низкая уверенность”
-  - button “Доп. фильтры”
-- Chips should be visually close to the target mockup.
-- Implement real filtering only if the underlying data makes it straightforward. Otherwise, wire the UI state and leave clear TODOs.
+Project architecture:
+- Backend owns database schema, REST semantics, application services, Nightscout sync/import, timeline boundaries, and domain logic.
+- Frontend owns presentation only.
+- Use the same visual language as the existing app: off-white background, black text, thin borders, no shadows/glassmorphism, Inter text, mono/tabular numbers.
 
-2. Day section summary
-- Under the day header, add a horizontal day summary strip.
-- Example for 29 April:
-  - “4 приёма”
-  - “238 г углеводов”
-  - “2823 ккал”
-  - “4 NS-события”
-  - “CGM обновлён 12:08”
-- Compute these client-side from the already loaded timeline/page data where possible.
-- If some values are unavailable, show a graceful fallback instead of fake data.
-- Keep the summary visual style minimal: thin border, subtle dividers, small icons if existing icon set supports them.
+Relevant existing concepts:
+- History page already imports Nightscout context and combines meals, insulin, and CGM in a timeline.
+- Food episodes are computed projections over accepted meals, local CGM, and read-only Nightscout insulin.
+- Do not merge or mutate those records.
 
-3. Food episode card redesign
-Refactor the food episode UI to match the target structure.
+New navigation:
+Add sidebar route:
+- `/glucose`
+- label: `Глюкоза`
+- icon: use a suitable Lucide icon such as Activity, LineChart, or Waves.
 
-For expanded food episodes:
-- Left column:
-  - stacked start/end times, e.g. “18:39” and “18:54”
-- Main title block:
-  - title: “Приём пищи”
-  - subtitle: “Сгруппировано: события рядом по времени”
-  - meta line: “3 события · 308 ккал · 45.5 г углеводов · 1 запись инсулина”
-- Right chart block:
-  - title: “Глюкоза (CGM)”
-  - range label, e.g. “2.3–5.6 ммоль/л”
-  - mini chart with food markers
-  - one tiny factual summary line if derivable, e.g. “5.2 → пик 6.8 через 74 мин”
-- Do not present this factual summary as advice or a medical interpretation.
+Page layout:
+Left/main:
+- title: `Глюкоза`
+- range controls: `3ч`, `6ч`, `12ч`, `24ч`, `7д`, custom date range
+- display mode toggle:
+  - `Raw`
+  - `Сглаженная`
+  - `Нормализованная`
+- large glucose graph:
+  - raw CGM line in subtle grey
+  - normalized line in main black if available
+  - fingerstick points as diamonds/crosses
+  - food events as dots or small markers
+  - insulin events as vertical markers
+  - suspected artifacts as subtle shaded/punctured sections
+- below graph: compact status cards:
+  - current glucose
+  - sensor age
+  - bias
+  - drift
+  - calibration confidence
+  - suspected compression lows
 
-Inside the expanded episode:
-- Render child rows with subtle separators.
-- Meal rows:
-  - time
-  - thumbnail if available
-  - name
-  - source/status line, e.g. “ЕДА / ПРИНЯТО”
-  - carbs
-  - kcal
-  - kebab/more icon if already used
-- Insulin rows:
-  - time
-  - syringe or context icon
-  - label: “Инсулин из Nightscout”
-  - secondary line: “ИНСУЛИН / NS”
-  - units, e.g. “4 ЕД”
-  - must be visually read-only/contextual
-  - clicking should not open an editable meal panel
-- Add a centered low-emphasis action row: “Показать все детали эпизода”.
+Right panel:
+A sticky/right contextual panel similar in spirit to SelectedMealPanel, but for sensors.
 
-For collapsed food episodes:
-- Show time range, “Приём пищи”, meta line, compact CGM chart, and chevron.
-- Keep vertical density close to the target mockup.
+Panel title:
+`Сенсоры`
 
-4. Selected row state
-- When a meal row is selected and the right detail panel is open, the corresponding row inside the episode must be visibly highlighted.
-- Use subtle background or left accent, consistent with the design system.
-- This is important: the user must immediately understand why the right panel shows that item.
+Show current sensor:
+- vendor/model, e.g. `Ottai`
+- date range
+- age: `день 11.4 / 15`
+- quality score
+- bias
+- drift per day
+- MARD/MAD if enough fingersticks
+- noise score
+- compression artifacts count
+- fingerstick count
+- calibration confidence
 
-5. Right detail panel polish
-- Keep existing behavior and data model.
-- Make styling closer to the target mockup where safe:
-  - cleaner top area with thumbnail, title, kcal
-  - compact tags: “фото”, “принято”
-  - section headings: “НАЗВАНИЕ”, “ВРЕМЯ”, “ПИЩЕВАЯ ЦЕННОСТЬ”, “ИСТОЧНИК”, “УВЕРЕННОСТЬ”, “NIGHTSCOUT”
-  - macro cards laid out as 4 columns
-  - Nightscout status and retry button clearly separated
-  - delete action lower and visually secondary/danger
-- Be careful if the same SelectedMealPanel is shared with Journal. Do not break Journal. If needed, add a small `variant="history"` prop or make only safe global visual refinements.
+Actions:
+- `+ Запись из пальца`
+- `Пересчитать`
+- sensor start/end edit
+- notes
 
-6. CGM chart behavior
-- Reuse the existing MiniGlucoseChart if available.
-- Improve sizing and layout rather than replacing chart logic.
-- Chart must handle missing CGM gracefully:
-  - show “CGM нет за этот период” or similar
-  - no broken empty boxes
-- Food markers should remain placed on the curve if existing logic supports it.
-- Do not introduce a heavy charting dependency unless already present.
+Below:
+List previous sensors with compact quality badges.
 
-7. Layout
-- Preserve the app shell and left sidebar.
-- Main area should be scrollable.
-- Right panel should remain fixed/sticky on the right, around the existing width.
-- Target desktop size is approximately 1440×900 / 1672×941.
-- Avoid horizontal overflow.
-- Keep infinite scroll / “load more” behavior intact.
+Data model:
+Add backend tables/migrations:
 
-8. Code organization
-Before coding, inspect the current implementation. Likely relevant files include:
-- `desktop/src/features/feed/FeedPage.tsx`
-- feed/timeline components near `desktop/src/features/feed/`
-- shared meal row/detail components near `desktop/src/features/meals/`
-- API client/types near `desktop/src/api/client.ts`
+1. `sensor_sessions`
+Fields:
+- id
+- source/vendor/model/label
+- started_at local or UTC with local display handled correctly
+- ended_at nullable
+- expected_life_days default 15
+- notes
+- created_at/updated_at
 
-Prefer extracting small presentational components:
-- `FeedFilters`
-- `QuickFilterChips`
-- `DaySummaryBar`
-- `FoodEpisodeCard`
-- `EpisodeEventRow`
-- `EpisodeChartPanel`
+2. `fingerstick_readings`
+Fields:
+- id
+- measured_at
+- glucose_mmol_l
+- meter_name nullable
+- notes nullable
+- created_at
 
-Keep data transformation separate from JSX where practical.
+3. `cgm_calibration_models`
+Fields:
+- id
+- sensor_session_id
+- model_version
+- created_at
+- params_json
+- metrics_json
+- confidence
+- active
 
-9. Styling
-- Use existing Tailwind/design tokens/classes where possible.
-- No new visual system.
-- No heavy shadows.
-- No gradients.
-- No dark mode changes.
-- Use mono/tabular numbers for times/macros if existing styles support it.
-- Keep Russian UI text.
+Optional later:
+`cgm_derived_readings`
+Only add if needed. Prefer on-demand derived values for v1.
 
-10. Acceptance criteria
-- `/feed` visually matches the target mockup much more closely:
-  - title + filters + chips visible
-  - day summary visible
-  - food episode card hierarchy clear
-  - selected meal row highlighted
-  - insulin rows clearly read-only Nightscout context
-  - right panel polished and readable
-- Existing Journal page still works.
-- Meal selection/editing still works.
-- Infinite scroll still works.
-- Nightscout insulin events are not editable as meals.
-- No medical advice is introduced.
-- No backend API contract is broken.
+Backend endpoints:
+- `GET /glucose/dashboard?from=&to=&mode=raw|smoothed|normalized`
+- `POST /fingersticks`
+- `GET /fingersticks?from=&to=`
+- `GET /sensors`
+- `POST /sensors`
+- `PATCH /sensors/{id}`
+- `GET /sensors/{id}/quality`
+- `POST /sensors/{id}/recalculate-calibration`
 
-11. Verification
+If endpoint scope is too large for one PR, implement:
+1. minimal backend tables + fingerstick CRUD
+2. glucose dashboard endpoint based on existing timeline
+3. sensor quality computed endpoint
+4. frontend page
+
+Mathematical model v1:
+Implement a conservative, robust, display-only model.
+
+Definitions:
+- raw CGM: Nightscout CGM value
+- fingerstick: manual capillary glucose entry
+- derived normalized glucose: display estimate from calibration model
+- never overwrite raw
+
+Fingerstick matching:
+For each fingerstick reading:
+- find CGM points in window `[fingerstick_time - 20min, fingerstick_time + 20min]`
+- estimate local CGM value at fingerstick time by interpolation or nearest point
+- compute local slope around fingerstick
+- exclude from calibration if:
+  - no nearby CGM
+  - large gap
+  - suspected compression/artifact
+  - glucose is changing rapidly
+  - duplicate fingerstick too close to another one
+
+Initial thresholds:
+- rapidly changing if absolute slope > 0.08 mmol/L/min
+- nearby max distance 15 minutes preferred, 20 minutes fallback
+
+Residual:
+`residual = fingerstick_glucose - raw_cgm_at_time`
+
+Calibration model:
+Start simple and robust:
+`normalized = raw + b0 + b1 * sensor_age_days`
+
+Fit:
+- robust linear regression residual ~ sensor_age_days
+- if fewer than 3 valid fingersticks: use median offset only
+- if fewer than 2 valid fingersticks: do not produce normalized values, only show raw and “недостаточно данных”
+- use robust statistics; outliers should not dominate
+- cap correction magnitude initially:
+  - max absolute offset correction 3.0 mmol/L
+  - max drift correction 0.5 mmol/L/day
+  - if exceeded, mark low confidence instead of silently applying aggressive correction
+
+Quality metrics:
+For each sensor:
+- fingerstick_count
+- valid_calibration_points
+- median_bias_mmol_l
+- MAD/MARD if possible
+- drift_mmol_l_per_day
+- residual_std_or_mad
+- missing_data_pct
+- suspected_compression_count
+- noise_score
+- quality_score 0–100
+- confidence: low/medium/high
+
+Smoothing:
+Implement only conservative smoothing for display:
+- do not smooth raw data
+- create smoothed display series
+- use a robust rolling median or Hampel filter for isolated spikes
+- then optional small moving average / EWMA
+- preserve real meal/insulin trends
+- never remove long sustained changes
+
+Artifact detection:
+Mark suspected compression lows:
+- mostly nighttime or long rest periods if available
+- sharp downward V-shape
+- drop rate exceeds threshold
+- recovery within 15–60 min
+- no nearby insulin/food explanation
+- not supported by fingerstick if available
+
+Store flags:
+- `compression_suspected`
+- `jump_suspected`
+- `gap`
+- `low_confidence_calibration`
+- `end_of_life_noise`
+
+Sensor end-of-life:
+Compute sensor age from `sensor_session.started_at`.
+Show warning if:
+- age >= 12 days
+- noise_score increases
+- residual variance increases
+- drift magnitude increases
+
+Frontend graph:
+Use existing SVG/Recharts approach if available.
+Must support:
+- large time-series graph
+- food markers
+- insulin markers
+- fingerstick markers
+- artifact shading
+- raw vs normalized toggle
+- tooltips
+
+Tooltip should show:
+- time
+- raw CGM
+- normalized estimate if available
+- correction amount
+- flags
+- nearby food/insulin/fingerstick
+
+Copy:
+Use Russian UI text:
+- `Raw`
+- `Сглаженная`
+- `Нормализованная`
+- `Запись из пальца`
+- `Оценка смещения`
+- `Дрейф сенсора`
+- `Вероятный артефакт`
+- `Недостаточно записей из пальца`
+- `Нормализация — только информационное отображение`
+
+Do not use:
+- `истинная глюкоза`
+- `правильная глюкоза`
+- `рекомендуемая коррекция`
+- dosing advice
+
+Reports/history future prep:
+Do not switch reports/history to normalized glucose in this PR.
+But design API/types so future code can request:
+- `glucoseMode: "raw" | "smoothed" | "normalized"`
+
+Add TODO near report/history data access:
+`Future: optionally use normalized glucose when user enables it.`
+
+Testing:
+Backend tests:
+- fingerstick CRUD
+- sensor session assignment by time
+- local wall-clock display not shifted
+- fingerstick matching with lag window
+- rapid-change fingerstick excluded
+- median offset model
+- drift model
+- low data returns no normalization
+- compression low detection
+- correction caps
+- raw values unchanged
+
+Frontend tests/build:
+- page renders with no sensors
+- page renders with current sensor
+- adding fingerstick form validation
+- mode toggle works
+- graph handles missing normalized data
+- right panel list renders
+
+Verification:
 Run:
-- `cd desktop && npm test -- --run`
-- `cd desktop && npm run build`
-
-If backend files are touched, also run:
-- `cd backend && .\.venv\Scripts\python.exe -m pytest -q`
-- `cd backend && .\.venv\Scripts\python.exe -m ruff check .`
+`cd backend && .\\.venv\\Scripts\\python.exe -m pytest -q`
+`cd backend && .\\.venv\\Scripts\\python.exe -m ruff check .`
+`cd desktop && npm test -- --run`
+`cd desktop && npm run build`
 
 Deliver:
-- Summary of changed files
-- Notes on any behavior changes
-- Any TODOs or limitations
-- Screenshot or description comparing current vs target
+- changed files
+- migration summary
+- API summary
+- short explanation of calibration model
+- screenshot of `/glucose`
+- note that normalized glucose is display-only and not used for dosing

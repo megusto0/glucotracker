@@ -579,10 +579,27 @@ def _plated_item(
             }
         )
     optional_nutrients.update(_known_component_nutrients(adjustment))
+
+    count = item.count_detected or 1
+    if count > 1:
+        final_values = {
+            k: (v * count if isinstance(v, (int, float)) else v)
+            for k, v in final_values.items()
+        }
+        evidence["raw_model_estimate"] = {
+            k: (v * count if isinstance(v, (int, float)) else v)
+            for k, v in evidence.get("raw_model_estimate", {}).items()
+        }
+        evidence["final_backend_adjusted_values"] = final_values
+        assumptions.append(
+            f"Модель определила {count} порций; значения умножены на {count}."
+        )
+        calculation_method = f"{calculation_method}_count_{count}"
+
     normalized = MealItemCreate(
         name=_item_name(item),
         brand=item.brand,
-        grams=item.grams_mid,
+        grams=(item.grams_mid or 0) * count if count > 1 else item.grams_mid,
         carbs_g=final_values.get("carbs_g") or 0,
         protein_g=final_values.get("protein_g") or 0,
         fat_g=final_values.get("fat_g") or 0,

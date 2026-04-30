@@ -75,6 +75,23 @@ export type ApplyEstimationRunResponse =
   components["schemas"]["ApplyEstimationRunResponse"];
 export type EndocrinologistReportResponse =
   components["schemas"]["EndocrinologistReportResponse"];
+export type GlucoseDashboardResponse =
+  components["schemas"]["GlucoseDashboardResponse"];
+export type GlucoseMode = GlucoseDashboardResponse["mode"];
+export type FingerstickReadingCreate =
+  components["schemas"]["FingerstickReadingCreate"];
+export type FingerstickReadingResponse =
+  components["schemas"]["FingerstickReadingResponse"];
+export type SensorSessionCreate =
+  components["schemas"]["SensorSessionCreate"];
+export type SensorSessionPatch =
+  components["schemas"]["SensorSessionPatch"];
+export type SensorSessionResponse =
+  components["schemas"]["SensorSessionResponse"];
+export type SensorQualityResponse =
+  components["schemas"]["SensorQualityResponse"];
+export type CgmCalibrationModelResponse =
+  components["schemas"]["CgmCalibrationModelResponse"];
 
 export type ApiConfig = {
   baseUrl: string;
@@ -519,6 +536,52 @@ export const apiClient = {
     apiRequest<TimelineResponse>("/timeline", config, {
       query: { from, to },
     }),
+
+  getGlucoseDashboard: (
+    config: ApiConfig,
+    from: string,
+    to: string,
+    mode: GlucoseMode = "raw",
+  ) =>
+    apiRequest<GlucoseDashboardResponse>("/glucose/dashboard", config, {
+      query: { from, to, mode },
+    }),
+
+  listFingersticks: (
+    config: ApiConfig,
+    query: { from?: string; to?: string } = {},
+  ) => apiRequest<FingerstickReadingResponse[]>("/fingersticks", config, { query }),
+
+  createFingerstick: (config: ApiConfig, body: FingerstickReadingCreate) =>
+    apiRequest<FingerstickReadingResponse>("/fingersticks", config, {
+      method: "POST",
+      body,
+    }),
+
+  listSensors: (config: ApiConfig) =>
+    apiRequest<SensorSessionResponse[]>("/sensors", config),
+
+  createSensor: (config: ApiConfig, body: SensorSessionCreate) =>
+    apiRequest<SensorSessionResponse>("/sensors", config, {
+      method: "POST",
+      body,
+    }),
+
+  patchSensor: (config: ApiConfig, sensorId: string, body: SensorSessionPatch) =>
+    apiRequest<SensorSessionResponse>(`/sensors/${sensorId}`, config, {
+      method: "PATCH",
+      body,
+    }),
+
+  getSensorQuality: (config: ApiConfig, sensorId: string) =>
+    apiRequest<SensorQualityResponse>(`/sensors/${sensorId}/quality`, config),
+
+  recalculateSensorCalibration: (config: ApiConfig, sensorId: string) =>
+    apiRequest<CgmCalibrationModelResponse>(
+      `/sensors/${sensorId}/recalculate-calibration`,
+      config,
+      { method: "POST" },
+    ),
 
   getEndocrinologistReport: (config: ApiConfig, from: string, to: string) =>
     apiRequest<EndocrinologistReportResponse>(

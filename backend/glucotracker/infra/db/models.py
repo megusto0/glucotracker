@@ -840,6 +840,123 @@ class NightscoutImportState(Base):
     )
 
 
+class SensorSession(Base, TimestampMixin):
+    """A user-defined CGM sensor wear session for display analytics."""
+
+    __tablename__ = "sensor_sessions"
+    __table_args__ = (
+        Index("ix_sensor_sessions_started_at", "started_at"),
+        Index("ix_sensor_sessions_ended_at", "ended_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    source: Mapped[str] = mapped_column(
+        String,
+        default="manual",
+        server_default="manual",
+        nullable=False,
+    )
+    vendor: Mapped[str | None] = mapped_column(String, nullable=True)
+    model: Mapped[str | None] = mapped_column(String, nullable=True)
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expected_life_days: Mapped[float] = mapped_column(
+        Float,
+        default=15,
+        server_default="15",
+        nullable=False,
+    )
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    calibration_models: Mapped[list[CgmCalibrationModel]] = relationship(
+        back_populates="sensor_session",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="CgmCalibrationModel.created_at.desc()",
+    )
+
+
+class FingerstickReading(Base):
+    """Manual capillary glucose reading used for display calibration analytics."""
+
+    __tablename__ = "fingerstick_readings"
+    __table_args__ = (Index("ix_fingerstick_readings_measured_at", "measured_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    glucose_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    meter_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
+class CgmCalibrationModel(Base):
+    """Persisted display-only calibration model for a sensor session."""
+
+    __tablename__ = "cgm_calibration_models"
+    __table_args__ = (
+        Index("ix_cgm_calibration_models_sensor", "sensor_session_id"),
+        Index("ix_cgm_calibration_models_active", "active"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    sensor_session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("sensor_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    model_version: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    params_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    confidence: Mapped[str] = mapped_column(
+        String,
+        default="low",
+        server_default="low",
+        nullable=False,
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+        nullable=False,
+    )
+
+    sensor_session: Mapped[SensorSession] = relationship(
+        back_populates="calibration_models"
+    )
+
+
 class AIRun(Base):
     """Recorded AI request and response payload for a meal."""
 

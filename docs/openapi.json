@@ -368,6 +368,66 @@
         "title": "Body_uploadProductImage",
         "type": "object"
       },
+      "CgmCalibrationModelResponse": {
+        "description": "Persisted display-only CGM calibration model.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "confidence": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metrics_json": {
+            "additionalProperties": true,
+            "title": "Metrics Json",
+            "type": "object"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "params_json": {
+            "additionalProperties": true,
+            "title": "Params Json",
+            "type": "object"
+          },
+          "sensor_session_id": {
+            "format": "uuid",
+            "title": "Sensor Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sensor_session_id",
+          "model_version",
+          "created_at",
+          "params_json",
+          "metrics_json",
+          "confidence",
+          "active"
+        ],
+        "title": "CgmCalibrationModelResponse",
+        "type": "object"
+      },
       "DashboardDataQualityResponse": {
         "description": "Dashboard data quality response.",
         "properties": {
@@ -2011,6 +2071,106 @@
         "title": "EstimateSourcePhotoResponse",
         "type": "object"
       },
+      "FingerstickReadingCreate": {
+        "description": "Create a manual capillary glucose reading.",
+        "properties": {
+          "glucose_mmol_l": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 40.0,
+            "title": "Glucose Mmol L",
+            "type": "number"
+          },
+          "measured_at": {
+            "format": "date-time",
+            "title": "Measured At",
+            "type": "string"
+          },
+          "meter_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meter Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "measured_at",
+          "glucose_mmol_l"
+        ],
+        "title": "FingerstickReadingCreate",
+        "type": "object"
+      },
+      "FingerstickReadingResponse": {
+        "description": "Stored manual capillary glucose reading.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "glucose_mmol_l": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 40.0,
+            "title": "Glucose Mmol L",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "measured_at": {
+            "format": "date-time",
+            "title": "Measured At",
+            "type": "string"
+          },
+          "meter_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meter Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "measured_at",
+          "glucose_mmol_l",
+          "id",
+          "created_at"
+        ],
+        "title": "FingerstickReadingResponse",
+        "type": "object"
+      },
       "FoodEpisodeResponse": {
         "description": "Computed grouping of meal, insulin, and local CGM context.",
         "properties": {
@@ -2076,6 +2236,367 @@
           "total_kcal"
         ],
         "title": "FoodEpisodeResponse",
+        "type": "object"
+      },
+      "GlucoseArtifactInterval": {
+        "description": "Suspected artifact interval for display shading.",
+        "properties": {
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "compression_suspected",
+              "jump_suspected",
+              "gap",
+              "low_confidence_calibration",
+              "end_of_life_noise"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start_at",
+          "end_at",
+          "kind",
+          "label"
+        ],
+        "title": "GlucoseArtifactInterval",
+        "type": "object"
+      },
+      "GlucoseDashboardFoodEvent": {
+        "description": "Food marker for glucose dashboard overlays.",
+        "properties": {
+          "carbs_g": {
+            "title": "Carbs G",
+            "type": "number"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "title",
+          "carbs_g"
+        ],
+        "title": "GlucoseDashboardFoodEvent",
+        "type": "object"
+      },
+      "GlucoseDashboardInsulinEvent": {
+        "description": "Read-only insulin marker for glucose dashboard overlays.",
+        "properties": {
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "insulin_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Units"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp"
+        ],
+        "title": "GlucoseDashboardInsulinEvent",
+        "type": "object"
+      },
+      "GlucoseDashboardPoint": {
+        "description": "One glucose dashboard display point.",
+        "properties": {
+          "correction_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Mmol L"
+          },
+          "display_value": {
+            "title": "Display Value",
+            "type": "number"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "normalized_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Value"
+          },
+          "raw_value": {
+            "title": "Raw Value",
+            "type": "number"
+          },
+          "smoothed_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smoothed Value"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "raw_value",
+          "display_value"
+        ],
+        "title": "GlucoseDashboardPoint",
+        "type": "object"
+      },
+      "GlucoseDashboardResponse": {
+        "description": "Nightscout-like glucose dashboard response.",
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/GlucoseArtifactInterval"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "current_sensor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SensorSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fingersticks": {
+            "items": {
+              "$ref": "#/components/schemas/FingerstickReadingResponse"
+            },
+            "title": "Fingersticks",
+            "type": "array"
+          },
+          "food_events": {
+            "items": {
+              "$ref": "#/components/schemas/GlucoseDashboardFoodEvent"
+            },
+            "title": "Food Events",
+            "type": "array"
+          },
+          "from_datetime": {
+            "format": "date-time",
+            "title": "From Datetime",
+            "type": "string"
+          },
+          "insulin_events": {
+            "items": {
+              "$ref": "#/components/schemas/GlucoseDashboardInsulinEvent"
+            },
+            "title": "Insulin Events",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "raw",
+              "smoothed",
+              "normalized"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/GlucoseDashboardPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/SensorQualityResponse"
+          },
+          "sensors": {
+            "items": {
+              "$ref": "#/components/schemas/SensorSessionResponse"
+            },
+            "title": "Sensors",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/GlucoseDashboardSummary"
+          },
+          "to_datetime": {
+            "format": "date-time",
+            "title": "To Datetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_datetime",
+          "to_datetime",
+          "mode",
+          "points",
+          "fingersticks",
+          "food_events",
+          "insulin_events",
+          "artifacts",
+          "sensors",
+          "quality",
+          "summary"
+        ],
+        "title": "GlucoseDashboardResponse",
+        "type": "object"
+      },
+      "GlucoseDashboardSummary": {
+        "description": "Compact dashboard status values.",
+        "properties": {
+          "bias_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mmol L"
+          },
+          "calibration_confidence": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Calibration Confidence",
+            "type": "string"
+          },
+          "current_glucose": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Glucose"
+          },
+          "current_glucose_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Glucose At"
+          },
+          "drift_mmol_l_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Mmol L Per Day"
+          },
+          "sensor_age_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Age Days"
+          },
+          "suspected_compression_count": {
+            "title": "Suspected Compression Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calibration_confidence",
+          "suspected_compression_count"
+        ],
+        "title": "GlucoseDashboardSummary",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -6830,6 +7351,585 @@
         "title": "ReportChipResponse",
         "type": "object"
       },
+      "SensorQualityResponse": {
+        "description": "Computed sensor quality and calibration metrics.",
+        "properties": {
+          "active_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CgmCalibrationModelResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calibration_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "stable_after_48h",
+                  "warmup_after_12h_fallback",
+                  "insufficient"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Basis"
+          },
+          "confidence": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "drift_mmol_l_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Mmol L Per Day"
+          },
+          "fingerstick_count": {
+            "title": "Fingerstick Count",
+            "type": "integer"
+          },
+          "mad_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mad Mmol L"
+          },
+          "mard_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mard Percent"
+          },
+          "matched_calibration_points": {
+            "default": 0,
+            "title": "Matched Calibration Points",
+            "type": "integer"
+          },
+          "median_bias_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Bias Mmol L"
+          },
+          "missing_data_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Data Pct"
+          },
+          "noise_score": {
+            "title": "Noise Score",
+            "type": "number"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "quality_score": {
+            "title": "Quality Score",
+            "type": "integer"
+          },
+          "residual_mad_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Mad Mmol L"
+          },
+          "sensor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SensorSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sensor_age_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Age Days"
+          },
+          "sensor_phase": {
+            "anyOf": [
+              {
+                "enum": [
+                  "warmup",
+                  "stable",
+                  "end_of_life"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Phase"
+          },
+          "stable_calibration_points": {
+            "default": 0,
+            "title": "Stable Calibration Points",
+            "type": "integer"
+          },
+          "suspected_compression_count": {
+            "title": "Suspected Compression Count",
+            "type": "integer"
+          },
+          "valid_calibration_points": {
+            "title": "Valid Calibration Points",
+            "type": "integer"
+          },
+          "warmup_calibration_points": {
+            "default": 0,
+            "title": "Warmup Calibration Points",
+            "type": "integer"
+          },
+          "warmup_metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SensorWarmupMetricsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "fingerstick_count",
+          "valid_calibration_points",
+          "suspected_compression_count",
+          "noise_score",
+          "quality_score",
+          "confidence"
+        ],
+        "title": "SensorQualityResponse",
+        "type": "object"
+      },
+      "SensorSessionCreate": {
+        "description": "Create a display analytics sensor session.",
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "expected_life_days": {
+            "default": 15,
+            "exclusiveMinimum": 0.0,
+            "title": "Expected Life Days",
+            "type": "number"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai #4"
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai"
+            ],
+            "title": "Model"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source": {
+            "default": "manual",
+            "examples": [
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai"
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "started_at"
+        ],
+        "title": "SensorSessionCreate",
+        "type": "object"
+      },
+      "SensorSessionPatch": {
+        "description": "Patch a display analytics sensor session.",
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "expected_life_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Life Days"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "title": "SensorSessionPatch",
+        "type": "object"
+      },
+      "SensorSessionResponse": {
+        "description": "Stored display analytics sensor session.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "expected_life_days": {
+            "default": 15,
+            "exclusiveMinimum": 0.0,
+            "title": "Expected Life Days",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai #4"
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai"
+            ],
+            "title": "Model"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source": {
+            "default": "manual",
+            "examples": [
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Ottai"
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "started_at",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SensorSessionResponse",
+        "type": "object"
+      },
+      "SensorWarmupMetricsResponse": {
+        "description": "Warmup-only residual metrics for display analytics.",
+        "properties": {
+          "initial_residual_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Residual Mmol L"
+          },
+          "max_warmup_residual_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Warmup Residual Mmol L"
+          },
+          "plateau_residual_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plateau Residual Mmol L"
+          },
+          "residual_sequence_mmol_l": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Residual Sequence Mmol L",
+            "type": "array"
+          },
+          "time_to_stabilize_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time To Stabilize Hours"
+          },
+          "warmup_instability_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warmup Instability Score"
+          }
+        },
+        "title": "SensorWarmupMetricsResponse",
+        "type": "object"
+      },
       "TimelineGlucoseSummary": {
         "description": "Small CGM summary for a computed food episode.",
         "properties": {
@@ -7633,6 +8733,202 @@
         "summary": "List Database Items",
         "tags": [
           "database"
+        ]
+      }
+    },
+    "/fingersticks": {
+      "get": {
+        "description": "List manual capillary glucose readings.",
+        "operationId": "listFingersticks",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FingerstickReadingResponse"
+                  },
+                  "title": "Response Listfingersticks",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Fingersticks",
+        "tags": [
+          "glucose"
+        ]
+      },
+      "post": {
+        "description": "Create a manual capillary glucose reading.",
+        "operationId": "createFingerstick",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FingerstickReadingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FingerstickReadingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Fingerstick",
+        "tags": [
+          "glucose"
+        ]
+      }
+    },
+    "/glucose/dashboard": {
+      "get": {
+        "description": "Return display-only glucose dashboard data.",
+        "operationId": "getGlucoseDashboard",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "raw",
+              "enum": [
+                "raw",
+                "smoothed",
+                "normalized"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlucoseDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Glucose Dashboard",
+        "tags": [
+          "glucose"
         ]
       }
     },
@@ -10141,6 +11437,239 @@
         "summary": "Get Endocrinologist Report",
         "tags": [
           "reports"
+        ]
+      }
+    },
+    "/sensors": {
+      "get": {
+        "description": "List sensor sessions.",
+        "operationId": "listSensors",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SensorSessionResponse"
+                  },
+                  "title": "Response Listsensors",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Sensors",
+        "tags": [
+          "glucose"
+        ]
+      },
+      "post": {
+        "description": "Create a sensor session.",
+        "operationId": "createSensor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Sensor",
+        "tags": [
+          "glucose"
+        ]
+      }
+    },
+    "/sensors/{sensor_id}": {
+      "patch": {
+        "description": "Patch a sensor session.",
+        "operationId": "patchSensor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sensor_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sensor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorSessionPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Sensor",
+        "tags": [
+          "glucose"
+        ]
+      }
+    },
+    "/sensors/{sensor_id}/quality": {
+      "get": {
+        "description": "Return computed display-only quality metrics for one sensor.",
+        "operationId": "getSensorQuality",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sensor_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sensor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorQualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Sensor Quality",
+        "tags": [
+          "glucose"
+        ]
+      }
+    },
+    "/sensors/{sensor_id}/recalculate-calibration": {
+      "post": {
+        "description": "Recompute and store a display-only calibration model.",
+        "operationId": "recalculateSensorCalibration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sensor_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sensor Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CgmCalibrationModelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Recalculate Sensor Calibration",
+        "tags": [
+          "glucose"
         ]
       }
     },

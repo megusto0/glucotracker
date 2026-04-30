@@ -424,13 +424,39 @@ class NightscoutSyncService:
         meal.nightscout_sync_error = None
         try:
             if hasattr(nightscout, "post_meal_treatment"):
-                return await nightscout.post_meal_treatment(meal)
-            return await nightscout.post_treatment(meal)
+                response = await nightscout.post_meal_treatment(meal)
+            else:
+                response = await nightscout.post_treatment(meal)
         except Exception as exc:
             meal.nightscout_sync_status = NightscoutSyncStatus.failed
             meal.nightscout_sync_error = _detail_to_text(self.map_error(exc).detail)
             self.session.flush()
             raise self.map_error(exc) from exc
+        return await self._response_with_remote_id(nightscout, meal, response)
+
+    async def _response_with_remote_id(
+        self,
+        nightscout: NightscoutClient,
+        meal: Meal,
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        if self._nightscout_id(response) is not None:
+            return response
+        if not hasattr(nightscout, "find_meal_treatment"):
+            return response
+        try:
+            matched = await nightscout.find_meal_treatment(meal)
+        except Exception:
+            return response
+        if not isinstance(matched, dict):
+            return response
+        remote_id = self._nightscout_id(matched)
+        if remote_id is None:
+            return response
+        enriched = dict(response)
+        enriched["_id"] = remote_id
+        enriched["matched_treatment"] = matched
+        return enriched
 
     def _sync_success(
         self,
@@ -441,6 +467,15 @@ class NightscoutSyncService:
     ) -> NightscoutSyncResponse:
         remote_id = self._nightscout_id(response)
         if remote_id is None:
+            meal.nightscout_sync_status = NightscoutSyncStatus.failed
+            meal.nightscout_sync_error = (
+                "Nightscout response did not include treatment id."
+            )
+            meal.nightscout_last_attempt_at = utc_now()
+            if commit:
+                self.session.commit()
+            else:
+                self.session.flush()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Nightscout response did not include treatment id.",
@@ -502,18 +537,7 @@ class NightscoutSyncService:
 
     @staticmethod
     def _nightscout_id(response: dict) -> str | None:
-        value = response.get("_id") or response.get("id")
-        if value is not None:
-            return str(value)
-        result = response.get("result")
-        if isinstance(result, dict):
-            nested = result.get("_id") or result.get("id")
-            return str(nested) if nested is not None else None
-        items = response.get("items")
-        if isinstance(items, list) and items and isinstance(items[0], dict):
-            item_id = items[0].get("_id") or items[0].get("id")
-            return str(item_id) if item_id is not None else None
-        return None
+        return _nested_nightscout_id(response)
 
 
 def _detail_to_text(detail: Any) -> str:
@@ -548,6 +572,24 @@ def _nested_string(payload: dict[str, Any], *keys: str) -> str | None:
             return None
         value = value.get(key)
     return str(value) if value is not None else None
+
+
+def _nested_nightscout_id(value: Any) -> str | None:
+    if isinstance(value, dict):
+        for key in ("_id", "id", "insertedId", "inserted_id"):
+            remote_id = value.get(key)
+            if remote_id is not None:
+                return str(remote_id)
+        for key in ("result", "items", "data", "treatment", "document", "record"):
+            remote_id = _nested_nightscout_id(value.get(key))
+            if remote_id is not None:
+                return remote_id
+    if isinstance(value, list):
+        for item in value:
+            remote_id = _nested_nightscout_id(item)
+            if remote_id is not None:
+                return remote_id
+    return None
 
 
 def _timestamp_from_row(row: dict[str, Any]) -> datetime | None:

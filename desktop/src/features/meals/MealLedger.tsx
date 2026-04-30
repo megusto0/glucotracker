@@ -445,7 +445,7 @@ export function MealRow({
   return (
     <article
       className={`border-b border-[var(--hairline)] ${
-        selected ? "bg-[rgba(255,255,255,0.5)]" : ""
+        selected ? "bg-[var(--surface)]" : ""
       }`}
     >
       <button

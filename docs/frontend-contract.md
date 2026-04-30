@@ -57,6 +57,27 @@ Nightscout is optional and must not block local saving, editing, accepting, dash
 
 Frontends must not add insulin fields or dosing behavior around Nightscout sync. Glucotracker sync creates diary-only carb treatments from accepted backend totals.
 
+## Glucose
+
+The `/glucose` UI is a client for backend-owned sensor quality semantics. It may
+render raw CGM, smoothed display series, normalized display series, fingerstick
+markers, food markers, insulin markers, and artifact shading from
+`GET /glucose/dashboard`. It may call `POST /fingersticks`, sensor CRUD
+endpoints, and calibration recalculation endpoints.
+
+The frontend must not rewrite raw CGM, persist normalized values as source facts,
+or switch history/reports to normalized glucose by default. Normalization is
+display-only and must stay clearly separated from medical decisions. The UI may
+explain quality, confidence, bias, drift, MARD/MAD, and missing-data notes, but
+must not suggest insulin doses, corrections, boluses, or treatment actions.
+
+Sensor phase and warmup behavior must be rendered from backend fields, not
+recomputed in the browser. Use careful informational wording: "расхождение",
+"оценка смещения", and "информационно". Do not describe normalized display
+values as medical calibration or truth. Warmup residuals from the first 48 hours
+must be shown as context and must not be treated as ordinary stable calibration
+points in frontend logic.
+
 ## Dashboard
 
 Dashboard metrics come from backend accepted meals and `daily_totals`. Frontends should not recalculate dashboard totals, optional nutrient coverage, or source quality metrics locally; use the `/dashboard/*` endpoints and render their responses.

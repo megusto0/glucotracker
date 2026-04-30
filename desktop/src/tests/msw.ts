@@ -504,6 +504,205 @@ export const server = setupServer(
       low_confidence_items: [],
     }),
   ),
+  http.get("http://api.test/glucose/dashboard", ({ request }) => {
+    const mode = new URL(request.url).searchParams.get("mode") ?? "raw";
+    const sensor = {
+      id: "sensor-1",
+      source: "manual",
+      vendor: "Ottai",
+      model: "Ottai",
+      label: "Sensor A",
+      started_at: "2026-04-28T00:00:00",
+      ended_at: null,
+      expected_life_days: 15,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+    };
+    const quality = {
+      sensor,
+      sensor_age_days: 1.4,
+      fingerstick_count: 1,
+      valid_calibration_points: 0,
+      median_bias_mmol_l: null,
+      mad_mmol_l: null,
+      mard_percent: null,
+      drift_mmol_l_per_day: 0,
+      residual_mad_mmol_l: null,
+      missing_data_pct: 8,
+      suspected_compression_count: 0,
+      noise_score: 4,
+      quality_score: 72,
+      confidence: "none",
+      notes: [],
+      active_model: null,
+    };
+    return HttpResponse.json({
+      from_datetime: "2026-04-28T04:00:00",
+      to_datetime: "2026-04-28T10:00:00",
+      mode,
+      points: [
+        {
+          timestamp: "2026-04-28T08:00:00",
+          raw_value: 6,
+          smoothed_value: 6.1,
+          normalized_value: mode === "normalized" ? 6.8 : null,
+          display_value: mode === "normalized" ? 6.8 : 6,
+          correction_mmol_l: mode === "normalized" ? 0.8 : null,
+          flags: [],
+        },
+        {
+          timestamp: "2026-04-28T08:05:00",
+          raw_value: 6.2,
+          smoothed_value: 6.2,
+          normalized_value: mode === "normalized" ? 7 : null,
+          display_value: mode === "normalized" ? 7 : 6.2,
+          correction_mmol_l: mode === "normalized" ? 0.8 : null,
+          flags: [],
+        },
+      ],
+      fingersticks: [
+        {
+          id: "fingerstick-1",
+          measured_at: "2026-04-28T08:03:00",
+          glucose_mmol_l: 6.9,
+          meter_name: "Contour",
+          notes: null,
+          created_at: now,
+        },
+      ],
+      food_events: [
+        {
+          timestamp: "2026-04-28T08:10:00",
+          title: "Breakfast",
+          carbs_g: 42,
+        },
+      ],
+      insulin_events: [
+        {
+          timestamp: "2026-04-28T08:08:00",
+          insulin_units: 4,
+          event_type: "Meal Bolus",
+          notes: null,
+        },
+      ],
+      artifacts: [],
+      current_sensor: sensor,
+      sensors: [sensor],
+      quality,
+      summary: {
+        current_glucose: mode === "normalized" ? 7 : 6.2,
+        current_glucose_at: "2026-04-28T08:05:00",
+        sensor_age_days: 1.4,
+        bias_mmol_l: null,
+        drift_mmol_l_per_day: 0,
+        calibration_confidence: "none",
+        suspected_compression_count: 0,
+      },
+      notes: ["Недостаточно записей из пальца для нормализации."],
+    });
+  }),
+  http.get("http://api.test/fingersticks", () =>
+    HttpResponse.json([
+      {
+        id: "fingerstick-1",
+        measured_at: "2026-04-28T08:03:00",
+        glucose_mmol_l: 6.9,
+        meter_name: "Contour",
+        notes: null,
+        created_at: now,
+      },
+    ]),
+  ),
+  http.post("http://api.test/fingersticks", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: "fingerstick-created",
+        created_at: now,
+        ...body,
+      },
+      { status: 201 },
+    );
+  }),
+  http.get("http://api.test/sensors", () =>
+    HttpResponse.json([
+      {
+        id: "sensor-1",
+        source: "manual",
+        vendor: "Ottai",
+        model: "Ottai",
+        label: "Sensor A",
+        started_at: "2026-04-28T00:00:00",
+        ended_at: null,
+        expected_life_days: 15,
+        notes: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]),
+  ),
+  http.post("http://api.test/sensors", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: "sensor-created",
+        created_at: now,
+        updated_at: now,
+        ...body,
+      },
+      { status: 201 },
+    );
+  }),
+  http.patch("http://api.test/sensors/:sensorId", async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.sensorId,
+      source: "manual",
+      vendor: "Ottai",
+      model: "Ottai",
+      label: "Sensor A",
+      started_at: "2026-04-28T00:00:00",
+      ended_at: null,
+      expected_life_days: 15,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+      ...body,
+    });
+  }),
+  http.get("http://api.test/sensors/:sensorId/quality", () =>
+    HttpResponse.json({
+      sensor: null,
+      sensor_age_days: 1.4,
+      fingerstick_count: 1,
+      valid_calibration_points: 0,
+      median_bias_mmol_l: null,
+      mad_mmol_l: null,
+      mard_percent: null,
+      drift_mmol_l_per_day: 0,
+      residual_mad_mmol_l: null,
+      missing_data_pct: 8,
+      suspected_compression_count: 0,
+      noise_score: 4,
+      quality_score: 72,
+      confidence: "none",
+      notes: [],
+      active_model: null,
+    }),
+  ),
+  http.post("http://api.test/sensors/:sensorId/recalculate-calibration", () =>
+    HttpResponse.json({
+      id: "calibration-1",
+      sensor_session_id: "sensor-1",
+      model_version: "display_linear_offset_v1",
+      created_at: now,
+      params_json: { can_normalize: false, b0: 0, b1: 0 },
+      metrics_json: { fingerstick_count: 1, valid_calibration_points: 0 },
+      confidence: "none",
+      active: true,
+    }),
+  ),
   http.post("http://api.test/admin/recalculate", () =>
     HttpResponse.json({
       from_date: "2026-04-01",

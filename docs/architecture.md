@@ -52,6 +52,27 @@ Nightscout integration code belongs here for optional meal sync and read-only co
 
 Nightscout glucose and insulin context is imported into local backend-owned tables, then used to build computed timeline episodes. Food entries remain normal meal rows; the backend groups accepted meals into food episodes by time windows and links nearby read-only Nightscout context for display. These episodes are computed API responses, not persisted meal replacements.
 
+### `backend/glucotracker/application/glucose_dashboard.py`
+
+The glucose dashboard owns sensor-quality and display-calibration semantics.
+Raw Nightscout CGM rows remain immutable local facts. Fingerstick readings and
+sensor sessions are stored as separate backend-owned tables, and calibration
+models are persisted as derived display metadata. Normalized glucose is only a
+view layer value (`raw + offset + drift * sensor_age_days`) and must not replace
+raw CGM in history, reports, daily totals, or Nightscout import tables.
+
+Sensor quality is phase-aware. The backend classifies sensor age as warmup
+(`<48h`), stable (`48h..12d`), or end of life (`>=12d`). Fingerstick residuals
+from the first 48 hours are reported as warmup metrics; stable offset/drift
+prefers points after 48 hours and only falls back to points after 12 hours with
+lower confidence. First-12-hour residuals must never dominate stable display
+normalization.
+
+The desktop `/glucose` page is a presentation client for this API. It can choose
+a range, render raw/smoothed/normalized series, add manual fingerstick readings,
+edit sensor-session metadata, and request recalculation. It must not implement
+its own sensor-quality math or use normalized values for medical decisions.
+
 ### `backend/glucotracker/application/endocrinologist_report.py`
 
 The endocrinologist report data model is backend-owned. The backend reads accepted meals plus local Nightscout CGM/insulin context, builds food episodes, calculates report KPIs, meal-profile rows, daily rows, completeness notes, and safety footer text, then exposes that presentation-ready JSON through `GET /reports/endocrinologist`.

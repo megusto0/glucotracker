@@ -120,13 +120,21 @@ export function useImportNightscoutContext(from: string, to: string) {
   return useMutation({
     mutationFn: (payload?: Partial<NightscoutImportRequest>) =>
       apiClient.importNightscoutContext(config, {
-        from_datetime: from,
-        to_datetime: to,
+        from_datetime: payload?.from_datetime ?? from,
+        to_datetime: payload?.to_datetime ?? to,
         sync_glucose: payload?.sync_glucose ?? true,
         import_insulin_events: payload?.import_insulin_events ?? true,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.timeline(from, to) });
+    onSuccess: (result) => {
+      const resultFrom = result.from_datetime ?? from;
+      const resultTo = result.to_datetime ?? to;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(resultFrom, resultTo),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.nightscoutEvents(resultFrom, resultTo),
+      });
+      queryClient.invalidateQueries({ queryKey: ["glucose"] });
     },
   });
 }
@@ -137,5 +145,6 @@ export function useTimeline(from: string, to: string, enabled: boolean) {
     queryKey: queryKeys.timeline(from, to),
     queryFn: () => apiClient.getTimeline(config, from, to),
     enabled: Boolean(config.token.trim()) && enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }

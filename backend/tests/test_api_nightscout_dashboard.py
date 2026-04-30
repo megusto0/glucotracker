@@ -37,6 +37,7 @@ class FakeNightscoutClient:
         status_error: Exception | None = None,
         glucose_rows: list[dict[str, Any]] | None = None,
         insulin_rows: list[dict[str, Any]] | None = None,
+        treatment_rows: list[dict[str, Any]] | None = None,
     ) -> None:
         self.post_response = post_response or {"_id": "ns-treatment-1"}
         self.post_error = post_error
@@ -45,7 +46,9 @@ class FakeNightscoutClient:
         self.status_error = status_error
         self.glucose_rows = glucose_rows or []
         self.insulin_rows = insulin_rows or []
+        self.treatment_rows = treatment_rows or []
         self.posted_meals = []
+        self.lookup_meals = []
         self.deleted_ids = []
 
     async def get_status(self) -> dict[str, Any]:
@@ -75,6 +78,15 @@ class FakeNightscoutClient:
             raise self.delete_error
         self.deleted_ids.append(nightscout_id)
         return {"deleted": nightscout_id}
+
+    async def find_meal_treatment(self, meal: object) -> dict[str, Any] | None:
+        """Return a matching fake treatment row."""
+        self.lookup_meals.append(meal)
+        meal_id = str(getattr(meal, "id", ""))
+        for row in self.treatment_rows:
+            if str(row.get("glucotracker_meal_id")) == meal_id:
+                return row
+        return self.treatment_rows[0] if self.treatment_rows else None
 
     async def fetch_glucose_entries(
         self,
@@ -194,6 +206,33 @@ def test_nightscout_sync_and_unsync_success(api_client: TestClient) -> None:
     assert unsync_response.status_code == 200
     assert unsync_response.json()["synced"] is False
     assert fake.deleted_ids == ["abc123"]
+
+
+def test_nightscout_sync_recovers_id_after_created_response_without_id(
+    api_client: TestClient,
+) -> None:
+    """A successful Nightscout create without id is reconciled before failing."""
+    fake = FakeNightscoutClient(post_response={"_id": None, "status": "ok"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    meal = _create_meal(api_client)
+    fake.treatment_rows = [
+        {
+            "_id": "ns-found-after-post",
+            "glucotracker_meal_id": meal["id"],
+        }
+    ]
+
+    sync_response = api_client.post(f"/meals/{meal['id']}/sync_nightscout")
+
+    assert sync_response.status_code == 200
+    assert sync_response.json()["nightscout_id"] == "ns-found-after-post"
+    assert fake.lookup_meals
+    meals_response = api_client.get("/meals")
+    synced = next(
+        row for row in meals_response.json()["items"] if row["id"] == meal["id"]
+    )
+    assert synced["nightscout_sync_status"] == "synced"
+    assert synced["nightscout_sync_error"] is None
 
 
 def test_nightscout_treatment_payload_uses_explicit_utc_timestamp() -> None:

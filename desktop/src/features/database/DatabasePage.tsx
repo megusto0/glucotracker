@@ -322,7 +322,7 @@ function DatabaseRow({
   return (
     <button
       className={`grid w-full grid-cols-[48px_minmax(260px,1fr)_80px_80px_80px_116px_80px] items-center gap-4 border-b border-[var(--hairline)] py-4 text-left ${
-        selected ? "bg-[rgba(255,255,255,0.55)]" : ""
+        selected ? "bg-[var(--surface)]" : ""
       }`}
       onClick={onClick}
       type="button"
@@ -441,7 +441,7 @@ function DatabaseDetailPanel({
     <div
       aria-label="Карточка продукта"
       className={`relative flex h-full flex-col overflow-y-auto px-7 py-8 ${
-        dragActive ? "bg-[rgba(255,255,255,0.72)]" : ""
+        dragActive ? "bg-[var(--surface)]" : ""
       }`}
       onDragLeave={() => setDragActive(false)}
       onDragOver={handleDragOver}

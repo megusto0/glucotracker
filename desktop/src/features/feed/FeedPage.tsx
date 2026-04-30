@@ -179,16 +179,19 @@ export function FeedPage() {
   const groups = useMemo(() => groupFeedItemsByDay(filteredItems), [filteredItems]);
   const selectedMeal = meals.find((m) => m.id === selectedMealId) ?? null;
 
+  const nightscoutImportedRef = useRef<string>("");
   useEffect(() => {
     const settings = nightscoutSettings.data;
     if (!settings?.configured) return;
     if (!settings.sync_glucose && !settings.import_insulin_events) return;
+    const key = `${range.from}|${range.to}`;
+    if (nightscoutImportedRef.current === key) return;
+    nightscoutImportedRef.current = key;
     importNightscout.mutate({
       sync_glucose: settings.sync_glucose,
       import_insulin_events: settings.import_insulin_events,
     });
   }, [
-    importNightscout.mutate,
     nightscoutSettings.data?.configured,
     nightscoutSettings.data?.import_insulin_events,
     nightscoutSettings.data?.sync_glucose,
@@ -355,7 +358,7 @@ function FoodEpisodeCard({
   const glMax = glucoseValues.length ? Math.max(...glucoseValues) : null;
 
   return (
-    <section className="border border-[var(--hairline)] bg-[rgba(255,255,255,0.34)]">
+    <section className="border border-[var(--hairline)] bg-[var(--surface)]">
       <div className="grid gap-4 p-5 lg:grid-cols-[72px_1fr_260px]">
         <div className="font-mono text-[13px] leading-6">
           <div>{formatTime(episode.start_at)}</div>
@@ -446,7 +449,7 @@ function EpisodeInsulinRow({
   event: NonNullable<FoodEpisodeResponse["insulin"]>[number];
 }) {
   return (
-    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-t border-[var(--hairline)] bg-[rgba(246,244,238,0.5)] px-5 py-3 text-[14px] text-[var(--muted)]">
+    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-t border-[var(--hairline)] bg-[var(--surface)] px-5 py-3 text-[14px] text-[var(--muted)]">
       <span className="font-mono text-[13px]">{formatTime(event.timestamp)}</span>
       <Syringe size={14} strokeWidth={1.4} className="text-[var(--muted)]" />
       <span className="grid gap-0.5">

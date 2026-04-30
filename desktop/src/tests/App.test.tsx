@@ -58,6 +58,10 @@ const statsRoute = () => {
   window.history.pushState({}, "", "/stats");
 };
 
+const glucoseRoute = () => {
+  window.history.pushState({}, "", "/glucose");
+};
+
 const settingsRoute = () => {
   window.history.pushState({}, "", "/settings");
 };
@@ -2771,4 +2775,121 @@ test("stats data quality renders low confidence items", async () => {
   expect(await screen.findAllByText("оценка по фото")).not.toHaveLength(0);
   expect(await screen.findByText("Unclear plated meal")).toBeInTheDocument();
   expect(await screen.findByText("0.42")).toBeInTheDocument();
+});
+
+test("glucose page renders dashboard and sensor panel", async () => {
+  configureApi();
+  glucoseRoute();
+
+  render(<App />);
+
+  expect(
+    await screen.findByRole("heading", { name: "Глюкоза" }),
+  ).toBeInTheDocument();
+  expect(
+    await screen.findByRole("img", { name: "График глюкозы" }),
+  ).toBeInTheDocument();
+  expect(await screen.findAllByText("Sensor A")).not.toHaveLength(0);
+  expect(await screen.findByText(/Запись из пальца/)).toBeInTheDocument();
+});
+
+test("glucose pull button imports current Nightscout data", async () => {
+  configureApi();
+  glucoseRoute();
+  let importCount = 0;
+
+  server.use(
+    http.get("http://api.test/settings/nightscout", () =>
+      HttpResponse.json({
+        enabled: true,
+        configured: true,
+        connected: true,
+        url: "https://nightscout.test",
+        secret_is_set: true,
+        last_status_check_at: null,
+        last_error: null,
+        sync_glucose: true,
+        show_glucose_in_journal: true,
+        import_insulin_events: true,
+        allow_meal_send: true,
+        confirm_before_send: true,
+        autosend_meals: false,
+      }),
+    ),
+    http.post("http://api.test/nightscout/import", async ({ request }) => {
+      importCount += 1;
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        from_datetime: body.from_datetime,
+        to_datetime: body.to_datetime,
+        glucose_imported: 2,
+        insulin_imported: 1,
+        glucose_total: 2,
+        insulin_total: 1,
+        last_error: null,
+      });
+    }),
+  );
+
+  render(<App />);
+
+  const button = await screen.findByRole("button", {
+    name: "Подтянуть актуальные данные",
+  });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+
+  await waitFor(() => expect(importCount).toBe(1));
+  expect(await screen.findByText(/Обновлено/)).toBeInTheDocument();
+});
+
+test("glucose normalized mode refreshes dashboard display", async () => {
+  configureApi();
+  glucoseRoute();
+
+  render(<App />);
+
+  await screen.findByText("6.2");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Нормализованная" }),
+  );
+
+  expect(await screen.findByText("7.0")).toBeInTheDocument();
+});
+
+test("glucose fingerstick form posts manual reading", async () => {
+  configureApi();
+  glucoseRoute();
+  const postedBody: { current: Record<string, unknown> | null } = {
+    current: null,
+  };
+
+  server.use(
+    http.post("http://api.test/fingersticks", async ({ request }) => {
+      postedBody.current = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json(
+        {
+          id: "fingerstick-created",
+          created_at: "2026-04-28T10:00:00.000Z",
+          ...postedBody.current,
+        },
+        { status: 201 },
+      );
+    }),
+  );
+
+  render(<App />);
+
+  await screen.findByRole("heading", { name: "Глюкоза" });
+  await userEvent.click(
+    screen.getByRole("button", { name: "+ Запись из пальца" }),
+  );
+  fireEvent.change(screen.getByLabelText("глюкоза, ммоль/л"), {
+    target: { value: "7.4" },
+  });
+  await userEvent.type(screen.getByLabelText("глюкометр"), "Contour");
+  await userEvent.click(screen.getByRole("button", { name: "Добавить" }));
+
+  await waitFor(() => expect(postedBody.current?.glucose_mmol_l).toBe(7.4));
+  expect(postedBody.current?.meter_name).toBe("Contour");
 });

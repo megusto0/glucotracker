@@ -20,4 +20,9 @@ export const queryKeys = {
   nightscoutEvents: (from: string, to: string) =>
     ["nightscout", "events", from, to] as const,
   timeline: (from: string, to: string) => ["timeline", from, to] as const,
+  glucoseDashboard: (from: string, to: string, mode: string) =>
+    ["glucose", "dashboard", from, to, mode] as const,
+  sensors: ["glucose", "sensors"] as const,
+  fingersticks: (from?: string, to?: string) =>
+    ["glucose", "fingersticks", from, to] as const,
 };
