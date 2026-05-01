@@ -19,6 +19,40 @@ npm run tauri dev
 
 Expected result: an empty Glucotracker window with the off-white app background.
 
+## Journal Date And Repeat UI
+
+### Selected-day creation
+
+1. Open the Журнал page.
+2. Navigate to an older day, for example 28 April 2026.
+3. Add a manual entry or upload a photo and save the meal.
+
+Expected result: the created meal appears on the selected older day, not
+automatically on today. This is intentional backfill behavior.
+
+### Date/time correction
+
+1. Click the meal row to open the right panel.
+2. Change `Дата и время записи` to today's date/time.
+3. Click `Сохранить дату`.
+
+Expected result: the meal moves to the selected new day after queries refresh.
+Daily totals for the old and new day are recalculated by the backend.
+
+### Quick repeat one recognized package
+
+Use an accepted label item whose evidence contains multiple identical packages,
+for example `Халва подсолнечная глазированная ×3` with `60 г` total and
+`20 г` per package.
+
+1. Open the accepted meal in the right panel.
+2. In `Повтор по весу`, find `Быстро из распознанного количества`.
+3. Click `Добавить 1 упаковку`.
+
+Expected result: the UI calls `POST /meal_items/{id}/copy_by_weight` with
+`grams=20`. Backend creates a new accepted meal for one package, copies the
+photo/source context, and scales totals from the original label item.
+
 ## Pre-commit
 
 ```bash

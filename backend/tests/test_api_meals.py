@@ -179,6 +179,97 @@ def test_replace_meal_items_recalculates_totals(api_client: TestClient) -> None:
     assert body["total_kcal"] == 205
 
 
+def test_create_meal_from_item_weight_scales_source_item(
+    api_client: TestClient,
+) -> None:
+    """A historical item can be repeated at a new gram weight."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(
+            title="Кусочек торта",
+            items=[
+                {
+                    "name": "Кусочек торта",
+                    "grams": 117,
+                    "carbs_g": 35.1,
+                    "protein_g": 5.9,
+                    "fat_g": 14,
+                    "fiber_g": 1.2,
+                    "kcal": 280,
+                    "source_kind": "manual",
+                }
+            ],
+        ),
+    ).json()
+    item_id = created["items"][0]["id"]
+    photo = api_client.post(
+        f"/meals/{created['id']}/photos",
+        files={"file": ("cake.jpg", b"\xff\xd8fake-jpeg", "image/jpeg")},
+    ).json()
+
+    response = api_client.post(
+        f"/meal_items/{item_id}/copy_by_weight",
+        json={"grams": 127, "eaten_at": "2026-04-30T21:45:00"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    item = body["items"][0]
+    assert body["status"] == "accepted"
+    assert body["title"] == "Кусочек торта"
+    assert item["grams"] == 127
+    assert item["serving_text"] == "127 г"
+    assert item["photo_id"] == photo["id"]
+    assert body["thumbnail_url"] == f"/photos/{photo['id']}/file"
+    assert item["carbs_g"] == pytest.approx(38.1)
+    assert item["protein_g"] == pytest.approx(6.4)
+    assert item["fat_g"] == pytest.approx(15.2)
+    assert item["kcal"] == pytest.approx(303.9)
+    assert body["total_carbs_g"] == pytest.approx(38.1)
+    assert item["evidence"]["scaled_from_history"]["source_grams"] == 117
+    assert item["evidence"]["scaled_from_history"]["target_grams"] == 127
+
+
+def test_patch_item_grams_rescales_macros_on_backend(
+    api_client: TestClient,
+) -> None:
+    """Changing only grams keeps macro math on the backend."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(
+            title="Кусочек торта",
+            items=[
+                {
+                    "name": "Кусочек торта",
+                    "grams": 117,
+                    "carbs_g": 35.1,
+                    "protein_g": 5.9,
+                    "fat_g": 14,
+                    "fiber_g": 1.2,
+                    "kcal": 280,
+                    "source_kind": "manual",
+                }
+            ],
+        ),
+    ).json()
+    item_id = created["items"][0]["id"]
+
+    response = api_client.patch(f"/meal_items/{item_id}", json={"grams": 127})
+
+    assert response.status_code == 200
+    item = response.json()
+    assert item["grams"] == 127
+    assert item["serving_text"] == "127 г"
+    assert item["carbs_g"] == pytest.approx(38.1)
+    assert item["protein_g"] == pytest.approx(6.4)
+    assert item["fat_g"] == pytest.approx(15.2)
+    assert item["kcal"] == pytest.approx(303.9)
+
+    meal = api_client.get(f"/meals/{created['id']}").json()
+    assert meal["total_carbs_g"] == pytest.approx(38.1)
+    assert meal["total_kcal"] == pytest.approx(303.9)
+
+
 def test_accept_meal_draft_replaces_items_and_accepts(api_client: TestClient) -> None:
     """POST /meals/{id}/accept is the canonical draft acceptance endpoint."""
     created = api_client.post(

@@ -650,7 +650,7 @@ test("selected journal meal can be deleted", async () => {
   );
 });
 
-test("selected journal meal time can be edited", async () => {
+test("selected journal meal date and time can be edited", async () => {
   configureApi();
   const user = userEvent.setup();
   let patchBody: Record<string, unknown> | null = null;
@@ -676,13 +676,13 @@ test("selected journal meal time can be edited", async () => {
 
   render(<App />);
   await user.click(await screen.findByText("Coffee"));
-  fireEvent.change(screen.getByLabelText("Время записи"), {
-    target: { value: "13:45" },
+  fireEvent.change(screen.getByLabelText("Дата и время записи"), {
+    target: { value: "2026-05-01T13:45" },
   });
-  await user.click(screen.getByRole("button", { name: "Сохранить время" }));
+  await user.click(screen.getByRole("button", { name: "Сохранить дату" }));
 
   await waitFor(() =>
-    expect(patchBody).toEqual({ eaten_at: "2026-04-28T13:45:00" }),
+    expect(patchBody).toEqual({ eaten_at: "2026-05-01T13:45:00" }),
   );
 });
 
@@ -2556,6 +2556,70 @@ test("feed renders computed Nightscout food episode", async () => {
   await waitFor(() => expect(importCalled).toBeGreaterThan(0));
 });
 
+test("feed keeps food episode grouping when Nightscout is not configured", async () => {
+  configureApi();
+  feedRoute();
+  const firstMeal = mealFixture({
+    id: "meal-photo-a",
+    eaten_at: "2026-04-28T12:00:00",
+    title: "Кусочек торта",
+    total_carbs_g: 18,
+    total_kcal: 180,
+  });
+  const secondMeal = mealFixture({
+    id: "meal-photo-b",
+    eaten_at: "2026-04-28T12:12:00",
+    title: "Кола оригинал",
+    total_carbs_g: 26,
+    total_kcal: 104,
+  });
+
+  server.use(
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({
+        items: [firstMeal, secondMeal],
+        total: 2,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+    http.get("http://api.test/timeline", () =>
+      HttpResponse.json({
+        from_datetime: "2026-04-28T00:00:00",
+        to_datetime: "2026-04-28T23:59:59",
+        episodes: [
+          {
+            id: "episode-photo-items",
+            start_at: "2026-04-28T12:00:00",
+            end_at: "2026-04-28T12:12:00",
+            title: "Пищевой эпизод",
+            meals: [firstMeal, secondMeal],
+            insulin: [],
+            glucose: [],
+            glucose_summary: {
+              before_value: null,
+              peak_value: null,
+              latest_value: null,
+              min_value: null,
+              max_value: null,
+            },
+            total_carbs_g: 44,
+            total_kcal: 284,
+          },
+        ],
+        ungrouped_insulin: [],
+      }),
+    ),
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("Приём пищи")).toBeInTheDocument();
+  expect(screen.getByText("Кусочек торта")).toBeInTheDocument();
+  expect(screen.getByText("Кола оригинал")).toBeInTheDocument();
+  expect(screen.getByText(/2 события · 284 ккал · 44 г углеводов/)).toBeInTheDocument();
+});
+
 test("feed paginates with cursor", async () => {
   configureApi();
   feedRoute();
@@ -2697,6 +2761,235 @@ test("feed detail panel opens and duplicate uses create meal fallback", async ()
   });
 });
 
+test("feed detail panel repeats one item by new gram weight", async () => {
+  configureApi();
+  feedRoute();
+  let copyBody: Record<string, unknown> | null = null;
+  let copiedItemId: string | undefined;
+  const cakeItem = {
+    ...(mealFixture().items[0] as Record<string, unknown>),
+    id: "cake-item-1",
+    name: "Кусочек торта",
+    grams: 117,
+    carbs_g: 35.1,
+    protein_g: 5.9,
+    fat_g: 14,
+    fiber_g: 1.2,
+    kcal: 280,
+  };
+  const cakeMeal = mealFixture({
+    id: "cake-meal-1",
+    title: "Кусочек торта",
+    total_carbs_g: 35.1,
+    total_protein_g: 5.9,
+    total_fat_g: 14,
+    total_fiber_g: 1.2,
+    total_kcal: 280,
+    items: [cakeItem],
+  });
+
+  server.use(
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({
+        items: [cakeMeal],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+    http.post("http://api.test/meal_items/:itemId/copy_by_weight", async ({ params, request }) => {
+      copiedItemId = String(params.itemId);
+      copyBody = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json(
+        mealFixture({
+          id: "cake-meal-copy",
+          title: "Кусочек торта",
+          eaten_at: copyBody.eaten_at,
+          total_carbs_g: 38.1,
+          total_kcal: 303.9,
+          items: [
+            {
+              ...cakeItem,
+              id: "cake-item-copy",
+              grams: copyBody.grams,
+              carbs_g: 38.1,
+              kcal: 303.9,
+            },
+          ],
+        }),
+        { status: 201 },
+      );
+    }),
+  );
+
+  render(<App />);
+  await userEvent.click(await screen.findByText("Кусочек торта"));
+  expect(screen.getByText(/вручную \/ принято · 117 г/)).toBeInTheDocument();
+  expect(screen.getByText("Повтор по весу")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Вес новой записи, г"), {
+    target: { value: "127" },
+  });
+  await userEvent.click(screen.getByRole("button", { name: "Добавить 127 г" }));
+
+  await waitFor(() => expect(copiedItemId).toBe("cake-item-1"));
+  expect(copyBody).not.toBeNull();
+  const finalBody = copyBody as unknown as Record<string, unknown>;
+  expect(finalBody.grams).toBe(127);
+  expect(finalBody.eaten_at).toEqual(expect.any(String));
+});
+
+test("feed detail panel repeats one recognized package by unit weight", async () => {
+  configureApi();
+  feedRoute();
+  let copyBody: Record<string, unknown> | null = null;
+  let copiedItemId: string | undefined;
+  const halvaItem = {
+    ...(mealFixture().items[0] as Record<string, unknown>),
+    id: "halva-item-1",
+    name: "Халва подсолнечная глазированная",
+    brand: "Восточный гость",
+    grams: 60,
+    serving_text: "×3 упаковки · 20 г каждая",
+    carbs_g: 28.2,
+    protein_g: 6,
+    fat_g: 21.6,
+    fiber_g: 0,
+    kcal: 330,
+    source_kind: "label_calc",
+    calculation_method: "label_split_visible_weight_backend_calc",
+    evidence: {
+      count_detected: 3,
+      net_weight_per_unit_g: 20,
+      total_weight_g: 60,
+    },
+  };
+  const halvaMeal = mealFixture({
+    id: "halva-meal-1",
+    title: "Халва подсолнечная глазированная ×3",
+    total_carbs_g: 28.2,
+    total_protein_g: 6,
+    total_fat_g: 21.6,
+    total_fiber_g: 0,
+    total_kcal: 330,
+    items: [halvaItem],
+  });
+
+  server.use(
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({
+        items: [halvaMeal],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+    http.post("http://api.test/meal_items/:itemId/copy_by_weight", async ({ params, request }) => {
+      copiedItemId = String(params.itemId);
+      copyBody = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json(
+        mealFixture({
+          id: "halva-meal-copy",
+          title: "Халва подсолнечная глазированная",
+          eaten_at: copyBody.eaten_at,
+          total_carbs_g: 9.4,
+          total_kcal: 110,
+          items: [
+            {
+              ...halvaItem,
+              id: "halva-item-copy",
+              grams: copyBody.grams,
+              carbs_g: 9.4,
+              kcal: 110,
+            },
+          ],
+        }),
+        { status: 201 },
+      );
+    }),
+  );
+
+  render(<App />);
+  await userEvent.click(
+    await screen.findByText("Халва подсолнечная глазированная ×3"),
+  );
+  expect(screen.getByText("Быстро из распознанного количества")).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole("button", { name: /Добавить 1 упаковку/ }),
+  );
+
+  await waitFor(() => expect(copiedItemId).toBe("halva-item-1"));
+  expect(copyBody).not.toBeNull();
+  const finalBody = copyBody as unknown as Record<string, unknown>;
+  expect(finalBody.grams).toBe(20);
+  expect(finalBody.eaten_at).toEqual(expect.any(String));
+});
+
+test("feed detail panel edits current item weight", async () => {
+  configureApi();
+  feedRoute();
+  let patchedBody: Record<string, unknown> | null = null;
+  let patchedItemId: string | undefined;
+  const cakeItem = {
+    ...(mealFixture().items[0] as Record<string, unknown>),
+    id: "cake-item-1",
+    name: "Кусочек торта",
+    grams: 117,
+    carbs_g: 35.1,
+    protein_g: 5.9,
+    fat_g: 14,
+    fiber_g: 1.2,
+    kcal: 280,
+  };
+  const cakeMeal = mealFixture({
+    id: "cake-meal-1",
+    title: "Кусочек торта",
+    total_carbs_g: 35.1,
+    total_protein_g: 5.9,
+    total_fat_g: 14,
+    total_fiber_g: 1.2,
+    total_kcal: 280,
+    items: [cakeItem],
+  });
+
+  server.use(
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({
+        items: [cakeMeal],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+    http.patch("http://api.test/meal_items/:itemId", async ({ params, request }) => {
+      patchedItemId = String(params.itemId);
+      patchedBody = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        ...cakeItem,
+        ...patchedBody,
+        id: patchedItemId,
+        meal_id: "cake-meal-1",
+        serving_text: `${patchedBody.grams} г`,
+        updated_at: "2026-04-28T10:10:00.000Z",
+      });
+    }),
+  );
+
+  render(<App />);
+  await userEvent.click(await screen.findByText("Кусочек торта"));
+
+  fireEvent.change(screen.getByLabelText("Вес текущей записи, г"), {
+    target: { value: "127" },
+  });
+  await userEvent.click(screen.getByRole("button", { name: "Сохранить вес" }));
+
+  await waitFor(() => expect(patchedItemId).toBe("cake-item-1"));
+  expect(patchedBody).not.toBeNull();
+  const finalPatchBody = patchedBody as unknown as Record<string, unknown>;
+  expect(finalPatchBody.grams).toBe(127);
+});
+
 test("feed empty state says no meals yet", async () => {
   configureApi();
   feedRoute();
@@ -2791,6 +3084,8 @@ test("glucose page renders dashboard and sensor panel", async () => {
   ).toBeInTheDocument();
   expect(await screen.findAllByText("Sensor A")).not.toHaveLength(0);
   expect(await screen.findByText(/Запись из пальца/)).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Эпизоды" })).toBeInTheDocument();
+  expect(await screen.findByText("Приём пищи")).toBeInTheDocument();
 });
 
 test("glucose pull button imports current Nightscout data", async () => {
@@ -2837,24 +3132,103 @@ test("glucose pull button imports current Nightscout data", async () => {
     name: "Подтянуть актуальные данные",
   });
   await waitFor(() => expect(button).toBeEnabled());
+  await waitFor(() => expect(importCount).toBeGreaterThanOrEqual(1));
+  const importsBeforeClick = importCount;
   await userEvent.click(button);
 
-  await waitFor(() => expect(importCount).toBe(1));
+  await waitFor(() => expect(importCount).toBeGreaterThan(importsBeforeClick));
   expect(await screen.findByText(/Обновлено/)).toBeInTheDocument();
 });
 
-test("glucose normalized mode refreshes dashboard display", async () => {
+test("glucose defaults to normalized mode and exposes raw and smoothed modes", async () => {
   configureApi();
   glucoseRoute();
+  const requestedModes: string[] = [];
+
+  server.use(
+    http.get("http://api.test/glucose/dashboard", ({ request }) => {
+      const mode = new URL(request.url).searchParams.get("mode") ?? "raw";
+      requestedModes.push(mode);
+      return HttpResponse.json({
+        from_datetime: "2026-04-28T04:00:00",
+        to_datetime: "2026-04-28T10:00:00",
+        mode,
+        points: [
+          {
+            timestamp: "2026-04-28T08:00:00",
+            raw_value: 6,
+            smoothed_value: 6.1,
+            normalized_value: 6.8,
+            display_value: mode === "normalized" ? 6.8 : mode === "smoothed" ? 6.1 : 6,
+            correction_mmol_l: 0.8,
+            flags: [],
+          },
+          {
+            timestamp: "2026-04-28T08:05:00",
+            raw_value: 6.2,
+            smoothed_value: 6.2,
+            normalized_value: 7,
+            display_value: mode === "normalized" ? 7 : 6.2,
+            correction_mmol_l: 0.8,
+            flags: [],
+          },
+        ],
+        fingersticks: [],
+        food_events: [],
+        insulin_events: [],
+        artifacts: [],
+        current_sensor: null,
+        sensors: [],
+        quality: {
+          sensor: null,
+          sensor_age_days: null,
+          sensor_phase: null,
+          fingerstick_count: 0,
+          valid_calibration_points: 0,
+          matched_calibration_points: 0,
+          stable_calibration_points: 0,
+          warmup_calibration_points: 0,
+          calibration_basis: "insufficient",
+          warmup_metrics: null,
+          median_bias_mmol_l: null,
+          mad_mmol_l: null,
+          mard_percent: null,
+          drift_mmol_l_per_day: null,
+          residual_mad_mmol_l: null,
+          missing_data_pct: null,
+          suspected_compression_count: 0,
+          noise_score: 0,
+          quality_score: 0,
+          confidence: "none",
+          notes: [],
+          active_model: null,
+        },
+        summary: {
+          current_glucose: mode === "normalized" ? 7 : 6.2,
+          current_glucose_at: "2026-04-28T08:05:00",
+          sensor_age_days: null,
+          bias_mmol_l: null,
+          drift_mmol_l_per_day: null,
+          calibration_confidence: "none",
+          suspected_compression_count: 0,
+        },
+        notes: [],
+      });
+    }),
+  );
 
   render(<App />);
 
-  await screen.findByText("6.2");
-  await userEvent.click(
+  await waitFor(() => expect(requestedModes[0]).toBe("normalized"));
+  expect(
     screen.getByRole("button", { name: "Нормализованная" }),
-  );
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Сглаженная" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Raw" }));
 
-  expect(await screen.findByText("7.0")).toBeInTheDocument();
+  await waitFor(() => expect(requestedModes).toContain("raw"));
+  expect(await screen.findByText(/Смещение в этот момент \+0\.8/)).toBeInTheDocument();
+  expect(screen.getByText("Raw CGM сохраняется без изменений")).toBeInTheDocument();
 });
 
 test("glucose fingerstick form posts manual reading", async () => {
@@ -2892,4 +3266,51 @@ test("glucose fingerstick form posts manual reading", async () => {
 
   await waitFor(() => expect(postedBody.current?.glucose_mmol_l).toBe(7.4));
   expect(postedBody.current?.meter_name).toBe("Contour");
+});
+
+test("glucose fingerstick rows can be edited", async () => {
+  configureApi();
+  glucoseRoute();
+  const patched: {
+    body: Record<string, unknown> | null;
+    id: string | undefined;
+  } = {
+    body: null,
+    id: undefined,
+  };
+
+  server.use(
+    http.patch("http://api.test/fingersticks/:fingerstickId", async ({ params, request }) => {
+      patched.id = String(params.fingerstickId);
+      patched.body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: patched.id,
+        created_at: "2026-04-28T10:00:00.000Z",
+        notes: null,
+        ...patched.body,
+      });
+    }),
+  );
+
+  render(<App />);
+
+  await screen.findByRole("heading", { name: "Глюкоза" });
+  await userEvent.click(await screen.findByRole("button", { name: "изменить" }));
+  expect(
+    await screen.findByText("Редактировать запись из пальца"),
+  ).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("время"), {
+    target: { value: "2026-04-28T21:45" },
+  });
+  fireEvent.change(screen.getByLabelText("глюкоза, ммоль/л"), {
+    target: { value: "4.8" },
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Сохранить изменения" }),
+  );
+
+  await waitFor(() => expect(patched.id).toBe("fingerstick-1"));
+  expect(patched.body?.measured_at).toBe("2026-04-28T21:45:00");
+  expect(patched.body?.glucose_mmol_l).toBe(4.8);
 });

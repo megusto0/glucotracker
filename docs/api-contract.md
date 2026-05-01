@@ -598,6 +598,40 @@ curl -X PATCH "$BASE/meal_items/{item_id}" \
   -d '{ "carbs_g": 22, "kcal": 122 }'
 ```
 
+### `POST /meal_items/{id}/copy_by_weight`
+
+Create a new accepted one-item meal from an existing item scaled to a target
+weight. This is the API for UI actions such as `Повтор по весу` and quick
+`Добавить 1 упаковку` when a label item has recognized unit weight.
+
+The backend owns the scaling. It copies source metadata, photo references when
+available, confidence/evidence context, and scales carbs, protein, fat, fiber,
+kcal, and optional nutrients. The parent/source meal is not mutated.
+
+Request:
+
+```json
+{
+  "grams": 20,
+  "eaten_at": "2026-05-01T05:36:25"
+}
+```
+
+`eaten_at` is optional. If omitted, the backend uses current time. Frontends
+should send local wall-clock time for the intended journal day.
+
+```bash
+curl -X POST "$BASE/meal_items/{item_id}/copy_by_weight" \
+  -H "$AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{ "grams": 20, "eaten_at": "2026-05-01T05:36:25" }'
+```
+
+Example: a saved item for `Халва подсолнечная глазированная ×3` has
+`grams=60`, `serving_text="×3 упаковки · 20 г каждая"`, and label facts per
+100 g. A frontend quick action for one package sends `grams=20`; the backend
+creates a new accepted meal with one 20 g item and scaled label totals.
+
 ### `POST /meal_items/{id}/remember_product`
 
 Persist a confirmed label-calculated item into the local product database. This is idempotent with the automatic product upsert that runs during `/meals/{id}/accept`, but lets a UI add user aliases such as `сырок`, `глазированный сырок`, or `творожный сырок`.

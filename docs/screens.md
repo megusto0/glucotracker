@@ -24,9 +24,14 @@ Active item: left border accent, slightly lighter background.
 
 The main screen. It is not a chat messenger. It is a daily food ledger with a bottom input area.
 
+The selected day is part of the creation context. If the user is viewing an
+older day and adds a manual meal or a photo meal, the new meal belongs to that
+selected day with the current local time. This supports backfilling old days.
+If the user meant today, they can change the meal date/time in the right panel.
+
 ### Layout
 
-- Left: today's meal ledger rows, scrolling vertically.
+- Left: selected day's meal ledger rows, scrolling vertically.
 - Right: contextual panel (420px) opens when a meal row is selected.
 
 ### Meal rows
@@ -56,6 +61,10 @@ User can type food names. Prefix triggers autocomplete:
 
 Selected items become chips with quantity. User can also paste or drag photos.
 
+Manual entries, autocomplete entries, and photo drafts use the currently
+selected journal day. Do not force them to today unless the UI first changes the
+selected day to today.
+
 ### Photo flow
 
 1. User pastes/drops/uploads one or more photos.
@@ -70,8 +79,12 @@ Shows when a meal row is selected:
 
 - Photo thumbnail, title, source/status tags
 - Name edit form
-- Time edit form
+- Date and time edit form
 - Quantity section (if multi-unit)
+- Current weight edit form for one-item meals with known grams
+- Repeat by weight form, backed by `POST /meal_items/{id}/copy_by_weight`
+- Quick repeat action for one recognized unit/package when evidence provides
+  count and unit weight, e.g. `Добавить 1 упаковку · 20 г` for `3 × 20 г`
 - Macro breakdown: carbs, protein, fat, fiber
 - Source and confidence
 - Nightscout sync status
@@ -170,7 +183,7 @@ Nightscout insulin events not linked to any food episode show as simple rows wit
 
 ### Right panel
 
-Same `SelectedMealPanel` as on the Журнал page. Opens when any meal row or episode meal line is clicked. Allows editing name, time, duplicating, syncing to Nightscout.
+Same `SelectedMealPanel` as on the Журнал page. Opens when any meal row or episode meal line is clicked. Allows editing name, date/time, weight, repeating by weight, duplicating, and syncing to Nightscout.
 
 ### Infinite scroll
 
@@ -260,6 +273,12 @@ Backend connection and Nightscout configuration.
 - Test connection button
 - Sync toggles: glucose import, insulin import
 - "Sync today to Nightscout" button
+
+### Reports and export
+
+- `Отчёт для врача`: date range inputs and A4 endocrinologist PDF generation.
+- `Экспорт еды`: `Создать TXT по всей еде` exports all accepted meal days with
+  rows, item details, macros, daily totals, and period totals.
 
 ### UI settings
 

@@ -339,6 +339,161 @@
         "title": "AutocompleteSuggestion",
         "type": "object"
       },
+      "BiasCurvePoint": {
+        "description": "One sampled point on the estimated bias curve.",
+        "properties": {
+          "bias": {
+            "title": "Bias",
+            "type": "number"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "string"
+          },
+          "contributing_fingerstick_count": {
+            "title": "Contributing Fingerstick Count",
+            "type": "integer"
+          },
+          "nearest_fingerstick_distance_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearest Fingerstick Distance Min"
+          },
+          "sensor_age_hours": {
+            "title": "Sensor Age Hours",
+            "type": "number"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "sensor_age_hours",
+          "bias",
+          "confidence",
+          "contributing_fingerstick_count"
+        ],
+        "title": "BiasCurvePoint",
+        "type": "object"
+      },
+      "BiasOverLifetimeData": {
+        "description": "Data for the bias-over-sensor-lifetime chart.",
+        "properties": {
+          "bias_curve": {
+            "items": {
+              "$ref": "#/components/schemas/BiasCurvePoint"
+            },
+            "title": "Bias Curve",
+            "type": "array"
+          },
+          "phase_markers": {
+            "items": {
+              "$ref": "#/components/schemas/BiasPhaseMarker"
+            },
+            "title": "Phase Markers",
+            "type": "array"
+          },
+          "residuals": {
+            "items": {
+              "$ref": "#/components/schemas/BiasResidualPoint"
+            },
+            "title": "Residuals",
+            "type": "array"
+          },
+          "sensor_started_at": {
+            "format": "date-time",
+            "title": "Sensor Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sensor_started_at",
+          "residuals",
+          "bias_curve",
+          "phase_markers"
+        ],
+        "title": "BiasOverLifetimeData",
+        "type": "object"
+      },
+      "BiasPhaseMarker": {
+        "description": "Phase boundary on the bias chart.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "sensor_age_hours": {
+            "title": "Sensor Age Hours",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sensor_age_hours",
+          "label"
+        ],
+        "title": "BiasPhaseMarker",
+        "type": "object"
+      },
+      "BiasResidualPoint": {
+        "description": "One fingerstick residual on the bias chart.",
+        "properties": {
+          "exclusion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclusion Reason"
+          },
+          "fingerstick_value": {
+            "title": "Fingerstick Value",
+            "type": "number"
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "measured_at": {
+            "format": "date-time",
+            "title": "Measured At",
+            "type": "string"
+          },
+          "raw_cgm_value": {
+            "title": "Raw Cgm Value",
+            "type": "number"
+          },
+          "residual": {
+            "title": "Residual",
+            "type": "number"
+          },
+          "sensor_age_hours": {
+            "title": "Sensor Age Hours",
+            "type": "number"
+          }
+        },
+        "required": [
+          "measured_at",
+          "sensor_age_hours",
+          "fingerstick_value",
+          "raw_cgm_value",
+          "residual",
+          "included"
+        ],
+        "title": "BiasResidualPoint",
+        "type": "object"
+      },
       "Body_uploadMealPhoto": {
         "properties": {
           "file": {
@@ -2115,6 +2270,60 @@
         "title": "FingerstickReadingCreate",
         "type": "object"
       },
+      "FingerstickReadingPatch": {
+        "description": "Patch a manual capillary glucose reading.",
+        "properties": {
+          "glucose_mmol_l": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 40.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Mmol L"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "meter_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meter Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "FingerstickReadingPatch",
+        "type": "object"
+      },
       "FingerstickReadingResponse": {
         "description": "Stored manual capillary glucose reading.",
         "properties": {
@@ -2283,6 +2492,17 @@
             "title": "Carbs G",
             "type": "number"
           },
+          "kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
           "timestamp": {
             "format": "date-time",
             "title": "Timestamp",
@@ -2352,6 +2572,28 @@
       "GlucoseDashboardPoint": {
         "description": "One glucose dashboard display point.",
         "properties": {
+          "bias_confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Confidence"
+          },
+          "contributing_fingerstick_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contributing Fingerstick Count"
+          },
           "correction_mmol_l": {
             "anyOf": [
               {
@@ -2373,6 +2615,17 @@
             },
             "title": "Flags",
             "type": "array"
+          },
+          "nearest_fingerstick_distance_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearest Fingerstick Distance Min"
           },
           "normalized_value": {
             "anyOf": [
@@ -2423,6 +2676,16 @@
             },
             "title": "Artifacts",
             "type": "array"
+          },
+          "bias_over_lifetime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BiasOverLifetimeData"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "current_sensor": {
             "anyOf": [
@@ -3700,6 +3963,36 @@
           "updated_at"
         ],
         "title": "MealItemResponse",
+        "type": "object"
+      },
+      "MealItemWeightReuseRequest": {
+        "description": "Create a new meal from an existing item scaled to a target weight.",
+        "properties": {
+          "eaten_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eaten At"
+          },
+          "grams": {
+            "examples": [
+              127
+            ],
+            "exclusiveMinimum": 0.0,
+            "title": "Grams",
+            "type": "number"
+          }
+        },
+        "required": [
+          "grams"
+        ],
+        "title": "MealItemWeightReuseRequest",
         "type": "object"
       },
       "MealPageResponse": {
@@ -7364,6 +7657,39 @@
               }
             ]
           },
+          "b0_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B0 Mmol L"
+          },
+          "b1_capped_mmol_l_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B1 Capped Mmol L Per Day"
+          },
+          "b1_raw_mmol_l_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B1 Raw Mmol L Per Day"
+          },
           "calibration_basis": {
             "anyOf": [
               {
@@ -7380,6 +7706,23 @@
             ],
             "title": "Calibration Basis"
           },
+          "calibration_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "median_delta",
+                  "warmup_blend",
+                  "linear",
+                  "insufficient"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Strategy"
+          },
           "confidence": {
             "enum": [
               "none",
@@ -7389,6 +7732,39 @@
             ],
             "title": "Confidence",
             "type": "string"
+          },
+          "correction_now_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Now Mmol L"
+          },
+          "delta_max_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Max Mmol L"
+          },
+          "delta_min_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Min Mmol L"
           },
           "drift_mmol_l_per_day": {
             "anyOf": [
@@ -7442,6 +7818,17 @@
               }
             ],
             "title": "Median Bias Mmol L"
+          },
+          "median_delta_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Delta Mmol L"
           },
           "missing_data_pct": {
             "anyOf": [
@@ -8858,6 +9245,105 @@
         ]
       }
     },
+    "/fingersticks/{fingerstick_id}": {
+      "delete": {
+        "description": "Delete a manual capillary glucose reading.",
+        "operationId": "deleteFingerstick",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fingerstick_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Fingerstick Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Fingerstick",
+        "tags": [
+          "glucose"
+        ]
+      },
+      "patch": {
+        "description": "Patch a manual capillary glucose reading.",
+        "operationId": "patchFingerstick",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fingerstick_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Fingerstick Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FingerstickReadingPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FingerstickReadingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Fingerstick",
+        "tags": [
+          "glucose"
+        ]
+      }
+    },
     "/glucose/dashboard": {
       "get": {
         "description": "Return display-only glucose dashboard data.",
@@ -9055,6 +9541,65 @@
           }
         ],
         "summary": "Patch Meal Item",
+        "tags": [
+          "meals"
+        ]
+      }
+    },
+    "/meal_items/{item_id}/copy_by_weight": {
+      "post": {
+        "description": "Create a new meal from an existing item scaled to a target weight.",
+        "operationId": "createMealFromMealItemWeight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealItemWeightReuseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Meal From Item Weight",
         "tags": [
           "meals"
         ]

@@ -39,6 +39,8 @@ import {
   readableItemSourceKind,
 } from "../meals/MealLedger";
 import {
+  useCreateMealFromItemWeight,
+  useUpdateMealItemWeight,
   useUpdateMealName,
   useUpdateMealTime,
 } from "../meals/useMealMutations";
@@ -510,8 +512,12 @@ export function ChatPage() {
     setReestimateError(null);
   }, [selectedMealId]);
 
-  const invalidateMeals = () =>
+  const invalidateMeals = () => {
     queryClient.invalidateQueries({ queryKey: ["meals"] });
+    queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
+    queryClient.invalidateQueries({ queryKey: ["timeline"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  };
 
   const createMeal = useMutation({
     mutationFn: apiClient.createMeal.bind(null, config),
@@ -535,6 +541,8 @@ export function ChatPage() {
   const updateMealTime = useUpdateMealTime();
 
   const updateMealName = useUpdateMealName();
+  const createFromWeight = useCreateMealFromItemWeight();
+  const updateItemWeight = useUpdateMealItemWeight();
 
   const saveDraftItems = useMutation({
     mutationFn: ({
@@ -1360,9 +1368,19 @@ export function ChatPage() {
         {panelMode === "meal" && selectedMeal ? (
           <SelectedMealPanel
             applyingReestimate={applyEstimationRun.isPending}
+            createFromWeightPending={createFromWeight.isPending}
             deletePending={deleteMeal.isPending}
             meal={selectedMeal}
+            onCreateFromWeight={(item, grams) =>
+              createFromWeight.mutate(
+                { grams, itemId: item.id },
+                { onSuccess: (meal) => setSelectedMealId(meal.id) },
+              )
+            }
             onDelete={(meal) => deleteMeal.mutate(meal.id)}
+            onUpdateItemWeight={(item, grams) =>
+              updateItemWeight.mutate({ grams, itemId: item.id })
+            }
             onReestimate={() => reestimateMeal.mutate()}
             onReestimateApply={(mode, comparison) =>
               applyEstimationRun.mutate({ applyMode: mode, comparison })
@@ -1390,6 +1408,7 @@ export function ChatPage() {
             }
             updateNamePending={updateMealName.isPending}
             updateTimePending={updateMealTime.isPending}
+            updateWeightPending={updateItemWeight.isPending}
           />
         ) : null}
         {panelMode === "draft" && selectedDraftEstimation ? (

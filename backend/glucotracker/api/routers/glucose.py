@@ -12,6 +12,7 @@ from glucotracker.api.dependencies import SessionDep, verify_token
 from glucotracker.api.schemas import (
     CgmCalibrationModelResponse,
     FingerstickReadingCreate,
+    FingerstickReadingPatch,
     FingerstickReadingResponse,
     GlucoseDashboardResponse,
     SensorQualityResponse,
@@ -75,6 +76,33 @@ def list_fingersticks(
         from_datetime,
         to_datetime,
     )
+
+
+@router.patch(
+    "/fingersticks/{fingerstick_id}",
+    response_model=FingerstickReadingResponse,
+    operation_id="patchFingerstick",
+)
+def patch_fingerstick(
+    fingerstick_id: UUID,
+    payload: FingerstickReadingPatch,
+    session: SessionDep,
+) -> FingerstickReadingResponse:
+    """Patch a manual capillary glucose reading."""
+    return GlucoseDashboardService(session).patch_fingerstick(fingerstick_id, payload)
+
+
+@router.delete(
+    "/fingersticks/{fingerstick_id}",
+    status_code=204,
+    operation_id="deleteFingerstick",
+)
+def delete_fingerstick(
+    fingerstick_id: UUID,
+    session: SessionDep,
+) -> None:
+    """Delete a manual capillary glucose reading."""
+    GlucoseDashboardService(session).delete_fingerstick(fingerstick_id)
 
 
 @router.get(

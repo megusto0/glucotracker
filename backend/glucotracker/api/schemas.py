@@ -288,6 +288,13 @@ class MealAcceptRequest(BaseModel):
     )
 
 
+class MealItemWeightReuseRequest(BaseModel):
+    """Create a new meal from an existing item scaled to a target weight."""
+
+    grams: float = Field(gt=0, examples=[127])
+    eaten_at: datetime | None = None
+
+
 class EstimateMealRequest(BaseModel):
     """Optional local context to include in a photo estimation request."""
 
@@ -1132,6 +1139,15 @@ class FingerstickReadingCreate(BaseModel):
     notes: str | None = None
 
 
+class FingerstickReadingPatch(BaseModel):
+    """Patch a manual capillary glucose reading."""
+
+    measured_at: datetime | None = None
+    glucose_mmol_l: float | None = Field(default=None, gt=0, le=40)
+    meter_name: str | None = None
+    notes: str | None = None
+
+
 class FingerstickReadingResponse(FingerstickReadingCreate):
     """Stored manual capillary glucose reading."""
 
@@ -1184,6 +1200,16 @@ class SensorQualityResponse(BaseModel):
     ) = None
     warmup_metrics: SensorWarmupMetricsResponse | None = None
     median_bias_mmol_l: float | None = None
+    median_delta_mmol_l: float | None = None
+    delta_min_mmol_l: float | None = None
+    delta_max_mmol_l: float | None = None
+    b0_mmol_l: float | None = None
+    b1_raw_mmol_l_per_day: float | None = None
+    b1_capped_mmol_l_per_day: float | None = None
+    correction_now_mmol_l: float | None = None
+    calibration_strategy: (
+        Literal["median_delta", "warmup_blend", "linear", "insufficient"] | None
+    ) = None
     mad_mmol_l: float | None = None
     mard_percent: float | None = None
     drift_mmol_l_per_day: float | None = None
@@ -1206,6 +1232,9 @@ class GlucoseDashboardPoint(BaseModel):
     normalized_value: float | None = None
     display_value: float
     correction_mmol_l: float | None = None
+    bias_confidence: str | None = None
+    nearest_fingerstick_distance_min: float | None = None
+    contributing_fingerstick_count: int | None = None
     flags: list[str] = Field(default_factory=list)
 
 
@@ -1215,6 +1244,7 @@ class GlucoseDashboardFoodEvent(BaseModel):
     timestamp: datetime
     title: str
     carbs_g: float
+    kcal: float | None = None
 
 
 class GlucoseDashboardInsulinEvent(BaseModel):
@@ -1268,7 +1298,47 @@ class GlucoseDashboardResponse(BaseModel):
     sensors: list[SensorSessionResponse]
     quality: SensorQualityResponse
     summary: GlucoseDashboardSummary
+    bias_over_lifetime: BiasOverLifetimeData | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+class BiasResidualPoint(BaseModel):
+    """One fingerstick residual on the bias chart."""
+
+    measured_at: datetime
+    sensor_age_hours: float
+    fingerstick_value: float
+    raw_cgm_value: float
+    residual: float
+    included: bool
+    exclusion_reason: str | None = None
+
+
+class BiasCurvePoint(BaseModel):
+    """One sampled point on the estimated bias curve."""
+
+    timestamp: datetime
+    sensor_age_hours: float
+    bias: float
+    confidence: str
+    contributing_fingerstick_count: int
+    nearest_fingerstick_distance_min: float | None = None
+
+
+class BiasPhaseMarker(BaseModel):
+    """Phase boundary on the bias chart."""
+
+    sensor_age_hours: float
+    label: str
+
+
+class BiasOverLifetimeData(BaseModel):
+    """Data for the bias-over-sensor-lifetime chart."""
+
+    sensor_started_at: datetime
+    residuals: list[BiasResidualPoint]
+    bias_curve: list[BiasCurvePoint]
+    phase_markers: list[BiasPhaseMarker]
 
 
 class ReportChipResponse(BaseModel):

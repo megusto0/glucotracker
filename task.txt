@@ -1,306 +1,103 @@
-I need a new page for my glucotracker. It nightscout-dasboard like panel, glucos graph with food and insulin. Справа всплывающеая правая кнопкао к в журнале только теперь здесь только список сенсоров и их качества. У меня несколько проблем с моими сенсорами ottai. Оснобенно с последними партиями они могут занижать. Мне нужна глубокая математическая модель каллибровки для информационного отображения в моем приложении на основании записей из пальца. Например вначале глюкоза соответствовала графику сенсора а потом сенсор стал асе больше занижать. Ну или он из коробки занижает, всякие проблеммы бывают. Так же нужно сглаживание необьяснимых рывков(не аггресивное) например когда ночью рука ледит на сенсоре. Так же к конце жизни сенсора(14-15 дней) кривая менее прямая всегда. Нужно архитектурно подготовить чтобы в отчетах и в истории испорщваьась нормалищованная глбкоща но не в первой версии. Запись и время глюкозы пальца
+Continue the Glucotracker glucose calibration work.
 
-You are working on Glucotracker.
+Current status:
+- Backend has estimate_bias_at(t) using weighted median of nearby fingerstick residuals.
+- Dashboard response includes per-point bias_confidence, nearest_fingerstick_distance_min, contributing_fingerstick_count.
+- UI tooltip/summary now says “Смещение в этот момент”.
+- Reports are not yet using pointwise normalized glucose.
+- Bias-over-sensor-lifetime graph is still pending.
 
-Goal:
-Add a new desktop page `/glucose`: a Nightscout-like glucose dashboard with food and insulin overlays, plus a right-side sensor quality panel. Also prepare backend architecture for future display-only normalized glucose based on fingerstick readings.
+Task:
+Add a visual bias-over-sensor-lifetime graph and improve the glucose tooltip/debug visibility.
 
-Important safety:
-- This is informational display only.
-- Never use words like “true glucose” or “recommended”.
-- Never suggest insulin dosing, bolus, correction, or treatment decisions.
-- Raw CGM data must never be overwritten.
-- Normalized/calibrated glucose is a derived display/analytics layer.
-- In v1, History and PDF reports continue using raw CGM unless explicitly wired later.
-- Nightscout insulin remains read-only context.
+Goals:
+1. Make the time-varying bias model understandable to the user.
+2. Make it obvious that old CGM points use old/local bias, not the current correction.
+3. Do not change raw CGM.
+4. Keep all wording informational, not medical.
 
-Project architecture:
-- Backend owns database schema, REST semantics, application services, Nightscout sync/import, timeline boundaries, and domain logic.
-- Frontend owns presentation only.
-- Use the same visual language as the existing app: off-white background, black text, thin borders, no shadows/glassmorphism, Inter text, mono/tabular numbers.
-
-Relevant existing concepts:
-- History page already imports Nightscout context and combines meals, insulin, and CGM in a timeline.
-- Food episodes are computed projections over accepted meals, local CGM, and read-only Nightscout insulin.
-- Do not merge or mutate those records.
-
-New navigation:
-Add sidebar route:
-- `/glucose`
-- label: `Глюкоза`
-- icon: use a suitable Lucide icon such as Activity, LineChart, or Waves.
-
-Page layout:
-Left/main:
-- title: `Глюкоза`
-- range controls: `3ч`, `6ч`, `12ч`, `24ч`, `7д`, custom date range
-- display mode toggle:
-  - `Raw`
-  - `Сглаженная`
-  - `Нормализованная`
-- large glucose graph:
-  - raw CGM line in subtle grey
-  - normalized line in main black if available
-  - fingerstick points as diamonds/crosses
-  - food events as dots or small markers
-  - insulin events as vertical markers
-  - suspected artifacts as subtle shaded/punctured sections
-- below graph: compact status cards:
-  - current glucose
-  - sensor age
+Backend:
+Add data to the glucose dashboard response or a dedicated endpoint for the current sensor:
+- sensor age axis points
+- fingerstick residual points:
+  - measured_at
+  - sensor_age_hours
+  - fingerstick_value
+  - raw_cgm_value
+  - residual = fingerstick - raw
+  - included/excluded
+  - exclusion reason if excluded
+- estimated bias curve sampled over the selected period or full sensor lifetime:
+  - timestamp
+  - sensor_age_hours
   - bias
-  - drift
-  - calibration confidence
-  - suspected compression lows
+  - confidence
+  - contributing_fingerstick_count
+  - nearest_fingerstick_distance_min
+- phase markers:
+  - warmup: 0–48h
+  - stable
+  - end_of_life if applicable
 
-Right panel:
-A sticky/right contextual panel similar in spirit to SelectedMealPanel, but for sensors.
+Frontend:
+On `/glucose`, add a compact section in the right panel or below the main graph:
 
-Panel title:
-`Сенсоры`
+Title:
+“Смещение по времени сенсора”
 
-Show current sensor:
-- vendor/model, e.g. `Ottai`
-- date range
-- age: `день 11.4 / 15`
-- quality score
-- bias
-- drift per day
-- MARD/MAD if enough fingersticks
-- noise score
-- compression artifacts count
-- fingerstick count
-- calibration confidence
+Content:
+- small line chart
+- x-axis: sensor age, e.g. “0ч”, “12ч”, “24ч”, “48ч”, “7д”, “14д”
+- y-axis: bias in mmol/L
+- orange diamond points: fingerstick residuals
+- black/gray line: estimated bias_at(t)
+- shaded warmup band: first 48h
+- current time marker
 
-Actions:
-- `+ Запись из пальца`
-- `Пересчитать`
-- sensor start/end edit
-- notes
+If there are too few points:
+Show empty state:
+“Недостаточно записей из пальца для графика смещения.”
 
-Below:
-List previous sensors with compact quality badges.
-
-Data model:
-Add backend tables/migrations:
-
-1. `sensor_sessions`
-Fields:
-- id
-- source/vendor/model/label
-- started_at local or UTC with local display handled correctly
-- ended_at nullable
-- expected_life_days default 15
-- notes
-- created_at/updated_at
-
-2. `fingerstick_readings`
-Fields:
-- id
-- measured_at
-- glucose_mmol_l
-- meter_name nullable
-- notes nullable
-- created_at
-
-3. `cgm_calibration_models`
-Fields:
-- id
-- sensor_session_id
-- model_version
-- created_at
-- params_json
-- metrics_json
+Tooltip on this bias chart:
+- time / sensor age
+- residual or estimated bias
+- fingerstick value
+- raw CGM value
+- included/excluded
 - confidence
-- active
 
-Optional later:
-`cgm_derived_readings`
-Only add if needed. Prefer on-demand derived values for v1.
-
-Backend endpoints:
-- `GET /glucose/dashboard?from=&to=&mode=raw|smoothed|normalized`
-- `POST /fingersticks`
-- `GET /fingersticks?from=&to=`
-- `GET /sensors`
-- `POST /sensors`
-- `PATCH /sensors/{id}`
-- `GET /sensors/{id}/quality`
-- `POST /sensors/{id}/recalculate-calibration`
-
-If endpoint scope is too large for one PR, implement:
-1. minimal backend tables + fingerstick CRUD
-2. glucose dashboard endpoint based on existing timeline
-3. sensor quality computed endpoint
-4. frontend page
-
-Mathematical model v1:
-Implement a conservative, robust, display-only model.
-
-Definitions:
-- raw CGM: Nightscout CGM value
-- fingerstick: manual capillary glucose entry
-- derived normalized glucose: display estimate from calibration model
-- never overwrite raw
-
-Fingerstick matching:
-For each fingerstick reading:
-- find CGM points in window `[fingerstick_time - 20min, fingerstick_time + 20min]`
-- estimate local CGM value at fingerstick time by interpolation or nearest point
-- compute local slope around fingerstick
-- exclude from calibration if:
-  - no nearby CGM
-  - large gap
-  - suspected compression/artifact
-  - glucose is changing rapidly
-  - duplicate fingerstick too close to another one
-
-Initial thresholds:
-- rapidly changing if absolute slope > 0.08 mmol/L/min
-- nearby max distance 15 minutes preferred, 20 minutes fallback
-
-Residual:
-`residual = fingerstick_glucose - raw_cgm_at_time`
-
-Calibration model:
-Start simple and robust:
-`normalized = raw + b0 + b1 * sensor_age_days`
-
-Fit:
-- robust linear regression residual ~ sensor_age_days
-- if fewer than 3 valid fingersticks: use median offset only
-- if fewer than 2 valid fingersticks: do not produce normalized values, only show raw and “недостаточно данных”
-- use robust statistics; outliers should not dominate
-- cap correction magnitude initially:
-  - max absolute offset correction 3.0 mmol/L
-  - max drift correction 0.5 mmol/L/day
-  - if exceeded, mark low confidence instead of silently applying aggressive correction
-
-Quality metrics:
-For each sensor:
-- fingerstick_count
-- valid_calibration_points
-- median_bias_mmol_l
-- MAD/MARD if possible
-- drift_mmol_l_per_day
-- residual_std_or_mad
-- missing_data_pct
-- suspected_compression_count
-- noise_score
-- quality_score 0–100
-- confidence: low/medium/high
-
-Smoothing:
-Implement only conservative smoothing for display:
-- do not smooth raw data
-- create smoothed display series
-- use a robust rolling median or Hampel filter for isolated spikes
-- then optional small moving average / EWMA
-- preserve real meal/insulin trends
-- never remove long sustained changes
-
-Artifact detection:
-Mark suspected compression lows:
-- mostly nighttime or long rest periods if available
-- sharp downward V-shape
-- drop rate exceeds threshold
-- recovery within 15–60 min
-- no nearby insulin/food explanation
-- not supported by fingerstick if available
-
-Store flags:
-- `compression_suspected`
-- `jump_suspected`
-- `gap`
-- `low_confidence_calibration`
-- `end_of_life_noise`
-
-Sensor end-of-life:
-Compute sensor age from `sensor_session.started_at`.
-Show warning if:
-- age >= 12 days
-- noise_score increases
-- residual variance increases
-- drift magnitude increases
-
-Frontend graph:
-Use existing SVG/Recharts approach if available.
-Must support:
-- large time-series graph
-- food markers
-- insulin markers
-- fingerstick markers
-- artifact shading
-- raw vs normalized toggle
-- tooltips
-
-Tooltip should show:
-- time
-- raw CGM
-- normalized estimate if available
-- correction amount
-- flags
-- nearby food/insulin/fingerstick
+Main glucose graph tooltip:
+Make sure every CGM point tooltip shows:
+- Raw CGM
+- normalized value if available
+- “Смещение в этот момент”
+- confidence
+- contributing fingerstick count
+- nearest fingerstick distance
 
 Copy:
-Use Russian UI text:
-- `Raw`
-- `Сглаженная`
-- `Нормализованная`
-- `Запись из пальца`
-- `Оценка смещения`
-- `Дрейф сенсора`
-- `Вероятный артефакт`
-- `Недостаточно записей из пальца`
-- `Нормализация — только информационное отображение`
+Use:
+- “Смещение в этот момент”
+- “Оценка по записям из пальца”
+- “Raw CGM сохраняется без изменений”
+- “Автокалибровка 0–48ч”
 
 Do not use:
-- `истинная глюкоза`
-- `правильная глюкоза`
-- `рекомендуемая коррекция`
-- dosing advice
+- “истинная глюкоза”
+- “правильная глюкоза”
+- “медицинская калибровка”
+- “рекомендовано”
 
-Reports/history future prep:
-Do not switch reports/history to normalized glucose in this PR.
-But design API/types so future code can request:
-- `glucoseMode: "raw" | "smoothed" | "normalized"`
+Acceptance criteria:
+- User can visually see bias changing over sensor lifetime.
+- Old points clearly use local/old bias.
+- Main tooltip exposes per-point bias metadata.
+- UI handles no/low fingerstick data gracefully.
+- Existing dashboard still works.
+- Tests/build pass.
 
-Add TODO near report/history data access:
-`Future: optionally use normalized glucose when user enables it.`
-
-Testing:
-Backend tests:
-- fingerstick CRUD
-- sensor session assignment by time
-- local wall-clock display not shifted
-- fingerstick matching with lag window
-- rapid-change fingerstick excluded
-- median offset model
-- drift model
-- low data returns no normalization
-- compression low detection
-- correction caps
-- raw values unchanged
-
-Frontend tests/build:
-- page renders with no sensors
-- page renders with current sensor
-- adding fingerstick form validation
-- mode toggle works
-- graph handles missing normalized data
-- right panel list renders
-
-Verification:
 Run:
-`cd backend && .\\.venv\\Scripts\\python.exe -m pytest -q`
-`cd backend && .\\.venv\\Scripts\\python.exe -m ruff check .`
-`cd desktop && npm test -- --run`
-`cd desktop && npm run build`
-
-Deliver:
-- changed files
-- migration summary
-- API summary
-- short explanation of calibration model
-- screenshot of `/glucose`
-- note that normalized glucose is display-only and not used for dosing
+cd backend && .\\.venv\\Scripts\\python.exe -m pytest -q
+cd backend && .\\.venv\\Scripts\\python.exe -m ruff check .
+cd desktop && npm test -- --run
+cd desktop && npm run build

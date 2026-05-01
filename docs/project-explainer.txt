@@ -1,7 +1,7 @@
 glucotracker project explainer
 ==============================
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 Purpose
 -------
@@ -247,6 +247,7 @@ Important endpoints:
 - GET /products
 - POST /products
 - POST /products/from_label
+- POST /meal_items/{id}/copy_by_weight
 - POST /meal_items/{id}/remember_product
 - GET /dashboard/today
 - GET /dashboard/range
@@ -267,7 +268,7 @@ Desktop UI
 
 Routes:
 
-- /          Journal / today logging screen
+- /          Journal / selected-day logging screen
 - /feed      History
 - /stats     Statistics
 - /database  Local food database
@@ -291,7 +292,7 @@ Visual direction from docs/DESIGN.md:
 - no chat bubbles
 - no colorful medical UI
 
-The main Today page should feel like a daily ledger:
+The main Journal page should feel like a selected-day ledger:
 
   09:20   coffee + protein bar ................. 22C   310 kcal
   13:45   bk:whopper + fries_m ................. 98C   1120 kcal
@@ -377,6 +378,25 @@ Time handling:
 - desktop sends local wall-clock datetime without trailing Z
 - if user enters 12:30, the journal should save and display 12:30
 - local day filters also use local datetime boundaries
+- creating food from the Journal uses the selected day, not always today
+- if user has 28 April open and adds a photo/manual meal, the meal is created
+  on 28 April with current local time
+- selected meal panel must allow editing full date/time, not only HH:MM
+- PATCH /meals/{id} with eaten_at moves the meal and backend recalculates old
+  and new daily totals
+
+Repeat-by-weight:
+
+- selected meal panel can create a new accepted meal from one existing item
+- frontend calls POST /meal_items/{id}/copy_by_weight with target grams and
+  intended local eaten_at
+- backend scales macros/nutrients, copies source metadata/photo reference, and
+  returns the new accepted meal
+- for label items with count and per-unit weight, UI should show quick repeat
+  for one recognized unit/package
+- example: accepted halva item "x3 packages, 20 g each" has grams=60 and
+  evidence count=3; quick action "Добавить 1 упаковку" sends grams=20
+- frontend must not calculate accepted repeat totals locally
 
 Nightscout timeline:
 

@@ -15,6 +15,8 @@ export type MealPatch = components["schemas"]["MealPatch"];
 export type MealItemCreate = components["schemas"]["MealItemCreate"];
 export type MealItemPatch = components["schemas"]["MealItemPatch"];
 export type MealItemResponse = components["schemas"]["MealItemResponse"];
+export type MealItemWeightReuseRequest =
+  components["schemas"]["MealItemWeightReuseRequest"];
 export type MealPageResponse = components["schemas"]["MealPageResponse"];
 export type MealResponse = components["schemas"]["MealResponse"];
 export type PhotoResponse = components["schemas"]["PhotoResponse"];
@@ -80,6 +82,8 @@ export type GlucoseDashboardResponse =
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
 export type FingerstickReadingCreate =
   components["schemas"]["FingerstickReadingCreate"];
+export type FingerstickReadingPatch =
+  components["schemas"]["FingerstickReadingPatch"];
 export type FingerstickReadingResponse =
   components["schemas"]["FingerstickReadingResponse"];
 export type SensorSessionCreate =
@@ -344,6 +348,20 @@ export const apiClient = {
       },
     ),
 
+  createMealFromItemWeight: (
+    config: ApiConfig,
+    itemId: string,
+    body: MealItemWeightReuseRequest,
+  ) =>
+    apiRequest<MealResponse>(
+      `/meal_items/${itemId}/copy_by_weight`,
+      config,
+      {
+        method: "POST",
+        body,
+      },
+    ),
+
   createProduct: (config: ApiConfig, body: ProductCreate) =>
     apiRequest<ProductResponse>("/products", config, {
       method: "POST",
@@ -556,6 +574,25 @@ export const apiClient = {
     apiRequest<FingerstickReadingResponse>("/fingersticks", config, {
       method: "POST",
       body,
+    }),
+
+  patchFingerstick: (
+    config: ApiConfig,
+    fingerstickId: string,
+    body: FingerstickReadingPatch,
+  ) =>
+    apiRequest<FingerstickReadingResponse>(
+      `/fingersticks/${fingerstickId}`,
+      config,
+      {
+        method: "PATCH",
+        body,
+      },
+    ),
+
+  deleteFingerstick: (config: ApiConfig, fingerstickId: string) =>
+    apiRequest<void>(`/fingersticks/${fingerstickId}`, config, {
+      method: "DELETE",
     }),
 
   listSensors: (config: ApiConfig) =>

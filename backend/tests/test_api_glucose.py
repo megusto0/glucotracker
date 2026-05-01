@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
@@ -93,6 +94,22 @@ def test_sensor_and_fingerstick_crud(api_client: TestClient) -> None:
     assert fingersticks_response.json()[0]["measured_at"].startswith(
         "2026-04-28T08:10:00"
     )
+
+    patch_response = api_client.patch(
+        f"/fingersticks/{fingerstick['id']}",
+        json={
+            "measured_at": "2026-04-28T21:45:00",
+            "glucose_mmol_l": 4.8,
+            "meter_name": "Contour Next",
+        },
+    )
+
+    assert patch_response.status_code == 200
+    patched = patch_response.json()
+    assert patched["id"] == fingerstick["id"]
+    assert patched["measured_at"].startswith("2026-04-28T21:45:00")
+    assert patched["glucose_mmol_l"] == 4.8
+    assert patched["meter_name"] == "Contour Next"
 
 
 def test_dashboard_normalizes_display_without_overwriting_raw_cgm(
@@ -266,6 +283,119 @@ def test_dashboard_models_warmup_separately_from_stable_calibration(
     assert body["points"][0]["normalized_value"] == 7.0
 
 
+def test_dashboard_recomputes_b0_after_capping_drift(api_client: TestClient) -> None:
+    """Capped drift is followed by a fresh intercept fit against the capped slope."""
+    start = datetime.fromisoformat("2026-04-30T00:00:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        prefix="capped-drift",
+        values=[
+            (810, 6.0),
+            (846, 6.0),
+            (1174, 6.0),
+            (1224, 6.0),
+        ],
+    )
+    _create_sensor(api_client, started_at="2026-04-30T00:00:00")
+    _create_fingerstick(api_client, measured_at="2026-04-30T13:30:00", value=6.77)
+    _create_fingerstick(api_client, measured_at="2026-04-30T14:06:00", value=6.89)
+    _create_fingerstick(api_client, measured_at="2026-04-30T19:34:00", value=7.10)
+
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-30T13:00:00",
+            "to": "2026-04-30T20:24:00",
+            "mode": "normalized",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    quality = body["quality"]
+    assert quality["b1_raw_mmol_l_per_day"] > 0.5
+    assert quality["b1_capped_mmol_l_per_day"] == 0.5
+    assert quality["b0_mmol_l"] == pytest.approx(0.596, abs=0.01)
+
+
+def test_dashboard_warmup_blends_capped_linear_with_median_delta(
+    api_client: TestClient,
+) -> None:
+    """Warmup normalization with 3 points is provisional and stays near the deltas."""
+    start = datetime.fromisoformat("2026-04-30T00:00:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        prefix="warmup-blend",
+        values=[
+            (810, 6.0),
+            (846, 6.0),
+            (1174, 6.0),
+            (1224, 6.0),
+        ],
+    )
+    _create_sensor(api_client, started_at="2026-04-30T00:00:00")
+    _create_fingerstick(api_client, measured_at="2026-04-30T13:30:00", value=6.77)
+    _create_fingerstick(api_client, measured_at="2026-04-30T14:06:00", value=6.89)
+    _create_fingerstick(api_client, measured_at="2026-04-30T19:34:00", value=7.10)
+
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-30T13:00:00",
+            "to": "2026-04-30T20:24:00",
+            "mode": "normalized",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    quality = body["quality"]
+    latest = body["points"][-1]
+    assert quality["sensor_phase"] == "warmup"
+    assert quality["calibration_strategy"] == "warmup_blend"
+    assert quality["confidence"] == "low"
+    assert quality["median_delta_mmol_l"] == pytest.approx(0.89, abs=0.01)
+    assert quality["correction_now_mmol_l"] == pytest.approx(0.94, abs=0.02)
+    assert latest["correction_mmol_l"] == pytest.approx(1.1, abs=0.02)
+    assert abs(quality["correction_now_mmol_l"] - 0.89) < abs(0.619 - 0.89)
+
+
+def test_dashboard_uses_median_delta_with_fewer_than_three_valid_points(
+    api_client: TestClient,
+) -> None:
+    """One or two valid points create a provisional constant median-delta offset."""
+    start = datetime.fromisoformat("2026-04-28T00:00:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        prefix="median-delta",
+        values=[(780, 6.0), (840, 6.0), (900, 6.0)],
+    )
+    _create_sensor(api_client, started_at="2026-04-28T00:00:00")
+    _create_fingerstick(api_client, measured_at="2026-04-28T13:00:00", value=6.7)
+    _create_fingerstick(api_client, measured_at="2026-04-28T14:00:00", value=7.1)
+
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T13:00:00",
+            "to": "2026-04-28T15:00:00",
+            "mode": "normalized",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    quality = body["quality"]
+    assert quality["valid_calibration_points"] == 2
+    assert quality["calibration_strategy"] == "median_delta"
+    assert quality["median_delta_mmol_l"] == pytest.approx(0.9, abs=0.01)
+    assert quality["correction_now_mmol_l"] == pytest.approx(0.9, abs=0.01)
+    assert body["points"][-1]["correction_mmol_l"] == pytest.approx(1.1, abs=0.02)
+
+
 def test_dashboard_excludes_rapid_change_fingersticks(
     api_client: TestClient,
 ) -> None:
@@ -302,10 +432,10 @@ def test_dashboard_excludes_rapid_change_fingersticks(
     body = response.json()
     assert body["quality"]["fingerstick_count"] == 2
     assert body["quality"]["matched_calibration_points"] == 1
-    assert body["quality"]["valid_calibration_points"] == 0
-    assert body["quality"]["confidence"] == "none"
-    assert body["points"][0]["normalized_value"] is None
-    assert body["points"][0]["display_value"] == body["points"][0]["raw_value"]
+    assert body["quality"]["valid_calibration_points"] == 1
+    assert body["quality"]["calibration_strategy"] == "median_delta"
+    assert body["quality"]["confidence"] == "low"
+    assert body["points"][0]["normalized_value"] is not None
 
 
 def test_recalculate_calibration_persists_active_model(

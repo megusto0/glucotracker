@@ -208,6 +208,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fingersticks/{fingerstick_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Fingerstick
+         * @description Delete a manual capillary glucose reading.
+         */
+        delete: operations["deleteFingerstick"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Fingerstick
+         * @description Patch a manual capillary glucose reading.
+         */
+        patch: operations["patchFingerstick"];
+        trace?: never;
+    };
     "/glucose/dashboard": {
         parameters: {
             query?: never;
@@ -270,6 +294,26 @@ export interface paths {
          * @description Patch a meal item and recalculate its meal totals.
          */
         patch: operations["patchMealItem"];
+        trace?: never;
+    };
+    "/meal_items/{item_id}/copy_by_weight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Meal From Item Weight
+         * @description Create a new meal from an existing item scaled to a target weight.
+         */
+        post: operations["createMealFromMealItemWeight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/meal_items/{item_id}/remember_product": {
@@ -1278,6 +1322,77 @@ export interface components {
              */
             usage_count: number;
         };
+        /**
+         * BiasCurvePoint
+         * @description One sampled point on the estimated bias curve.
+         */
+        BiasCurvePoint: {
+            /** Bias */
+            bias: number;
+            /** Confidence */
+            confidence: string;
+            /** Contributing Fingerstick Count */
+            contributing_fingerstick_count: number;
+            /** Nearest Fingerstick Distance Min */
+            nearest_fingerstick_distance_min?: number | null;
+            /** Sensor Age Hours */
+            sensor_age_hours: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /**
+         * BiasOverLifetimeData
+         * @description Data for the bias-over-sensor-lifetime chart.
+         */
+        BiasOverLifetimeData: {
+            /** Bias Curve */
+            bias_curve: components["schemas"]["BiasCurvePoint"][];
+            /** Phase Markers */
+            phase_markers: components["schemas"]["BiasPhaseMarker"][];
+            /** Residuals */
+            residuals: components["schemas"]["BiasResidualPoint"][];
+            /**
+             * Sensor Started At
+             * Format: date-time
+             */
+            sensor_started_at: string;
+        };
+        /**
+         * BiasPhaseMarker
+         * @description Phase boundary on the bias chart.
+         */
+        BiasPhaseMarker: {
+            /** Label */
+            label: string;
+            /** Sensor Age Hours */
+            sensor_age_hours: number;
+        };
+        /**
+         * BiasResidualPoint
+         * @description One fingerstick residual on the bias chart.
+         */
+        BiasResidualPoint: {
+            /** Exclusion Reason */
+            exclusion_reason?: string | null;
+            /** Fingerstick Value */
+            fingerstick_value: number;
+            /** Included */
+            included: boolean;
+            /**
+             * Measured At
+             * Format: date-time
+             */
+            measured_at: string;
+            /** Raw Cgm Value */
+            raw_cgm_value: number;
+            /** Residual */
+            residual: number;
+            /** Sensor Age Hours */
+            sensor_age_hours: number;
+        };
         /** Body_uploadMealPhoto */
         Body_uploadMealPhoto: {
             /**
@@ -1983,6 +2098,20 @@ export interface components {
             notes?: string | null;
         };
         /**
+         * FingerstickReadingPatch
+         * @description Patch a manual capillary glucose reading.
+         */
+        FingerstickReadingPatch: {
+            /** Glucose Mmol L */
+            glucose_mmol_l?: number | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Meter Name */
+            meter_name?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /**
          * FingerstickReadingResponse
          * @description Stored manual capillary glucose reading.
          */
@@ -2070,6 +2199,8 @@ export interface components {
         GlucoseDashboardFoodEvent: {
             /** Carbs G */
             carbs_g: number;
+            /** Kcal */
+            kcal?: number | null;
             /**
              * Timestamp
              * Format: date-time
@@ -2100,12 +2231,18 @@ export interface components {
          * @description One glucose dashboard display point.
          */
         GlucoseDashboardPoint: {
+            /** Bias Confidence */
+            bias_confidence?: string | null;
+            /** Contributing Fingerstick Count */
+            contributing_fingerstick_count?: number | null;
             /** Correction Mmol L */
             correction_mmol_l?: number | null;
             /** Display Value */
             display_value: number;
             /** Flags */
             flags?: string[];
+            /** Nearest Fingerstick Distance Min */
+            nearest_fingerstick_distance_min?: number | null;
             /** Normalized Value */
             normalized_value?: number | null;
             /** Raw Value */
@@ -2125,6 +2262,7 @@ export interface components {
         GlucoseDashboardResponse: {
             /** Artifacts */
             artifacts: components["schemas"]["GlucoseArtifactInterval"][];
+            bias_over_lifetime?: components["schemas"]["BiasOverLifetimeData"] | null;
             current_sensor?: components["schemas"]["SensorSessionResponse"] | null;
             /** Fingersticks */
             fingersticks: components["schemas"]["FingerstickReadingResponse"][];
@@ -2633,6 +2771,19 @@ export interface components {
             updated_at: string;
             /** Warnings */
             warnings?: unknown[];
+        };
+        /**
+         * MealItemWeightReuseRequest
+         * @description Create a new meal from an existing item scaled to a target weight.
+         */
+        MealItemWeightReuseRequest: {
+            /** Eaten At */
+            eaten_at?: string | null;
+            /**
+             * Grams
+             * @example 127
+             */
+            grams: number;
         };
         /**
          * MealPageResponse
@@ -4067,13 +4218,27 @@ export interface components {
          */
         SensorQualityResponse: {
             active_model?: components["schemas"]["CgmCalibrationModelResponse"] | null;
+            /** B0 Mmol L */
+            b0_mmol_l?: number | null;
+            /** B1 Capped Mmol L Per Day */
+            b1_capped_mmol_l_per_day?: number | null;
+            /** B1 Raw Mmol L Per Day */
+            b1_raw_mmol_l_per_day?: number | null;
             /** Calibration Basis */
             calibration_basis?: ("stable_after_48h" | "warmup_after_12h_fallback" | "insufficient") | null;
+            /** Calibration Strategy */
+            calibration_strategy?: ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
             /**
              * Confidence
              * @enum {string}
              */
             confidence: "none" | "low" | "medium" | "high";
+            /** Correction Now Mmol L */
+            correction_now_mmol_l?: number | null;
+            /** Delta Max Mmol L */
+            delta_max_mmol_l?: number | null;
+            /** Delta Min Mmol L */
+            delta_min_mmol_l?: number | null;
             /** Drift Mmol L Per Day */
             drift_mmol_l_per_day?: number | null;
             /** Fingerstick Count */
@@ -4089,6 +4254,8 @@ export interface components {
             matched_calibration_points: number;
             /** Median Bias Mmol L */
             median_bias_mmol_l?: number | null;
+            /** Median Delta Mmol L */
+            median_delta_mmol_l?: number | null;
             /** Missing Data Pct */
             missing_data_pct?: number | null;
             /** Noise Score */
@@ -4687,6 +4854,70 @@ export interface operations {
             };
         };
     };
+    deleteFingerstick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fingerstick_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patchFingerstick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fingerstick_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FingerstickReadingPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FingerstickReadingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getGlucoseDashboard: {
         parameters: {
             query: {
@@ -4793,6 +5024,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MealItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createMealFromMealItemWeight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealItemWeightReuseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealResponse"];
                 };
             };
             /** @description Validation Error */

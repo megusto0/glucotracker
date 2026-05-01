@@ -63,6 +63,7 @@ export function useSyncTodayToNightscout(date: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
       queryClient.invalidateQueries({ queryKey: queryKeys.nightscoutDayStatus(date) });
     },
   });
@@ -76,6 +77,7 @@ export function useSyncMealToNightscout(date?: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
       if (date) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.nightscoutDayStatus(date),
@@ -96,6 +98,7 @@ export function useResyncMealToNightscout(date?: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
       if (date) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.nightscoutDayStatus(date),
@@ -131,6 +134,7 @@ export function useImportNightscoutContext(from: string, to: string) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.timeline(resultFrom, resultTo),
       });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
       queryClient.invalidateQueries({
         queryKey: queryKeys.nightscoutEvents(resultFrom, resultTo),
       });

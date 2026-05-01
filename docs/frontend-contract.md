@@ -43,6 +43,32 @@ Model selection is not frontend-owned. The backend routes `LABEL_FULL` to a lite
 
 For existing photo meals, replacement UIs should support comparison re-estimation through `/meals/{id}/reestimate`. This endpoint returns a proposal only; it must not be treated as saved state until the user applies it with `/meals/{id}/apply_estimation_run/{run_id}`. The safe default for meals with manual corrections is `save_as_draft`, not replacing the current accepted meal.
 
+## Meal Date And Repeat Flows
+
+Journal creation uses the selected local day. If the user is viewing 2026-04-28
+and creates a manual meal, autocomplete meal, or photo draft, the frontend should
+send `eaten_at` on 2026-04-28 with the current local wall-clock time. This is
+intentional for backfilling old days. Do not silently force new entries to today.
+
+The selected meal panel must let the user edit both date and time, not only
+time. Send the final local wall-clock value through `PATCH /meals/{id}` with
+`{ "eaten_at": "YYYY-MM-DDTHH:MM:SS" }`. Backend daily-total recalculation is
+authoritative for both the old and new day.
+
+For repeat-by-weight flows, the frontend should call
+`POST /meal_items/{id}/copy_by_weight` with a JSON body containing `grams` and
+optional `eaten_at`. The backend creates a new accepted one-item meal, copies
+source metadata/photo references where applicable, and scales macros and
+optional nutrients. Frontends must not scale accepted macros locally.
+
+For recognized multi-unit packaged foods, the frontend may show a quick action
+for one unit/package. Derive the quick weight from backend-returned evidence in
+this order: `evidence.net_weight_per_unit_g`, then `evidence.total_weight_g /
+evidence.count_detected`, then `item.grams / evidence.count_detected`. Example:
+an accepted item with `serving_text="×3 упаковки · 20 г каждая"` and
+`grams=60` should expose `Добавить 1 упаковку` and send `grams=20` to
+`copy_by_weight`.
+
 ## Autocomplete
 
 Future frontends should use `GET /autocomplete` for pattern/product suggestions instead of duplicating prefix parsing, alias matching, fuzzy-ish contains matching, usage sorting, or product lookup locally.

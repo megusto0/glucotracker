@@ -23,6 +23,7 @@ import {
   useRecalculateTotals,
 } from "./useSettingsChecks";
 import { EndocrinologistReportSection } from "./EndocrinologistReportSection";
+import { FoodDiaryExportSection } from "./FoodDiaryExportSection";
 import { type Theme, useSettingsStore } from "./settingsStore";
 
 const openApiHref = (baseUrl: string) =>
@@ -275,6 +276,7 @@ export function SettingsPage() {
           </SettingsSection>
 
           <EndocrinologistReportSection />
+          <FoodDiaryExportSection />
         </div>
 
         <aside className="grid min-w-0 content-start gap-6 border-t border-[var(--hairline)] pt-8 xl:border-l xl:border-t-0 xl:pl-9 xl:pt-0">

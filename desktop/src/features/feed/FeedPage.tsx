@@ -16,7 +16,9 @@ import {
   SelectedMealPanel,
 } from "../meals/MealLedger";
 import {
+  useCreateMealFromItemWeight,
   useDuplicateMeal,
+  useUpdateMealItemWeight,
   useUpdateMealName,
   useUpdateMealTime,
 } from "../meals/useMealMutations";
@@ -121,7 +123,7 @@ export function FeedPage() {
   const { active: activeChips, toggle: toggleChip } = useQuickFilterChips();
   const range = useMemo(() => eventRange(filters), [filters.from, filters.to]);
   const nightscoutSettings = useNightscoutSettings();
-  const timelineEnabled = Boolean(nightscoutSettings.data?.configured);
+  const timelineEnabled = Boolean(config.token.trim());
   const timeline = useTimeline(range.from, range.to, timelineEnabled);
   const importNightscout = useImportNightscoutContext(range.from, range.to);
   const syncMealNightscout = useSyncMealToNightscout();
@@ -204,6 +206,8 @@ export function FeedPage() {
   }, [selectedMeal, selectedMealId]);
 
   const duplicate = useDuplicateMeal();
+  const createFromWeight = useCreateMealFromItemWeight();
+  const updateItemWeight = useUpdateMealItemWeight();
   const updateMealTime = useUpdateMealTime();
   const updateMealName = useUpdateMealName();
 
@@ -287,8 +291,18 @@ export function FeedPage() {
         {selectedMeal ? (
           <SelectedMealPanel
             duplicatePending={duplicate.isPending}
+            createFromWeightPending={createFromWeight.isPending}
             meal={selectedMeal}
+            onCreateFromWeight={(item, grams) =>
+              createFromWeight.mutate(
+                { grams, itemId: item.id },
+                { onSuccess: (meal) => setSelectedMealId(meal.id) },
+              )
+            }
             onDuplicate={(meal) => duplicate.mutate(meal)}
+            onUpdateItemWeight={(item, grams) =>
+              updateItemWeight.mutate({ grams, itemId: item.id })
+            }
             onUpdateName={(meal, name) => updateMealName.mutate({ meal, name })}
             onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
             onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
@@ -296,6 +310,7 @@ export function FeedPage() {
             syncNightscoutPending={syncMealNightscout.isPending || resyncMealNightscout.isPending}
             updateNamePending={updateMealName.isPending}
             updateTimePending={updateMealTime.isPending}
+            updateWeightPending={updateItemWeight.isPending}
           />
         ) : null}
       </RightPanel>

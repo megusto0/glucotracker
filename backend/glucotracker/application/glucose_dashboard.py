@@ -13,8 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
+    BiasCurvePoint,
+    BiasOverLifetimeData,
+    BiasPhaseMarker,
+    BiasResidualPoint,
     CgmCalibrationModelResponse,
     FingerstickReadingCreate,
+    FingerstickReadingPatch,
     FingerstickReadingResponse,
     GlucoseArtifactInterval,
     GlucoseDashboardFoodEvent,
@@ -43,20 +48,28 @@ from glucotracker.infra.db.models import (
 GlucoseMode = Literal["raw", "smoothed", "normalized"]
 Confidence = Literal["none", "low", "medium", "high"]
 SensorPhase = Literal["warmup", "stable", "end_of_life"]
+CalibrationStrategy = Literal["median_delta", "warmup_blend", "linear", "insufficient"]
 CalibrationBasis = Literal[
     "stable_after_48h",
     "warmup_after_12h_fallback",
     "insufficient",
 ]
 
-MODEL_VERSION = "display_linear_offset_v1"
+MODEL_VERSION = "pointwise_weighted_median_v2"
 MAX_OFFSET = 3.0
 MAX_DRIFT_PER_DAY = 0.5
 INITIAL_WARMUP_HOURS = 2.0
 EARLY_WARMUP_HOURS = 12.0
 WARMUP_HOURS = 48.0
+WARMUP_MEDIAN_WEIGHT = 0.65
+WARMUP_LINEAR_WEIGHT = 0.35
 STABLE_START_DAYS = WARMUP_HOURS / 24
 FALLBACK_START_DAYS = EARLY_WARMUP_HOURS / 24
+WARMUP_BIAS_BANDWIDTH_H = 9.0
+STABLE_BIAS_BANDWIDTH_H = 36.0
+END_OF_LIFE_BIAS_BANDWIDTH_H = 18.0
+MIN_BIAS_CONTRIBUTORS = 1
+MAX_BIAS_BANDWIDTH_H = 72.0
 
 
 @dataclass(frozen=True)
@@ -168,6 +181,27 @@ class GlucoseDashboardService:
         self.session.refresh(row)
         return FingerstickReadingResponse.model_validate(row)
 
+    def patch_fingerstick(
+        self,
+        fingerstick_id: UUID,
+        payload: FingerstickReadingPatch,
+    ) -> FingerstickReadingResponse:
+        """Patch a manual capillary glucose reading."""
+        row = self._fingerstick(fingerstick_id)
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            if field == "measured_at" and value is not None:
+                value = _local_wall_time(value)
+            setattr(row, field, value)
+        self.session.commit()
+        self.session.refresh(row)
+        return FingerstickReadingResponse.model_validate(row)
+
+    def delete_fingerstick(self, fingerstick_id: UUID) -> None:
+        """Delete a manual capillary glucose reading."""
+        row = self._fingerstick(fingerstick_id)
+        self.session.delete(row)
+        self.session.commit()
+
     def sensor_quality(self, sensor_id: UUID) -> SensorQualityResponse:
         """Return computed quality metrics for one sensor."""
         sensor = self._sensor(sensor_id)
@@ -244,6 +278,11 @@ class GlucoseDashboardService:
         points = self._display_points(raw_points, calibration, mode)
         artifacts = _artifact_intervals(raw_points, current_sensor)
         summary = self._summary(points, quality)
+        bias_data = None
+        if current_sensor is not None and calibration is not None:
+            bias_data = self._bias_over_lifetime(
+                current_sensor, calibration, local_from, local_to,
+            )
 
         return GlucoseDashboardResponse(
             from_datetime=from_datetime,
@@ -265,6 +304,7 @@ class GlucoseDashboardService:
             sensors=[SensorSessionResponse.model_validate(row) for row in sensors],
             quality=quality,
             summary=summary,
+            bias_over_lifetime=bias_data,
             notes=_unique(notes),
         )
 
@@ -276,6 +316,15 @@ class GlucoseDashboardService:
                 detail="Sensor session not found.",
             )
         return sensor
+
+    def _fingerstick(self, fingerstick_id: UUID) -> FingerstickReading:
+        row = self.session.get(FingerstickReading, fingerstick_id)
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Fingerstick reading not found.",
+            )
+        return row
 
     def _raw_points(
         self,
@@ -348,6 +397,7 @@ class GlucoseDashboardService:
                 timestamp=meal.eaten_at,
                 title=meal.title or "Приём пищи",
                 carbs_g=meal.total_carbs_g,
+                kcal=meal.total_kcal,
             )
             for meal in rows
         ]
@@ -385,7 +435,7 @@ class GlucoseDashboardService:
         warmup_metrics = _warmup_metrics(matched)
         valid, basis = _stable_calibration_points(matched)
         notes: list[str] = []
-        if len(valid) < 2:
+        if not valid:
             notes.append(
                 "Недостаточно записей из пальца после 12 ч для оценки смещения."
             )
@@ -410,20 +460,56 @@ class GlucoseDashboardService:
             )
 
         residuals = [point.residual for point in valid]
-        b1 = _robust_slope(valid) if len(valid) >= 3 else 0.0
-        b0 = _median([point.residual - b1 * point.sensor_age_days for point in valid])
+        median_delta = _median(residuals)
+        raw_b1 = _robust_slope(valid) if len(valid) >= 3 else 0.0
+        b1 = max(min(raw_b1, MAX_DRIFT_PER_DAY), -MAX_DRIFT_PER_DAY)
         capped = False
+        if b1 != raw_b1:
+            notes.append("Дрейф слишком большой, коррекция ограничена.")
+            capped = True
+        b0 = _median([point.residual - b1 * point.sensor_age_days for point in valid])
         if abs(b0) > MAX_OFFSET:
             notes.append("Оценка смещения слишком большая, поправка ограничена.")
             b0 = max(min(b0, MAX_OFFSET), -MAX_OFFSET)
             capped = True
-        if abs(b1) > MAX_DRIFT_PER_DAY:
-            notes.append("Дрейф слишком большой, коррекция ограничена.")
-            b1 = max(min(b1, MAX_DRIFT_PER_DAY), -MAX_DRIFT_PER_DAY)
+
+        current_age_days = _sensor_age_days(
+            sensor,
+            raw_points[-1].timestamp if raw_points else _now_local(),
+        )
+        current_phase = _sensor_phase(current_age_days)
+        if len(valid) < 3:
+            strategy: CalibrationStrategy = "median_delta"
+            b1 = 0.0
+            b0 = median_delta
+            notes.append(
+                "Меньше 3 валидных записей из пальца; используется медиана "
+                "расхождения, без оценки дрейфа."
+            )
+        elif current_phase == "warmup":
+            strategy = "warmup_blend"
+            notes.append(
+                "Сенсор в первые 48 ч; нормализация предварительная и сильнее "
+                "опирается на медиану расхождений."
+            )
+        else:
+            strategy = "linear"
+        if abs(b0) > MAX_OFFSET:
+            notes.append("Оценка смещения слишком большая, поправка ограничена.")
+            b0 = max(min(b0, MAX_OFFSET), -MAX_OFFSET)
             capped = True
 
         fitted_residuals = [
-            point.residual - (b0 + b1 * point.sensor_age_days) for point in valid
+            point.residual - _correction_for_age(
+                {
+                    "b0": b0,
+                    "b1": b1,
+                    "median_delta_mmol_l": median_delta,
+                    "correction_strategy": strategy,
+                },
+                point.sensor_age_days,
+            )
+            for point in valid
         ]
         metrics = _calibration_metrics(
             valid,
@@ -434,6 +520,25 @@ class GlucoseDashboardService:
         )
         metrics.update(
             {
+                "b0_mmol_l": round(b0, 4),
+                "b1_raw_mmol_l_per_day": round(raw_b1, 4),
+                "b1_capped_mmol_l_per_day": round(b1, 4),
+                "calibration_strategy": strategy,
+                "correction_now_mmol_l": round(
+                    _correction_for_age(
+                        {
+                            "b0": b0,
+                            "b1": b1,
+                            "median_delta_mmol_l": median_delta,
+                            "correction_strategy": strategy,
+                        },
+                        current_age_days,
+                    ),
+                    4,
+                ),
+                "delta_max_mmol_l": max(residuals),
+                "delta_min_mmol_l": min(residuals),
+                "median_delta_mmol_l": median_delta,
                 "model_residual_mad_mmol_l": _mad(fitted_residuals),
                 "raw_residual_median_mmol_l": _median(residuals),
                 "capped": capped,
@@ -452,6 +557,12 @@ class GlucoseDashboardService:
                 "can_normalize": True,
                 "b0": round(b0, 4),
                 "b1": round(b1, 4),
+                "b1_raw": round(raw_b1, 4),
+                "b1_capped": round(b1, 4),
+                "correction_strategy": strategy,
+                "median_delta_mmol_l": round(median_delta, 4),
+                "warmup_linear_weight": WARMUP_LINEAR_WEIGHT,
+                "warmup_median_weight": WARMUP_MEDIAN_WEIGHT,
                 "sensor_started_at": sensor.started_at.isoformat(),
                 "max_offset_mmol_l": MAX_OFFSET,
                 "max_drift_mmol_l_per_day": MAX_DRIFT_PER_DAY,
@@ -484,6 +595,7 @@ class GlucoseDashboardService:
         )
         missing_pct = _missing_data_pct(raw_points, sensor.started_at, sensor.ended_at)
         noise = _noise_score(raw_points)
+        correction_now = _correction_now(sensor, raw_points, calibration)
         quality_score = _quality_score(
             mard=metrics.get("mard_percent"),
             residual_mad=metrics.get("model_residual_mad_mmol_l")
@@ -512,9 +624,29 @@ class GlucoseDashboardService:
                 else None
             ),
             median_bias_mmol_l=metrics.get("raw_residual_median_mmol_l"),
+            median_delta_mmol_l=(
+                metrics.get("median_delta_mmol_l")
+                if metrics.get("median_delta_mmol_l") is not None
+                else metrics.get("raw_residual_median_mmol_l")
+            ),
+            delta_min_mmol_l=metrics.get("delta_min_mmol_l"),
+            delta_max_mmol_l=metrics.get("delta_max_mmol_l"),
+            b0_mmol_l=calibration.params.get("b0"),
+            b1_raw_mmol_l_per_day=calibration.params.get("b1_raw"),
+            b1_capped_mmol_l_per_day=(
+                calibration.params.get("b1_capped")
+                if calibration.params.get("b1_capped") is not None
+                else calibration.params.get("b1")
+            ),
+            correction_now_mmol_l=correction_now,
+            calibration_strategy=calibration.params.get("correction_strategy"),
             mad_mmol_l=metrics.get("mad_mmol_l"),
             mard_percent=metrics.get("mard_percent"),
-            drift_mmol_l_per_day=calibration.params.get("b1"),
+            drift_mmol_l_per_day=(
+                calibration.params.get("b1_capped")
+                if calibration.params.get("b1_capped") is not None
+                else calibration.params.get("b1")
+            ),
             residual_mad_mmol_l=metrics.get("model_residual_mad_mmol_l"),
             missing_data_pct=missing_pct,
             suspected_compression_count=compression_count,
@@ -571,6 +703,7 @@ class GlucoseDashboardService:
     ) -> list[GlucoseDashboardPoint]:
         result: list[GlucoseDashboardPoint] = []
         normalized_values = _normalized_values(raw_points, calibration)
+        bias_metadata = _bias_metadata_for_points(raw_points, calibration)
         smoothing_source = [
             value if value is not None else point.value
             for point, value in zip(raw_points, normalized_values, strict=False)
@@ -587,6 +720,7 @@ class GlucoseDashboardService:
                 display = smoothed_value
             elif mode == "normalized" and normalized is not None:
                 display = normalized
+            meta = bias_metadata[index] if index < len(bias_metadata) else {}
             result.append(
                 GlucoseDashboardPoint(
                     timestamp=point.timestamp,
@@ -597,6 +731,13 @@ class GlucoseDashboardService:
                     correction_mmol_l=round(correction, 2)
                     if correction is not None
                     else None,
+                    bias_confidence=meta.get("bias_confidence"),
+                    nearest_fingerstick_distance_min=meta.get(
+                        "nearest_fingerstick_distance_min",
+                    ),
+                    contributing_fingerstick_count=meta.get(
+                        "contributing_fingerstick_count",
+                    ),
                     flags=_flags_for_point(raw_points, index),
                 )
             )
@@ -612,10 +753,135 @@ class GlucoseDashboardService:
             current_glucose=current.display_value if current else None,
             current_glucose_at=current.timestamp if current else None,
             sensor_age_days=quality.sensor_age_days,
-            bias_mmol_l=quality.median_bias_mmol_l,
+            bias_mmol_l=(
+                quality.correction_now_mmol_l
+                if quality.correction_now_mmol_l is not None
+                else quality.median_bias_mmol_l
+            ),
             drift_mmol_l_per_day=quality.drift_mmol_l_per_day,
             calibration_confidence=quality.confidence,
             suspected_compression_count=quality.suspected_compression_count,
+        )
+
+    def _bias_over_lifetime(
+        self,
+        sensor: SensorSession,
+        calibration: CalibrationResult,
+        view_from: datetime,
+        view_to: datetime,
+    ) -> BiasOverLifetimeData | None:
+        """Build bias-over-lifetime chart data for a sensor."""
+        sensor_start = sensor.started_at
+        sensor_end = _local_wall_time(sensor.ended_at or utc_now())
+        sensor_raw = self._raw_points(sensor_start, sensor_end)
+        sensor_fingersticks = self._fingerstick_rows(sensor_start, sensor.ended_at)
+        matched = _valid_calibration_points(sensor, sensor_raw, sensor_fingersticks)
+
+        all_fingersticks = self._fingerstick_rows(sensor_start, sensor.ended_at)
+
+        residual_points: list[BiasResidualPoint] = []
+        for row in all_fingersticks:
+            measured_at = _local_wall_time(row.measured_at)
+            age_h = (measured_at - sensor_start).total_seconds() / 3600
+            match_result = _cgm_at(sensor_raw, measured_at)
+            if match_result is None:
+                residual_points.append(
+                    BiasResidualPoint(
+                        measured_at=measured_at,
+                        sensor_age_hours=round(age_h, 1),
+                        fingerstick_value=row.glucose_mmol_l,
+                        raw_cgm_value=0,
+                        residual=0,
+                        included=False,
+                        exclusion_reason="Нет CGM рядом по времени",
+                    )
+                )
+                continue
+            raw_val, max_dist = match_result
+            residual = row.glucose_mmol_l - raw_val
+            is_matched = any(
+                p.measured_at == measured_at and abs(p.residual - residual) < 0.01
+                for p in matched
+            )
+            reason = None
+            if not is_matched:
+                slope = _local_slope(sensor_raw, measured_at)
+                if max_dist > 20:
+                    reason = "CGM слишком далеко"
+                elif slope is not None and abs(slope) > 0.08:
+                    reason = "Глюкоза быстро меняется"
+                else:
+                    nearest_idx = _nearest_index(sensor_raw, measured_at)
+                    if nearest_idx is not None:
+                        flags = _flags_for_point(sensor_raw, nearest_idx)
+                        if "compression_suspected" in flags:
+                            reason = "Артефакт сдавления"
+                        elif "jump_suspected" in flags:
+                            reason = "Артефакт скачка"
+                        else:
+                            reason = "Интервал < 10 мин от другого замера"
+            residual_points.append(
+                BiasResidualPoint(
+                    measured_at=measured_at,
+                    sensor_age_hours=round(age_h, 1),
+                    fingerstick_value=row.glucose_mmol_l,
+                    raw_cgm_value=round(raw_val, 1),
+                    residual=round(residual, 2),
+                    included=is_matched,
+                    exclusion_reason=reason,
+                )
+            )
+
+        range_start = min(sensor_start, view_from)
+        range_end = max(sensor_end, view_to)
+        total_hours = max((range_end - range_start).total_seconds() / 3600, 1)
+        step_hours = max(total_hours / 60, 0.5)
+        bias_curve: list[BiasCurvePoint] = []
+        t = sensor_start
+        while t <= range_end:
+            age_h = (t - sensor_start).total_seconds() / 3600
+            bias_est = estimate_bias_at(t, matched, sensor_start)
+            if bias_est is not None:
+                bias_curve.append(
+                    BiasCurvePoint(
+                        timestamp=t,
+                        sensor_age_hours=round(age_h, 1),
+                        bias=bias_est.bias,
+                        confidence=bias_est.confidence,
+                        contributing_fingerstick_count=bias_est.contributing_count,
+                        nearest_fingerstick_distance_min=(
+                            round(bias_est.nearest_fingerstick_distance_h * 60, 1)
+                            if bias_est.nearest_fingerstick_distance_h is not None
+                            else None
+                        ),
+                    )
+                )
+            t += timedelta(hours=step_hours)
+
+        phase_markers: list[BiasPhaseMarker] = [
+            BiasPhaseMarker(sensor_age_hours=0, label="start"),
+            BiasPhaseMarker(
+                sensor_age_hours=WARMUP_HOURS,
+                label=f"stable ({int(WARMUP_HOURS)}ч)",
+            ),
+        ]
+        sensor_life_h = (sensor_end - sensor_start).total_seconds() / 3600
+        if sensor_life_h >= 12 * 24:
+            phase_markers.append(
+                BiasPhaseMarker(
+                    sensor_age_hours=12 * 24,
+                    label="end_of_life (12д)",
+                )
+            )
+
+        if not residual_points and not bias_curve:
+            return None
+
+        return BiasOverLifetimeData(
+            sensor_started_at=sensor_start,
+            residuals=residual_points,
+            bias_curve=bias_curve,
+            phase_markers=phase_markers,
         )
 
 
@@ -663,13 +929,13 @@ def _stable_calibration_points(
     stable = [
         point for point in points if point.sensor_age_days >= STABLE_START_DAYS
     ]
-    if len(stable) >= 2:
+    if stable:
         return stable, "stable_after_48h"
 
     fallback = [
         point for point in points if point.sensor_age_days >= FALLBACK_START_DAYS
     ]
-    if len(fallback) >= 2:
+    if fallback:
         return fallback, "warmup_after_12h_fallback"
 
     return [], "insufficient"
@@ -827,6 +1093,112 @@ def _local_slope(points: list[RawPoint], target: datetime) -> float | None:
     return (right.value - left.value) / minutes
 
 
+@dataclass(frozen=True)
+class BiasEstimate:
+    """Time-local bias estimate for one CGM point."""
+
+    bias: float
+    confidence: Confidence
+    nearest_fingerstick_distance_h: float | None
+    contributing_count: int
+
+
+def _bandwidth_for_phase(sensor_age_days: float) -> float:
+    """Return bandwidth in hours for the sensor phase."""
+    if sensor_age_days < STABLE_START_DAYS:
+        return WARMUP_BIAS_BANDWIDTH_H
+    if sensor_age_days >= 12:
+        return END_OF_LIFE_BIAS_BANDWIDTH_H
+    return STABLE_BIAS_BANDWIDTH_H
+
+
+def estimate_bias_at(
+    target: datetime,
+    calibration_points: list[CalibrationPoint],
+    sensor_start: datetime,
+) -> BiasEstimate | None:
+    """Estimate time-local CGM bias at a specific timestamp.
+
+    Uses weighted median of nearby fingerstick residuals, with bandwidth
+    depending on sensor phase. Returns None when no valid residuals exist
+    within range.
+    """
+    if not calibration_points:
+        return None
+
+    target_age_days = max((target - sensor_start).total_seconds(), 0) / 86400
+    bandwidth_h = _bandwidth_for_phase(target_age_days)
+    bandwidth_s = bandwidth_h * 3600
+
+    weighted: list[tuple[float, float]] = []
+    nearest_distance_h: float | None = None
+    for point in calibration_points:
+        distance_s = abs((point.measured_at - target).total_seconds())
+        distance_h = distance_s / 3600
+        if nearest_distance_h is None or distance_h < nearest_distance_h:
+            nearest_distance_h = distance_h
+        if distance_s > bandwidth_s:
+            continue
+        weight = 1.0 - (distance_s / bandwidth_s)
+        weight = weight * weight
+        weighted.append((point.residual, weight))
+
+    if not weighted:
+        expanded_s = MAX_BIAS_BANDWIDTH_H * 3600
+        for point in calibration_points:
+            distance_s = abs((point.measured_at - target).total_seconds())
+            if distance_s > expanded_s:
+                continue
+            distance_h = distance_s / 3600
+            if nearest_distance_h is None or distance_h < nearest_distance_h:
+                nearest_distance_h = distance_h
+            weight = 1.0 - (distance_s / expanded_s)
+            weight = weight * weight
+            weighted.append((point.residual, weight))
+
+    if not weighted:
+        return None
+
+    bias = _weighted_median(weighted)
+    bias = max(min(bias, MAX_OFFSET), -MAX_OFFSET)
+
+    count = len(weighted)
+    if count >= 4 and (nearest_distance_h or 999) <= bandwidth_h * 0.5:
+        confidence: Confidence = "high"
+    elif count >= 2:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    if target_age_days < STABLE_START_DAYS and count < 2:
+        confidence = "low"
+
+    return BiasEstimate(
+        bias=round(bias, 4),
+        confidence=confidence,
+        nearest_fingerstick_distance_h=(
+            round(nearest_distance_h, 1) if nearest_distance_h is not None else None
+        ),
+        contributing_count=count,
+    )
+
+
+def _weighted_median(pairs: list[tuple[float, float]]) -> float:
+    """Compute weighted median from (value, weight) pairs."""
+    if not pairs:
+        return 0.0
+    sorted_pairs = sorted(pairs, key=lambda p: p[0])
+    total = sum(w for _, w in sorted_pairs)
+    if total <= 0:
+        return _median([v for v, _ in sorted_pairs])
+    cumulative = 0.0
+    for value, weight in sorted_pairs:
+        cumulative += weight
+        if cumulative >= total / 2:
+            return value
+    return sorted_pairs[-1][0]
+
+
 def _normalized_values(
     points: list[RawPoint],
     calibration: CalibrationResult | None,
@@ -841,12 +1213,85 @@ def _normalized_values(
     )
     if sensor_start is None:
         return [None for _ in points]
+    cal_points = calibration.valid_points
     values: list[float | None] = []
     for point in points:
-        age_days = max((point.timestamp - sensor_start).total_seconds(), 0) / 86400
-        correction = calibration.params["b0"] + calibration.params["b1"] * age_days
-        values.append(round(point.value + correction, 2))
+        bias_est = estimate_bias_at(point.timestamp, cal_points, sensor_start)
+        if bias_est is not None:
+            values.append(round(point.value + bias_est.bias, 2))
+        else:
+            age_days = max((point.timestamp - sensor_start).total_seconds(), 0) / 86400
+            correction = _correction_for_age(calibration.params, age_days)
+            values.append(round(point.value + correction, 2))
     return values
+
+
+def _bias_metadata_for_points(
+    points: list[RawPoint],
+    calibration: CalibrationResult | None,
+) -> list[dict[str, Any]]:
+    """Return per-point bias metadata for the dashboard response."""
+    if not calibration or not calibration.can_normalize:
+        return [{} for _ in points]
+    sensor_age = calibration.params.get("sensor_started_at")
+    sensor_start = (
+        _local_wall_time(datetime.fromisoformat(sensor_age))
+        if isinstance(sensor_age, str)
+        else None
+    )
+    if sensor_start is None:
+        return [{} for _ in points]
+    cal_points = calibration.valid_points
+    metadata: list[dict[str, Any]] = []
+    for point in points:
+        bias_est = estimate_bias_at(point.timestamp, cal_points, sensor_start)
+        if bias_est is not None:
+            metadata.append({
+                "bias_confidence": bias_est.confidence,
+                "nearest_fingerstick_distance_min": (
+                    round(bias_est.nearest_fingerstick_distance_h * 60, 1)
+                    if bias_est.nearest_fingerstick_distance_h is not None
+                    else None
+                ),
+                "contributing_fingerstick_count": bias_est.contributing_count,
+            })
+        else:
+            metadata.append({
+                "bias_confidence": "none",
+                "nearest_fingerstick_distance_min": None,
+                "contributing_fingerstick_count": 0,
+            })
+    return metadata
+
+
+def _correction_now(
+    sensor: SensorSession,
+    raw_points: list[RawPoint],
+    calibration: CalibrationResult,
+) -> float | None:
+    if not calibration.can_normalize:
+        return None
+    at = raw_points[-1].timestamp if raw_points else sensor.ended_at or _now_local()
+    age_days = _sensor_age_days(sensor, at)
+    return round(_correction_for_age(calibration.params, age_days), 2)
+
+
+def _correction_for_age(params: dict[str, Any], sensor_age_days: float) -> float:
+    strategy = params.get("correction_strategy", "linear")
+    median_delta_value = params.get("median_delta_mmol_l")
+    if median_delta_value is None:
+        median_delta_value = params.get("b0", 0.0)
+    median_delta = float(median_delta_value)
+    b0 = float(params.get("b0", median_delta))
+    b1 = float(params.get("b1_capped", params.get("b1", 0.0)))
+    linear = b0 + b1 * sensor_age_days
+    if strategy == "median_delta":
+        return median_delta
+    if strategy == "warmup_blend":
+        median_weight = float(params.get("warmup_median_weight", WARMUP_MEDIAN_WEIGHT))
+        linear_weight = float(params.get("warmup_linear_weight", WARMUP_LINEAR_WEIGHT))
+        return median_weight * median_delta + linear_weight * linear
+    return linear
 
 
 def _smoothed_values(values: list[float]) -> list[float]:

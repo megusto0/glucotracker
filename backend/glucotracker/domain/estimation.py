@@ -482,6 +482,19 @@ def _label_item(
     elif volume_ml is not None and facts.carbs_per_100ml is not None:
         scaled = _scale_per_100ml(facts, volume_ml)
         serving_text = f"{volume_ml:g} ml"
+    elif volume_ml is not None and facts.carbs_per_100g is not None:
+        assumptions.append(
+            f"плотность ~1 г/мл, объём {volume_ml:g} мл ≈ {volume_ml:g} г"
+        )
+        scaled = calculate_item_from_per_100g(
+            facts.carbs_per_100g,
+            facts.protein_per_100g,
+            facts.fat_per_100g,
+            facts.fiber_per_100g,
+            facts.kcal_per_100g,
+            volume_ml,
+        )
+        serving_text = f"{volume_ml:g} мл (~{volume_ml:g} г)"
     else:
         return None
 

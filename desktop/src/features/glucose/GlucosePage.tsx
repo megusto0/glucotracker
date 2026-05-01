@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type FormEvent,
@@ -35,6 +36,8 @@ import {
   useRecalculateSensorCalibration,
   useSaveSensor,
   useSensors,
+  useUpdateFingerstick,
+  useDeleteFingerstick,
 } from "./useGlucoseDashboard";
 
 type RangePreset = "3h" | "6h" | "12h" | "24h" | "7d";
@@ -43,6 +46,7 @@ type Fingerstick = GlucoseDashboardResponse["fingersticks"][number];
 type FoodEvent = GlucoseDashboardResponse["food_events"][number];
 type InsulinEvent = GlucoseDashboardResponse["insulin_events"][number];
 type Artifact = GlucoseDashboardResponse["artifacts"][number];
+type ActivityTab = "episodes" | "events";
 
 const rangeButtons: { label: string; value: RangePreset }[] = [
   { label: "3ч", value: "3h" },
@@ -64,6 +68,9 @@ const toDateTimeInput = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
     date.getHours(),
   )}:${pad(date.getMinutes())}`;
+
+const toLocalDateTimeSecond = (date: Date) =>
+  `${toDateTimeInput(date)}:${pad(date.getSeconds())}`;
 
 const toApiDateTime = (value: string) =>
   value.length === 16 ? `${value}:00` : value;
@@ -119,6 +126,12 @@ const formatTime = (value?: string | null) =>
       }).format(new Date(value))
     : "—";
 
+const formatEpisodeRange = (startAt: string, endAt: string) => {
+  const start = formatTime(startAt);
+  const end = formatTime(endAt);
+  return start === end ? start : `${start}–${end}`;
+};
+
 const confidenceLabel = (
   value?: string | null,
   validCalibrationPoints = 0,
@@ -147,6 +160,39 @@ const sensorPhaseLabel = (
   if (phase === "end_of_life") return "Конец срока";
   return "Фаза не определена";
 };
+
+const sensorPhaseCompact = (
+  phase?: string | null,
+  ageDays?: number | null,
+) => {
+  if (phase === "warmup") {
+    const hours = Math.min(48, Math.max(0, Math.round((ageDays ?? 0) * 24)));
+    return `автокалибровка ${hours}ч из 48`;
+  }
+  if (phase === "stable") return "стабильная фаза";
+  if (phase === "end_of_life") return "конец срока";
+  return "фаза не определена";
+};
+
+const fingerstickCountLabel = (count: number) => {
+  const mod10 = Math.abs(count) % 10;
+  const mod100 = Math.abs(count) % 100;
+  const word =
+    mod10 === 1 && mod100 !== 11
+      ? "запись"
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? "записи"
+        : "записей";
+  return `${count} ${word} из пальца`;
+};
+
+const calibrationStrategyLabel = (strategy?: string | null) =>
+  ({
+    insufficient: "недостаточно данных",
+    linear: "линейная",
+    median_delta: "медиана Δ",
+    warmup_blend: "автокалибровка",
+  })[strategy ?? ""] ?? "—";
 
 const warmupSequenceText = (values?: number[] | null) => {
   const filtered = (values ?? []).filter((value) => Number.isFinite(value));
@@ -206,20 +252,26 @@ const currentCorrection = (point?: DashboardPoint | null) => {
   return null;
 };
 
+const foodEventKcal = (event: FoodEvent) => event.kcal ?? 0;
+
 export function GlucosePage() {
   const config = useApiConfig();
   const initialRange = useMemo(() => presetRange("6h"), []);
   const [preset, setPreset] = useState<RangePreset | "custom">("6h");
   const [fromInput, setFromInput] = useState(initialRange.from);
   const [toInput, setToInput] = useState(initialRange.to);
-  const [mode, setMode] = useState<GlucoseMode>("raw");
+  const [mode, setMode] = useState<GlucoseMode>("normalized");
+  const [activityTab, setActivityTab] = useState<ActivityTab>("episodes");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [fingerstickAt, setFingerstickAt] = useState(toDateTimeInput(new Date()));
   const [fingerstickValue, setFingerstickValue] = useState("");
   const [meterName, setMeterName] = useState("");
+  const [editingFingerstickId, setEditingFingerstickId] = useState<string | null>(null);
   const [lastImportAt, setLastImportAt] = useState<string | null>(null);
   const [showFingerstickForm, setShowFingerstickForm] = useState(false);
   const [showSensorEdit, setShowSensorEdit] = useState(false);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
+  const autoImportKeyRef = useRef("");
 
   const from = toApiDateTime(fromInput);
   const to = toApiDateTime(toInput);
@@ -227,7 +279,13 @@ export function GlucosePage() {
   const sensors = useSensors();
   const nightscoutSettings = useNightscoutSettings();
   const nightscoutImport = useImportNightscoutContext(from, to);
+  const importNightscout = nightscoutImport.mutate;
+  const nightscoutImportPending = nightscoutImport.isPending;
+  const importPendingRef = useRef(nightscoutImportPending);
+  importPendingRef.current = nightscoutImportPending;
   const createFingerstick = useCreateFingerstick();
+  const updateFingerstick = useUpdateFingerstick();
+  const deleteFingerstick = useDeleteFingerstick();
   const saveSensor = useSaveSensor();
   const recalculate = useRecalculateSensorCalibration();
 
@@ -246,12 +304,24 @@ export function GlucosePage() {
   const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
   const trust = confidenceLabel(summary?.calibration_confidence, validCalibrationPoints);
   const events = useMemo(() => buildEventRows(data), [data]);
+  const episodes = useMemo(() => buildGroupedEpisodes(data), [data]);
   const recentFingersticks = (data?.fingersticks ?? []).slice(-4).reverse();
+
+  useEffect(() => {
+    if (
+      selectedEpisodeId &&
+      !episodes.some((episode) => episode.id === selectedEpisodeId)
+    ) {
+      setSelectedEpisodeId(null);
+    }
+  }, [episodes, selectedEpisodeId]);
 
   const error = [
     dashboard.error,
     nightscoutImport.error,
     createFingerstick.error,
+    updateFingerstick.error,
+    deleteFingerstick.error,
     saveSensor.error,
     recalculate.error,
   ].find(Boolean);
@@ -268,7 +338,7 @@ export function GlucosePage() {
 
   const refreshNightscout = useCallback(() => {
     const settings = nightscoutSettings.data;
-    if (!settings?.configured || !settings.sync_glucose || nightscoutImport.isPending) {
+    if (!settings?.configured || !settings.sync_glucose || importPendingRef.current) {
       return;
     }
     const nextRange =
@@ -282,7 +352,7 @@ export function GlucosePage() {
         setToInput(nextRange.to);
       });
     }
-    nightscoutImport.mutate(
+    importNightscout(
       {
         from_datetime: toApiDateTime(nextRange.from),
         to_datetime: toApiDateTime(nextRange.to),
@@ -295,17 +365,36 @@ export function GlucosePage() {
     );
   }, [
     fromInput,
-    nightscoutImport,
+    importNightscout,
     nightscoutSettings.data,
     preset,
     toInput,
   ]);
 
   useEffect(() => {
-    if (!canImportNightscout) return;
+    if (!canImportNightscout) {
+      autoImportKeyRef.current = "";
+      return;
+    }
+    const settings = nightscoutSettings.data;
+    const autoImportKey =
+      preset === "custom"
+        ? `${preset}|${fromInput}|${toInput}|${settings?.import_insulin_events ? "insulin" : "glucose"}`
+        : `${preset}|${settings?.import_insulin_events ? "insulin" : "glucose"}`;
+    if (autoImportKeyRef.current !== autoImportKey) {
+      autoImportKeyRef.current = autoImportKey;
+      refreshNightscout();
+    }
     const timer = window.setInterval(refreshNightscout, 5 * 60 * 1000);
     return () => window.clearInterval(timer);
-  }, [canImportNightscout, refreshNightscout]);
+  }, [
+    canImportNightscout,
+    fromInput,
+    nightscoutSettings.data,
+    preset,
+    refreshNightscout,
+    toInput,
+  ]);
 
   const applyPreset = (value: RangePreset) => {
     const next = presetRange(value);
@@ -316,25 +405,53 @@ export function GlucosePage() {
     });
   };
 
+  const resetFingerstickForm = () => {
+    setEditingFingerstickId(null);
+    setFingerstickValue("");
+    setFingerstickAt(toDateTimeInput(new Date()));
+    setMeterName("");
+    setShowFingerstickForm(false);
+  };
+
+  const openNewFingerstickForm = () => {
+    setEditingFingerstickId(null);
+    setFingerstickValue("");
+    setFingerstickAt(toDateTimeInput(new Date()));
+    setShowFingerstickForm(true);
+  };
+
+  const editFingerstick = (row: Fingerstick) => {
+    setEditingFingerstickId(row.id);
+    setFingerstickAt(fromIsoToInput(row.measured_at));
+    setFingerstickValue(String(row.glucose_mmol_l));
+    setMeterName(row.meter_name ?? "");
+    setShowFingerstickForm(true);
+  };
+
   const submitFingerstick = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = Number(fingerstickValue.replace(",", "."));
     if (!fingerstickAt || !Number.isFinite(value) || value <= 0) return;
-    createFingerstick.mutate(
-      {
-        glucose_mmol_l: value,
-        measured_at: toApiDateTime(fingerstickAt),
-        meter_name: blankToNull(meterName),
-        notes: null,
-      },
-      {
-        onSuccess: () => {
-          setFingerstickValue("");
-          setFingerstickAt(toDateTimeInput(new Date()));
-          setShowFingerstickForm(false);
-        },
-      },
-    );
+    const body = {
+      glucose_mmol_l: value,
+      measured_at: toApiDateTime(fingerstickAt),
+      meter_name: blankToNull(meterName),
+    };
+    if (editingFingerstickId) {
+      updateFingerstick.mutate(
+        { body, fingerstickId: editingFingerstickId },
+        { onSuccess: resetFingerstickForm },
+      );
+      return;
+    }
+    createFingerstick.mutate(body, { onSuccess: resetFingerstickForm });
+  };
+
+  const deleteFingerstickHandler = () => {
+    if (!editingFingerstickId) return;
+    if (confirm("Удалить эту запись из пальца?")) {
+      deleteFingerstick.mutate(editingFingerstickId, { onSuccess: resetFingerstickForm });
+    }
   };
 
   const submitSensor = (event: FormEvent<HTMLFormElement>) => {
@@ -362,7 +479,7 @@ export function GlucosePage() {
     );
   };
 
-  const nightscoutImportStatus = nightscoutImport.isPending
+  const nightscoutImportStatus = nightscoutImportPending
     ? "Обновляю Nightscout..."
     : lastImportAt
       ? `Обновлено ${formatTime(lastImportAt)}`
@@ -440,7 +557,7 @@ export function GlucosePage() {
                     </button>
                   ))}
                   <Button
-                    disabled={!canImportNightscout || nightscoutImport.isPending}
+                    disabled={!canImportNightscout || nightscoutImportPending}
                     icon={<RefreshCw size={14} />}
                     onClick={refreshNightscout}
                     variant="primary"
@@ -500,19 +617,33 @@ export function GlucosePage() {
 
             <GlucoseChart
               data={data}
+              episodes={episodes}
               loading={dashboard.isLoading}
               mode={mode}
+              onEpisodeSelect={setSelectedEpisodeId}
+              selectedEpisodeId={selectedEpisodeId}
             />
           </section>
 
-          <EventsTable rows={events} />
+          <GlucoseActivityPanel
+            activeTab={activityTab}
+            episodes={episodes}
+            onTabChange={setActivityTab}
+            onEpisodeSelect={setSelectedEpisodeId}
+            rows={events}
+            selectedEpisodeId={selectedEpisodeId}
+          />
         </main>
 
         <SensorQualityPanel
-          createFingerstick={createFingerstick}
+          editingFingerstickId={editingFingerstickId}
           fingerstickAt={fingerstickAt}
+          fingerstickPending={createFingerstick.isPending || updateFingerstick.isPending}
           fingerstickValue={fingerstickValue}
           meterName={meterName}
+          onCancelFingerstickForm={resetFingerstickForm}
+          onDeleteFingerstick={deleteFingerstickHandler}
+          onEditFingerstick={editFingerstick}
           onFingerstickAtChange={setFingerstickAt}
           onFingerstickValueChange={setFingerstickValue}
           onMeterNameChange={setMeterName}
@@ -533,9 +664,11 @@ export function GlucosePage() {
           showSensorEdit={showSensorEdit}
           submitFingerstick={submitFingerstick}
           submitSensor={submitSensor}
-          toggleFingerstickForm={() => setShowFingerstickForm((value) => !value)}
+          openNewFingerstickForm={openNewFingerstickForm}
           toggleSensorEdit={() => setShowSensorEdit((value) => !value)}
         />
+
+        <BiasOverLifetimeChart data={data?.bias_over_lifetime ?? null} />
       </section>
     </div>
   );
@@ -561,6 +694,9 @@ function HeroSummary({
   trust: string;
 }) {
   const current = summary?.current_glucose ?? latestPoint?.display_value;
+  const correctionEstimate =
+    quality?.correction_now_mmol_l ?? summary?.bias_mmol_l ?? correction;
+  const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
   const delta =
     latestPoint && previousPoint
       ? latestPoint.display_value - previousPoint.display_value
@@ -591,17 +727,22 @@ function HeroSummary({
       <div className="border-y border-[var(--hairline)] py-3 lg:border-x lg:border-y-0 lg:px-6 lg:py-0">
         <div className="font-mono text-[18px] text-[var(--fg)]">
           {normalizedAvailable ? (
-            <>
-              Raw {formatNumber(latestPoint?.raw_value)}{" "}
-              <span className="text-[var(--muted)]">
-                нормализация {formatSigned(correction)}
-              </span>
-            </>
+            `Смещение в этот момент ${formatSigned(correctionEstimate)} ммоль/л`
           ) : (
             "Нормализация недоступна: мало записей из пальца"
           )}
         </div>
-        <div className="mt-2 text-[12px] text-[var(--muted)]">
+        <div className="mt-2 font-mono text-[12px] text-[var(--muted)]">
+          {fingerstickCountLabel(validCalibrationPoints)} ·{" "}
+          {sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}
+          {latestPoint?.contributing_fingerstick_count != null && latestPoint.contributing_fingerstick_count > 0 ? (
+            <> · из пальца: {latestPoint.contributing_fingerstick_count}</>
+          ) : null}
+          {latestPoint?.nearest_fingerstick_distance_min != null ? (
+            <> · ближайшее: {formatNumber(latestPoint.nearest_fingerstick_distance_min, 0)} мин</>
+          ) : null}
+        </div>
+        <div className="mt-1 text-[12px] text-[var(--muted)]">
           Raw CGM сохраняется без изменений
         </div>
       </div>
@@ -624,10 +765,14 @@ function HeroSummary({
 }
 
 function SensorQualityPanel({
-  createFingerstick,
+  editingFingerstickId,
   fingerstickAt,
+  fingerstickPending,
   fingerstickValue,
   meterName,
+  onCancelFingerstickForm,
+  onDeleteFingerstick,
+  onEditFingerstick,
   onFingerstickAtChange,
   onFingerstickValueChange,
   onMeterNameChange,
@@ -646,14 +791,18 @@ function SensorQualityPanel({
   showSensorEdit,
   submitFingerstick,
   submitSensor,
-  toggleFingerstickForm,
+  openNewFingerstickForm,
   toggleSensorEdit,
 }: {
   artifactCount: number;
-  createFingerstick: ReturnType<typeof useCreateFingerstick>;
+  editingFingerstickId: string | null;
   fingerstickAt: string;
+  fingerstickPending: boolean;
   fingerstickValue: string;
   meterName: string;
+  onCancelFingerstickForm: () => void;
+  onDeleteFingerstick: () => void;
+  onEditFingerstick: (row: Fingerstick) => void;
   onFingerstickAtChange: (value: string) => void;
   onFingerstickValueChange: (value: string) => void;
   onMeterNameChange: (value: string) => void;
@@ -671,11 +820,24 @@ function SensorQualityPanel({
   showSensorEdit: boolean;
   submitFingerstick: (event: FormEvent<HTMLFormElement>) => void;
   submitSensor: (event: FormEvent<HTMLFormElement>) => void;
-  toggleFingerstickForm: () => void;
+  openNewFingerstickForm: () => void;
   toggleSensorEdit: () => void;
 }) {
   const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
-  const enoughCalibration = validCalibrationPoints >= 2;
+  const enoughCalibration = validCalibrationPoints >= 1;
+  const correctionEstimate =
+    quality?.correction_now_mmol_l ??
+    quality?.median_delta_mmol_l ??
+    quality?.median_bias_mmol_l;
+  const deltaRange =
+    quality?.delta_min_mmol_l !== null &&
+    quality?.delta_min_mmol_l !== undefined &&
+    quality?.delta_max_mmol_l !== null &&
+    quality?.delta_max_mmol_l !== undefined
+      ? `${formatSigned(quality.delta_min_mmol_l)}…${formatSigned(
+          quality.delta_max_mmol_l,
+        )}`
+      : "—";
   const phaseText = sensorPhaseLabel(
     quality?.sensor_phase,
     quality?.sensor_age_days,
@@ -715,9 +877,6 @@ function SensorQualityPanel({
               день {formatNumber(quality?.sensor_age_days)} /{" "}
               {formatNumber(sensor.expected_life_days, 0)}
             </div>
-            <div className="w-fit border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[12px] text-[var(--fg)]">
-              {phaseText}
-            </div>
           </div>
         ) : (
           <p className="text-[13px] text-[var(--muted)]">
@@ -726,44 +885,13 @@ function SensorQualityPanel({
         )}
       </PanelSection>
 
-      <PanelSection title="Оценка смещения">
-        {enoughCalibration ? (
-          <div className="grid gap-3">
-            <dl className="grid grid-cols-2 gap-3 text-[12px]">
-              <Metric
-                label="Оценка смещения"
-                value={`${formatSigned(quality?.median_bias_mmol_l)} ммоль/л`}
-              />
-              <Metric
-                label="Дрейф"
-                value={`${formatSigned(quality?.drift_mmol_l_per_day)} / день`}
-              />
-              <Metric label="MARD" value={`${formatNumber(quality?.mard_percent)}%`} />
-              <Metric label="MAD" value={formatNumber(quality?.mad_mmol_l)} />
-            </dl>
-            {calibrationBasisNote ? (
-              <p className="text-[12px] text-[var(--muted)]">
-                {calibrationBasisNote}
-              </p>
-            ) : null}
-            {warmupBehaviorDetected ? (
-              <p className="text-[12px] text-[var(--muted)]">
-                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="grid gap-2 text-[13px] text-[var(--muted)]">
-            <p className="text-[var(--fg)]">Оценка смещения: недостаточно данных</p>
-            <p>{quality?.fingerstick_count ?? 0} запись из пальца</p>
-            <p>Нужно минимум 2–3 валидные записи</p>
-            {warmupBehaviorDetected ? (
-              <p>
-                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
-              </p>
-            ) : null}
-          </div>
-        )}
+      <PanelSection title="Фаза">
+        <div className="grid gap-2 border border-[var(--hairline)] bg-[var(--bg)] p-3 text-[13px]">
+          <div className="font-mono text-[18px] text-[var(--fg)]">{phaseText}</div>
+          <p className="text-[12px] text-[var(--muted)]">
+            Фаза влияет только на оценку качества и отображение нормализации.
+          </p>
+        </div>
       </PanelSection>
 
       <PanelSection title="Качество">
@@ -791,11 +919,78 @@ function SensorQualityPanel({
         </div>
       </PanelSection>
 
+      <PanelSection title="Оценка смещения">
+        {enoughCalibration ? (
+          <div className="grid gap-3">
+            <div className="grid gap-1 border border-[var(--hairline)] bg-[var(--bg)] p-3">
+              <div className="font-mono text-[24px] leading-none text-[var(--fg)]">
+                Оценка смещения {formatSigned(correctionEstimate)} ммоль/л
+              </div>
+              <div className="text-[12px] text-[var(--muted)]">
+                {fingerstickCountLabel(validCalibrationPoints)} ·{" "}
+                {sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}
+              </div>
+              <div className="text-[12px] text-[var(--muted)]">
+                Raw CGM сохраняется без изменений
+              </div>
+            </div>
+            <dl className="grid grid-cols-2 gap-3 text-[12px]">
+              <Metric
+                label="Медиана Δ"
+                value={`${formatSigned(quality?.median_delta_mmol_l)} ммоль/л`}
+              />
+              <Metric
+                label="Диапазон Δ"
+                value={`${deltaRange} ммоль/л`}
+              />
+              <Metric
+                label="b0"
+                value={`${formatSigned(quality?.b0_mmol_l)} ммоль/л`}
+              />
+              <Metric
+                label="b1 raw"
+                value={`${formatSigned(quality?.b1_raw_mmol_l_per_day)} / день`}
+              />
+              <Metric
+                label="b1 capped"
+                value={`${formatSigned(quality?.b1_capped_mmol_l_per_day)} / день`}
+              />
+              <Metric label="MARD" value={`${formatNumber(quality?.mard_percent)}%`} />
+              <Metric
+                label="Модель"
+                value={calibrationStrategyLabel(quality?.calibration_strategy)}
+              />
+            </dl>
+            {calibrationBasisNote ? (
+              <p className="text-[12px] text-[var(--muted)]">
+                {calibrationBasisNote}
+              </p>
+            ) : null}
+            {warmupBehaviorDetected ? (
+              <p className="text-[12px] text-[var(--muted)]">
+                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="grid gap-2 text-[13px] text-[var(--muted)]">
+            <p className="text-[var(--fg)]">Оценка смещения: недостаточно данных</p>
+            <p>{fingerstickCountLabel(quality?.fingerstick_count ?? 0)}</p>
+            <p>Нужна хотя бы 1 валидная запись после 12 ч сенсора</p>
+            {warmupBehaviorDetected ? (
+              <p>
+                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
+              </p>
+            ) : null}
+          </div>
+        )}
+      </PanelSection>
+
       <PanelSection title="Действия">
         <div className="grid gap-2">
           <Button
             icon={<Plus size={14} />}
-            onClick={toggleFingerstickForm}
+            onClick={openNewFingerstickForm}
             variant="primary"
           >
             + Запись из пальца
@@ -821,7 +1016,7 @@ function SensorQualityPanel({
           onSubmit={submitFingerstick}
         >
           <h3 className="text-[13px] uppercase tracking-[0.06em] text-[var(--fg)]">
-            Новая запись из пальца
+            {editingFingerstickId ? "Редактировать запись из пальца" : "Новая запись из пальца"}
           </h3>
           <DateTimeInput
             label="время"
@@ -843,14 +1038,29 @@ function SensorQualityPanel({
               value={meterName}
             />
           </div>
-          <Button
-            disabled={createFingerstick.isPending || !fingerstickValue.trim()}
-            icon={<Plus size={14} />}
-            type="submit"
-            variant="primary"
-          >
-            Добавить
-          </Button>
+          <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
+            <Button
+              disabled={fingerstickPending || !fingerstickValue.trim()}
+              icon={editingFingerstickId ? <Save size={14} /> : <Plus size={14} />}
+              type="submit"
+              variant="primary"
+            >
+              {editingFingerstickId ? "Сохранить изменения" : "Добавить"}
+            </Button>
+            {editingFingerstickId ? (
+              <Button
+                disabled={fingerstickPending}
+                onClick={onDeleteFingerstick}
+                type="button"
+                variant="danger"
+              >
+                Удалить
+              </Button>
+            ) : null}
+            <Button onClick={onCancelFingerstickForm} type="button">
+              Отмена
+            </Button>
+          </div>
         </form>
       ) : null}
 
@@ -924,7 +1134,7 @@ function SensorQualityPanel({
               const delta = nearest ? row.glucose_mmol_l - nearest.raw_value : null;
               return (
                 <div
-                  className="grid grid-cols-[52px_1fr_auto] items-center gap-3 border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[12px]"
+                  className="grid grid-cols-[52px_1fr_auto_auto] items-center gap-3 border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[12px]"
                   key={row.id}
                 >
                   <span className="font-mono text-[var(--fg)]">
@@ -936,6 +1146,13 @@ function SensorQualityPanel({
                   <span className="font-mono text-[var(--muted)]">
                     Δ {formatSigned(delta)}
                   </span>
+                  <button
+                    className="border border-[var(--hairline)] bg-[var(--surface)] px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)] transition hover:text-[var(--fg)]"
+                    onClick={() => onEditFingerstick(row)}
+                    type="button"
+                  >
+                    изменить
+                  </button>
                 </div>
               );
             })}
@@ -1047,12 +1264,224 @@ function DateTimeInput({
   );
 }
 
-function EventsTable({ rows }: { rows: EventRow[] }) {
+type EpisodeDetailEvent = {
+  data: string;
+  id: string;
+  label: string;
+  sortKey: number;
+  time: string;
+  type: "food" | "insulin" | "fingerstick";
+};
+
+type GroupedEpisode = {
+  carbsTotal: number;
+  cgmMax: number | null;
+  cgmMin: number | null;
+  cgmStart: number | null;
+  endAt: string;
+  fingerstickEvents: Fingerstick[];
+  foodEvents: FoodEvent[];
+  id: string;
+  insulinEvents: InsulinEvent[];
+  insulinTotal: number;
+  kcalTotal: number;
+  startAt: string;
+  timeToMax: number | null;
+  timeToMin: number | null;
+  title: string;
+  type: "meal";
+};
+
+function GlucoseActivityPanel({
+  activeTab,
+  episodes,
+  onEpisodeSelect,
+  onTabChange,
+  rows,
+  selectedEpisodeId,
+}: {
+  activeTab: ActivityTab;
+  episodes: GroupedEpisode[];
+  onEpisodeSelect: (episodeId: string) => void;
+  onTabChange: (tab: ActivityTab) => void;
+  rows: EventRow[];
+  selectedEpisodeId: string | null;
+}) {
   return (
     <section className="border border-[var(--hairline)] bg-[var(--surface)]">
-      <div className="border-b border-[var(--hairline)] px-5 py-4">
-        <h2 className="text-[18px] text-[var(--fg)]">События на графике</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--hairline)] px-5 py-4">
+        <div>
+          <h2 className="text-[18px] text-[var(--fg)]">Активность на графике</h2>
+          <p className="mt-1 text-[12px] text-[var(--muted)]">
+            Эпизоды группируют еду и ближайший контекст, raw события доступны отдельно.
+          </p>
+        </div>
+        <div className="flex border border-[var(--hairline)]">
+          {[
+            { label: "Эпизоды", value: "episodes" as const },
+            { label: "События", value: "events" as const },
+          ].map((item) => (
+            <button
+              className={`px-4 py-2 text-[12px] uppercase tracking-[0.06em] ${
+                activeTab === item.value
+                  ? "bg-[var(--fg)] text-[var(--surface)]"
+                  : "bg-[var(--surface)] text-[var(--muted)]"
+              }`}
+              key={item.value}
+              onClick={() => onTabChange(item.value)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
+      {activeTab === "episodes" ? (
+        <EpisodeList
+          episodes={episodes}
+          onEpisodeSelect={onEpisodeSelect}
+          selectedEpisodeId={selectedEpisodeId}
+        />
+      ) : (
+        <EventsTable rows={rows} />
+      )}
+    </section>
+  );
+}
+
+function EpisodeList({
+  episodes,
+  onEpisodeSelect,
+  selectedEpisodeId,
+}: {
+  episodes: GroupedEpisode[];
+  onEpisodeSelect: (episodeId: string) => void;
+  selectedEpisodeId: string | null;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const toggleEpisode = (id: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  if (!episodes.length) {
+    return (
+      <div className="px-5 py-8 text-center text-[13px] text-[var(--muted)]">
+        Эпизодов за выбранный период нет.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid">
+      {episodes.map((episode) => (
+        <EpisodeCard
+          episode={episode}
+          expanded={expanded.has(episode.id)}
+          key={episode.id}
+          onToggle={() => {
+            onEpisodeSelect(episode.id);
+            toggleEpisode(episode.id);
+          }}
+          selected={selectedEpisodeId === episode.id}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EpisodeCard({
+  episode,
+  expanded,
+  onToggle,
+  selected,
+}: {
+  episode: GroupedEpisode;
+  expanded: boolean;
+  onToggle: () => void;
+  selected: boolean;
+}) {
+  const eventCount =
+    episode.foodEvents.length +
+    episode.insulinEvents.length +
+    episode.fingerstickEvents.length;
+  const cgmSummary =
+    episode.cgmStart !== null && episode.cgmMax !== null
+      ? `${formatNumber(episode.cgmStart)} → пик ${formatNumber(episode.cgmMax)}${
+          episode.timeToMax !== null ? ` через ${episode.timeToMax} мин` : ""
+        }`
+      : "CGM контекст недоступен";
+
+  return (
+    <article
+      className={`border-b border-[var(--hairline)] last:border-b-0 ${
+        selected ? "bg-[#F6F0E5]" : ""
+      }`}
+    >
+      <button
+        aria-pressed={selected}
+        className="grid w-full gap-4 px-5 py-4 text-left transition hover:bg-[var(--bg)] lg:grid-cols-[112px_1fr_180px_220px]"
+        onClick={onToggle}
+        type="button"
+      >
+        <div className="font-mono text-[14px] text-[var(--fg)]">
+          {formatEpisodeRange(episode.startAt, episode.endAt)}
+        </div>
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[16px] text-[var(--fg)]">Приём пищи</span>
+            <span className="border border-[var(--hairline)] bg-[var(--bg)] px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
+              {eventCount} событий
+            </span>
+          </div>
+          <div className="text-[13px] text-[var(--muted)]">{episode.title}</div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 font-mono text-[13px] text-[var(--fg)] lg:grid-cols-1">
+          <span>{formatNumber(episode.carbsTotal, 1)} г</span>
+          <span>{formatNumber(episode.kcalTotal, 0)} ккал</span>
+          <span>{formatNumber(episode.insulinTotal, 1)} ЕД</span>
+        </div>
+        <div className="grid gap-1 text-[12px] text-[var(--muted)]">
+          <span>{cgmSummary}</span>
+          <span className="text-[10px] uppercase tracking-[0.06em]">
+            {expanded ? "свернуть детали" : "показать детали"}
+          </span>
+        </div>
+      </button>
+      {expanded ? <EpisodeDetails episode={episode} /> : null}
+    </article>
+  );
+}
+
+function EpisodeDetails({ episode }: { episode: GroupedEpisode }) {
+  const rows = episodeDetailRows(episode);
+  return (
+    <div className="border-t border-[var(--hairline)] bg-[var(--bg)] px-5 py-3">
+      <div className="grid gap-2">
+        {rows.map((row) => (
+          <div
+            className="grid gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] sm:grid-cols-[64px_1fr_auto]"
+            key={row.id}
+          >
+            <span className="font-mono text-[var(--fg)]">{row.time}</span>
+            <span className="text-[var(--fg)]">{row.label}</span>
+            <span className="font-mono text-[var(--muted)]">{row.data}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EventsTable({ rows }: { rows: EventRow[] }) {
+  return (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
           <thead className="text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -1085,7 +1514,6 @@ function EventsTable({ rows }: { rows: EventRow[] }) {
           </tbody>
         </table>
       </div>
-    </section>
   );
 }
 
@@ -1108,7 +1536,7 @@ function buildEventRows(data?: GlucoseDashboardResponse): EventRow[] {
     rows.push({
       cgm: nearest ? `${formatNumber(nearest.raw_value)} raw` : "—",
       comment: event.title,
-      data: `${formatNumber(event.carbs_g, 1)}г`,
+      data: `${formatNumber(event.carbs_g, 1)}г / ${formatNumber(foodEventKcal(event), 0)} ккал`,
       id: `food-${event.timestamp}-${index}`,
       sortKey: Date.parse(event.timestamp),
       time: formatTime(event.timestamp),
@@ -1160,7 +1588,148 @@ function buildEventRows(data?: GlucoseDashboardResponse): EventRow[] {
     });
   });
 
-  return rows.sort((left, right) => left.sortKey - right.sortKey).slice(0, 14);
+  return rows.sort((left, right) => left.sortKey - right.sortKey);
+}
+
+function buildGroupedEpisodes(data?: GlucoseDashboardResponse): GroupedEpisode[] {
+  if (!data?.food_events.length) return [];
+  const foodEvents = [...data.food_events].sort(
+    (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp),
+  );
+  const clusters: FoodEvent[][] = [];
+  foodEvents.forEach((event) => {
+    const current = clusters[clusters.length - 1];
+    const eventMs = Date.parse(event.timestamp);
+    const previousMs = current?.length
+      ? Date.parse(current[current.length - 1].timestamp)
+      : null;
+    if (current && previousMs !== null && eventMs - previousMs <= 20 * 60 * 1000) {
+      current.push(event);
+      return;
+    }
+    clusters.push([event]);
+  });
+
+  return clusters.map((foodCluster, index) => {
+    const foodStartMs = Date.parse(foodCluster[0].timestamp);
+    const foodEndMs = Date.parse(foodCluster[foodCluster.length - 1].timestamp);
+    const insulinEvents = data.insulin_events.filter((event) => {
+      const eventMs = Date.parse(event.timestamp);
+      return eventMs >= foodStartMs - 30 * 60 * 1000 && eventMs <= foodStartMs + 15 * 60 * 1000;
+    });
+    const fingerstickEvents = data.fingersticks.filter((event) => {
+      const eventMs = Date.parse(event.measured_at);
+      return eventMs >= foodStartMs - 20 * 60 * 1000 && eventMs <= foodStartMs + 30 * 60 * 1000;
+    });
+    const includedTimes = [
+      ...foodCluster.map((event) => Date.parse(event.timestamp)),
+      ...insulinEvents.map((event) => Date.parse(event.timestamp)),
+    ];
+    const startMs = Math.min(...includedTimes);
+    const endMs = Math.max(...includedTimes, foodEndMs);
+    const cgm = cgmSummaryForEpisode(data.points, foodStartMs, foodEndMs);
+    const title =
+      foodCluster.length === 1
+        ? foodCluster[0].title
+        : foodCluster.map((event) => event.title).join(", ");
+    return {
+      carbsTotal: foodCluster.reduce((sum, event) => sum + event.carbs_g, 0),
+      cgmMax: cgm.max,
+      cgmMin: cgm.min,
+      cgmStart: cgm.start,
+      endAt: toLocalDateTimeSecond(new Date(endMs)),
+      fingerstickEvents,
+      foodEvents: foodCluster,
+      id: `episode-${foodCluster[0].timestamp}-${index}`,
+      insulinEvents,
+      insulinTotal: insulinEvents.reduce(
+        (sum, event) => sum + (event.insulin_units ?? 0),
+        0,
+      ),
+      kcalTotal: foodCluster.reduce((sum, event) => sum + foodEventKcal(event), 0),
+      startAt: toLocalDateTimeSecond(new Date(startMs)),
+      timeToMax: cgm.timeToMax,
+      timeToMin: cgm.timeToMin,
+      title,
+      type: "meal" as const,
+    };
+  });
+}
+
+function cgmSummaryForEpisode(
+  points: DashboardPoint[],
+  foodStartMs: number,
+  foodEndMs: number,
+) {
+  const windowStart = foodStartMs - 20 * 60 * 1000;
+  const windowEnd = Math.max(foodEndMs, foodStartMs) + 120 * 60 * 1000;
+  const pointsInWindow = points.filter((point) => {
+    const pointMs = Date.parse(point.timestamp);
+    return pointMs >= windowStart && pointMs <= windowEnd;
+  });
+  if (!pointsInWindow.length) {
+    return { max: null, min: null, start: null, timeToMax: null, timeToMin: null };
+  }
+  const valueFor = (point: DashboardPoint) =>
+    point.display_value ?? point.normalized_value ?? point.smoothed_value ?? point.raw_value;
+  const startPoint = pointsInWindow.reduce((best, point) => {
+    const distance = Math.abs(Date.parse(point.timestamp) - foodStartMs);
+    const bestDistance = Math.abs(Date.parse(best.timestamp) - foodStartMs);
+    return distance < bestDistance ? point : best;
+  }, pointsInWindow[0]);
+  let minPoint = pointsInWindow[0];
+  let maxPoint = pointsInWindow[0];
+  pointsInWindow.forEach((point) => {
+    if (valueFor(point) < valueFor(minPoint)) minPoint = point;
+    if (valueFor(point) > valueFor(maxPoint)) maxPoint = point;
+  });
+  const minutesFromStart = (point: DashboardPoint) =>
+    Math.max(0, Math.round((Date.parse(point.timestamp) - foodStartMs) / 60000));
+  return {
+    max: valueFor(maxPoint),
+    min: valueFor(minPoint),
+    start: valueFor(startPoint),
+    timeToMax: minutesFromStart(maxPoint),
+    timeToMin: minutesFromStart(minPoint),
+  };
+}
+
+function episodeDetailRows(episode: GroupedEpisode): EpisodeDetailEvent[] {
+  const rows: EpisodeDetailEvent[] = [];
+  episode.insulinEvents.forEach((event, index) => {
+    rows.push({
+      data:
+        event.insulin_units !== null && event.insulin_units !== undefined
+          ? `${formatNumber(event.insulin_units, 1)} ЕД`
+          : "—",
+      id: `insulin-${event.timestamp}-${index}`,
+      label: "Инсулин из Nightscout",
+      sortKey: Date.parse(event.timestamp),
+      time: formatTime(event.timestamp),
+      type: "insulin",
+    });
+  });
+  episode.foodEvents.forEach((event, index) => {
+    rows.push({
+      data: `${formatNumber(event.carbs_g, 1)} г, ${formatNumber(foodEventKcal(event), 0)} ккал`,
+      id: `food-${event.timestamp}-${index}`,
+      label: event.title,
+      sortKey: Date.parse(event.timestamp),
+      time: formatTime(event.timestamp),
+      type: "food",
+    });
+  });
+  episode.fingerstickEvents.forEach((event) => {
+    rows.push({
+      data: `${formatNumber(event.glucose_mmol_l, 1)} ммоль/л`,
+      id: `fingerstick-${event.id}`,
+      label: "Из пальца",
+      sortKey: Date.parse(event.measured_at),
+      time: formatTime(event.measured_at),
+      type: "fingerstick",
+    });
+  });
+  return rows.sort((left, right) => left.sortKey - right.sortKey);
 }
 
 function nearestPoint(points: DashboardPoint[], iso: string) {
@@ -1175,22 +1744,28 @@ function nearestPoint(points: DashboardPoint[], iso: string) {
 
 function GlucoseChart({
   data,
+  episodes,
   loading,
   mode,
+  onEpisodeSelect,
+  selectedEpisodeId,
 }: {
   data?: GlucoseDashboardResponse;
+  episodes: GroupedEpisode[];
   loading: boolean;
   mode: GlucoseMode;
+  onEpisodeSelect: (episodeId: string) => void;
+  selectedEpisodeId: string | null;
 }) {
   const points = data?.points ?? [];
   const width = 1180;
   const height = 610;
   const left = 56;
   const right = 26;
-  const eventTop = 26;
-  const eventHeight = 34;
-  const chartTop = 86;
-  const chartHeight = 450;
+  const eventTop = 22;
+  const eventHeight = 56;
+  const chartTop = 106;
+  const chartHeight = 430;
   const chartBottom = chartTop + chartHeight;
   const overviewTop = 552;
   const overviewHeight = 42;
@@ -1233,7 +1808,9 @@ function GlucoseChart({
       .join(" ");
   const rawLine = line(points, (point) => point.raw_value);
   const mainLine = line(points, (point) => {
-    if (mode === "normalized") return point.normalized_value ?? point.raw_value;
+    if (mode === "normalized") {
+      return point.normalized_value ?? point.raw_value;
+    }
     if (mode === "smoothed") return point.smoothed_value ?? point.raw_value;
     return point.raw_value;
   });
@@ -1243,6 +1820,14 @@ function GlucoseChart({
     (ratio) => minValue + yRange * ratio,
   );
   const longRange = duration > 36 * 60 * 60 * 1000;
+  const episodeDensity = episodeDensityForDuration(duration);
+  const episodeLayouts = layoutEpisodeChips({
+    chartLeft: left,
+    chartRight: width - right,
+    density: episodeDensity,
+    episodes,
+    scaleX,
+  });
 
   if (!points.length) {
     return (
@@ -1292,6 +1877,42 @@ function GlucoseChart({
           );
         })}
 
+        {episodes.map((episode) => {
+          const x = scaleX(episode.startAt);
+          const w = Math.max(14, scaleX(episode.endAt) - x);
+          const selected = selectedEpisodeId === episode.id;
+          return (
+            <g
+              cursor="pointer"
+              key={`episode-band-${episode.id}`}
+              onClick={() => onEpisodeSelect(episode.id)}
+              role="button"
+              tabIndex={0}
+            >
+              <title>{episodeTooltip(episode)}</title>
+              <rect
+                fill={selected ? "#D9B874" : "#D8C2A3"}
+                height={chartHeight}
+                opacity={selected ? 0.32 : 0.18}
+                stroke="var(--accent)"
+                strokeOpacity={selected ? 0.72 : 0.34}
+                strokeWidth={selected ? "1.8" : "1"}
+                width={w}
+                x={x}
+                y={chartTop}
+              />
+              <rect
+                fill={selected ? "var(--fg)" : "var(--accent)"}
+                height={selected ? "5" : "3"}
+                opacity={selected ? 0.9 : 0.58}
+                width={w}
+                x={x}
+                y={chartTop - 7}
+              />
+            </g>
+          );
+        })}
+
         <rect
           fill="#EDEBE2"
           height={Math.max(1, scaleY(3.9) - scaleY(10))}
@@ -1329,10 +1950,13 @@ function GlucoseChart({
         <EventLane
           artifacts={data?.artifacts ?? []}
           eventTop={eventTop}
+          episodeLayouts={episodeLayouts}
           fingersticks={data?.fingersticks ?? []}
           food={data?.food_events ?? []}
           insulin={data?.insulin_events ?? []}
+          onEpisodeSelect={onEpisodeSelect}
           scaleX={scaleX}
+          selectedEpisodeId={selectedEpisodeId}
         />
 
         <polyline
@@ -1352,6 +1976,60 @@ function GlucoseChart({
           strokeLinejoin="round"
           strokeWidth="3"
         />
+
+        {points.map((point, i) => {
+          const mainVal =
+            mode === "normalized"
+              ? point.normalized_value ?? point.raw_value
+              : mode === "smoothed"
+                ? point.smoothed_value ?? point.raw_value
+                : point.raw_value;
+          if (mainVal == null) return null;
+          const x = scaleX(point.timestamp);
+          const y = scaleY(mainVal);
+          const rawPart = `Raw: ${point.raw_value.toFixed(1)}`;
+          const normPart =
+            point.normalized_value != null
+              ? `Нормализованная: ${point.normalized_value.toFixed(1)}`
+              : null;
+          const corrPart =
+            point.correction_mmol_l != null
+              ? `Смещение: ${formatSigned(point.correction_mmol_l)}`
+              : null;
+          const confPart = point.bias_confidence
+            ? `Доверие: ${point.bias_confidence}`
+            : null;
+          const contribPart =
+            point.contributing_fingerstick_count != null
+              ? `Записей из пальца: ${point.contributing_fingerstick_count}`
+              : null;
+          const distPart =
+            point.nearest_fingerstick_distance_min != null
+              ? `Ближайшее: ${point.nearest_fingerstick_distance_min.toFixed(0)} мин`
+              : null;
+          const tooltipText = [
+            formatTime(point.timestamp),
+            rawPart,
+            normPart,
+            corrPart,
+            confPart,
+            contribPart,
+            distPart,
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <circle
+              cx={x}
+              cy={y}
+              fill="transparent"
+              key={`pt-${i}`}
+              r="8"
+            >
+              <title>{tooltipText}</title>
+            </circle>
+          );
+        })}
 
         {data?.fingersticks.map((row) => {
           const x = scaleX(row.measured_at);
@@ -1472,100 +2150,437 @@ function GlucoseChart({
 
 function EventLane({
   artifacts,
+  episodeLayouts,
   eventTop,
   fingersticks,
   food,
   insulin,
+  onEpisodeSelect,
   scaleX,
+  selectedEpisodeId,
 }: {
   artifacts: Artifact[];
+  episodeLayouts: EpisodeChipLayout[];
   eventTop: number;
   fingersticks: Fingerstick[];
   food: FoodEvent[];
   insulin: InsulinEvent[];
+  onEpisodeSelect: (episodeId: string) => void;
   scaleX: (iso: string) => number;
+  selectedEpisodeId: string | null;
 }) {
+  const markerY = eventTop + 43;
+  const compactMarkers = episodeLayouts.some((layout) =>
+    ["minimal", "marker"].includes(layout.density),
+  );
+
   return (
     <g>
+      {episodeLayouts.map((layout) => (
+        <EpisodeSummaryChip
+          key={`episode-${layout.episode.id}`}
+          layout={layout}
+          onSelect={onEpisodeSelect}
+          selected={selectedEpisodeId === layout.episode.id}
+          y={eventTop + 1}
+        />
+      ))}
       {food.map((event, index) => (
-        <EventChip
-          fill="#F2E8D8"
+        <FoodEventMarker
           key={`food-${event.timestamp}-${index}`}
-          label={`еда ${formatNumber(event.carbs_g, 1)}г`}
-          stroke="var(--accent)"
+          title={`${formatTime(event.timestamp)} Еда: ${event.title} ${formatNumber(
+            event.carbs_g,
+            1,
+          )} г`}
+          compact={compactMarkers}
           x={scaleX(event.timestamp)}
-          y={eventTop}
+          y={markerY}
         />
       ))}
       {insulin.map((event, index) => (
-        <EventChip
-          fill="#F6F4EE"
+        <InsulinEventMarker
           key={`insulin-${event.timestamp}-${index}`}
-          label={`инсулин ${formatNumber(event.insulin_units, 1)} ЕД`}
-          stroke="var(--fg)"
+          title={`${formatTime(event.timestamp)} Инсулин из Nightscout: ${formatNumber(
+            event.insulin_units,
+            1,
+          )} ЕД`}
+          compact={compactMarkers}
           x={scaleX(event.timestamp)}
-          y={eventTop + 2}
+          y={markerY}
         />
       ))}
       {fingersticks.map((row) => (
-        <EventChip
-          fill="#FFFFFF"
+        <FingerstickEventMarker
           key={`finger-${row.id}`}
-          label={`из пальца ${formatNumber(row.glucose_mmol_l)}`}
-          stroke="var(--fg)"
+          title={`${formatTime(row.measured_at)} Из пальца: ${formatNumber(
+            row.glucose_mmol_l,
+          )} ммоль/л`}
+          compact={compactMarkers}
           x={scaleX(row.measured_at)}
-          y={eventTop + 4}
+          y={markerY}
         />
       ))}
       {artifacts.map((artifact, index) => (
-        <EventChip
-          fill="#FFF8EA"
+        <ArtifactEventMarker
           key={`artifact-${artifact.start_at}-${index}`}
-          label="артефакт?"
-          stroke="#A77730"
+          title={`${formatTime(artifact.start_at)} ${artifact.label}`}
+          compact={compactMarkers}
           x={scaleX(artifact.start_at)}
-          y={eventTop + 6}
+          y={markerY}
         />
       ))}
     </g>
   );
 }
 
-function EventChip({
-  fill,
-  label,
-  stroke,
+type EpisodeVisualDensity = "detailed" | "compact" | "minimal" | "marker";
+
+type EpisodeChipLayout = {
+  density: EpisodeVisualDensity;
+  episode: GroupedEpisode;
+  left: number;
+  primaryLabel: string;
+  secondaryLabel: string | null;
+  width: number;
+};
+
+function EpisodeSummaryChip({
+  layout,
+  onSelect,
+  selected,
+  y,
+}: {
+  layout: EpisodeChipLayout;
+  onSelect: (episodeId: string) => void;
+  selected: boolean;
+  y: number;
+}) {
+  const height = layout.density === "marker" ? 24 : 34;
+  const markerOnly = layout.density === "marker";
+  return (
+    <g
+      cursor="pointer"
+      onClick={() => onSelect(layout.episode.id)}
+      role="button"
+      tabIndex={0}
+      transform={`translate(${layout.left},${y})`}
+    >
+      <title>{episodeTooltip(layout.episode)}</title>
+      <rect
+        fill={selected ? "#E3C17D" : "#F1E4CE"}
+        height={height}
+        rx="0"
+        stroke={selected ? "var(--fg)" : "var(--accent)"}
+        strokeOpacity={selected ? "0.86" : "0.58"}
+        strokeWidth={selected ? "1.6" : "1"}
+        width={layout.width}
+      />
+      {markerOnly ? (
+        <circle
+          cx={layout.width / 2}
+          cy={height / 2}
+          fill="var(--accent)"
+          r={4}
+          stroke={selected ? "var(--fg)" : "none"}
+          strokeWidth="1.2"
+        />
+      ) : (
+        <>
+          <text
+            fill="var(--fg)"
+            fontSize={layout.density === "minimal" ? "11" : "12"}
+            fontWeight={selected ? "700" : "600"}
+            textAnchor="middle"
+            x={layout.width / 2}
+            y={layout.secondaryLabel ? "14" : "21"}
+          >
+            {layout.primaryLabel}
+          </text>
+          {layout.secondaryLabel ? (
+            <text
+              fill="var(--muted)"
+              fontSize="10"
+              textAnchor="middle"
+              x={layout.width / 2}
+              y="27"
+            >
+              {layout.secondaryLabel}
+            </text>
+          ) : null}
+        </>
+      )}
+    </g>
+  );
+}
+
+function FoodEventMarker({
+  compact,
+  title,
   x,
   y,
 }: {
-  fill: string;
-  label: string;
-  stroke: string;
+  compact: boolean;
+  title: string;
   x: number;
   y: number;
 }) {
-  const width = Math.max(58, Math.min(118, label.length * 6.4 + 18));
   return (
-    <g transform={`translate(${x - width / 2},${y})`}>
-      <rect
-        fill={fill}
-        height="24"
-        rx="0"
-        stroke={stroke}
-        strokeOpacity="0.65"
-        width={width}
+    <g>
+      <title>{title}</title>
+      <circle
+        cx={x}
+        cy={y}
+        fill="var(--accent)"
+        opacity={compact ? 0.62 : 0.86}
+        r={compact ? 3 : 4.5}
+        stroke="var(--surface)"
+        strokeWidth="1"
       />
-      <text
-        fill="var(--fg)"
-        fontSize="11"
-        textAnchor="middle"
-        x={width / 2}
-        y="16"
-      >
-        {label}
-      </text>
     </g>
   );
+}
+
+function InsulinEventMarker({
+  compact,
+  title,
+  x,
+  y,
+}: {
+  compact: boolean;
+  title: string;
+  x: number;
+  y: number;
+}) {
+  return (
+    <g>
+      <title>{title}</title>
+      <line
+        opacity={compact ? 0.58 : 0.82}
+        stroke="var(--fg)"
+        strokeLinecap="round"
+        strokeWidth={compact ? "1.4" : "2"}
+        x1={x}
+        x2={x}
+        y1={y - (compact ? 8 : 12)}
+        y2={y + (compact ? 8 : 12)}
+      />
+    </g>
+  );
+}
+
+function FingerstickEventMarker({
+  compact,
+  title,
+  x,
+  y,
+}: {
+  compact: boolean;
+  title: string;
+  x: number;
+  y: number;
+}) {
+  const size = compact ? 5 : 7;
+  return (
+    <g>
+      <title>{title}</title>
+      <polygon
+        fill="var(--surface)"
+        opacity={compact ? 0.7 : 1}
+        points={`${x},${y - size} ${x + size},${y} ${x},${y + size} ${x - size},${y}`}
+        stroke="var(--fg)"
+        strokeWidth={compact ? "1.2" : "1.6"}
+      />
+    </g>
+  );
+}
+
+function ArtifactEventMarker({
+  compact,
+  title,
+  x,
+  y,
+}: {
+  compact: boolean;
+  title: string;
+  x: number;
+  y: number;
+}) {
+  const size = compact ? 7 : 9;
+  return (
+    <g>
+      <title>{title}</title>
+      <rect
+        fill="#FFF8EA"
+        height={size}
+        opacity={compact ? 0.64 : 0.9}
+        stroke="#A77730"
+        strokeWidth="1"
+        width={size}
+        x={x - size / 2}
+        y={y - size / 2}
+      />
+    </g>
+  );
+}
+
+function episodeDensityForDuration(durationMs: number): EpisodeVisualDensity {
+  if (durationMs <= 6 * 60 * 60 * 1000) return "detailed";
+  if (durationMs <= 24 * 60 * 60 * 1000) return "compact";
+  return "minimal";
+}
+
+function layoutEpisodeChips({
+  chartLeft,
+  chartRight,
+  density,
+  episodes,
+  scaleX,
+}: {
+  chartLeft: number;
+  chartRight: number;
+  density: EpisodeVisualDensity;
+  episodes: GroupedEpisode[];
+  scaleX: (iso: string) => number;
+}): EpisodeChipLayout[] {
+  if (!episodes.length) return [];
+  const chartWidth = chartRight - chartLeft;
+  const resolvedDensity = resolveEpisodeChipDensity(density, episodes, chartWidth);
+  const gap = resolvedDensity === "marker" ? 4 : 6;
+  const widthOverride =
+    resolvedDensity === "marker" && episodes.length > 1
+      ? Math.max(
+          14,
+          Math.min(32, (chartWidth - gap * (episodes.length - 1)) / episodes.length),
+        )
+      : null;
+  const items = episodes
+    .map((episode) => {
+      const width = widthOverride ?? episodeChipWidth(episode, resolvedDensity);
+      const center =
+        (scaleX(episode.startAt) + Math.max(scaleX(episode.endAt), scaleX(episode.startAt))) /
+        2;
+      const labels = episodeChipLabels(episode, resolvedDensity);
+      return {
+        center,
+        density: resolvedDensity,
+        episode,
+        left: clamp(center - width / 2, chartLeft, chartRight - width),
+        primaryLabel: labels.primary,
+        secondaryLabel: labels.secondary,
+        width,
+      };
+    })
+    .sort((left, right) => left.center - right.center);
+
+  let cursor = chartLeft;
+  items.forEach((item) => {
+    item.left = Math.max(item.left, cursor);
+    cursor = item.left + item.width + gap;
+  });
+
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const next = items[index + 1];
+    const maxLeft = next
+      ? next.left - gap - items[index].width
+      : chartRight - items[index].width;
+    items[index].left = Math.min(items[index].left, maxLeft);
+  }
+
+  const underflow = chartLeft - items[0].left;
+  if (underflow > 0) {
+    items.forEach((item) => {
+      item.left += underflow;
+    });
+  }
+
+  return items;
+}
+
+function resolveEpisodeChipDensity(
+  preferred: EpisodeVisualDensity,
+  episodes: GroupedEpisode[],
+  chartWidth: number,
+): EpisodeVisualDensity {
+  const options: EpisodeVisualDensity[] =
+    preferred === "detailed"
+      ? ["detailed", "compact", "minimal", "marker"]
+      : preferred === "compact"
+        ? ["compact", "minimal", "marker"]
+        : preferred === "minimal"
+          ? ["minimal", "marker"]
+          : ["marker"];
+  return (
+    options.find((density) => {
+      const gap = density === "marker" ? 4 : 6;
+      const totalWidth =
+        episodes.reduce((sum, episode) => sum + episodeChipWidth(episode, density), 0) +
+        gap * Math.max(0, episodes.length - 1);
+      return totalWidth <= chartWidth;
+    }) ?? "marker"
+  );
+}
+
+function episodeChipWidth(
+  episode: GroupedEpisode,
+  density: EpisodeVisualDensity,
+) {
+  if (density === "marker") return 32;
+  if (density === "minimal") return 78;
+  if (density === "compact") return 150;
+  const primary = episodeChipLabels(episode, density).primaryLabelLength;
+  return Math.max(210, Math.min(270, primary * 6.2 + 24));
+}
+
+function episodeChipLabels(
+  episode: GroupedEpisode,
+  density: EpisodeVisualDensity,
+) {
+  const carbs = `${formatNumber(episode.carbsTotal, 1)} г`;
+  const insulin =
+    episode.insulinTotal > 0 ? `${formatNumber(episode.insulinTotal, 1)} ЕД` : null;
+  if (density === "marker") {
+    return { primary: "", primaryLabelLength: 0, secondary: null };
+  }
+  if (density === "minimal") {
+    return {
+      primary: carbs,
+      primaryLabelLength: carbs.length,
+      secondary: insulin,
+    };
+  }
+  if (density === "compact") {
+    const primary = `Приём пищи  ${carbs}`;
+    return {
+      primary,
+      primaryLabelLength: primary.length,
+      secondary: insulin,
+    };
+  }
+  const primary = `Приём пищи  ${formatEpisodeRange(
+    episode.startAt,
+    episode.endAt,
+  )}  ${carbs}`;
+  return {
+    primary,
+    primaryLabelLength: primary.length,
+    secondary: insulin,
+  };
+}
+
+function episodeTooltip(episode: GroupedEpisode) {
+  const lines = [
+    `Приём пищи ${formatEpisodeRange(episode.startAt, episode.endAt)}`,
+    `${formatNumber(episode.carbsTotal, 1)} г углеводов · ${formatNumber(
+      episode.kcalTotal,
+      0,
+    )} ккал · ${formatNumber(episode.insulinTotal, 1)} ЕД`,
+    ...episodeDetailRows(episode).map((row) => `${row.time} ${row.label} ${row.data}`),
+  ];
+  return lines.join("\n");
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function LegendItem({
@@ -1601,4 +2616,149 @@ function modeLabel(mode: GlucoseMode) {
   if (mode === "normalized") return "нормализованная";
   if (mode === "smoothed") return "сглаженная";
   return "raw";
+}
+
+type BiasData = NonNullable<GlucoseDashboardResponse["bias_over_lifetime"]>;
+
+function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
+  if (!data || data.residuals.length === 0) {
+    return (
+      <section className="border border-[var(--hairline)] bg-[var(--surface)] p-5">
+        <h3 className="text-[14px] text-[var(--fg)]">Смещение по времени сенсора</h3>
+        <p className="mt-2 text-[12px] text-[var(--muted)]">
+          Недостаточно записей из пальца для графика смещения.
+        </p>
+      </section>
+    );
+  }
+
+  const viewW = 360;
+  const viewH = 120;
+  const padL = 32;
+  const padR = 8;
+  const padT = 8;
+  const padB = 18;
+  const chartW = viewW - padL - padR;
+  const chartH = viewH - padT - padB;
+
+  const residuals = data.residuals.filter((r) => r.included);
+  const allValues = [
+    ...residuals.map((r) => r.residual),
+    ...data.bias_curve.map((c) => c.bias),
+  ];
+  const vMin = Math.min(...allValues, -0.5);
+  const vMax = Math.max(...allValues, 0.5);
+  const vPad = (vMax - vMin) * 0.15 || 0.5;
+  const yLo = vMin - vPad;
+  const yHi = vMax + vPad;
+
+  const maxAgeH = Math.max(
+    ...data.residuals.map((r) => r.sensor_age_hours),
+    ...data.bias_curve.map((c) => c.sensor_age_hours),
+    48,
+  );
+
+  const xForAge = (h: number) => padL + (h / maxAgeH) * chartW;
+  const yForVal = (v: number) => padT + chartH - ((v - yLo) / (yHi - yLo)) * chartH;
+
+  const warmupEndX = xForAge(48);
+
+  const biasLine = data.bias_curve
+    .map((p) => `${xForAge(p.sensor_age_hours)},${yForVal(p.bias)}`)
+    .join(" ");
+
+  const formatAge = (h: number) => {
+    if (h < 48) return `${Math.round(h)}ч`;
+    return `${(h / 24).toFixed(1)}д`;
+  };
+
+  const tickCount = 5;
+  const ticks = Array.from({ length: tickCount }, (_, i) =>
+    (i / (tickCount - 1)) * maxAgeH,
+  );
+
+  return (
+    <section className="border border-[var(--hairline)] bg-[var(--surface)] p-5">
+      <h3 className="text-[14px] text-[var(--fg)]">Смещение по времени сенсора</h3>
+      <p className="mb-2 text-[10px] text-[var(--muted)]">
+        Оценка по записям из пальца · Raw CGM сохраняется без изменений
+      </p>
+      <svg
+        className="w-full"
+        preserveAspectRatio="xMidYMid meet"
+        viewBox={`0 0 ${viewW} ${viewH}`}
+      >
+        <rect fill="rgba(255,200,100,0.08)" height={chartH} width={warmupEndX - padL} x={padL} y={padT} />
+        <line stroke="rgba(255,200,100,0.3)" strokeDasharray="3 3" x1={warmupEndX} x2={warmupEndX} y1={padT} y2={padT + chartH} />
+        <text fill="rgba(255,200,100,0.6)" fontSize="5" x={warmupEndX + 2} y={padT + 6}>
+          48ч
+        </text>
+        <line stroke="var(--hairline)" x1={padL} x2={padL} y1={padT} y2={padT + chartH} />
+        <line stroke="var(--hairline)" x1={padL} x2={padL + chartW} y1={padT + chartH} y2={padT + chartH} />
+        {ticks.map((h) => (
+          <text fill="var(--muted)" fontSize="6" key={h} textAnchor="middle" x={xForAge(h)} y={viewH - 3}>
+            {formatAge(h)}
+          </text>
+        ))}
+        <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + 4}>
+          {yHi.toFixed(1)}
+        </text>
+        <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + chartH}>
+          {yLo.toFixed(1)}
+        </text>
+        <text fill="var(--muted)" fontSize="5" textAnchor="end" x={padL - 3} y={padT + chartH / 2 + 2}>
+          ммоль/л
+        </text>
+        {biasLine ? (
+          <polyline
+            fill="none"
+            points={biasLine}
+            stroke="var(--fg)"
+            strokeLinejoin="round"
+            strokeWidth="1"
+          />
+        ) : null}
+        {residuals.map((r, i) => (
+          <polygon
+            fill="var(--accent)"
+            key={`d-${i}`}
+            points={`${xForAge(r.sensor_age_hours)},${yForVal(r.residual) - 3} ${xForAge(r.sensor_age_hours) + 2.5},${yForVal(r.residual) + 2} ${xForAge(r.sensor_age_hours) - 2.5},${yForVal(r.residual) + 2}`}
+          >
+            <title>
+              {`${r.sensor_age_hours.toFixed(1)}ч: Δ${r.residual > 0 ? "+" : ""}${r.residual.toFixed(1)} ммоль/л · из пальца ${r.fingerstick_value} / raw ${r.raw_cgm_value}`}
+            </title>
+          </polygon>
+        ))}
+        {data.residuals.filter((r) => !r.included).map((r, i) => (
+          <circle
+            cx={xForAge(r.sensor_age_hours)}
+            cy={yForVal(r.residual)}
+            fill="none"
+            key={`ex-${i}`}
+            r="2"
+            stroke="var(--muted)"
+            strokeWidth="0.5"
+          >
+            <title>
+              {`${r.sensor_age_hours.toFixed(1)}ч: Δ${r.residual > 0 ? "+" : ""}${r.residual.toFixed(1)} · ${r.exclusion_reason ?? "исключено"}`}
+            </title>
+          </circle>
+        ))}
+      </svg>
+      <div className="mt-1 flex gap-4 text-[10px] text-[var(--muted)]">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rotate-45 bg-[var(--accent)]" />
+          из пальца (включено)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full border border-[var(--muted)]" />
+          исключено
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-0 w-3 border-t border-[var(--fg)]" />
+          оценка смещения
+        </span>
+      </div>
+    </section>
+  );
 }

@@ -23,12 +23,14 @@ export const formatMealTime = (iso: string) =>
 
 const twoDigits = (value: number) => value.toString().padStart(2, "0");
 
-const mealTimeInputValue = (iso: string) => {
+const mealDateTimeInputValue = (iso: string) => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
+  return `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(
+    date.getDate(),
+  )}T${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
 };
 
 const mealDateLabel = (iso: string) =>
@@ -38,13 +40,25 @@ const mealDateLabel = (iso: string) =>
     year: "numeric",
   }).format(new Date(iso));
 
-const isoWithLocalMealTime = (iso: string, timeValue: string) => {
-  const [hoursRaw, minutesRaw] = timeValue.split(":");
+const isoFromLocalDateTimeInput = (value: string) => {
+  const [dateRaw, timeRaw] = value.split("T");
+  const [yearRaw, monthRaw, dayRaw] = (dateRaw ?? "").split("-");
+  const [hoursRaw, minutesRaw] = (timeRaw ?? "").split(":");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
   const hours = Number(hoursRaw);
   const minutes = Number(minutesRaw);
   if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
     !Number.isInteger(hours) ||
     !Number.isInteger(minutes) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
     hours < 0 ||
     hours > 23 ||
     minutes < 0 ||
@@ -52,13 +66,9 @@ const isoWithLocalMealTime = (iso: string, timeValue: string) => {
   ) {
     return null;
   }
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(
-    date.getDate(),
-  )}T${twoDigits(hours)}:${twoDigits(minutes)}:00`;
+  return `${year}-${twoDigits(month)}-${twoDigits(day)}T${twoDigits(
+    hours,
+  )}:${twoDigits(minutes)}:00`;
 };
 
 export const numberLabel = (value: number) => Math.round(value).toString();
@@ -73,6 +83,7 @@ type QuantityInfo = {
   quantity: number;
   badge: string;
   countLabel: string;
+  packageBased: boolean;
   rowSubtitle: string;
   perUnitTitle: string;
   perUnitWeightG: number | null;
@@ -190,10 +201,8 @@ const itemImageUrl = (meal: MealResponse) =>
 
 const remoteMealThumbnail = (meal: MealResponse) => {
   const thumbnailUrl = meal.thumbnail_url;
-  if (thumbnailUrl && !thumbnailUrl.startsWith("/photos/")) {
-    return thumbnailUrl;
-  }
-  return itemImageUrl(meal);
+  const sourceImage = itemImageUrl(meal);
+  return sourceImage ?? thumbnailUrl ?? null;
 };
 
 type EvidenceCarrier = {
@@ -278,6 +287,7 @@ const quantityInfoForItem = (item: MealItem): QuantityInfo | null => {
     quantity,
     badge: `×${formatMacroValue(quantity)}`,
     countLabel,
+    packageBased,
     rowSubtitle,
     perUnitTitle: packageBased ? "На 1 упаковку" : "На 1 штуку",
     perUnitWeightG,
@@ -288,6 +298,27 @@ const quantityInfoForItem = (item: MealItem): QuantityInfo | null => {
 
 export const mealQuantityInfo = (meal: MealResponse): QuantityInfo | null =>
   meal.items?.map(quantityInfoForItem).find(Boolean) ?? null;
+
+export const mealWeightLabel = (meal: MealResponse) => {
+  const items = meal.items ?? [];
+  if (!items.length) {
+    return null;
+  }
+  if (items.length === 1) {
+    const grams = items[0].grams;
+    return grams !== null && grams !== undefined
+      ? `${formatMacroValue(grams)} г`
+      : null;
+  }
+  const gramsValues = items
+    .map((item) => item.grams)
+    .filter((grams): grams is number => typeof grams === "number");
+  if (gramsValues.length !== items.length) {
+    return null;
+  }
+  const total = gramsValues.reduce((sum, grams) => sum + grams, 0);
+  return total > 0 ? `${formatMacroValue(total)} г всего` : null;
+};
 
 const factBasisLabel = (basis: unknown) => {
   if (basis === "per_100g") {
@@ -442,6 +473,7 @@ export function MealRow({
   selected: boolean;
 }) {
   const quantity = mealQuantityInfo(meal);
+  const weightLabel = mealWeightLabel(meal);
   return (
     <article
       className={`border-b border-[var(--hairline)] ${
@@ -464,7 +496,11 @@ export function MealRow({
           <span className="flex items-center gap-2 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
             <span>
               {mealSourceText(meal)}
-              {quantity ? ` · ${quantity.rowSubtitle}` : ""}
+              {quantity
+                ? ` · ${quantity.rowSubtitle}`
+                : weightLabel
+                  ? ` · ${weightLabel}`
+                  : ""}
             </span>
             {quantity ? <TinyLabel>{quantity.badge}</TinyLabel> : null}
             {meal.status === "draft" ? <TinyLabel>черновик</TinyLabel> : null}
@@ -598,12 +634,16 @@ export function SelectedMealPanel({
   onReestimateCancel,
   onReestimateModelChange,
   onRememberProduct,
+  onCreateFromWeight,
+  onUpdateItemWeight,
   onResyncNightscout,
   onSave,
   onSyncNightscout,
   onUpdateName,
   onUpdateTime,
   rememberPending = false,
+  createFromWeightPending = false,
+  updateWeightPending = false,
   reestimateComparison = null,
   reestimateError = null,
   reestimateModel = "gemini-3-flash-preview",
@@ -632,12 +672,16 @@ export function SelectedMealPanel({
     item: NonNullable<MealResponse["items"]>[number],
     aliases: string[],
   ) => void;
+  onCreateFromWeight?: (item: MealItem, grams: number) => void;
+  onUpdateItemWeight?: (item: MealItem, grams: number) => void;
   onResyncNightscout?: (meal: MealResponse) => void;
   onSave?: (meal: MealResponse) => void;
   onSyncNightscout?: (meal: MealResponse) => void;
   onUpdateName?: (meal: MealResponse, name: string) => void;
   onUpdateTime?: (meal: MealResponse, eatenAt: string) => void;
   rememberPending?: boolean;
+  createFromWeightPending?: boolean;
+  updateWeightPending?: boolean;
   reestimateComparison?: ReestimateMealResponse | null;
   reestimateError?: string | null;
   reestimateModel?: ReestimateModel;
@@ -700,21 +744,66 @@ export function SelectedMealPanel({
     currentAiRun?.model_used ?? currentAiRun?.model ?? "неизвестно";
   const [nameValue, setNameValue] = useState(savedNameValue);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [timeValue, setTimeValue] = useState(() =>
-    mealTimeInputValue(meal.eaten_at),
+  const [dateTimeValue, setDateTimeValue] = useState(() =>
+    mealDateTimeInputValue(meal.eaten_at),
   );
-  const [timeError, setTimeError] = useState<string | null>(null);
+  const [dateTimeError, setDateTimeError] = useState<string | null>(null);
+  const [editGrams, setEditGrams] = useState(() =>
+    primaryItem?.grams ? String(primaryItem.grams) : "",
+  );
+  const [editGramsError, setEditGramsError] = useState<string | null>(null);
+  const [repeatGrams, setRepeatGrams] = useState(() =>
+    primaryItem?.grams ? "100" : "",
+  );
+  const [repeatError, setRepeatError] = useState<string | null>(null);
   useEffect(() => {
     setNameValue(savedNameValue);
     setNameError(null);
   }, [meal.id, savedNameValue]);
   useEffect(() => {
-    setTimeValue(mealTimeInputValue(meal.eaten_at));
-    setTimeError(null);
+    setDateTimeValue(mealDateTimeInputValue(meal.eaten_at));
+    setDateTimeError(null);
   }, [meal.id, meal.eaten_at]);
+  useEffect(() => {
+    setEditGrams(primaryItem?.grams ? String(primaryItem.grams) : "");
+    setEditGramsError(null);
+  }, [meal.id, primaryItem?.id, primaryItem?.grams]);
+  useEffect(() => {
+    setRepeatGrams(primaryItem?.grams ? "100" : "");
+    setRepeatError(null);
+  }, [meal.id, primaryItem?.id, primaryItem?.grams]);
   const nameChanged = nameValue.trim() !== savedNameValue;
-  const savedTimeValue = mealTimeInputValue(meal.eaten_at);
-  const timeChanged = timeValue !== savedTimeValue;
+  const savedDateTimeValue = mealDateTimeInputValue(meal.eaten_at);
+  const dateTimeChanged = dateTimeValue !== savedDateTimeValue;
+  const parsedEditGrams = asNumber(editGrams);
+  const parsedRepeatGrams = asNumber(repeatGrams);
+  const currentWeightLabel = mealWeightLabel(meal);
+  const canEditWeight = Boolean(
+    onUpdateItemWeight &&
+      primaryItem &&
+      primaryItem.grams !== null &&
+      primaryItem.grams !== undefined &&
+      primaryItem.grams > 0,
+  );
+  const editWeightChanged = Boolean(
+    primaryItem &&
+      parsedEditGrams !== null &&
+      primaryItem.grams !== null &&
+      primaryItem.grams !== undefined &&
+      Math.abs(parsedEditGrams - primaryItem.grams) > 0.001,
+  );
+  const canRepeatByWeight = Boolean(
+    onCreateFromWeight &&
+      primaryItem &&
+      primaryItem.grams !== null &&
+      primaryItem.grams !== undefined &&
+      primaryItem.grams > 0,
+  );
+  const unitRepeatWeight =
+    quantity?.perUnitWeightG && quantity.perUnitWeightG > 0
+      ? quantity.perUnitWeightG
+      : null;
+  const quickRepeatUnitLabel = quantity?.packageBased ? "упаковку" : "шт";
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = nameValue.trim();
@@ -727,13 +816,45 @@ export function SelectedMealPanel({
   };
   const handleTimeSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextEatenAt = isoWithLocalMealTime(meal.eaten_at, timeValue);
+    const nextEatenAt = isoFromLocalDateTimeInput(dateTimeValue);
     if (!nextEatenAt) {
-      setTimeError("Введите время в формате ЧЧ:ММ.");
+      setDateTimeError("Введите дату и время.");
       return;
     }
-    setTimeError(null);
+    setDateTimeError(null);
     onUpdateTime?.(meal, nextEatenAt);
+  };
+  const handleEditWeight = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!primaryItem || !onUpdateItemWeight) {
+      return;
+    }
+    if (!parsedEditGrams || parsedEditGrams <= 0) {
+      setEditGramsError("Введите вес больше 0 г.");
+      return;
+    }
+    setEditGramsError(null);
+    onUpdateItemWeight(primaryItem, parsedEditGrams);
+  };
+  const handleRepeatByWeight = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!primaryItem || !onCreateFromWeight) {
+      return;
+    }
+    if (!parsedRepeatGrams || parsedRepeatGrams <= 0) {
+      setRepeatError("Введите вес больше 0 г.");
+      return;
+    }
+    setRepeatError(null);
+    onCreateFromWeight(primaryItem, parsedRepeatGrams);
+  };
+  const handleQuickRepeatByWeight = (grams: number) => {
+    if (!primaryItem || !onCreateFromWeight || grams <= 0) {
+      return;
+    }
+    setRepeatError(null);
+    setRepeatGrams(String(grams));
+    onCreateFromWeight(primaryItem, grams);
   };
 
   return (
@@ -765,6 +886,7 @@ export function SelectedMealPanel({
           <div className="mt-4 flex flex-wrap gap-2">
             <SourceTag>{readableSource(meal.source)}</SourceTag>
             <SourceTag>{readableStatus(meal.status)}</SourceTag>
+            {currentWeightLabel ? <SourceTag>{currentWeightLabel}</SourceTag> : null}
             {quantity ? <SourceTag>{quantity.badge}</SourceTag> : null}
           </div>
         </div>
@@ -825,30 +947,33 @@ export function SelectedMealPanel({
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
             <label className="grid gap-2">
               <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                Время записи
+                Дата и время записи
               </span>
               <input
-                aria-label="Время записи"
-                className="h-11 border-0 border-b border-[var(--hairline)] bg-transparent font-mono text-[28px] leading-none text-[var(--fg)] outline-none focus:border-[var(--fg)]"
-                onChange={(event) => setTimeValue(event.target.value)}
-                type="time"
-                value={timeValue}
+                aria-label="Дата и время записи"
+                className="h-11 border-0 border-b border-[var(--hairline)] bg-transparent font-mono text-[22px] leading-none text-[var(--fg)] outline-none focus:border-[var(--fg)]"
+                onChange={(event) => setDateTimeValue(event.target.value)}
+                type="datetime-local"
+                value={dateTimeValue}
               />
             </label>
             <Button
-              disabled={!timeChanged || updateTimePending}
+              disabled={!dateTimeChanged || updateTimePending}
               type="submit"
               variant="primary"
             >
-              {updateTimePending ? "Сохраняю..." : "Сохранить время"}
+              {updateTimePending ? "Сохраняю..." : "Сохранить дату"}
             </Button>
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 text-[12px] text-[var(--muted)]">
             <span>{mealDateLabel(meal.eaten_at)}</span>
-            <span>текущее: {savedTimeValue}</span>
+            <span>текущее: {savedDateTimeValue.replace("T", " ")}</span>
           </div>
-          {timeError ? (
-            <p className="text-[13px] text-[var(--danger)]">{timeError}</p>
+          <p className="text-[12px] text-[var(--muted)]">
+            Если изменить день, запись переместится в журнал этого дня.
+          </p>
+          {dateTimeError ? (
+            <p className="text-[13px] text-[var(--danger)]">{dateTimeError}</p>
           ) : null}
         </form>
       ) : null}
@@ -872,6 +997,133 @@ export function SelectedMealPanel({
               : ""}
           </p>
         </section>
+      ) : null}
+
+      {canEditWeight ? (
+        <form
+          className="mt-6 grid gap-3 border-y border-[var(--hairline)] py-4"
+          onSubmit={handleEditWeight}
+        >
+          <div className="grid gap-2">
+            <h3 className="text-[13px] uppercase tracking-[0.02em]">
+              Вес текущей записи
+            </h3>
+            <p className="text-[12px] text-[var(--muted)]">
+              Изменит эту запись. Backend пересчитает углеводы, ккал и макросы
+              пропорционально весу.
+            </p>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <label className="grid gap-2">
+              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+                вес текущей записи, г
+              </span>
+              <input
+                aria-label="Вес текущей записи, г"
+                className="h-11 border-0 border-b border-[var(--hairline)] bg-transparent font-mono text-[28px] leading-none text-[var(--fg)] outline-none focus:border-[var(--fg)]"
+                inputMode="decimal"
+                onChange={(event) => setEditGrams(event.target.value)}
+                value={editGrams}
+              />
+            </label>
+            <Button
+              disabled={
+                updateWeightPending ||
+                !editWeightChanged ||
+                !parsedEditGrams ||
+                parsedEditGrams <= 0
+              }
+              type="submit"
+              variant="primary"
+            >
+              {updateWeightPending ? "Сохраняю..." : "Сохранить вес"}
+            </Button>
+          </div>
+          {editGramsError ? (
+            <p className="text-[13px] text-[var(--danger)]">{editGramsError}</p>
+          ) : null}
+        </form>
+      ) : null}
+
+      {canRepeatByWeight ? (
+        <form
+          className="mt-6 grid gap-3 border-y border-[var(--hairline)] py-4"
+          onSubmit={handleRepeatByWeight}
+        >
+          <div className="grid gap-2">
+            <h3 className="text-[13px] uppercase tracking-[0.02em]">
+              Повтор по весу
+            </h3>
+            <p className="text-[12px] text-[var(--muted)]">
+              Основа: {formatMacroValue(primaryItem?.grams ?? 0)} г. Backend
+              пересчитает значения на новый вес и создаст запись сейчас.
+            </p>
+          </div>
+          {unitRepeatWeight ? (
+            <div className="grid gap-2 border border-[var(--hairline)] bg-[var(--surface)] p-3">
+              <div className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+                Быстро из распознанного количества
+              </div>
+              <button
+                className="flex items-center justify-between gap-3 text-left transition hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:text-[var(--muted)]"
+                disabled={createFromWeightPending}
+                onClick={() => handleQuickRepeatByWeight(unitRepeatWeight)}
+                type="button"
+              >
+                <span className="text-[14px] text-[var(--fg)]">
+                  Добавить 1 {quickRepeatUnitLabel}
+                </span>
+                <span className="font-mono text-[16px]">
+                  {formatMacroValue(unitRepeatWeight)} г
+                </span>
+              </button>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <label className="grid gap-2">
+              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+                вес новой записи, г
+              </span>
+              <input
+                aria-label="Вес новой записи, г"
+                className="h-11 border-0 border-b border-[var(--hairline)] bg-transparent font-mono text-[28px] leading-none text-[var(--fg)] outline-none focus:border-[var(--fg)]"
+                inputMode="decimal"
+                onChange={(event) => setRepeatGrams(event.target.value)}
+                value={repeatGrams}
+              />
+            </label>
+            <Button
+              disabled={
+                createFromWeightPending ||
+                !parsedRepeatGrams ||
+                parsedRepeatGrams <= 0
+              }
+              type="submit"
+              variant="primary"
+            >
+              {createFromWeightPending
+                ? "Добавляю..."
+                : `Добавить ${formatMacroValue(parsedRepeatGrams ?? 100)} г`}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[unitRepeatWeight ?? 0, 100, 127, primaryItem?.grams ?? 0]
+              .filter((grams, index, values) => grams > 0 && values.indexOf(grams) === index)
+              .map((grams) => (
+                <button
+                  className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-1.5 text-[12px] text-[var(--muted)] transition hover:text-[var(--fg)]"
+                  key={grams}
+                  onClick={() => setRepeatGrams(String(grams))}
+                  type="button"
+                >
+                  {formatMacroValue(grams)} г
+                </button>
+              ))}
+          </div>
+          {repeatError ? (
+            <p className="text-[13px] text-[var(--danger)]">{repeatError}</p>
+          ) : null}
+        </form>
       ) : null}
 
       <div className="mt-8 grid grid-cols-4 border-b border-[var(--hairline)] pb-6">

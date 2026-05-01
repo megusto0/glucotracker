@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiClient,
   type FingerstickReadingCreate,
+  type FingerstickReadingPatch,
   type GlucoseMode,
   type SensorSessionCreate,
   type SensorSessionPatch,
@@ -36,6 +37,32 @@ export function useCreateFingerstick() {
   return useMutation({
     mutationFn: (body: FingerstickReadingCreate) =>
       apiClient.createFingerstick(config, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["glucose"] });
+    },
+  });
+}
+
+export function useUpdateFingerstick() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { body: FingerstickReadingPatch; fingerstickId: string }) =>
+      apiClient.patchFingerstick(config, payload.fingerstickId, payload.body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["glucose"] });
+    },
+  });
+}
+
+export function useDeleteFingerstick() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (fingerstickId: string) =>
+      apiClient.deleteFingerstick(config, fingerstickId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["glucose"] });
     },

@@ -1,6 +1,6 @@
 # Agent Context
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 This is the short future-agent orientation note. For full detail, read
 `docs/project-explainer.txt`, `docs/architecture.md`, `docs/api-contract.md`,
@@ -52,6 +52,12 @@ same backend API without backend changes for desktop-specific behavior.
 5. User accepts or discards the draft.
 6. Accepted meals count in daily totals. Drafts do not.
 7. Accepted label-derived items can be remembered into the local product DB.
+8. The journal creates new entries in the selected local day. If an old day is
+   open, a new photo/manual meal belongs to that day until the user edits
+   `eaten_at`.
+9. The selected meal panel supports date/time edit and repeat-by-weight. For
+   recognized multi-unit label foods, quick repeat can create one unit/package
+   by calling `POST /meal_items/{id}/copy_by_weight`.
 
 ## Safety And Data Invariants
 
@@ -79,6 +85,12 @@ same backend API without backend changes for desktop-specific behavior.
 - Multi-photo estimation must preserve photo identity.
 - Unrelated photos should not be merged into one food item.
 - Local wall-clock meal times should not be shifted through UTC conversion.
+- Editing a meal's `eaten_at` must schedule daily-total recalculation for both
+  the old day and the new day; frontend should use the backend mutation rather
+  than touching SQLite.
+- Repeat-by-weight and quick "one package" actions must send grams to the
+  backend and let backend scale macros. Do not calculate accepted repeat totals
+  in the frontend.
 - Sodium and caffeine should not be visually guessed from plated food.
 
 ## Important Paths
@@ -98,7 +110,7 @@ same backend API without backend changes for desktop-specific behavior.
 - `desktop/src/features/glucose/GlucosePage.tsx` - `/glucose` dashboard page.
 - `desktop/src/features/chat/ChatPage.tsx` - main journal/photo draft screen.
 - `desktop/src/features/meals/MealLedger.tsx` - meal rows and detail panels.
-- `desktop/src/features/meals/useMealMutations.ts` - shared meal mutations (updateMealName, updateMealTime, duplicateMeal).
+- `desktop/src/features/meals/useMealMutations.ts` - shared meal mutations (updateMealName, updateMealTime, duplicateMeal, createMealFromItemWeight).
 - `desktop/src/api/client.ts` - desktop API wrapper.
 
 ## Verification Commands

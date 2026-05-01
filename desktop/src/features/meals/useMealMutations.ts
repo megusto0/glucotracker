@@ -3,6 +3,7 @@ import {
   apiClient,
   type ApiConfig,
   type MealItemCreate,
+  type MealItemWeightReuseRequest,
   type MealResponse,
 } from "../../api/client";
 import { useApiConfig } from "../settings/settingsStore";
@@ -16,6 +17,7 @@ const isRememberableLabelItem = (item: MealItem) =>
 const MEAL_INVALIDATION_KEYS = [
   ["meals"],
   ["feed-meals"],
+  ["timeline"],
   ["dashboard"],
   ["autocomplete"],
   ["database"],
@@ -77,8 +79,52 @@ export function useDuplicateMeal() {
   return useMutation({
     mutationFn: (meal: MealResponse) => duplicateMeal(config, meal),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["feed-meals"] });
-      queryClient.invalidateQueries({ queryKey: ["meals"] });
+      MEAL_INVALIDATION_KEYS.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key });
+      });
+    },
+  });
+}
+
+export function useCreateMealFromItemWeight() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eatenAt,
+      grams,
+      itemId,
+    }: {
+      eatenAt?: string;
+      grams: number;
+      itemId: string;
+    }) => {
+      const body: MealItemWeightReuseRequest = {
+        eaten_at: eatenAt ?? localNowDateTime(),
+        grams,
+      };
+      return apiClient.createMealFromItemWeight(config, itemId, body);
+    },
+    onSuccess: () => {
+      MEAL_INVALIDATION_KEYS.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key });
+      });
+    },
+  });
+}
+
+export function useUpdateMealItemWeight() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ grams, itemId }: { grams: number; itemId: string }) =>
+      apiClient.updateMealItem(config, itemId, { grams }),
+    onSuccess: () => {
+      MEAL_INVALIDATION_KEYS.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key });
+      });
     },
   });
 }
@@ -110,9 +156,7 @@ async function duplicateMeal(config: ApiConfig, meal: MealResponse): Promise<Mea
   const items = (meal.items ?? []).map((item, index) =>
     mealItemToCreate(item, index),
   );
-  const now = new Date();
-  const pad = (v: number) => v.toString().padStart(2, "0");
-  const eatenAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const eatenAt = localNowDateTime();
   return apiClient.createMeal(config, {
     eaten_at: eatenAt,
     items,
@@ -121,4 +165,10 @@ async function duplicateMeal(config: ApiConfig, meal: MealResponse): Promise<Mea
     status: "accepted",
     title: meal.title,
   });
+}
+
+function localNowDateTime() {
+  const now = new Date();
+  const pad = (v: number) => v.toString().padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }

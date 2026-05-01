@@ -19,6 +19,7 @@ from glucotracker.api.schemas import (
     MealItemCreate,
     MealItemPatch,
     MealItemResponse,
+    MealItemWeightReuseRequest,
     MealPageResponse,
     MealPatch,
     MealResponse,
@@ -483,8 +484,21 @@ def _apply_item_patch(
     """Apply an item patch payload to an ORM object."""
     data = payload.model_dump(exclude_unset=True)
     nutrient_payload = data.pop("nutrients", None)
+    old_grams = item.grams
+    new_grams = _as_float(data.get("grams")) if "grams" in data else None
+    macro_fields = {"carbs_g", "protein_g", "fat_g", "fiber_g", "kcal"}
+    should_rescale_weight = (
+        "grams" in data
+        and not macro_fields.intersection(data)
+        and old_grams is not None
+        and old_grams > 0
+        and new_grams is not None
+        and new_grams > 0
+    )
     for field, value in data.items():
         setattr(item, field, value)
+    if should_rescale_weight:
+        _rescale_item_to_grams(item, old_grams, new_grams)
     if "warnings" not in data:
         item.warnings = _warning_payload(item)
     if nutrient_payload is not None:
@@ -514,6 +528,192 @@ def _recalculate_meal(meal: Meal) -> None:
     meal.total_kcal = totals["total_kcal"]
     meal.confidence = compute_meal_confidence(meal.items)
     meal.updated_at = utc_now()
+
+
+def _scale_macro(value: float | None, scale: float) -> float:
+    """Scale an item macro for a new weight."""
+    return round((value or 0) * scale, 1)
+
+
+def _scaled_weight_evidence(
+    source_item: MealItem,
+    *,
+    grams: float,
+    scale: float,
+) -> dict:
+    """Build traceable evidence for a weight-based repeat."""
+    source_evidence = (
+        dict(source_item.evidence)
+        if isinstance(source_item.evidence, dict)
+        else {}
+    )
+    source_grams = float(source_item.grams or 0)
+    per_100g = {
+        "carbs_g": round(source_item.carbs_g / source_grams * 100, 3),
+        "protein_g": round(source_item.protein_g / source_grams * 100, 3),
+        "fat_g": round(source_item.fat_g / source_grams * 100, 3),
+        "fiber_g": round(source_item.fiber_g / source_grams * 100, 3),
+        "kcal": round(source_item.kcal / source_grams * 100, 3),
+    }
+    return {
+        **source_evidence,
+        "scaled_from_history": {
+            "source_item_id": str(source_item.id),
+            "source_meal_id": str(source_item.meal_id),
+            "source_grams": source_grams,
+            "target_grams": float(grams),
+            "scale": round(scale, 6),
+            "nutrition_per_100g": per_100g,
+        },
+    }
+
+
+def _copy_scaled_nutrients(
+    source_item: MealItem,
+    new_item: MealItem,
+    scale: float,
+) -> None:
+    """Copy optional nutrient rows from a source item with weight scaling."""
+    for source in source_item.nutrients:
+        amount = source.amount * scale if source.amount is not None else None
+        new_item.nutrients.append(
+            MealItemNutrient(
+                nutrient_code=source.nutrient_code,
+                amount=round(amount, 3) if amount is not None else None,
+                unit=source.unit,
+                source_kind=source.source_kind,
+                confidence=source.confidence,
+                evidence_json=dict(source.evidence_json or {}),
+                assumptions_json=list(source.assumptions_json or []),
+            )
+        )
+
+
+def _rescale_item_to_grams(item: MealItem, old_grams: float, new_grams: float) -> None:
+    """Recalculate item macros after a backend-owned weight edit."""
+    if old_grams <= 0 or new_grams <= 0:
+        return
+
+    evidence = dict(item.evidence) if isinstance(item.evidence, dict) else {}
+    scaled_from_history = evidence.get("scaled_from_history")
+    per_100g = (
+        scaled_from_history.get("nutrition_per_100g")
+        if isinstance(scaled_from_history, dict)
+        else None
+    )
+    if isinstance(per_100g, dict):
+        scale = new_grams / 100
+        for source, target in [
+            ("carbs_g", "carbs_g"),
+            ("protein_g", "protein_g"),
+            ("fat_g", "fat_g"),
+            ("fiber_g", "fiber_g"),
+            ("kcal", "kcal"),
+        ]:
+            value = _as_float(per_100g.get(source))
+            if value is not None:
+                setattr(item, target, round(value * scale, 1))
+        source_grams = _as_float(scaled_from_history.get("source_grams"))
+        scaled_from_history = {
+            **scaled_from_history,
+            "target_grams": float(new_grams),
+            "scale": round(new_grams / source_grams, 6) if source_grams else None,
+        }
+        evidence["scaled_from_history"] = scaled_from_history
+    else:
+        scale = new_grams / old_grams
+        item.carbs_g = _scale_macro(item.carbs_g, scale)
+        item.protein_g = _scale_macro(item.protein_g, scale)
+        item.fat_g = _scale_macro(item.fat_g, scale)
+        item.fiber_g = _scale_macro(item.fiber_g, scale)
+        item.kcal = _scale_macro(item.kcal, scale)
+        evidence["rescaled_from_weight_edit"] = {
+            "previous_grams": float(old_grams),
+            "target_grams": float(new_grams),
+            "scale": round(scale, 6),
+        }
+
+    nutrient_scale = new_grams / old_grams
+    for nutrient in item.nutrients:
+        if nutrient.amount is not None:
+            nutrient.amount = round(nutrient.amount * nutrient_scale, 3)
+            nutrient.updated_at = utc_now()
+
+    item.serving_text = f"{new_grams:g} г"
+    item.evidence = evidence
+    if item.calculation_method != "scaled_from_history_per_100g":
+        item.calculation_method = "weight_edit_backend_scale"
+    assumption = f"Вес изменён вручную; backend пересчитал значения на {new_grams:g} г."
+    assumptions = list(item.assumptions or [])
+    if assumption not in assumptions:
+        assumptions.append(assumption)
+    item.assumptions = assumptions
+
+
+def _meal_from_item_weight(
+    source_item: MealItem,
+    payload: MealItemWeightReuseRequest,
+    session: SessionDep,
+) -> Meal:
+    """Create an accepted one-item meal by scaling a historical item by weight."""
+    if source_item.grams is None or source_item.grams <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Source item has no positive grams to scale from.",
+        )
+
+    scale = payload.grams / source_item.grams
+    source_meal = _get_meal(session, source_item.meal_id)
+    item_name = source_item.name or source_meal.title or "Еда"
+    meal = Meal(
+        eaten_at=payload.eaten_at or utc_now(),
+        title=item_name,
+        note=f"Повтор по весу из записи {source_meal.id}",
+        source=MealSource.manual,
+        status=MealStatus.accepted,
+    )
+    session.add(meal)
+    session.flush()
+    source_photo_id = source_item.photo_id
+    if source_photo_id is None and source_meal.photos:
+        source_photo_id = source_meal.photos[0].id
+    item = MealItem(
+        meal_id=meal.id,
+        name=item_name,
+        brand=source_item.brand,
+        grams=round(payload.grams, 1),
+        serving_text=f"{payload.grams:g} г",
+        carbs_g=_scale_macro(source_item.carbs_g, scale),
+        protein_g=_scale_macro(source_item.protein_g, scale),
+        fat_g=_scale_macro(source_item.fat_g, scale),
+        fiber_g=_scale_macro(source_item.fiber_g, scale),
+        kcal=_scale_macro(source_item.kcal, scale),
+        confidence=source_item.confidence,
+        confidence_reason=source_item.confidence_reason,
+        source_kind=source_item.source_kind,
+        calculation_method="scaled_from_history_per_100g",
+        assumptions=[
+            *list(source_item.assumptions or []),
+            (
+                f"Создано из прошлой позиции {source_item.grams:g} г; "
+                f"пересчитано backend на {payload.grams:g} г."
+            ),
+        ],
+        evidence=_scaled_weight_evidence(source_item, grams=payload.grams, scale=scale),
+        warnings=[],
+        pattern_id=source_item.pattern_id,
+        product_id=source_item.product_id,
+        photo_id=source_photo_id,
+        position=0,
+    )
+    item.warnings = _warning_payload(item)
+    _copy_scaled_nutrients(source_item, item, scale)
+    meal.items = [item]
+    _increment_usage_counters(session, item)
+    _recalculate_meal(meal)
+    DailyTotalsService(session).schedule_for_meal_times([meal.eaten_at])
+    session.commit()
+    return _meal_response(session, meal.id)
 
 
 def _default_status(source: MealSource, requested: MealStatus | None) -> MealStatus:
@@ -722,6 +922,22 @@ def remember_product_from_meal_item(
     product = product_memory.remember_item(item, payload.aliases)
     session.commit()
     return product_memory.response(product)
+
+
+@router.post(
+    "/meal_items/{item_id}/copy_by_weight",
+    response_model=MealResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createMealFromMealItemWeight",
+)
+def create_meal_from_item_weight(
+    item_id: UUID,
+    payload: MealItemWeightReuseRequest,
+    session: SessionDep,
+) -> Meal:
+    """Create a new meal from an existing item scaled to a target weight."""
+    item = _get_item(session, item_id)
+    return _meal_from_item_weight(item, payload, session)
 
 
 @router.delete(
