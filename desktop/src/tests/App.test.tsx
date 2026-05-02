@@ -3140,6 +3140,50 @@ test("glucose pull button imports current Nightscout data", async () => {
   expect(await screen.findByText(/Обновлено/)).toBeInTheDocument();
 });
 
+test("glucose Nightscout import failure unlocks refresh button", async () => {
+  configureApi();
+  glucoseRoute();
+  let importCount = 0;
+
+  server.use(
+    http.get("http://api.test/settings/nightscout", () =>
+      HttpResponse.json({
+        enabled: true,
+        configured: true,
+        connected: true,
+        url: "https://nightscout.test",
+        secret_is_set: true,
+        last_status_check_at: null,
+        last_error: null,
+        sync_glucose: true,
+        show_glucose_in_journal: true,
+        import_insulin_events: true,
+        allow_meal_send: true,
+        confirm_before_send: true,
+        autosend_meals: false,
+      }),
+    ),
+    http.post("http://api.test/nightscout/import", () => {
+      importCount += 1;
+      return HttpResponse.json(
+        { detail: "Nightscout не ответил вовремя" },
+        { status: 504 },
+      );
+    }),
+  );
+
+  render(<App />);
+
+  const button = await screen.findByRole("button", {
+    name: "Подтянуть актуальные данные",
+  });
+  await waitFor(() => expect(importCount).toBeGreaterThanOrEqual(1));
+  await waitFor(() => expect(button).toBeEnabled());
+  expect(
+    await screen.findByText("Nightscout не обновился; можно повторить"),
+  ).toBeInTheDocument();
+});
+
 test("glucose defaults to normalized mode and exposes raw and smoothed modes", async () => {
   configureApi();
   glucoseRoute();

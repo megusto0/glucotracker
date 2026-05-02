@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/activity/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Kcal Balance */
+        get: operations["getKcalBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity/balance/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Kcal Balance Range */
+        get: operations["getKcalBalanceRange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync Activity */
+        post: operations["syncActivity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/recalculate": {
         parameters: {
             query?: never;
@@ -1012,6 +1063,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["getUserProfile"];
+        /** Update Profile */
+        put: operations["updateUserProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/endocrinologist": {
         parameters: {
             query?: never;
@@ -1239,6 +1308,93 @@ export interface components {
             source_photo_ids?: unknown[];
             /** Status */
             status: string;
+        };
+        /** ActivitySyncRequest */
+        ActivitySyncRequest: {
+            /**
+             * Active Minutes
+             * @default 0
+             */
+            active_minutes: number;
+            /**
+             * Calorie Confidence
+             * @default none
+             */
+            calorie_confidence: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Heart Rate Avg */
+            heart_rate_avg?: number | null;
+            /** Heart Rate Rest */
+            heart_rate_rest?: number | null;
+            /**
+             * Hr Active Minutes
+             * @default 0
+             */
+            hr_active_minutes: number;
+            /**
+             * Hr Samples
+             * @default 0
+             */
+            hr_samples: number;
+            /**
+             * Kcal Burned
+             * @default 0
+             */
+            kcal_burned: number;
+            /**
+             * Kcal Hr Active
+             * @default 0
+             */
+            kcal_hr_active: number;
+            /**
+             * Kcal No Move Hr
+             * @default 0
+             */
+            kcal_no_move_hr: number;
+            /**
+             * Kcal Steps
+             * @default 0
+             */
+            kcal_steps: number;
+            /**
+             * Source
+             * @default gadgetbridge
+             */
+            source: string;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+        };
+        /** ActivitySyncResponse */
+        ActivitySyncResponse: {
+            /** Active Minutes */
+            active_minutes: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Heart Rate Avg */
+            heart_rate_avg: number | null;
+            /** Heart Rate Rest */
+            heart_rate_rest: number | null;
+            /** Kcal Burned */
+            kcal_burned: number;
+            /** Source */
+            source: string;
+            /** Steps */
+            steps: number;
+            /**
+             * Synced At
+             * Format: date-time
+             */
+            synced_at: string;
         };
         /**
          * AdminRecalculateResponse
@@ -2349,6 +2505,61 @@ export interface components {
          * @enum {string}
          */
         ItemSourceKind: "photo_estimate" | "label_calc" | "restaurant_db" | "product_db" | "pattern" | "manual";
+        /** KcalBalanceDay */
+        KcalBalanceDay: {
+            /**
+             * Bmr Available
+             * @default false
+             */
+            bmr_available: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Kcal In */
+            kcal_in: number;
+            /** Net Balance */
+            net_balance?: number | null;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /** Tdee */
+            tdee?: number | null;
+        };
+        /** KcalBalanceRangeResponse */
+        KcalBalanceRangeResponse: {
+            /** Days */
+            days: components["schemas"]["KcalBalanceDay"][];
+        };
+        /** KcalBalanceResponse */
+        KcalBalanceResponse: {
+            /**
+             * Bmr Available
+             * @default false
+             */
+            bmr_available: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Kcal Burned */
+            kcal_burned: number;
+            /** Kcal In */
+            kcal_in: number;
+            /** Net Balance */
+            net_balance?: number | null;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /** Tdee */
+            tdee?: number | null;
+        };
         /**
          * LowConfidenceItemResponse
          * @description Low-confidence item row.
@@ -4490,6 +4701,35 @@ export interface components {
             /** Ungrouped Insulin */
             ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
         };
+        /** UserProfileResponse */
+        UserProfileResponse: {
+            /**
+             * Activity Level
+             * @default moderate
+             */
+            activity_level: string;
+            /** Age Years */
+            age_years?: number | null;
+            /** Height Cm */
+            height_cm?: number | null;
+            /** Sex */
+            sex?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+        };
+        /** UserProfileUpdate */
+        UserProfileUpdate: {
+            /** Activity Level */
+            activity_level?: string | null;
+            /** Age Years */
+            age_years?: number | null;
+            /** Height Cm */
+            height_cm?: number | null;
+            /** Sex */
+            sex?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -4512,6 +4752,102 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getKcalBalance: {
+        parameters: {
+            query: {
+                day: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KcalBalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getKcalBalanceRange: {
+        parameters: {
+            query: {
+                from_date: string;
+                to_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KcalBalanceRangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    syncActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivitySyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivitySyncResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     adminRecalculateDailyTotals: {
         parameters: {
             query: {
@@ -6417,6 +6753,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getUserProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfileResponse"];
+                };
+            };
+        };
+    };
+    updateUserProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfileResponse"];
                 };
             };
             /** @description Validation Error */

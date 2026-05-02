@@ -1,0 +1,229 @@
+Gadgetbridge DB report
+Source DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+Device: Amazfit Helio Strap
+Generated: 2026-05-02
+
+Notes
+- Gadgetbridge schema contains many tables for many device types. This report focuses on tables that are relevant and/or non-empty for this device.
+- Timestamp units are mixed:
+  - HUAMI_EXTENDED_ACTIVITY_SAMPLE uses unix seconds.
+  - Most other HUAMI tables here use unix milliseconds.
+- Xiaomi calorie tables exist in schema but are empty in this database.
+
+Main non-empty tables
+
+1. HUAMI_EXTENDED_ACTIVITY_SAMPLE
+- Purpose: minute-level activity samples.
+- Rows: 58184
+- Time range: 1773642420 .. 1777645920
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - RAW_INTENSITY
+  - STEPS
+  - RAW_KIND
+  - HEART_RATE
+  - UNKNOWN1
+  - SLEEP
+  - DEEP_SLEEP
+  - REM_SLEEP
+- Value ranges:
+  - STEPS: 0 .. 129
+  - HEART_RATE: 36 .. 255
+  - RAW_INTENSITY: 0 .. 202
+- Example rows:
+  - TIMESTAMP=1777645920 RAW_INTENSITY=81 STEPS=14 RAW_KIND=96 HEART_RATE=85
+  - TIMESTAMP=1777645860 RAW_INTENSITY=71 STEPS=0 RAW_KIND=96 HEART_RATE=84
+  - TIMESTAMP=1777645800 RAW_INTENSITY=84 STEPS=0 RAW_KIND=64 HEART_RATE=84
+- Interpretation:
+  - This is the main usable table for steps, intensity, and minute-level HR.
+  - No calorie column here.
+
+2. HUAMI_HEART_RATE_RESTING_SAMPLE
+- Purpose: resting heart rate snapshots.
+- Rows: 121
+- Time range: 1768766340000 .. 1777611061000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - UTC_OFFSET
+  - HEART_RATE
+- Value range:
+  - HEART_RATE: 41 .. 68
+- Example rows:
+  - TIMESTAMP=1777611061000 HEART_RATE=42
+  - TIMESTAMP=1777523161000 HEART_RATE=43
+  - TIMESTAMP=1777447861000 HEART_RATE=42
+
+3. HUAMI_HEART_RATE_MAX_SAMPLE
+- Purpose: daily or periodic max HR points.
+- Rows: 20
+- Time range: 1774269740000 .. 1777545343000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - UTC_OFFSET
+  - HEART_RATE
+- Value range:
+  - HEART_RATE: 116 .. 192
+- Example rows:
+  - TIMESTAMP=1777545343000 HEART_RATE=166
+  - TIMESTAMP=1777295324000 HEART_RATE=171
+  - TIMESTAMP=1777021533000 HEART_RATE=175
+
+4. HUAMI_STRESS_SAMPLE
+- Purpose: stress measurements.
+- Rows: 7307
+- Time range: 1773836700000 .. 1777644000000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - TYPE_NUM
+  - STRESS
+- Value range:
+  - STRESS: 3 .. 66
+- Example rows:
+  - TIMESTAMP=1777644000000 TYPE_NUM=1 STRESS=51
+  - TIMESTAMP=1777643400000 TYPE_NUM=1 STRESS=48
+  - TIMESTAMP=1777643100000 TYPE_NUM=1 STRESS=62
+
+5. HUAMI_SPO2_SAMPLE
+- Purpose: blood oxygen measurements.
+- Rows: 1935
+- Time range: 1775999131000 .. 1777636531000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - TYPE_NUM
+  - SPO2
+- Value range:
+  - SPO2: 90 .. 99
+- Example rows:
+  - TIMESTAMP=1777636531000 TYPE_NUM=0 SPO2=99
+  - TIMESTAMP=1777633231000 TYPE_NUM=0 SPO2=99
+  - TIMESTAMP=1777632331000 TYPE_NUM=0 SPO2=98
+
+6. HUAMI_SLEEP_RESPIRATORY_RATE_SAMPLE
+- Purpose: respiratory rate during sleep.
+- Rows: 2596
+- Time range: 1776991560000 .. 1777613641000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - UTC_OFFSET
+  - RATE
+- Value range:
+  - RATE: 10 .. 20
+- Example rows:
+  - TIMESTAMP=1777613641000 RATE=16
+  - TIMESTAMP=1777613581000 RATE=16
+  - TIMESTAMP=1777613521000 RATE=16
+
+7. HUAMI_SLEEP_SESSION_SAMPLE
+- Purpose: sleep session payloads.
+- Rows: 34
+- Time range: 1774632904000 .. 1777633093000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - DATA
+- Stored format:
+  - DATA is a BLOB, not directly human-readable.
+  - Observed BLOB length: always 594 bytes in sampled rows.
+- Example rows:
+  - TIMESTAMP=1777633093000 DATA length=594 head=4587F469C0B4F36901012C07
+  - TIMESTAMP=1777579200000 DATA length=594 head=C0B4F369C0B4F36901000000
+  - TIMESTAMP=1777571407000 DATA length=594 head=4F96F3694063F26901019006
+- Interpretation:
+  - Sleep exists, but parsing the BLOB is required to get stages or intervals.
+
+8. HUAMI_PAI_SAMPLE
+- Purpose: PAI and intensity-zone contribution.
+- Rows: 46
+- Time range: 0 .. 1777645980000
+- Columns:
+  - TIMESTAMP
+  - DEVICE_ID
+  - USER_ID
+  - UTC_OFFSET
+  - PAI_LOW
+  - PAI_MODERATE
+  - PAI_HIGH
+  - TIME_LOW
+  - TIME_MODERATE
+  - TIME_HIGH
+  - PAI_TODAY
+  - PAI_TOTAL
+- Value ranges:
+  - PAI_TODAY: 0.0 .. 69.191841125488281
+  - PAI_TOTAL: 0.0 .. 237.02752685546875
+- Example rows:
+  - TIMESTAMP=1777645980000 PAI_LOW=0.38097381591796875 PAI_MODERATE=0.0 PAI_HIGH=0.0 TIME_LOW=38 TIME_MODERATE=0 TIME_HIGH=0 PAI_TODAY=0.38097381591796875 PAI_TOTAL=79.208839416503906
+  - TIMESTAMP=1777585560000 PAI_LOW=0.0 PAI_MODERATE=0.0 PAI_HIGH=0.0 TIME_LOW=0 TIME_MODERATE=0 TIME_HIGH=0 PAI_TODAY=0.0 PAI_TOTAL=78.827865600585938
+  - TIMESTAMP=1777579140000 PAI_LOW=1.0 PAI_MODERATE=16.283836364746094 PAI_HIGH=2.5039596557617188 TIME_LOW=19 TIME_MODERATE=42 TIME_HIGH=1 PAI_TODAY=19.152114868164063 PAI_TOTAL=91.663414001464844
+- Interpretation:
+  - One row has TIMESTAMP=0, so this table may include placeholder or imported baseline data.
+
+9. BASE_ACTIVITY_SUMMARY
+- Purpose: generic activity summary container.
+- Rows: 50
+- Time range: 1773313529000 .. 1777304287000
+- Columns:
+  - _id
+  - NAME
+  - START_TIME
+  - END_TIME
+  - ACTIVITY_KIND
+  - BASE_LONGITUDE
+  - BASE_LATITUDE
+  - BASE_ALTITUDE
+  - GPX_TRACK
+  - RAW_DETAILS_PATH
+  - DEVICE_ID
+  - USER_ID
+  - SUMMARY_DATA
+  - RAW_SUMMARY_DATA
+- Example rows:
+  - _id=50 START_TIME=1777304287000 END_TIME=1777307539000 ACTIVITY_KIND=0 SUMMARY_DATA length=NULL
+  - _id=49 START_TIME=1777300216000 END_TIME=1777301553000 ACTIVITY_KIND=0 SUMMARY_DATA length=NULL
+  - _id=48 START_TIME=1777293677000 END_TIME=1777298051000 ACTIVITY_KIND=0 SUMMARY_DATA length=NULL
+- Interpretation:
+  - Table is populated, but sampled SUMMARY_DATA is empty, so it is not currently useful for calories or rich workout summaries.
+
+Important empty tables
+- XIAOMI_ACTIVITY_SAMPLE: exists, but 0 rows.
+  - Would contain ACTIVE_CALORIES, DISTANCE_CM, ENERGY if populated.
+- XIAOMI_DAILY_SUMMARY_SAMPLE: exists, but 0 rows.
+  - Would contain STEPS, HR_RESTING, HR_AVG, CALORIES, training load, vitality.
+- XIAOMI_SLEEP_STAGE_SAMPLE: 0 rows.
+- XIAOMI_SLEEP_TIME_SAMPLE: 0 rows.
+- HEART_RR_INTERVAL_SAMPLE: 0 rows.
+  - Schema exists for RR intervals: TIMESTAMP, DEVICE_ID, USER_ID, SEQ, RR_MILLIS.
+  - This means no usable HRV/RR data is currently stored here.
+- HEART_PULSE_SAMPLE: 0 rows.
+- HUAMI_HEART_RATE_MANUAL_SAMPLE: 0 rows.
+
+Bottom line
+- Available and usable now:
+  - steps
+  - minute-level activity intensity
+  - minute-level heart rate inside activity samples
+  - resting HR
+  - max HR
+  - stress
+  - SpO2
+  - sleep respiratory rate
+  - PAI
+  - raw sleep session blobs
+- Not available now:
+  - bracelet-calculated calories
+  - populated Xiaomi daily summaries
+  - RR-interval-based HRV in table form
+  - parsed sleep stages in easy tabular form

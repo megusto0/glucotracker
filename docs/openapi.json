@@ -144,6 +144,156 @@
         "title": "AIRunResponse",
         "type": "object"
       },
+      "ActivitySyncRequest": {
+        "properties": {
+          "active_minutes": {
+            "default": 0,
+            "title": "Active Minutes",
+            "type": "integer"
+          },
+          "calorie_confidence": {
+            "default": "none",
+            "title": "Calorie Confidence",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "heart_rate_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Avg"
+          },
+          "heart_rate_rest": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Rest"
+          },
+          "hr_active_minutes": {
+            "default": 0,
+            "title": "Hr Active Minutes",
+            "type": "integer"
+          },
+          "hr_samples": {
+            "default": 0,
+            "title": "Hr Samples",
+            "type": "integer"
+          },
+          "kcal_burned": {
+            "default": 0,
+            "title": "Kcal Burned",
+            "type": "number"
+          },
+          "kcal_hr_active": {
+            "default": 0,
+            "title": "Kcal Hr Active",
+            "type": "number"
+          },
+          "kcal_no_move_hr": {
+            "default": 0,
+            "title": "Kcal No Move Hr",
+            "type": "number"
+          },
+          "kcal_steps": {
+            "default": 0,
+            "title": "Kcal Steps",
+            "type": "number"
+          },
+          "source": {
+            "default": "gadgetbridge",
+            "title": "Source",
+            "type": "string"
+          },
+          "steps": {
+            "default": 0,
+            "title": "Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "ActivitySyncRequest",
+        "type": "object"
+      },
+      "ActivitySyncResponse": {
+        "properties": {
+          "active_minutes": {
+            "title": "Active Minutes",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "heart_rate_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Avg"
+          },
+          "heart_rate_rest": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Rest"
+          },
+          "kcal_burned": {
+            "title": "Kcal Burned",
+            "type": "number"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "steps": {
+            "title": "Steps",
+            "type": "integer"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "title": "Synced At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "steps",
+          "active_minutes",
+          "kcal_burned",
+          "heart_rate_avg",
+          "heart_rate_rest",
+          "source",
+          "synced_at"
+        ],
+        "title": "ActivitySyncResponse",
+        "type": "object"
+      },
       "AdminRecalculateResponse": {
         "description": "Daily total backfill response.",
         "properties": {
@@ -2920,6 +3070,129 @@
         ],
         "title": "ItemSourceKind",
         "type": "string"
+      },
+      "KcalBalanceDay": {
+        "properties": {
+          "bmr_available": {
+            "default": false,
+            "title": "Bmr Available",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "kcal_in": {
+            "title": "Kcal In",
+            "type": "number"
+          },
+          "net_balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Balance"
+          },
+          "steps": {
+            "default": 0,
+            "title": "Steps",
+            "type": "integer"
+          },
+          "tdee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tdee"
+          }
+        },
+        "required": [
+          "date",
+          "kcal_in"
+        ],
+        "title": "KcalBalanceDay",
+        "type": "object"
+      },
+      "KcalBalanceRangeResponse": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/KcalBalanceDay"
+            },
+            "title": "Days",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "title": "KcalBalanceRangeResponse",
+        "type": "object"
+      },
+      "KcalBalanceResponse": {
+        "properties": {
+          "bmr_available": {
+            "default": false,
+            "title": "Bmr Available",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "kcal_burned": {
+            "title": "Kcal Burned",
+            "type": "number"
+          },
+          "kcal_in": {
+            "title": "Kcal In",
+            "type": "number"
+          },
+          "net_balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Balance"
+          },
+          "steps": {
+            "default": 0,
+            "title": "Steps",
+            "type": "integer"
+          },
+          "tdee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tdee"
+          }
+        },
+        "required": [
+          "date",
+          "kcal_in",
+          "kcal_burned"
+        ],
+        "title": "KcalBalanceResponse",
+        "type": "object"
       },
       "LowConfidenceItemResponse": {
         "description": "Low-confidence item row.",
@@ -8512,6 +8785,122 @@
         "title": "TimelineResponse",
         "type": "object"
       },
+      "UserProfileResponse": {
+        "properties": {
+          "activity_level": {
+            "default": "moderate",
+            "title": "Activity Level",
+            "type": "string"
+          },
+          "age_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Years"
+          },
+          "height_cm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height Cm"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "title": "UserProfileResponse",
+        "type": "object"
+      },
+      "UserProfileUpdate": {
+        "properties": {
+          "activity_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Level"
+          },
+          "age_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Years"
+          },
+          "height_cm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height Cm"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "title": "UserProfileUpdate",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -8567,6 +8956,158 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/activity/balance": {
+      "get": {
+        "operationId": "getKcalBalance",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KcalBalanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Kcal Balance",
+        "tags": [
+          "activity"
+        ]
+      }
+    },
+    "/activity/balance/range": {
+      "get": {
+        "operationId": "getKcalBalanceRange",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from_date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KcalBalanceRangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Kcal Balance Range",
+        "tags": [
+          "activity"
+        ]
+      }
+    },
+    "/activity/sync": {
+      "post": {
+        "operationId": "syncActivity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivitySyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivitySyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Activity",
+        "tags": [
+          "activity"
+        ]
+      }
+    },
     "/admin/recalculate": {
       "post": {
         "description": "Backfill daily totals for an inclusive date range.",
@@ -11923,6 +12464,76 @@
         "summary": "Get Product Image File",
         "tags": [
           "products"
+        ]
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "getUserProfile",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Profile",
+        "tags": [
+          "activity"
+        ]
+      },
+      "put": {
+        "operationId": "updateUserProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Profile",
+        "tags": [
+          "activity"
         ]
       }
     },

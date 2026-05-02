@@ -12,11 +12,18 @@ import { useEffect, useState, type ReactNode } from "react";
 import { StatusText } from "../../components/StatusText";
 import { Button } from "../../design/primitives/Button";
 import {
-  localDateKey,
+  apiClient,
+  apiErrorMessage,
+  type UserProfileResponse,
+  type UserProfileUpdate,
+} from "../../api/client";
+import { useApiConfig } from "./settingsStore";
+import {
   useNightscoutSettings,
   useSyncTodayToNightscout,
   useTestNightscoutConnection,
   useUpdateNightscoutSettings,
+  localDateKey,
 } from "../nightscout/useNightscout";
 import {
   useConnectionTest,
@@ -350,6 +357,8 @@ export function SettingsPage() {
 
           <ThemeSwitch theme={theme} onThemeChange={setTheme} />
 
+          <UserProfileSection />
+
           <section className="border border-[var(--hairline)] p-5">
             <p className="text-[14px]">API Secret</p>
             <p className="mt-3 text-[13px] leading-5 text-[var(--muted)]">
@@ -456,6 +465,113 @@ function ThemeSwitch({
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+export function UserProfileSection() {
+  const config = useApiConfig();
+  const [_savedProfile, setSavedProfile] = useState<UserProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [weight, setWeight] = useState("");
+  const [height, setHeight] = useState("");
+  const [age, setAge] = useState("");
+  const [sex, setSex] = useState("");
+
+  useEffect(() => {
+    if (!config.token.trim()) { setLoading(false); return; }
+    apiClient.getUserProfile(config).then((data) => {
+      setSavedProfile(data);
+      setWeight(data.weight_kg != null ? String(data.weight_kg) : "");
+      setHeight(data.height_cm != null ? String(data.height_cm) : "");
+      setAge(data.age_years != null ? String(data.age_years) : "");
+      setSex(data.sex ?? "");
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [config.token, config.baseUrl]);
+
+  const save = () => {
+    setSaving(true);
+    setError(null);
+    const body: UserProfileUpdate = {};
+    const w = parseFloat(weight.replace(",", "."));
+    const h = parseFloat(height.replace(",", "."));
+    const a = parseInt(age, 10);
+    if (Number.isFinite(w)) body.weight_kg = w;
+    if (Number.isFinite(h)) body.height_cm = h;
+    if (Number.isFinite(a) && a > 0) body.age_years = a;
+    if (sex === "male" || sex === "female") body.sex = sex;
+    apiClient.updateUserProfile(config, body).then((data) => {
+      setSavedProfile(data);
+      setSaving(false);
+    }).catch((e: unknown) => {
+      setError(apiErrorMessage(e));
+      setSaving(false);
+    });
+  };
+
+  if (loading) return null;
+
+  return (
+    <section className="grid gap-3 border border-[var(--hairline)] bg-[var(--surface)] p-5">
+      <p className="text-[14px]">Профиль для расчёта TDEE</p>
+      <p className="text-[12px] text-[var(--muted)]">
+        Вес, рост, возраст и пол нужны для расчёта BMR (Mifflin-St Jeor).
+        Данные активности с часов скорректируют TDEE автоматически.
+      </p>
+      {error ? (
+        <p className="text-[12px] text-[var(--danger)]">{error}</p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
+        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          вес, кг
+          <input
+            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
+            inputMode="decimal"
+            onChange={(e) => setWeight(e.target.value)}
+            placeholder="70"
+            value={weight}
+          />
+        </label>
+        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          рост, см
+          <input
+            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
+            inputMode="decimal"
+            onChange={(e) => setHeight(e.target.value)}
+            placeholder="175"
+            value={height}
+          />
+        </label>
+        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          возраст
+          <input
+            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
+            inputMode="numeric"
+            onChange={(e) => setAge(e.target.value)}
+            placeholder="30"
+            value={age}
+          />
+        </label>
+        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          пол
+          <select
+            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
+            onChange={(e) => setSex(e.target.value)}
+            value={sex}
+          >
+            <option value="">—</option>
+            <option value="male">мужской</option>
+            <option value="female">женский</option>
+          </select>
+        </label>
+      </div>
+      <Button disabled={saving} onClick={save} variant="primary">
+        {saving ? "Сохраняю..." : "Сохранить профиль"}
+      </Button>
     </section>
   );
 }

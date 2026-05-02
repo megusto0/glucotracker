@@ -22,8 +22,10 @@ import {
   apiErrorMessage,
   type GlucoseDashboardResponse,
   type GlucoseMode,
+  type KcalBalanceResponse,
   type SensorSessionResponse,
 } from "../../api/client";
+import { apiClient } from "../../api/client";
 import { Button } from "../../design/primitives/Button";
 import {
   useImportNightscoutContext,
@@ -272,6 +274,14 @@ export function GlucosePage() {
   const [showSensorEdit, setShowSensorEdit] = useState(false);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
   const autoImportKeyRef = useRef("");
+  const [kcalBalance, setKcalBalance] = useState<KcalBalanceResponse | null>(null);
+
+  useEffect(() => {
+    if (!config.token.trim()) return;
+    const today = new Date();
+    const day = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    apiClient.getKcalBalance(config, day).then(setKcalBalance).catch(() => setKcalBalance(null));
+  }, [config.token, config.baseUrl]);
 
   const from = toApiDateTime(fromInput);
   const to = toApiDateTime(toInput);
@@ -481,6 +491,8 @@ export function GlucosePage() {
 
   const nightscoutImportStatus = nightscoutImportPending
     ? "Обновляю Nightscout..."
+    : nightscoutImport.isError
+      ? "Nightscout не обновился; можно повторить"
     : lastImportAt
       ? `Обновлено ${formatTime(lastImportAt)}`
       : canImportNightscout
@@ -529,6 +541,8 @@ export function GlucosePage() {
             summary={summary}
             trust={trust}
           />
+
+          <KcalBalanceStrip balance={kcalBalance} />
 
           <section className="border border-[var(--hairline)] bg-[var(--surface)]">
             <div className="grid gap-4 border-b border-[var(--hairline)] px-5 py-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
@@ -761,6 +775,44 @@ function HeroSummary({
         <div className="text-[12px] text-[var(--muted)]">{phaseText}</div>
       </div>
     </section>
+  );
+}
+
+function KcalBalanceStrip({ balance }: { balance: KcalBalanceResponse | null }) {
+  if (!balance?.bmr_available || balance.net_balance == null) return null;
+  const net = balance.net_balance;
+  return (
+    <div className="flex items-baseline gap-6 border border-[var(--hairline)] bg-[var(--surface)] px-5 py-3">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">съедено</span>
+        <span className="font-mono text-[18px] leading-none text-[var(--fg)]">
+          {Math.round(balance.kcal_in)}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">TDEE</span>
+        <span className="font-mono text-[18px] leading-none text-[var(--fg)]">
+          {Math.round(balance.tdee ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">шаги</span>
+        <span className="font-mono text-[14px] leading-none text-[var(--fg)]">
+          {balance.steps ?? 0}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">баланс</span>
+        <span
+          className={`font-mono text-[18px] leading-none ${
+            net > 0 ? "text-[var(--danger)]" : "text-[var(--ok)]"
+          }`}
+        >
+          {net > 0 ? "+" : ""}
+          {Math.round(net)}
+        </span>
+      </div>
+    </div>
   );
 }
 

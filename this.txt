@@ -1,0 +1,466 @@
+[02.05.2026 0:55] gstm: ~/bin $ bash gb-sync.sh --backfill 7
+Triggering Gadgetbridge export...
+Backfill for last 7 days...
+Reading activity for 2026-05-02 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777665600..1777752000
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 0
+  Steps: 0
+  Calories: 0.0
+  Active minutes: 0
+  HR avg: null
+  HR rest: null
+  Payload: {"date":"2026-05-02","steps":0,"kcal_burned":0.0,"active_minutes":0,"source":"gadgetbridge","heart_rate_avg":null,"heart_rate_rest":null}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-05-02","steps":0,"active_minutes":0,"kcal_burned":0.0,"heart_rate_avg":null,"heart_rate_rest":null,"source":"gadgetbridge","synced_at":"2026-05-01T20:13:31.618547"}
+Done.
+
+Reading activity for 2026-05-01 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777579200..1777665600
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1113
+  Steps: 3562
+  Calories: 142.5
+  Active minutes: 263
+  HR avg: 61.8
+  HR rest: 40.0
+  Payload: {"date":"2026-05-01","steps":3562,"kcal_burned":142.5,"active_minutes":263,"source":"gadgetbridge","heart_rate_avg":61.8,"heart_rate_rest":40.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-05-01","steps":3562,"active_minutes":263,"kcal_burned":142.5,"heart_rate_avg":61.8,"heart_rate_rest":40.0,"source":"gadgetbridge","synced_at":"2026-05-01T16:53:06.143591"}
+Done.
+
+Reading activity for 2026-04-30 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777492800..1777579200
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1440
+  Steps: 1363
+  Calories: 54.5
+  Active minutes: 405
+  HR avg: 63.3
+  HR rest: 39.0
+  Payload: {"date":"2026-04-30","steps":1363,"kcal_burned":54.5,"active_minutes":405,"source":"gadgetbridge","heart_rate_avg":63.3,"heart_rate_rest":39.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-04-30","steps":1363,"active_minutes":405,"kcal_burned":54.5,"heart_rate_avg":63.3,"heart_rate_rest":39.0,"source":"gadgetbridge","synced_at":"2026-05-01T20:15:56.354920"}
+Done.
+
+Reading activity for 2026-04-29 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777406400..1777492800
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1440
+  Steps: 550
+  Calories: 22.0
+  Active minutes: 387
+  HR avg: 64.0
+  HR rest: 41.0
+  Payload: {"date":"2026-04-29","steps":550,"kcal_burned":22.0,"active_minutes":387,"source":"gadgetbridge","heart_rate_avg":64.0,"heart_rate_rest":41.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-04-29","steps":550,"active_minutes":387,"kcal_burned":22.0,"heart_rate_avg":64.0,"heart_rate_rest":41.0,"source":"gadgetbridge","synced_at":"2026-05-01T20:15:57.285371"}
+Done.
+
+Reading activity for 2026-04-28 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777320000..1777406400
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1344
+  Steps: 2763
+  Calories: 110.5
+  Active minutes: 392
+  HR avg: 70.0
+  HR rest: 51.0
+  Payload: {"date":"2026-04-28","steps":2763,"kcal_burned":110.5,"active_minutes":392,"source":"gadgetbridge","heart_rate_avg":70.0,"heart_rate_rest":51.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-04-28","steps":2763,"active_minutes":392,"kcal_burned":110.5,"heart_rate_avg":70.0,"heart_rate_rest":51.0,"source":"gadgetbridge","synced_at":"2026-05-01T20:15:58.146914"}
+Done.
+
+Reading activity for 2026-04-27 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+[02.05.2026 0:55] gstm: Backend: http://192.168.3.6:8000
+  Epoch range: 1777233600..1777320000
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1440
+  Steps: 1464
+  Calories: 58.6
+  Active minutes: 504
+  HR avg: 75.8
+  HR rest: 38.0
+  Payload: {"date":"2026-04-27","steps":1464,"kcal_burned":58.6,"active_minutes":504,"source":"gadgetbridge","heart_rate_avg":75.8,"heart_rate_rest":38.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-04-27","steps":1464,"active_minutes":504,"kcal_burned":58.6,"heart_rate_avg":75.8,"heart_rate_rest":38.0,"source":"gadgetbridge","synced_at":"2026-05-01T20:15:59.277543"}
+Done.
+
+Reading activity for 2026-04-26 from Gadgetbridge...
+  DB: /data/data/com.termux/files/home/gb-export/database/Gadgetbridge
+  Backend: http://192.168.3.6:8000
+  Epoch range: 1777147200..1777233600
+  Table: HUAMI_EXTENDED_ACTIVITY_SAMPLE
+  Samples: 1440
+  Steps: 377
+  Calories: 15.1
+  Active minutes: 294
+  HR avg: 62.3
+  HR rest: 38.0
+  Payload: {"date":"2026-04-26","steps":377,"kcal_burned":15.1,"active_minutes":294,"source":"gadgetbridge","heart_rate_avg":62.3,"heart_rate_rest":38.0}
+  HTTP status: 200
+  Curl exit: 0
+  Response: {"date":"2026-04-26","steps":377,"active_minutes":294,"kcal_burned":15.1,"heart_rate_avg":62.3,"heart_rate_rest":38.0,"source":"gadgetbridge","synced_at":"2026-05-01T20:16:00.324619"}
+Done.
+
+Backfill complete: 7 OK, 0 failed.
+~/bin $
+
+#!/data/data/com.termux/files/usr/bin/bash
+# Sync Gadgetbridge activity export to glucotracker.
+
+set -euo pipefail
+
+# Configurable via environment:
+#   BACKEND_URL=http://host:8000 GB_DB=/path/to/Gadgetbridge ~/bin/gb-sync.sh
+#   ~/bin/gb-sync.sh                     # today
+#   ~/bin/gb-sync.sh 2026-05-01          # one day
+#   ~/bin/gb-sync.sh --backfill 7        # last 7 days, including today
+BACKEND_URL="${BACKEND_URL:-http://192.168.3.6:8000}"
+BACKEND_TOKEN="${BACKEND_TOKEN:-dev}"
+GB_DB="${GB_DB:-$HOME/gb-export/database/Gadgetbridge}"
+ACTIVITY_TABLE="${ACTIVITY_TABLE:-}"
+HEART_RATE_TABLE="${HEART_RATE_TABLE:-${TABLE_HR:-}}"
+CURL_MAX_TIME="${CURL_MAX_TIME:-15}"
+EXPORT_MAX_AGE_MIN="${EXPORT_MAX_AGE_MIN:-5}"
+TRIGGER_EXPORT="${TRIGGER_EXPORT:-1}"
+
+log() {
+    printf '%s\n' "$*"
+}
+
+sql() {
+    sqlite3 "$GB_DB" "$1"
+}
+
+has_table() {
+    [ "$(sql "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='$1';")" -gt 0 ]
+}
+
+has_column() {
+    [ "$(sql "SELECT COUNT(*) FROM pragma_table_info('$1') WHERE name='$2';")" -gt 0 ]
+}
+
+trigger_export() {
+    [ "$TRIGGER_EXPORT" = "1" ] || return 0
+
+    if [ ! -f "$GB_DB" ] || [ -n "$(find "$GB_DB" -mmin +"$EXPORT_MAX_AGE_MIN" 2>/dev/null)" ]; then
+        log "Triggering Gadgetbridge export..."
+        am broadcast -a nodomain.freeyourgadget.gadgetbridge.command.TRIGGER_EXPORT >/dev/null 2>&1 || true
+        sleep 3
+    fi
+}
+
+json_number_or_null() {
+    if [ -n "$1" ]; then
+        printf '%s' "$1"
+    else
+        printf 'null'
+    fi
+}
+
+metric_for_table() {
+    local table="$1"
+    local day_start="$2"
+    local day_end="$3"
+    local hr_expr="''"
+
+    if has_column "$table" HEART_RATE; then
+        hr_expr="COALESCE(ROUND(AVG(NULLIF(HEART_RATE,0)),1),'')"
+    fi
+
+    sql "SELECT COUNT(*), COALESCE(SUM(STEPS),0), $hr_expr FROM $table WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end;"
+}
+
+heart_metrics_for_table() {
+    local table="$1"
+    local day_start="$2"
+    local day_end="$3"
+    local night_end=$((day_start + 25200))
+    local avg rest
+
+    avg="$(sql "SELECT COALESCE(ROUND(AVG(NULLIF(HEART_RATE,0)),1),'') FROM $table WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end;")"
+    rest="$(sql "SELECT COALESCE(ROUND(MIN(NULLIF(HEART_RATE,0)),1),'') FROM $table WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $night_end;")"
+    printf '%s|%s\n' "$avg" "$rest"
+}
+
+pick_heart_rate_table() {
+    local day_start="$1"
+    local day_end="$2"
+    local table metrics avg rest
+
+    if [ -n "$HEART_RATE_TABLE" ]; then
+        if ! has_table "$HEART_RATE_TABLE"; then
+            log "ERROR: HEART_RATE_TABLE=$HEART_RATE_TABLE does not exist in $GB_DB" >&2
+            exit 1
+        fi
+        has_column "$HEART_RATE_TABLE" TIMESTAMP || return 1
+        has_column "$HEART_RATE_TABLE" HEART_RATE || return 1
+        printf '%s\n' "$HEART_RATE_TABLE"
+        return
+    fi
+
+    while IFS= read -r table; do
+        has_column "$table" TIMESTAMP || continue
+        has_column "$table" HEART_RATE || continue
+        metrics="$(heart_metrics_for_table "$table" "$day_start" "$day_end" 2>/dev/null || true)"
+        avg="$(printf '%s' "$metrics" | cut -d'|' -f1)"
+        rest="$(printf '%s' "$metrics" | cut -d'|' -f2)"
+        if [ -n "$avg" ] || [ -n "$rest" ]; then
+            printf '%s\n' "$table"
+            return
+        fi
+    done <<EOF
+$(sql "SELECT name FROM sqlite_master WHERE type='table' ORDER BY CASE WHEN name LIKE '%HeartRate%' THEN 0 WHEN name LIKE '%HEART%' THEN 1 WHEN name LIKE '%HR%' THEN 2 WHEN name LIKE '%ACTIVITY_SAMPLE' THEN 3 ELSE 99 END, name;")
+EOF
+
+    return 1
+}
+
+pick_activity_table() {
+    local day_start="$1"
+    local day_end="$2"
+    local table metrics count steps
+    local fallback_table=""
+
+    if [ -n "$ACTIVITY_TABLE" ]; then
+        if ! has_table "$ACTIVITY_TABLE"; then
+            log "ERROR: ACTIVITY_TABLE=$ACTIVITY_TABLE does not exist in $GB_DB" >&2
+            exit 1
+        fi
+        printf '%s\n' "$ACTIVITY_TABLE"
+        return
+    fi
+
+    while IFS= read -r table; do
+        has_column "$table" TIMESTAMP || continue
+        has_column "$table" STEPS || continue
+        [ -n "$fallback_table" ] || fallback_table="$table"
+        metrics="$(metric_for_table "$table" "$day_start" "$day_end" 2>/dev/null || true)"
+        count="${metrics%%|*}"
+        steps="$(printf '%s' "$metrics" | cut -d'|' -f2)"
+        if [ "${count:-0}" -gt 0 ] && [ "${steps:-0}" -gt 0 ]; then
+            printf '%s\n' "$table"
+            return
+        fi
+    done <<EOF
+$(sql "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%ACTIVITY_SAMPLE' ORDER BY CASE name WHEN 'HUAMI_EXTENDED_ACTIVITY_SAMPLE' THEN 0 WHEN 'MI_BAND_ACTIVITY_SAMPLE' THEN 1 WHEN 'XIAOMI_ACTIVITY_SAMPLE' THEN 2 ELSE 99 END, name;")
+EOF
+
+    if [ -n "$fallback_table" ]; then
+        printf '%s\n' "$fallback_table"
+        return
+    fi
+
+    return 1
+}
+
+sum_calories() {
+    local table="$1"
+    local day_start="$2"
+    local day_end="$3"
+    local col value
+
+    # Always try XIAOMI_DAILY_SUMMARY_SAMPLE first — it has real band calories
+    if has_table XIAOMI_DAILY_SUMMARY_SAMPLE; then
+        value="$(sql "SELECT COALESCE(CALORIES,0) FROM XIAOMI_DAILY_SUMMARY_SAMPLE WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end AND COALESCE(CALORIES,0) > 0 LIMIT 1;")"
+        if [ -n "$value" ] && [ "$value" != "0" ]; then
+            printf '%s\n' "$value"
+            return
+        fi
+    fi
+
+    # Try XIAOMI_ACTIVITY_SAMPLE per-minute active calories
+    if has_table XIAOMI_ACTIVITY_SAMPLE && has_column XIAOMI_ACTIVITY_SAMPLE ACTIVE_CALORIES; then
+        value="$(sql "SELECT COALESCE(SUM(NULLIF(ACTIVE_CALORIES,-1)),0) FROM XIAOMI_ACTIVITY_SAMPLE WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end AND ACTIVE_CALORIES >= 0;")"
+        if [ -n "$value" ] && [ "$value" != "0" ]; then
+            printf '%s\n' "$value"
+            return
+        fi
+    fi
+
+    for col in CALORIES ACTIVE_CALORIES CALORIES_BURNT; do
+        if has_column "$table" "$col"; then
+            value="$(sql "SELECT COALESCE(SUM(NULLIF($col,-1)),0) FROM $table WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end;")"
+            if [ -n "$value" ] && [ "$value" != "0" ]; then
+                printf '%s\n' "$value"
+                return
+            fi
+        fi
+    done
+
+    printf '\n'
+}
+
+active_minutes() {
+    local table="$1"
+    local day_start="$2"
+    local day_end="$3"
+
+    if has_column "$table" RAW_INTENSITY; then
+        sql "SELECT COUNT(*) FROM $table WHERE TIMESTAMP >= $day_start AND TIMESTAMP < $day_end AND RAW_INTENSITY > 30;"
+    else
+        printf '0\n'
+    fi
+}
+
+post_payload() {
+    local payload="$1"
+    local tmp_body curl_exit http_status response_body
+    local auth_args=()
+
+    if [ -n "$BACKEND_TOKEN" ]; then
+        auth_args=(-H "Authorization: Bearer $BACKEND_TOKEN")
+    fi
+
+    tmp_body="$(mktemp)"
+    curl_exit=0
+    http_status="$(curl -sS -o "$tmp_body" -w "%{http_code}" -X POST \
+        --connect-timeout 5 \
+        --max-time "$CURL_MAX_TIME" \
+        "$BACKEND_URL/activity/sync" \
+        -H "Content-Type: application/json" \
+        "${auth_args[@]}" \
+        -d "$payload")" || curl_exit=$?
+    response_body="$(cat "$tmp_body")"
+    rm -f "$tmp_body"
+
+    log "  HTTP status: $http_status"
+    log "  Curl exit: $curl_exit"
+    log "  Response: $response_body"
+
+    case "$http_status" in
+        2*) [ "$curl_exit" -eq 0 ] ;;
+        *) return 1 ;;
+    esac
+}
+
+sync_day() {
+    local day="$1"
+    local day_start day_end table metrics sample_count steps hr_avg hr_rest
+    local heart_table heart_metrics calories active_min payload
+
+    day_start="$(date -d "$day 00:00:00" +%s)"
+    day_end=$((day_start + 86400))
+    if ! table="$(pick_activity_table "$day_start" "$day_end")"; then
+        log "ERROR: no activity table with TIMESTAMP and STEPS columns found" >&2
+        return 1
+    fi
+    metrics="$(metric_for_table "$table" "$day_start" "$day_end")"
+    sample_count="$(printf '%s' "$metrics" | cut -d'|' -f1)"
+    steps="$(printf '%s' "$metrics" | cut -d'|' -f2)"
+    hr_avg="$(printf '%s' "$metrics" | cut -d'|' -f3)"
+    hr_rest=""
+    heart_table=""
+    if heart_table="$(pick_heart_rate_table "$day_start" "$day_end" 2>/dev/null)"; then
+        heart_metrics="$(heart_metrics_for_table "$heart_table" "$day_start" "$day_end")"
+        hr_avg="$(printf '%s' "$heart_metrics" | cut -d'|' -f1)"
+        hr_rest="$(printf '%s' "$heart_metrics" | cut -d'|' -f2)"
+    fi
+    calories="$(sum_calories "$table" "$day_start" "$day_end")"
+    active_min="$(active_minutes "$table" "$day_start" "$day_end")"
+
+    if [ -z "$calories" ] || [ "$calories" = "0" ]; then
+        calories="$(awk -v steps="$steps" 'BEGIN { printf "%.1f", steps * 0.04 }')"
+    fi
+
+    payload="$(printf '{"date":"%s","steps":%s,"kcal_burned":%s,"active_minutes":%s,"source":"gadgetbridge","heart_rate_avg":%s,"heart_rate_rest":%s}' \
+        "$day" "$steps" "$calories" "$active_min" "$(json_number_or_null "$hr_avg")" "$(json_number_or_null "$hr_rest")")"
+
+    log "Reading activity for $day from Gadgetbridge..."
+    log "  DB: $GB_DB"
+    log "  Backend: $BACKEND_URL"
+    log "  Epoch range: $day_start..$day_end"
+    log "  Table: $table"
+    if [ -n "$heart_table" ] && [ "$heart_table" != "$table" ]; then
+        log "  Heart table: $heart_table"
+    fi
+    log "  Samples: $sample_count"
+    log "  Steps: $steps"
+    log "  Calories: $calories"
+    log "  Active minutes: $active_min"
+    log "  HR avg: ${hr_avg:-null}"
+    log "  HR rest: ${hr_rest:-null}"
+    log "  Payload: $payload"
+
+    if post_payload "$payload"; then
+        log "Done."
+        return 0
+    fi
+
+    log "ERROR: sync failed" >&2
+    return 1
+}
+
+usage() {
+    cat <<EOF
+Usage:
+  gb-sync.sh [YYYY-MM-DD]
+  gb-sync.sh --backfill [DAYS]
+
+Environment:
+  BACKEND_URL, BACKEND_TOKEN, GB_DB, ACTIVITY_TABLE, HEART_RATE_TABLE,
+  CURL_MAX_TIME, EXPORT_MAX_AGE_MIN, TRIGGER_EXPORT=0|1
+EOF
+}
+
+main() {
+    local ok fail days i day
+
+    case "${1:-}" in
+        -h|--help)
+            usage
+            ;;
+        --backfill)
+            trigger_export
+            if [ ! -f "$GB_DB" ]; then
+                log "ERROR: Gadgetbridge DB not found at $GB_DB" >&2
+                exit 1
+            fi
+            days="${2:-7}"
+            ok=0
+            fail=0
+            log "Backfill for last $days days..."
+            for i in $(seq 0 $((days - 1))); do
+                day="$(date -d "$((-i)) days" +%Y-%m-%d)"
+                if sync_day "$day"; then
+                    ok=$((ok + 1))
+                else
+                    fail=$((fail + 1))
+                fi
+                log ""
+            done
+            log "Backfill complete: $ok OK, $fail failed."
+            [ "$fail" -eq 0 ]
+            ;;
+        *)
+            trigger_export
+            if [ ! -f "$GB_DB" ]; then
+                log "ERROR: Gadgetbridge DB not found at $GB_DB" >&2
+                log "Set GB_DB=/path/to/Gadgetbridge and run again." >&2
+                exit 1
+            fi
+            day="${1:-$(date +%Y-%m-%d)}"
+            sync_day "$day"
+            ;;
+    esac
+}
+
+main "$@"

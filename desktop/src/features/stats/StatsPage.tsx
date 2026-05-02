@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import type {
   DashboardDataQualityResponse,
   DashboardDayResponse,
@@ -5,6 +6,7 @@ import type {
   DashboardSourceBreakdownResponse,
   DashboardTodayResponse,
   DashboardTopPatternResponse,
+  KcalBalanceDay,
 } from "../../api/client";
 import {
   defaultDashboardRange,
@@ -14,6 +16,7 @@ import {
   useDashboardSourceBreakdown,
   useDashboardToday,
   useDashboardTopPatterns,
+  useKcalBalanceRange,
 } from "./useDashboard";
 
 const round = (value?: number | null) =>
@@ -41,6 +44,7 @@ export function StatsPage() {
   const topPatterns = useDashboardTopPatterns(7, 10);
   const sourceBreakdown = useDashboardSourceBreakdown(7);
   const dataQuality = useDashboardDataQuality(7);
+  const kcalBalance = useKcalBalanceRange(range.from, range.to);
 
   const noData =
     today.isSuccess &&
@@ -79,6 +83,11 @@ export function StatsPage() {
             <ChartSection
               days={rangeQuery.data?.days ?? []}
               loading={rangeQuery.isLoading}
+            />
+            <KcalChartSection
+              dashboardDays={rangeQuery.data?.days ?? []}
+              days={kcalBalance.data?.days ?? []}
+              loading={kcalBalance.isLoading}
             />
             <HeatmapSection data={heatmap.data} loading={heatmap.isLoading} />
           </section>
@@ -236,6 +245,344 @@ function DailyCarbsChart({ days }: { days: DashboardDayResponse[] }) {
         {days[days.length - 1]?.date.slice(5)}
       </text>
     </svg>
+  );
+}
+
+function KcalChartSection({
+  dashboardDays,
+  days,
+  loading,
+}: {
+  dashboardDays: DashboardDayResponse[];
+  days: KcalBalanceDay[];
+  loading: boolean;
+}) {
+  const summary = useMemo(() => {
+    if (!days.length) return null;
+    const foodDays = dashboardDays.filter((d) => d.meal_count > 0);
+    const hasFoodMap = new Set(foodDays.map((d) => d.date));
+
+    let totalFoodBalance = 0;
+    let balanceDaysCount = 0;
+    let todayBalance: number | null = null;
+
+    const todayStr = days[days.length - 1]?.date;
+
+    let activityDays = 0;
+    days.forEach((d) => {
+      if (d.tdee && d.tdee > 0) activityDays++;
+      if (hasFoodMap.has(d.date) && d.net_balance != null) {
+        totalFoodBalance += d.net_balance;
+        balanceDaysCount++;
+        if (d.date === todayStr) {
+          todayBalance = d.net_balance;
+        }
+      }
+    });
+
+    return {
+      todayBalance,
+      avgBalance:
+        balanceDaysCount > 0
+          ? Math.round(totalFoodBalance / balanceDaysCount)
+          : null,
+      foodDays: hasFoodMap.size,
+      activityDays,
+      totalDays: days.length,
+    };
+  }, [days, dashboardDays]);
+
+  return (
+    <section className="grid gap-5">
+      <SectionHeader eyebrow="7 дней" title="Калорийный баланс" />
+      {loading ? (
+        <MutedLine>загружаю период</MutedLine>
+      ) : days.length ? (
+        <div className="grid gap-3">
+          {summary && (
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[var(--muted)]">
+              {summary.todayBalance != null && (
+                <div>
+                  сегодня:{" "}
+                  <span
+                    className={`font-mono ${
+                      summary.todayBalance > 0 ? "text-[var(--accent)]" : ""
+                    }`}
+                  >
+                    {summary.todayBalance > 0
+                      ? `+${summary.todayBalance}`
+                      : summary.todayBalance}
+                  </span>{" "}
+                  ккал
+                </div>
+              )}
+              {summary.avgBalance != null && (
+                <div>
+                  в среднем:{" "}
+                  <span className="font-mono">
+                    {summary.avgBalance > 0
+                      ? `+${summary.avgBalance}`
+                      : summary.avgBalance}
+                  </span>{" "}
+                  ккал
+                </div>
+              )}
+              <div>
+                данные: еда {summary.foodDays}/{summary.totalDays} дн ·
+                активность {summary.activityDays}/{summary.totalDays} дн
+              </div>
+            </div>
+          )}
+          <KcalChart dashboardDays={dashboardDays} days={days} />
+        </div>
+      ) : (
+        <MutedLine>нет данных за период</MutedLine>
+      )}
+    </section>
+  );
+}
+
+function KcalChart({
+  dashboardDays,
+  days,
+}: {
+  dashboardDays: DashboardDayResponse[];
+  days: KcalBalanceDay[];
+}) {
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const width = 900;
+  const height = 260;
+  const chartTop = 28;
+  const chartBottom = 218;
+  const step = width / days.length;
+  const barWidth = Math.max(10, step * 0.4);
+  const maxKcal = Math.max(
+    ...days.map((d) => Math.max(d.kcal_in, d.tdee ?? 0)),
+    1,
+  );
+
+  const mealCountByDate = new Map(
+    dashboardDays.map((d) => [d.date, d.meal_count]),
+  );
+
+  return (
+    <div className="relative">
+      <svg
+        aria-label="Калории: съедено и расход за последние 7 дней"
+        className="h-[280px] w-full border-y border-[var(--hairline)] py-5"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+        onMouseLeave={() => setHovered(null)}
+      >
+        <line
+          stroke="var(--hairline)"
+          x1="0"
+          x2={width}
+          y1={chartBottom}
+          y2={chartBottom}
+        />
+        {/* Draw balance background first so it sits behind */}
+        {days.map((day, index) => {
+          const mealCount = mealCountByDate.get(day.date) ?? 0;
+          if (mealCount === 0 || day.net_balance == null) return null;
+          const groupX = index * step + (step - barWidth) / 2;
+          const balanceHeight =
+            (Math.abs(day.net_balance) / maxKcal) * (chartBottom - chartTop);
+          const isSurplus = day.net_balance > 0;
+
+          return (
+            <rect
+              key={`bal-${day.date}`}
+              fill={isSurplus ? "var(--accent)" : "var(--muted)"}
+              height={Math.max(1, balanceHeight)}
+              opacity={0.15}
+              width={barWidth + 20}
+              x={groupX - 10}
+              y={
+                isSurplus
+                  ? chartBottom - balanceHeight
+                  : chartBottom - balanceHeight
+              }
+            />
+          );
+        })}
+
+        {/* Draw intake and expenditure */}
+        {days.map((day, index) => {
+          const groupX = index * step + (step - barWidth) / 2;
+          const mealCount = mealCountByDate.get(day.date) ?? 0;
+
+          const inHeight = (day.kcal_in / maxKcal) * (chartBottom - chartTop);
+          const inY = chartBottom - inHeight;
+
+          const tdeeVal = day.tdee ?? 0;
+          const tdeeHeight = (tdeeVal / maxKcal) * (chartBottom - chartTop);
+          const tdeeY = chartBottom - tdeeHeight;
+
+          return (
+            <g key={day.date}>
+              {/* Interactive invisible rect for hover */}
+              <rect
+                fill="transparent"
+                height={chartBottom}
+                width={step}
+                x={index * step}
+                y={0}
+                onMouseEnter={() => setHovered(day.date)}
+              />
+              {/* Intake Bar */}
+              {mealCount > 0 && day.kcal_in > 0 && (
+                <rect
+                  fill="var(--accent)"
+                  height={Math.max(1, inHeight)}
+                  opacity={0.9}
+                  width={barWidth}
+                  x={groupX}
+                  y={inY}
+                  style={{ pointerEvents: "none" }}
+                />
+              )}
+              {/* Expenditure Line */}
+              {tdeeVal > 0 && (
+                <line
+                  stroke="var(--muted)"
+                  strokeWidth="2"
+                  x1={index * step + step * 0.1}
+                  x2={index * step + step * 0.9}
+                  y1={tdeeY}
+                  y2={tdeeY}
+                  style={{ pointerEvents: "none" }}
+                />
+              )}
+            </g>
+          );
+        })}
+
+        {/* Legend */}
+        <rect
+          fill="var(--accent)"
+          height="10"
+          opacity={0.9}
+          width="14"
+          x="0"
+          y={chartTop - 24}
+        />
+        <text fill="var(--fg)" fontSize="12" x="20" y={chartTop - 14}>
+          съедено
+        </text>
+        <line
+          stroke="var(--muted)"
+          strokeWidth="2"
+          x1="90"
+          x2="104"
+          y1={chartTop - 19}
+          y2={chartTop - 19}
+        />
+        <text fill="var(--fg)" fontSize="12" x="110" y={chartTop - 14}>
+          расход
+        </text>
+        <rect
+          fill="var(--accent)"
+          height="10"
+          opacity={0.15}
+          width="14"
+          x="170"
+          y={chartTop - 24}
+        />
+        <text fill="var(--fg)" fontSize="12" x="190" y={chartTop - 14}>
+          профицит
+        </text>
+        <rect
+          fill="var(--muted)"
+          height="10"
+          opacity={0.15}
+          width="14"
+          x="270"
+          y={chartTop - 24}
+        />
+        <text fill="var(--fg)" fontSize="12" x="290" y={chartTop - 14}>
+          дефицит
+        </text>
+
+        <text fill="var(--muted)" fontSize="11" x="0" y="250">
+          {days[0]?.date.slice(5)}
+        </text>
+        <text
+          fill="var(--muted)"
+          fontSize="11"
+          textAnchor="end"
+          x={width}
+          y="250"
+        >
+          {days[days.length - 1]?.date.slice(5)}
+        </text>
+      </svg>
+
+      {/* Tooltip Overlay */}
+      {hovered && (
+        <ChartTooltip
+          day={days.find((d) => d.date === hovered)!}
+          mealCount={mealCountByDate.get(hovered) ?? 0}
+        />
+      )}
+    </div>
+  );
+}
+
+function ChartTooltip({
+  day,
+  mealCount,
+}: {
+  day: KcalBalanceDay;
+  mealCount: number;
+}) {
+  // Since real BMR/Active breakdown isn't currently provided by KcalBalanceDay,
+  // we do not show the breakdown unless it's available. If it becomes available,
+  // it would be added here.
+  return (
+    <div className="pointer-events-none absolute right-0 top-0 z-10 grid min-w-[260px] gap-1 border border-[var(--hairline)] bg-[var(--surface)] p-4 text-[13px] shadow-lg">
+      <div className="mb-1 font-bold">{day.date}</div>
+      {mealCount === 0 ? (
+        <div className="text-[var(--muted)]">нет записей еды</div>
+      ) : (
+        <>
+          <div>
+            Съедено:{" "}
+            <span className="font-mono text-[var(--accent)]">
+              {Math.round(day.kcal_in)}
+            </span>{" "}
+            ккал
+          </div>
+          <div>
+            Расход:{" "}
+            <span className="font-mono">
+              {day.tdee ? Math.round(day.tdee) : "--"}
+            </span>{" "}
+            ккал
+            {day.bmr_available && (
+              <span className="ml-1 text-[var(--muted)]">
+                (базовый учтен)
+              </span>
+            )}
+          </div>
+          {day.net_balance != null && (
+            <div>
+              Баланс:{" "}
+              <span className="font-mono">
+                {day.net_balance > 0
+                  ? `+${Math.round(day.net_balance)}`
+                  : Math.round(day.net_balance)}
+              </span>{" "}
+              ккал
+            </div>
+          )}
+        </>
+      )}
+      <div className="mt-2 border-t border-[var(--hairline)] pt-2 text-[11px] text-[var(--muted)]">
+        Данные: еда {mealCount > 0 ? "есть" : "нет"} · записей: {mealCount}
+      </div>
+    </div>
   );
 }
 

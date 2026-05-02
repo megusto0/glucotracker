@@ -17,5 +17,6 @@ export type FeedItem =
 export type DayGroup = {
   key: string;
   label: string;
+  date: string;
   items: FeedItem[];
 };

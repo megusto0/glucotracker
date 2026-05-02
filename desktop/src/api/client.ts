@@ -96,6 +96,13 @@ export type SensorQualityResponse =
   components["schemas"]["SensorQualityResponse"];
 export type CgmCalibrationModelResponse =
   components["schemas"]["CgmCalibrationModelResponse"];
+export type UserProfileResponse = components["schemas"]["UserProfileResponse"];
+export type UserProfileUpdate = components["schemas"]["UserProfileUpdate"];
+export type ActivitySyncRequest = components["schemas"]["ActivitySyncRequest"];
+export type ActivitySyncResponse = components["schemas"]["ActivitySyncResponse"];
+export type KcalBalanceResponse = components["schemas"]["KcalBalanceResponse"];
+export type KcalBalanceDay = components["schemas"]["KcalBalanceDay"];
+export type KcalBalanceRangeResponse = components["schemas"]["KcalBalanceRangeResponse"];
 
 export type ApiConfig = {
   baseUrl: string;
@@ -110,6 +117,7 @@ type RequestOptions = {
   body?: unknown;
   auth?: boolean;
   formData?: FormData;
+  timeoutMs?: number;
 };
 
 export class ApiError extends Error {
@@ -121,6 +129,16 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+  }
+}
+
+export class ApiTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Backend не ответил за ${Math.round(timeoutMs / 1000)} с.`);
+    this.name = "ApiTimeoutError";
+    this.timeoutMs = timeoutMs;
   }
 }
 
@@ -165,6 +183,38 @@ const runtimeFetch = (url: string, init: RequestInit) => {
   return fetch(url, init);
 };
 
+const isAbortError = (error: unknown) =>
+  error instanceof Error && error.name === "AbortError";
+
+const withRequestTimeout = async <T>(
+  request: Promise<T>,
+  timeoutMs?: number,
+  controller?: AbortController,
+) => {
+  if (!timeoutMs) return request;
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller?.abort();
+      reject(new ApiTimeoutError(timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([request, timeout]);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new ApiTimeoutError(timeoutMs);
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
 const normalizeBaseUrl = (baseUrl: string) => {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   const url = new URL(trimmed || "http://127.0.0.1:8000");
@@ -206,6 +256,7 @@ export async function apiRequest<T>(
   config: ApiConfig,
   options: RequestOptions = {},
 ): Promise<T> {
+  const controller = options.timeoutMs ? new AbortController() : undefined;
   const headers = new Headers();
   if (options.body !== undefined && !options.formData) {
     headers.set("Content-Type", "application/json");
@@ -214,17 +265,19 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${config.token.trim()}`);
   }
 
-  const response = await runtimeFetch(
-    buildUrl(config.baseUrl, path, options.query),
-    {
+  const response = await withRequestTimeout(
+    runtimeFetch(buildUrl(config.baseUrl, path, options.query), {
       method: options.method ?? "GET",
       headers,
+      signal: controller?.signal,
       body: options.formData
         ? options.formData
         : options.body === undefined
           ? undefined
           : JSON.stringify(options.body),
-    },
+    }),
+    options.timeoutMs,
+    controller,
   );
 
   return parseResponse<T>(response);
@@ -235,17 +288,20 @@ async function apiBlobRequest(
   config: ApiConfig,
   options: RequestOptions = {},
 ): Promise<Blob> {
+  const controller = options.timeoutMs ? new AbortController() : undefined;
   const headers = new Headers();
   if (options.auth !== false && config.token.trim()) {
     headers.set("Authorization", `Bearer ${config.token.trim()}`);
   }
 
-  const response = await runtimeFetch(
-    buildUrl(config.baseUrl, path, options.query),
-    {
+  const response = await withRequestTimeout(
+    runtimeFetch(buildUrl(config.baseUrl, path, options.query), {
       method: options.method ?? "GET",
       headers,
-    },
+      signal: controller?.signal,
+    }),
+    options.timeoutMs,
+    controller,
   );
 
   if (!response.ok) {
@@ -548,6 +604,7 @@ export const apiClient = {
     apiRequest<NightscoutImportResponse>("/nightscout/import", config, {
       method: "POST",
       body,
+      timeoutMs: 60_000,
     }),
 
   getTimeline: (config: ApiConfig, from: string, to: string) =>
@@ -631,5 +688,30 @@ export const apiClient = {
     apiRequest<AdminRecalculateResponse>("/admin/recalculate", config, {
       method: "POST",
       query: { from, to },
+    }),
+
+  getUserProfile: (config: ApiConfig) =>
+    apiRequest<UserProfileResponse>("/profile", config),
+
+  updateUserProfile: (config: ApiConfig, body: UserProfileUpdate) =>
+    apiRequest<UserProfileResponse>("/profile", config, {
+      method: "PUT",
+      body,
+    }),
+
+  syncActivity: (config: ApiConfig, body: ActivitySyncRequest) =>
+    apiRequest<ActivitySyncResponse>("/activity/sync", config, {
+      method: "POST",
+      body,
+    }),
+
+  getKcalBalance: (config: ApiConfig, day: string) =>
+    apiRequest<KcalBalanceResponse>("/activity/balance", config, {
+      query: { day },
+    }),
+
+  getKcalBalanceRange: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<KcalBalanceRangeResponse>("/activity/balance/range", config, {
+      query: { from_date: from, to_date: to },
     }),
 };

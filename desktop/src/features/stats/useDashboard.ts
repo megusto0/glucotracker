@@ -12,13 +12,15 @@ const dateKey = (date: Date) =>
 const addDays = (date: Date, days: number) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 
-export const defaultDashboardRange = () => {
+export const getDashboardRange = (days: number) => {
   const today = new Date();
   return {
-    from: dateKey(addDays(today, -29)),
+    from: dateKey(addDays(today, -(days - 1))),
     to: dateKey(today),
   };
 };
+
+export const defaultDashboardRange = () => getDashboardRange(30);
 
 export function useDashboardToday() {
   const config = useApiConfig();
@@ -77,5 +79,15 @@ export function useDashboardDataQuality(days = 7) {
     queryKey: queryKeys.dashboardDataQuality(days),
     queryFn: () => apiClient.getDashboardDataQuality(config, days),
     enabled: Boolean(config.token.trim()),
+  });
+}
+
+export function useKcalBalanceRange(from: string, to: string) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.kcalBalanceRange(from, to),
+    queryFn: () => apiClient.getKcalBalanceRange(config, from, to),
+    enabled: Boolean(config.token.trim() && from && to),
   });
 }

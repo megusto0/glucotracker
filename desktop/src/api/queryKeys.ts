@@ -25,4 +25,6 @@ export const queryKeys = {
   sensors: ["glucose", "sensors"] as const,
   fingersticks: (from?: string, to?: string) =>
     ["glucose", "fingersticks", from, to] as const,
+  kcalBalanceRange: (from: string, to: string) =>
+    ["kcal-balance", "range", from, to] as const,
 };

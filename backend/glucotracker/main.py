@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from glucotracker.api.openapi import build_openapi
 from glucotracker.api.routers import (
+    activity_router,
     admin_router,
     autocomplete_router,
     dashboard_router,
@@ -28,6 +29,7 @@ app = FastAPI(
     version="0.1.0",
 )
 app.include_router(admin_router)
+app.include_router(activity_router)
 app.include_router(autocomplete_router)
 app.include_router(dashboard_router)
 app.include_router(database_router)

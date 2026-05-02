@@ -67,7 +67,7 @@ const groupFeedItemsByDay = (items: FeedItem[]): DayGroup[] => {
       existing.items.push(item);
       return;
     }
-    groups.set(key, { key, label: dayLabel(item.startAt), items: [item] });
+    groups.set(key, { key, label: dayLabel(item.startAt), date: localDayKey(item.startAt), items: [item] });
   });
   return Array.from(groups.values());
 };
@@ -245,7 +245,7 @@ export function FeedPage() {
                 <h2 className="py-4 text-[40px] font-normal leading-none text-[var(--fg)]">
                   {group.label}
                 </h2>
-                <DaySummaryBar items={group.items} />
+                <DaySummaryBar date={group.date} items={group.items} />
               </div>
               {group.items.map((item) => {
                 if (item.kind === "episode") {

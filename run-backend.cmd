@@ -56,9 +56,9 @@ if errorlevel 1 (
 )
 
 echo Starting glucotracker backend...
-echo API: http://127.0.0.1:8000
+echo API: http://0.0.0.0:8000
 echo Token: %GLUCOTRACKER_TOKEN%
-python -m uvicorn glucotracker.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn glucotracker.main:app --reload --host 0.0.0.0 --port 8000
 
 if errorlevel 1 (
   echo Backend failed to start.

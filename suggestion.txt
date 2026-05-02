@@ -1,0 +1,206 @@
+Как я бы сделал лучше
+1. Считать не active = HR_formula - BMR/min для каждой минуты, а гибрид
+TDEE = BMR + active_kcal + optional_TEF
+
+Где active_kcal считается по разным правилам для разных состояний:
+
+сон / покой         → 0 активных ккал или очень мало
+ходьба              → steps/MET модель
+тренировка          → HR модель
+высокий HR без шагов → осторожно, пониженный вес
+
+То есть пульс — не единственный источник истины.
+
+2. Ввести flex-HR threshold
+
+Идея: HR-формулу использовать только когда пульс достаточно выше покоя. Это известный подход для HR-based energy expenditure: связь HR↔расход энергии лучше работает при активности, а в покое и низкой интенсивности шумнее; без индивидуальной калибровки ошибка может быть заметной.
+
+Например:
+
+HR_rest = медиана resting HR за 7 дней
+flex_hr = HR_rest + 15
+
+Тогда:
+
+если HR < flex_hr и steps == 0:
+    active_kcal = 0
+
+если HR >= flex_hr:
+    active_kcal = HR_formula_total - BMR/min
+
+У тебя есть resting HR snapshots в HUAMI_HEART_RATE_RESTING_SAMPLE, так что HR_rest можно брать из базы.
+
+3. Использовать steps/intensity как “доказательство движения”
+
+Текущая формула на HR может завысить расход, если пульс высокий, но человек сидит. Поэтому добавь коэффициент уверенности:
+
+movement_score = f(steps, RAW_INTENSITY)
+
+Пример:
+
+если steps > 0 или RAW_INTENSITY > 20:
+    movement_factor = 1.0
+если HR высокий, но steps == 0 и RAW_INTENSITY низкий:
+    movement_factor = 0.25–0.50
+
+Тогда:
+
+active_kcal = hr_active_kcal * movement_factor
+
+Это важно для твоего случая: пульс может совпадать с падением глюкозы, но не всегда означает физическую активность.
+
+4. Для ходьбы лучше steps/MET, а не HR
+
+Для обычной ходьбы HR-формула может давать странные результаты. Можно оценивать ходьбу через шаги:
+
+distance_km ≈ steps * stride_m / 1000
+walking_kcal ≈ weight_kg * distance_km * 0.5–0.8
+
+Или через MET. В Compendium of Physical Activities MET определяется как отношение расхода к покою; 1 MET примерно равен 1 kcal/kg/hour.
+
+Практично:
+
+если steps > 0 и HR умеренный:
+    active_kcal = max(steps_based_kcal, conservative_hr_kcal)
+
+Не sum, иначе будет двойной счёт.
+
+5. Для Zwift/тренировок HR-модель норм, но надо ограничить
+
+Твои примеры:
+
+HR 140 → active 11.8 ккал/мин → 707 ккал/час
+HR 170 → active 16.3 ккал/мин → 978 ккал/час
+
+Для интенсивного вело это возможно, но без power meter может быть завышено. Keytel-модель использует HR, вес, возраст и пол как предикторы energy expenditure и показывала хорошую корреляцию в исследовании, но это всё равно population estimate, не твоя индивидуальная лабораторная калибровка.
+
+Я бы добавил caps:
+
+обычная активность: max 8 ккал/мин
+тренировка: max 18 ккал/мин
+если HR > 180: max 20 ккал/мин, но confidence lower
+
+И если есть RAW_KIND/activity summary, попытаться понять workout vs обычный день.
+
+Улучшенная формула v1
+
+Для каждой минуты:
+
+BMR_min = BMR / 1440
+
+hr_total = Keytel(HR, weight, age, sex)
+hr_active = max(0, hr_total - BMR_min)
+
+is_moving = steps > 0 or RAW_INTENSITY > 20
+is_exercise_hr = HR >= HR_rest + 15
+
+if invalid_hr:
+    active = steps_model(steps)
+
+elif is_exercise_hr and is_moving:
+    active = hr_active
+
+elif is_exercise_hr and not is_moving:
+    active = hr_active * 0.35
+
+elif is_moving:
+    active = steps_model(steps)
+
+else:
+    active = 0
+
+И дневное:
+
+TDEE = BMR + sum(active)
+Ещё лучше: не давать stress-HR превращаться в 700 ккал
+
+Добавь “HR без движения” как отдельный тип:
+
+Высокий пульс без движения
+
+В glucotracker это даже полезно не для калорий, а для глюкозы:
+
+высокий пульс без шагов + падение глюкозы
+
+Это может быть отдельное наблюдение, но не должно полностью считаться как спорт.
+
+Как показывать в UI
+
+Не показывай одно число без разложения.
+
+Лучше:
+
+Расход за день: 2280 ккал
+Базовый: 1825
+Активность: 455
+Доверие: среднее
+
+Источник активности:
+HR-модель: 310 ккал
+Шаги: 120 ккал
+HR без движения: 25 ккал
+
+И warning:
+
+Оценка. В базе Gadgetbridge нет готовых калорий от устройства.
+
+Это честно: у тебя нет device-calculated calories, есть только сырые activity samples.
+
+Что добавить в настройки пользователя
+
+Минимум:
+
+вес
+рост
+возраст
+пол / формула
+BMR override optional
+HR_rest override optional
+HR_max optional
+stride length optional
+
+Очень полезно:
+
+personal calorie factor
+
+Например:
+
+active_kcal *= personal_factor
+
+По умолчанию 1.0, потом подстраивать по весу.
+
+Самое сильное улучшение: самокалибровка по весу
+
+Через 2–4 недели можно сравнивать:
+
+eaten_kcal - estimated_tdee
+
+с изменением веса.
+
+Если приложение думает, что у тебя дефицит 500 ккал/день, а вес не падает, значит модель расхода завышена или intake занижен.
+
+Тогда можно вводить:
+
+TDEE calibration factor
+
+Это сделает модель намного персональнее, чем любая универсальная HR-формула.
+
+Итог
+
+Текущая формула:
+
+active = Keytel(HR) - BMR/min
+
+нормальна только как первый слой. Я бы улучшил её так:
+
+1. BMR отдельно
+2. HR-модель только выше flex-HR
+3. steps/intensity как подтверждение движения
+4. HR без движения считать с пониженным весом
+5. caps на kcal/min
+6. confidence score
+7. later: personal calibration by weight trend
+
+Тогда модель станет не “пульс = калории”, а более честная:
+
+расход = базовый обмен + активность, подтверждённая HR/шагами/интенсивностью

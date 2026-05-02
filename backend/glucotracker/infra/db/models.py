@@ -1028,3 +1028,98 @@ class AIRun(Base):
     )
 
     meal: Mapped[Meal] = relationship(back_populates="ai_runs")
+
+
+class UserProfile(Base, TimestampMixin):
+    """Singleton row with user body metrics for BMR/TDEE calculation."""
+
+    __tablename__ = "user_profile"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    age_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sex: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    activity_level: Mapped[str] = mapped_column(
+        String(16),
+        default="moderate",
+        server_default="moderate",
+        nullable=False,
+    )
+
+
+class DailyActivity(Base):
+    """Daily activity data synced from wearable (Gadgetbridge)."""
+
+    __tablename__ = "daily_activity"
+    __table_args__ = (Index("ix_daily_activity_date", "date"),)
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    steps: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    active_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    kcal_burned: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    heart_rate_avg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    heart_rate_rest: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hr_samples: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    hr_active_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    kcal_hr_active: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    kcal_steps: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    kcal_no_move_hr: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    calorie_confidence: Mapped[str] = mapped_column(
+        String(16),
+        default="none",
+        server_default="none",
+        nullable=False,
+    )
+    source: Mapped[str] = mapped_column(
+        String(32),
+        default="gadgetbridge",
+        server_default="gadgetbridge",
+        nullable=False,
+    )
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
