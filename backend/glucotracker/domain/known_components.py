@@ -290,6 +290,40 @@ def _component_has_any_macro(component: EstimatedComponent) -> bool:
     )
 
 
+def _component_level_totals(
+    components: list[EstimatedComponent],
+) -> dict[str, float | None]:
+    """Return per-field totals derived only from component estimates."""
+    return {
+        macro_field: _sum_component_field(components, [], macro_field)
+        for macro_field in MACRO_FIELDS
+    }
+
+
+def _merge_raw_and_component_totals(
+    raw_totals: dict[str, float | None],
+    components: list[EstimatedComponent],
+) -> tuple[dict[str, float | None], dict[str, str]]:
+    """Fill missing top-level Gemini totals from component-level macros."""
+    component_totals = _component_level_totals(components)
+    merged: dict[str, float | None] = {}
+    field_sources: dict[str, str] = {}
+    for macro_field in MACRO_FIELDS:
+        raw_value = raw_totals[macro_field]
+        component_value = component_totals[macro_field]
+        if raw_value is not None:
+            merged[macro_field] = raw_value
+            field_sources[macro_field] = "gemini_visual_estimate"
+            continue
+        merged[macro_field] = component_value
+        field_sources[macro_field] = (
+            "gemini_component_sum"
+            if component_value is not None
+            else "gemini_visual_estimate"
+        )
+    return merged, field_sources
+
+
 def adjust_item_with_known_components(
     item: EstimatedItem,
     known_components: list[KnownComponent],
@@ -308,10 +342,18 @@ def adjust_item_with_known_components(
     }
 
     if not matches:
+        component_level_available = any(
+            _component_has_any_macro(row) for row in components
+        )
+        adjusted_totals, field_sources = (
+            _merge_raw_and_component_totals(raw_totals, components)
+            if component_level_available
+            else (raw_totals, field_sources)
+        )
         return KnownComponentAdjustment(
             matches=[],
             raw_model_totals=raw_totals,
-            adjusted_totals=raw_totals,
+            adjusted_totals=adjusted_totals,
             field_sources=field_sources,
             component_rows=component_rows,
             warning=_missing_component_warning(item),

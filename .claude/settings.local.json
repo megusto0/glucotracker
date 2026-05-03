@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(taskkill //PID 11132 //F)",
+      "Bash(taskkill //PID 20432 //F)",
+      "Bash(taskkill //PID 37528 //F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5199)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5199)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://[::1]:5199)",
+      "Bash(taskkill //PID 27892 //F)",
+      "Bash(cmd.exe //C \"start.cmd\")",
+      "Bash(cmd.exe //C \"call start.cmd\")",
+      "Bash(cmd.exe /C \"start.cmd\")",
+      "Bash(xxd \"C:/Users/hecol/Documents/New project 3/glucotracker/mockup-prototype/start.cmd\")",
+      "Bash(unix2dos \"C:/Users/hecol/Documents/New project 3/glucotracker/mockup-prototype/start.cmd\")",
+      "Bash(npm run:*)",
+      "Bash(printf:*)",
+      "Bash(xxd \"C:/Users/hecol/Documents/New project 3/glucotracker/mockup-prototype/start.bat\")",
+      "Bash(cmd.exe /C \"\\\\\"C:\\\\\\\\Users\\\\\\\\hecol\\\\\\\\Documents\\\\\\\\New project 3\\\\\\\\glucotracker\\\\\\\\mockup-prototype\\\\\\\\start.bat\\\\\"\")"
+    ]
+  }
+}

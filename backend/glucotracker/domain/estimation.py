@@ -26,6 +26,7 @@ from glucotracker.domain.nutrition import (
     validate_macros_consistency,
 )
 from glucotracker.infra.gemini.schemas import (
+    EstimatedComponent,
     EstimatedItem,
     EstimationResult,
     ExtractedNutritionFacts,
@@ -73,6 +74,16 @@ def _item_name(item: EstimatedItem) -> str:
 def _confidence_reason(item: EstimatedItem) -> str:
     """Return confidence reason, preferring Russian text."""
     return item.confidence_reason_ru or item.confidence_reason
+
+
+def _component_grams_mid(components: list[EstimatedComponent]) -> float | None:
+    """Return summed component mass when Gemini omitted top-level grams."""
+    known = [
+        float(component.estimated_grams_mid)
+        for component in components
+        if component.estimated_grams_mid is not None
+    ]
+    return round(sum(known), 1) if known else None
 
 
 UNPEELED_FRUIT_RULES: dict[str, dict[str, Any]] = {
@@ -609,10 +620,16 @@ def _plated_item(
         )
         calculation_method = f"{calculation_method}_count_{count}"
 
+    grams = item.grams_mid
+    if grams is None:
+        grams = _component_grams_mid(item.component_estimates)
+    if grams is not None and count > 1:
+        grams *= count
+
     normalized = MealItemCreate(
         name=_item_name(item),
         brand=item.brand,
-        grams=(item.grams_mid or 0) * count if count > 1 else item.grams_mid,
+        grams=grams,
         carbs_g=final_values.get("carbs_g") or 0,
         protein_g=final_values.get("protein_g") or 0,
         fat_g=final_values.get("fat_g") or 0,

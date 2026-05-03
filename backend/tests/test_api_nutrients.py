@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from glucotracker.domain.estimation import normalize_estimation_to_items
 from glucotracker.infra.gemini.schemas import (
+    EstimatedComponent,
     EstimatedItem,
     EstimationResult,
     ExtractedNutritionFacts,
@@ -300,3 +301,58 @@ def test_gemini_visual_plated_food_does_not_invent_sodium_or_caffeine() -> None:
 
     assert "sodium_mg" not in items[0].nutrients
     assert "caffeine_mg" not in items[0].nutrients
+
+
+def test_plated_item_uses_component_totals_when_top_level_macros_missing() -> None:
+    """PLATED items must fall back to component estimates when item totals are null."""
+    items = normalize_estimation_to_items(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Cottage cheese with toppings",
+                    display_name_ru="Творог со сметаной и маракуйей",
+                    scenario="PLATED",
+                    component_estimates=[
+                        EstimatedComponent(
+                            name_ru="Творог",
+                            component_type="protein",
+                            estimated_grams_mid=120,
+                            carbs_g_mid=4.2,
+                            protein_g_mid=21.6,
+                            fat_g_mid=6,
+                            kcal_mid=144,
+                        ),
+                        EstimatedComponent(
+                            name_ru="Сметана",
+                            component_type="sauce",
+                            estimated_grams_mid=30,
+                            carbs_g_mid=1,
+                            protein_g_mid=0.8,
+                            fat_g_mid=4.5,
+                            kcal_mid=48,
+                        ),
+                        EstimatedComponent(
+                            name_ru="Маракуйя",
+                            component_type="vegetable",
+                            estimated_grams_mid=30,
+                            carbs_g_mid=4,
+                            protein_g_mid=0.5,
+                            fat_g_mid=0.1,
+                            fiber_g_mid=3,
+                            kcal_mid=20,
+                        ),
+                    ],
+                    confidence=0.9,
+                    confidence_reason="Visual estimate with user context.",
+                )
+            ]
+        )
+    )
+
+    item = items[0]
+    assert item.grams == pytest.approx(180)
+    assert item.carbs_g == pytest.approx(9.2)
+    assert item.protein_g == pytest.approx(22.9)
+    assert item.fat_g == pytest.approx(10.6)
+    assert item.fiber_g == pytest.approx(3)
+    assert item.kcal == pytest.approx(212)
