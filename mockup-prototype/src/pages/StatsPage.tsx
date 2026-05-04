@@ -1,6 +1,17 @@
-import { useMemo } from 'react'
-import { tdee, calorieGoal, days7, carbs14, carbs14avg, generateHeatmap } from '../mock/stats'
-import { generateCgm24 } from '../mock/glucose'
+import {
+  tdee,
+  calorieGoal,
+  days7,
+  carbs14,
+  carbs14avg,
+  mealHeatmap6x7,
+  tirDays,
+  dayparts,
+} from '../mock/stats'
+
+const COLOR_BELOW = 'oklch(0.72 0.07 240)' // muted blue
+const COLOR_IN = 'oklch(0.72 0.08 145)'    // sage green
+const COLOR_ABOVE = 'oklch(0.78 0.09 65)'  // muted amber
 
 export default function StatsPage() {
   const filled7 = days7.filter(d => d.intake > 0)
@@ -13,304 +24,1070 @@ export default function StatsPage() {
   const macroScore = 22
   const c14max = Math.max(...carbs14)
 
-  const cgm24 = useMemo(() => generateCgm24(), [])
-  const heatCells = useMemo(() => generateHeatmap(), [])
-
-  function Headline() {
+  // ---------- Header / narrative ----------
+  function Header() {
     return (
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{ fontFamily: "var(--serif)", fontSize: 32, fontWeight: 400, margin: "0 0 8px", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
-          Дефицит <span style={{ fontFamily: "var(--mono)", color: "var(--ink)" }}>4 226 ккал</span> за неделю
+      <div style={{ marginBottom: 24 }}>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-4)',
+            marginBottom: 6,
+            fontWeight: 500,
+          }}
+        >
+          статистика
+        </div>
+        <h1
+          style={{
+            fontFamily: 'var(--serif)',
+            fontSize: 30,
+            fontWeight: 400,
+            margin: 0,
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+          }}
+        >
+          3 мая 2026 г.
+        </h1>
+        <h2
+          style={{
+            fontFamily: 'var(--serif)',
+            fontSize: 26,
+            fontWeight: 400,
+            margin: '4px 0 6px',
+            letterSpacing: '-0.01em',
+            lineHeight: 1.2,
+          }}
+        >
+          Дефицит{' '}
+          <span style={{ fontFamily: 'var(--mono)', color: 'var(--ink)' }}>
+            4&nbsp;226
+          </span>{' '}
+          ккал за неделю
         </h2>
-        <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", lineHeight: 1.8, display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <span><b style={{ color: "var(--ink)" }}>среднее</b> {avgIntake} ккал/день</span>
-          <span><b style={{ color: "var(--ink)" }}>сегодня</b> {todayIntake} ккал</span>
-          <span><b style={{ color: "var(--ink)" }}>баланс</b> {todayBal > 0 ? "+" : ""}{todayBal}</span>
-          <span><b style={{ color: "var(--ink)" }}>расчётно</b> {(Math.abs(cumDef) / 7700).toFixed(2)} кг</span>
+        <div
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            display: 'flex',
+            gap: 18,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>
+            <span style={{ color: 'var(--ink-4)' }}>среднее</span>{' '}
+            <b style={{ color: 'var(--ink)' }}>{avgIntake}</b> ккал/день
+          </span>
+          <span style={{ color: 'var(--hairline-2)' }}>·</span>
+          <span>
+            <span style={{ color: 'var(--ink-4)' }}>сегодня</span>{' '}
+            <b style={{ color: 'var(--ink)' }}>{todayIntake}</b>
+          </span>
+          <span style={{ color: 'var(--hairline-2)' }}>·</span>
+          <span>
+            <span style={{ color: 'var(--ink-4)' }}>баланс</span>{' '}
+            <b style={{ color: 'var(--ink)' }}>
+              {todayBal > 0 ? '+' : ''}
+              {todayBal}
+            </b>
+          </span>
+          <span style={{ color: 'var(--hairline-2)' }}>·</span>
+          <span>
+            <span style={{ color: 'var(--ink-4)' }}>расчётно</span>{' '}
+            <b style={{ color: 'var(--ink)' }}>
+              ≈ {(Math.abs(cumDef) / 7700).toFixed(2)} кг
+            </b>
+          </span>
         </div>
       </div>
     )
   }
 
-  function KpiStrip() {
-    const kpis = [
-      { lbl: "Углеводы", val: todayCarbs, u: "г", sub: `сред. за 7 дн. ${carbs14avg} г · пик 312 г`, pct: todayCarbs / 225 },
-      { lbl: "Ккал", val: todayIntake, u: "", sub: `цель 2200 · TDEE ${tdee}`, pct: todayIntake / calorieGoal, color: todayIntake <= calorieGoal ? "oklch(0.7 0.08 145)" : "oklch(0.72 0.07 50)" },
-      { lbl: "ГН", val: todayGi, u: "", sub: `норма < 100 / день · сред. 72`, pct: todayGi / 100 },
-      { lbl: "БЖУ-баланс", val: macroScore, u: "%", sub: `углеводы 28% · белки 22% · жиры 50%`, pct: null as number | null },
+  // ---------- KPI row ----------
+  function KpiRow() {
+    const kpis: Array<{
+      lbl: string
+      val: string | number
+      u: string
+      sub: string
+      pct: number | null
+      color?: string
+      delta?: { value: string; direction: 'up' | 'down' | 'flat'; tone: 'good' | 'warn' | 'neutral' }
+    }> = [
+      {
+        lbl: 'Углеводы',
+        val: todayCarbs,
+        u: 'г',
+        sub: `сред. за 7 дн. ${carbs14avg} г · лим. 312 г`,
+        pct: todayCarbs / 312,
+        delta: { value: '−18%', direction: 'down', tone: 'good' },
+      },
+      {
+        lbl: 'Ккал',
+        val: todayIntake,
+        u: '',
+        sub: `цель: ${calorieGoal} · TDEE ${tdee}`,
+        pct: todayIntake / calorieGoal,
+        color: 'var(--good)',
+        delta: { value: '−240', direction: 'down', tone: 'good' },
+      },
+      {
+        lbl: 'ГН',
+        val: todayGi,
+        u: '',
+        sub: 'норма < 100 / день · сред. 72',
+        pct: todayGi / 100,
+        delta: { value: '−6', direction: 'down', tone: 'good' },
+      },
+      {
+        lbl: 'БЖУ-баланс',
+        val: macroScore,
+        u: '%',
+        sub: 'углеводы 28% · белки 22% · жиры 50%',
+        pct: null,
+        delta: { value: '+2', direction: 'up', tone: 'neutral' },
+      },
     ]
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderTop: "2px solid var(--ink)", borderBottom: "1px solid var(--hairline)", marginBottom: 40 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
         {kpis.map((k, i) => (
-          <div key={i} style={{ padding: "14px 0", paddingLeft: i > 0 ? 20 : 0, paddingRight: 20, borderLeft: i > 0 ? "1px solid var(--hairline)" : "none" }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 6, fontWeight: 500 }}>{k.lbl}</div>
-            <div style={{ fontFamily: "var(--mono)", fontSize: 28, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.01em", color: k.color || "var(--ink)" }}>
-              {k.val}{k.u && <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 3 }}>{k.u}</span>}
-            </div>
-            {k.pct !== null && (
-              <div style={{ height: 2, background: "var(--hairline)", marginTop: 8, marginBottom: 10 }}>
-                <div style={{ height: "100%", width: `${Math.min(100, k.pct * 100)}%`, background: k.color || "var(--accent)" }} />
+          <div
+            key={i}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '12px 16px 14px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                marginBottom: 6,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ink-4)',
+                  fontWeight: 500,
+                }}
+              >
+                {k.lbl}
               </div>
-            )}
-            {k.pct === null && <div style={{ height: 18 }} />}
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", lineHeight: 1.6 }}>{k.sub}</div>
+              {k.delta && (
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 10,
+                    color:
+                      k.delta.tone === 'good'
+                        ? 'var(--good)'
+                        : k.delta.tone === 'warn'
+                          ? 'var(--warn)'
+                          : 'var(--ink-3)',
+                    fontWeight: 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 2,
+                  }}
+                  title="Сравнение со средней за прошлую неделю"
+                >
+                  <span style={{ fontSize: 9 }}>
+                    {k.delta.direction === 'up'
+                      ? '▲'
+                      : k.delta.direction === 'down'
+                        ? '▼'
+                        : '▬'}
+                  </span>
+                  {k.delta.value}
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: 30,
+                fontWeight: 500,
+                lineHeight: 1,
+                letterSpacing: '-0.01em',
+                color: k.color || 'var(--ink)',
+              }}
+            >
+              {k.val}
+              {k.u && (
+                <span
+                  style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 3 }}
+                >
+                  {k.u}
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                height: 2,
+                background: 'var(--hairline)',
+                marginTop: 10,
+                marginBottom: 10,
+              }}
+            >
+              {k.pct !== null && (
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.min(100, k.pct * 100)}%`,
+                    background: k.color || 'var(--accent)',
+                  }}
+                />
+              )}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: 10,
+                color: 'var(--ink-3)',
+                lineHeight: 1.5,
+              }}
+            >
+              {k.sub}
+            </div>
           </div>
         ))}
       </div>
     )
   }
 
-  function PairedCharts() {
-    const W = 480, H = 160
-    const pL = 38, pR = 8, pT = 20, pB = 28
-    const iW = W - pL - pR, iH = H - pT - pB
+  // ---------- Card wrapper ----------
+  function Card({
+    title,
+    headerRight,
+    children,
+    bodyPad = '14px 18px 18px',
+  }: {
+    title: React.ReactNode
+    headerRight?: React.ReactNode
+    children: React.ReactNode
+    bodyPad?: string
+  }) {
+    return (
+      <div
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--hairline)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            padding: '12px 18px 0',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--serif)',
+              fontSize: 14,
+              fontWeight: 500,
+              color: 'var(--ink)',
+              letterSpacing: '-0.005em',
+            }}
+          >
+            {title}
+          </div>
+          {headerRight && (
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: 9,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--ink-4)',
+              }}
+            >
+              {headerRight}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: bodyPad }}>{children}</div>
+      </div>
+    )
+  }
+
+  // ---------- Carbs by day ----------
+  function CarbsCard() {
+    const W = 480,
+      H = 200
+    const pL = 32,
+      pR = 12,
+      pT = 16,
+      pB = 28
+    const iW = W - pL - pR,
+      iH = H - pT - pB
     const N = carbs14.length
     const bw = iW / N
+    const yMax = 450
+    const ticks = [0, 150, 300, 450]
+    const avgY = pT + iH - (carbs14avg / yMax) * iH
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 0.75fr", gap: 32, marginBottom: 40 }}>
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 8, borderBottom: "1px solid var(--hairline)", marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, marginBottom: 3 }}>01 · 14 дней</div>
-              <h2 style={{ fontFamily: "var(--serif)", fontSize: 20, fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>Углеводы</h2>
-            </div>
-            <div style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)" }}>
-              <div>сред. <b style={{ color: "var(--ink)" }}>{carbs14avg} г</b></div>
-              <div style={{ color: "var(--ink-4)", fontSize: 9 }}>пик 312 г</div>
-            </div>
-          </div>
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", width: "100%", height: "auto" }}>
-            {(() => { const avgY = pT + iH - (carbs14avg / c14max) * iH; return <line x1={pL} x2={W - pR} y1={avgY} y2={avgY} stroke="var(--accent)" strokeDasharray="3 4" strokeWidth="1" /> })()}
-            {carbs14.map((v, i) => {
-              const bh = v === 0 ? 0 : Math.max(1.5, (v / c14max) * iH)
-              const x = pL + i * bw + bw * 0.2
-              const isT = i === N - 1
-              return <rect key={i} x={x} y={pT + iH - bh} width={bw * 0.6} height={bh}
-                fill={v === 0 ? "var(--hairline-2)" : isT ? "var(--ink)" : "oklch(0.82 0.06 78)"} />
-            })}
-            <line x1={pL} x2={pL} y1={pT} y2={pT + iH} stroke="var(--hairline)" strokeWidth="1" />
-            <line x1={pL} x2={W - pR} y1={pT + iH} y2={pT + iH} stroke="var(--hairline)" strokeWidth="1" />
-            <text x={pL - 2} y={pT + iH + 12} fontFamily="var(--mono)" fontSize="9" fill="var(--ink-4)">25 апр</text>
-            <text x={W - pR} y={pT + iH + 12} textAnchor="end" fontFamily="var(--mono)" fontSize="9" fill="var(--ink-4)">02 май</text>
-          </svg>
-        </div>
-
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 8, borderBottom: "1px solid var(--hairline)", marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, marginBottom: 3 }}>02 · 7 дней</div>
-              <h2 style={{ fontFamily: "var(--serif)", fontSize: 20, fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>Баланс</h2>
-            </div>
-            <div style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: 10, color: cumDef < 0 ? "oklch(0.7 0.08 145)" : "var(--warn)", fontWeight: 500 }}>
-              {cumDef.toLocaleString("ru-RU")} ккал
-            </div>
-          </div>
-          {(() => {
-            const Wb = 360, Hb = 160
-            const pLb = 38, pRb = 8, pTb = 20, pBb = 28
-            const iWb = Wb - pLb - pRb, iHb = Hb - pTb - pBb
-            const maxAbs = 1200
-            const midY = pTb + iHb / 2
-            const bwb = iWb / days7.length
+      <Card title="Углеводы (г) по дням">
+        <svg
+          width={W}
+          height={H}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ display: 'block', width: '100%', height: 'auto' }}
+        >
+          {ticks.map((t, i) => {
+            const y = pT + iH - (t / yMax) * iH
             return (
-              <svg width={Wb} height={Hb} viewBox={`0 0 ${Wb} ${Hb}`} style={{ display: "block", width: "100%", height: "auto" }}>
-                <line x1={pLb} x2={Wb - pRb} y1={midY} y2={midY} stroke="var(--ink-3)" strokeWidth="1" />
-                <text x={pLb - 2} y={midY - 3} textAnchor="end" fontFamily="var(--mono)" fontSize="8" fill="var(--ink-3)">TDEE</text>
-                {days7.map((d, i) => {
-                  const cx = pLb + i * bwb + bwb / 2
-                  const bww = bwb * 0.48
-                  if (d.intake === 0) return <line key={i} x1={cx} x2={cx} y1={midY - 1.5} y2={midY + 1.5} stroke="var(--hairline-2)" strokeWidth="1" />
-                  const bal = d.intake - tdee
-                  const bh = (Math.abs(bal) / maxAbs) * (iHb / 2)
-                  const y = bal < 0 ? midY : midY - bh
-                  const h = bh
-                  const fill = ('today' in d && d.today) ? "#444" : (bal < 0 ? "oklch(0.78 0.04 145)" : "oklch(0.78 0.04 60)")
-                  return (
-                    <g key={i}>
-                      <rect x={cx - bww / 2} y={y} width={bww} height={Math.max(h, 1)} fill={fill} />
-                      <text x={cx} y={bal < 0 ? y + h - 3 : y + 9} textAnchor="middle" fontFamily="var(--mono)" fontSize="8" fill={('today' in d && d.today) ? "#fff" : "var(--ink-3)"}>
-                        {Math.abs(bal) > 100 ? Math.round(bal / 100) + "00" : Math.round(bal)}
-                      </text>
-                      <text x={cx} y={Hb - 8} textAnchor="middle" fontFamily="var(--sans)" fontSize="10" fill={('today' in d && d.today) ? "var(--ink)" : "var(--ink-4)"} fontWeight={('today' in d && d.today) ? "500" : "400"}>
-                        {d.d}
-                      </text>
-                    </g>
-                  )
-                })}
-                <line x1={pLb} x2={pLb} y1={pTb} y2={pTb + iHb} stroke="var(--hairline)" strokeWidth="1" />
-              </svg>
+              <g key={i}>
+                <line
+                  x1={pL}
+                  x2={W - pR}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--hairline)"
+                  strokeWidth="1"
+                  strokeDasharray={t === 0 ? undefined : '2 3'}
+                  opacity={t === 0 ? 1 : 0.6}
+                />
+                <text
+                  x={pL - 6}
+                  y={y + 3}
+                  textAnchor="end"
+                  fontFamily="var(--mono)"
+                  fontSize="9"
+                  fill="var(--ink-4)"
+                >
+                  {t}
+                </text>
+              </g>
             )
-          })()}
+          })}
+          {carbs14.map((v, i) => {
+            const bh = v === 0 ? 0 : Math.max(1.5, (v / yMax) * iH)
+            const x = pL + i * bw + bw * 0.18
+            const isToday = i === 7 // last filled day
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={pT + iH - bh}
+                width={bw * 0.64}
+                height={bh}
+                fill={
+                  v === 0
+                    ? 'var(--hairline)'
+                    : isToday
+                      ? 'oklch(0.78 0.10 75)'
+                      : 'oklch(0.85 0.07 78)'
+                }
+              />
+            )
+          })}
+          <line
+            x1={pL}
+            x2={W - pR}
+            y1={avgY}
+            y2={avgY}
+            stroke="var(--accent)"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
+          <text
+            x={pL + 6}
+            y={pT + iH + 18}
+            fontFamily="var(--mono)"
+            fontSize="9"
+            fill="var(--ink-4)"
+          >
+            25 апр
+          </text>
+          <text
+            x={W - pR - 4}
+            y={pT + iH + 18}
+            textAnchor="end"
+            fontFamily="var(--mono)"
+            fontSize="9"
+            fill="var(--ink-4)"
+          >
+            02 май
+          </text>
+        </svg>
+      </Card>
+    )
+  }
+
+  // ---------- Calorie balance ----------
+  function BalanceCard() {
+    const Wb = 480,
+      Hb = 200
+    const pLb = 32,
+      pRb = 12,
+      pTb = 16,
+      pBb = 32
+    const iWb = Wb - pLb - pRb,
+      iHb = Hb - pTb - pBb
+    const maxAbs = 1500
+    const midY = pTb + iHb * 0.28
+    const visible = days7.filter(d => d.intake > 0)
+    const bwb = iWb / visible.length
+
+    return (
+      <Card title="Баланс калорий (ккал)" headerRight="02 — 7 дней">
+        <svg
+          width={Wb}
+          height={Hb}
+          viewBox={`0 0 ${Wb} ${Hb}`}
+          style={{ display: 'block', width: '100%', height: 'auto' }}
+        >
+          <line
+            x1={pLb}
+            x2={Wb - pRb}
+            y1={midY}
+            y2={midY}
+            stroke="var(--ink-3)"
+            strokeWidth="1"
+          />
+          <text
+            x={pLb - 6}
+            y={midY - 3}
+            textAnchor="end"
+            fontFamily="var(--mono)"
+            fontSize="9"
+            fill="var(--ink-3)"
+          >
+            TDEE
+          </text>
+          {visible.map((d, i) => {
+            const cx = pLb + i * bwb + bwb / 2
+            const bww = bwb * 0.42
+            const bal = d.intake - tdee
+            const bh = (Math.abs(bal) / maxAbs) * (iHb * 0.7)
+            const y = bal < 0 ? midY : midY - bh
+            const h = bh
+            const isToday = 'today' in d && d.today
+            const fill = isToday
+              ? 'var(--ink)'
+              : bal < 0
+                ? 'oklch(0.78 0.05 145)'
+                : 'oklch(0.78 0.06 60)'
+            return (
+              <g key={i}>
+                <rect
+                  x={cx - bww / 2}
+                  y={y}
+                  width={bww}
+                  height={Math.max(h, 1)}
+                  fill={fill}
+                />
+                <text
+                  x={cx}
+                  y={bal < 0 ? y + h - 4 : y + 11}
+                  textAnchor="middle"
+                  fontFamily="var(--mono)"
+                  fontSize="10"
+                  fill={isToday ? 'var(--ink-fg)' : 'var(--ink-2)'}
+                  fontWeight={500}
+                >
+                  {bal > 0 ? '+' : ''}
+                  {Math.round(bal)}
+                </text>
+                <text
+                  x={cx}
+                  y={Hb - 10}
+                  textAnchor="middle"
+                  fontFamily="var(--sans)"
+                  fontSize="11"
+                  fill={isToday ? 'var(--ink)' : 'var(--ink-3)'}
+                  fontWeight={isToday ? 500 : 400}
+                >
+                  {d.d}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </Card>
+    )
+  }
+
+  // ---------- TIR distribution ----------
+  function TirCard() {
+    const W = 520,
+      H = 280
+    const pL = 36,
+      pR = 12,
+      pT = 14,
+      pB = 28
+    const iW = W - pL - pR,
+      iH = H - pT - pB
+    const N = tirDays.length
+    const bw = iW / N
+    const ticks = [0, 50, 100]
+
+    return (
+      <Card
+        title="Время в диапазоне (TIR)"
+        bodyPad="6px 18px 14px"
+      >
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--ink-2)',
+            fontWeight: 500,
+            marginBottom: 4,
+          }}
+        >
+          Распределение по дням
         </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            lineHeight: 1.4,
+            marginBottom: 10,
+          }}
+        >
+          Каждый столбик: один день. Синий: ниже диапазона, зелёный: в
+          диапазоне, оранжевый: выше диапазона
+        </div>
+        <svg
+          width={W}
+          height={H}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ display: 'block', width: '100%', height: 'auto' }}
+        >
+          {ticks.map((t, i) => {
+            const y = pT + iH - (t / 100) * iH
+            return (
+              <g key={i}>
+                <line
+                  x1={pL}
+                  x2={W - pR}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--hairline)"
+                  strokeWidth="1"
+                  opacity={t === 0 ? 1 : 0.55}
+                />
+                <text
+                  x={pL - 6}
+                  y={y + 3}
+                  textAnchor="end"
+                  fontFamily="var(--mono)"
+                  fontSize="9"
+                  fill="var(--ink-4)"
+                >
+                  {t}%
+                </text>
+              </g>
+            )
+          })}
+          {tirDays.map((d, i) => {
+            const cx = pL + i * bw + bw / 2
+            const bww = bw * 0.55
+            const x = cx - bww / 2
+            const total = d.below + d.inRange + d.above
+            const yBelow = pT + iH - (d.below / total) * iH
+            const hBelow = (d.below / total) * iH
+            const yIn = yBelow - (d.inRange / total) * iH
+            const hIn = (d.inRange / total) * iH
+            const yAbove = yIn - (d.above / total) * iH
+            const hAbove = (d.above / total) * iH
+            const showLabel = i % 2 === 0 || i === N - 1
+            const tip = `${d.d}\nв диапазоне ${d.inRange}% · ниже ${d.below}% · выше ${d.above}%`
+            return (
+              <g key={i}>
+                <rect
+                  x={x}
+                  y={yAbove}
+                  width={bww}
+                  height={hAbove}
+                  fill={COLOR_ABOVE}
+                >
+                  <title>{tip}</title>
+                </rect>
+                <rect x={x} y={yIn} width={bww} height={hIn} fill={COLOR_IN}>
+                  <title>{tip}</title>
+                </rect>
+                <rect
+                  x={x}
+                  y={yBelow}
+                  width={bww}
+                  height={hBelow}
+                  fill={COLOR_BELOW}
+                >
+                  <title>{tip}</title>
+                </rect>
+                {/* invisible hover target covering full bar */}
+                <rect
+                  x={x}
+                  y={pT}
+                  width={bww}
+                  height={iH}
+                  fill="transparent"
+                  style={{ cursor: 'help' }}
+                >
+                  <title>{tip}</title>
+                </rect>
+                {showLabel && (
+                  <text
+                    x={cx}
+                    y={pT + iH + 14}
+                    textAnchor="middle"
+                    fontFamily="var(--mono)"
+                    fontSize="9"
+                    fill="var(--ink-4)"
+                  >
+                    {d.d}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+          {/* Target line at 70% TIR */}
+          <line
+            x1={pL}
+            x2={W - pR}
+            y1={pT + iH - (70 / 100) * iH}
+            y2={pT + iH - (70 / 100) * iH}
+            stroke="var(--good)"
+            strokeDasharray="4 3"
+            strokeWidth="1"
+            opacity="0.7"
+          />
+          <text
+            x={W - pR - 4}
+            y={pT + iH - (70 / 100) * iH - 3}
+            textAnchor="end"
+            fontFamily="var(--mono)"
+            fontSize="9"
+            fill="var(--good)"
+          >
+            цель ≥70%
+          </text>
+        </svg>
+        <div
+          style={{
+            display: 'flex',
+            gap: 18,
+            marginTop: 6,
+            fontFamily: 'var(--sans)',
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <LegendDot color={COLOR_BELOW} label="Ниже диапазона" />
+          <LegendDot color={COLOR_IN} label="В диапазоне" />
+          <LegendDot color={COLOR_ABOVE} label="Выше диапазона" />
+        </div>
+      </Card>
+    )
+  }
+
+  function LegendDot({ color, label }: { color: string; label: string }) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: color,
+            display: 'inline-block',
+          }}
+        />
+        {label}
+      </span>
+    )
+  }
+
+  // ---------- Daypart profile ----------
+  function DaypartCard() {
+    return (
+      <Card title="Профиль по времени суток (ср. за 7 дней)">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 8,
+          }}
+        >
+          {dayparts.map((d, i) => {
+            // tint based on TIR (higher = better = more sage; lower = warmer)
+            const warm = d.tir < 60
+            const bg = warm
+              ? 'oklch(0.96 0.03 75)'
+              : 'oklch(0.96 0.025 145)'
+            const border = warm
+              ? 'oklch(0.88 0.045 75)'
+              : 'oklch(0.88 0.04 145)'
+            return (
+              <div
+                key={i}
+                style={{
+                  background: bg,
+                  border: `1px solid ${border}`,
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '10px 12px 12px',
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 10,
+                    color: 'var(--ink-3)',
+                    marginBottom: 6,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {d.range}
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 22,
+                    fontWeight: 500,
+                    lineHeight: 1,
+                    letterSpacing: '-0.01em',
+                    color: 'var(--ink)',
+                  }}
+                >
+                  {d.avg.toString().replace('.', ',')}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: 'var(--ink-3)',
+                    marginTop: 2,
+                  }}
+                >
+                  ммоль/л
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 10,
+                    color: warm ? 'var(--warn)' : 'var(--good)',
+                    marginTop: 6,
+                    fontWeight: 500,
+                  }}
+                >
+                  TIR {d.tir}%
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+    )
+  }
+
+  // ---------- Meal heatmap (6×7) ----------
+  function HeatmapCard() {
+    const cols = ['00–04', '04–08', '08–12', '12–16', '16–20', '20–24']
+    const rows = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+    return (
+      <Card
+        title="Тепловая карта питания (6×7)"
+        bodyPad="6px 18px 18px"
+      >
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            marginBottom: 12,
+            lineHeight: 1.4,
+          }}
+        >
+          Каждая ячейка: 4-часовой блок. Интенсивность отражает приём пищи.
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 220px',
+            gap: 28,
+            alignItems: 'start',
+          }}
+        >
+          <div>
+            {/* column headers */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '28px repeat(6, 1fr)',
+                gap: 4,
+                marginBottom: 4,
+              }}
+            >
+              <div />
+              {cols.map(c => (
+                <div
+                  key={c}
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 9,
+                    color: 'var(--ink-4)',
+                    textAlign: 'center',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {c}
+                </div>
+              ))}
+            </div>
+            {/* rows */}
+            {rows.map((r, ri) => {
+              const isWeekend = ri >= 5
+              return (
+                <div
+                  key={r}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '28px repeat(6, 1fr)',
+                    gap: 4,
+                    marginBottom: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: 'var(--mono)',
+                      fontSize: 10,
+                      color: isWeekend ? 'var(--accent)' : 'var(--ink-4)',
+                      fontStyle: isWeekend ? 'italic' : 'normal',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {r}
+                  </div>
+                  {mealHeatmap6x7[ri].map((v, ci) => {
+                    const meals = Math.round(v * 4)
+                    const carbs = Math.round(v * 90)
+                    return (
+                      <div
+                        key={ci}
+                        style={{
+                          height: 22,
+                          background: heatColor(v),
+                          borderRadius: 2,
+                          cursor: 'help',
+                        }}
+                        title={`${r} · ${cols[ci]}\n${meals} ${meals === 1 ? 'приём' : 'приёмов'} · ~${carbs} г углеводов`}
+                      />
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+          {/* legend */}
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                color: 'var(--ink-2)',
+                fontWeight: 500,
+                marginBottom: 8,
+              }}
+            >
+              Интенсивность приёмов пищи
+            </div>
+            <div
+              style={{
+                height: 10,
+                borderRadius: 2,
+                background: `linear-gradient(90deg, ${heatColor(0.05)}, ${heatColor(0.5)}, ${heatColor(0.95)})`,
+                marginBottom: 6,
+              }}
+            />
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontFamily: 'var(--mono)',
+                fontSize: 10,
+                color: 'var(--ink-4)',
+                marginBottom: 14,
+              }}
+            >
+              <span>Низкая</span>
+              <span>Высокая</span>
+            </div>
+            <div
+              style={{
+                fontSize: 10,
+                color: 'var(--ink-3)',
+                lineHeight: 1.5,
+              }}
+            >
+              Больше цвета = больше приёмов пищи или больше углеводов в это
+              время
+            </div>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  function heatColor(v: number) {
+    if (v < 0.05) return 'var(--shade)'
+    return `oklch(${0.94 - v * 0.18} ${0.015 + v * 0.085} 78 / ${0.35 + v * 0.65})`
+  }
+
+  // ---------- Bottom service row ----------
+  function FooterRow() {
+    return (
+      <div
+        style={{
+          marginTop: 18,
+          paddingTop: 14,
+          borderTop: '1px solid var(--hairline)',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 36,
+        }}
+      >
+        <FooterGroup
+          title="Качество и полнота данных"
+          items={[
+            { v: '93%', l: 'с этикеткой', tone: 'ink' },
+            { v: '16 из 18', l: 'баз заполнено', tone: 'ink' },
+            { v: '2', l: 'вручную добавлено', tone: 'ink' },
+            { v: '3', l: 'низкой увер. в анализе', tone: 'warn' },
+          ]}
+        />
+        <FooterGroup
+          title="Контекст дня и поведение"
+          items={[
+            { v: '18,5 ч', l: 'окно питания (сред.)', tone: 'ink' },
+            { v: '<1 ч', l: 'с последней еды', tone: 'ink' },
+            { v: '7', l: 'записей сегодня', tone: 'ink' },
+          ]}
+        />
       </div>
     )
   }
 
-  function GlucoseSection() {
-    const W = 520, H = 140
-    const pL = 10, pR = 10, pT = 10, pB = 20
-    const iW = W - pL - pR, iH = H - pT - pB
-    const yMin = 2.5, yMax = 14
-    const pts = cgm24
-
-    const path = pts.map((p, i) => {
-      const x = pL + (i / (pts.length - 1)) * iW
-      const y = pT + iH - ((p.y - yMin) / (yMax - yMin)) * iH
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`
-    }).join(" ")
-
-    const lowY = pT + iH - ((3.9 - yMin) / (yMax - yMin)) * iH
-    const highY = pT + iH - ((7.8 - yMin) / (yMax - yMin)) * iH
-    const inRange = pts.filter(p => p.y >= 3.9 && p.y <= 7.8).length
-    const tirPct = Math.round(inRange / pts.length * 100)
-    const below = Math.round(pts.filter(p => p.y < 3.9).length / pts.length * 100)
-    const above = 100 - tirPct - below
-    const lastPt = pts[pts.length - 1]
-    const lastY = pT + iH - ((lastPt.y - yMin) / (yMax - yMin)) * iH
-
+  function FooterGroup({
+    title,
+    items,
+  }: {
+    title: string
+    items: Array<{ v: string; l: string; tone: 'ink' | 'warn' }>
+  }) {
     return (
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 8, borderBottom: "1px solid var(--hairline)", marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, marginBottom: 3 }}>03 · 24 часа</div>
-            <h2 style={{ fontFamily: "var(--serif)", fontSize: 20, fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>Глюкоза</h2>
-          </div>
-          <div style={{ display: "flex", gap: 28, alignItems: "baseline" }}>
-            {[
-              { label: "в диапазоне", value: `${tirPct}`, unit: "%" },
-              { label: "текущий пик", value: "10.1", unit: "ммоль" },
-              { label: "возврат", value: "92", unit: "мин" },
-            ].map((m, i) => (
-              <div key={i} style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 2, fontWeight: 500 }}>{m.label}</div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 22, fontWeight: 500, color: "var(--ink)" }}>{m.value}<span style={{ fontSize: 10, color: "var(--ink-4)" }}>{m.unit}</span></div>
+      <div>
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-4)',
+            marginBottom: 10,
+            fontWeight: 500,
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            gap: 20,
+            flexWrap: 'wrap',
+          }}
+        >
+          {items.map((it, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                paddingRight: 18,
+                borderRight:
+                  i === items.length - 1 ? 'none' : '1px solid var(--hairline)',
+                minWidth: 78,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--mono)',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: it.tone === 'warn' ? 'var(--warn)' : 'var(--ink)',
+                  letterSpacing: '-0.005em',
+                }}
+              >
+                {it.v}
               </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 20, alignItems: "center" }}>
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", width: "100%", height: "auto" }}>
-            <rect x={pL} y={highY} width={iW} height={lowY - highY} fill="oklch(0.96 0.015 145)" opacity="0.7" />
-            <line x1={pL} x2={W - pR} y1={lowY} y2={lowY} stroke="var(--ink-3)" strokeWidth="0.8" opacity="0.5" />
-            <line x1={pL} x2={W - pR} y1={highY} y2={highY} stroke="var(--ink-3)" strokeWidth="0.8" opacity="0.5" />
-            {[0.28, 0.7].map((t, i) => (
-              <line key={i} x1={pL + t * iW} x2={pL + t * iW} y1={pT + iH} y2={pT + iH + 4} stroke="var(--accent)" strokeWidth="1.2" />
-            ))}
-            <path d={path} fill="none" stroke="var(--ink)" strokeWidth="1.6" />
-            <circle cx={pL + iW} cy={lastY} r="3" fill="var(--ink)" />
-            {[0, 8, 16, 24].map((h, j) => (
-              <text key={j} x={pL + (h / 24) * iW} y={H - 4} textAnchor="middle" fontFamily="var(--mono)" fontSize="8" fill="var(--ink-4)">
-                {String(h).padStart(2, "0")}:00
-              </text>
-            ))}
-            <text x={pL - 4} y={pT + 4} textAnchor="end" fontFamily="var(--mono)" fontSize="8" fill="var(--ink-4)">14</text>
-            <text x={pL - 4} y={pT + iH + 4} textAnchor="end" fontFamily="var(--mono)" fontSize="8" fill="var(--ink-4)">2.5</text>
-          </svg>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { l: "< 3.9", v: below, c: "oklch(0.72 0.08 30)" },
-              { l: "3.9–7.8", v: tirPct, c: "oklch(0.7 0.08 145)" },
-              { l: "> 7.8", v: above, c: "oklch(0.74 0.06 60)" },
-            ].map((t, i) => (
-              <div key={i}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, fontSize: 9 }}>
-                  <span style={{ color: "var(--ink-3)" }}>{t.l}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontWeight: 500, color: "var(--ink)" }}>{t.v}%</span>
-                </div>
-                <div style={{ height: 3, background: "var(--hairline)", borderRadius: 1 }}>
-                  <div style={{ height: "100%", width: `${t.v}%`, background: t.c, borderRadius: 1 }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function HeatSection() {
-    const rows = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
-    return (
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 8, borderBottom: "1px solid var(--hairline)", marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, marginBottom: 3 }}>04 · 4 недели</div>
-            <h2 style={{ fontFamily: "var(--serif)", fontSize: 20, fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>Когда вы едите</h2>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 3, marginBottom: 2, paddingLeft: 20, fontFamily: "var(--mono)", fontSize: 8, color: "var(--ink-4)" }}>
-          {[0, 3, 6, 9, 12, 15, 18, 21].map(h => (
-            <span key={h} style={{ flex: "0 0 auto", width: `calc(${(3 / 24) * 100}% - 2px)`, textAlign: "center" }}>{String(h).padStart(2, "0")}</span>
-          ))}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {rows.map((r, ri) => (
-            <div key={r} style={{ display: "flex", gap: 3, alignItems: "center" }}>
-              <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ink-4)", width: 16, flexShrink: 0 }}>{r}</span>
-              <div style={{ display: "flex", gap: 3, flex: 1 }}>
-                {heatCells[ri].map((v, ci) => (
-                  <div key={ci} style={{
-                    flex: 1, height: 16,
-                    background: v < 0.05 ? "var(--shade)" : `oklch(${0.94 - v * 0.18} ${0.015 + v * 0.08} 78 / ${0.3 + v * 0.7})`,
-                    borderRadius: 1, cursor: "default",
-                  }} />
-                ))}
+              <div
+                style={{
+                  fontSize: 10,
+                  color: 'var(--ink-3)',
+                  marginTop: 2,
+                  lineHeight: 1.4,
+                }}
+              >
+                {it.l}
               </div>
             </div>
           ))}
-        </div>
-      </div>
-    )
-  }
-
-  function QualityFooter() {
-    return (
-      <div style={{ borderTop: "2px solid var(--ink)", paddingTop: 14 }}>
-        <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 8 }}>
-          <span className="mono" style={{ fontSize: 10 }}>
-            <b style={{ color: "var(--ink)" }}>92%</b> с этикеткой ·
-            <span style={{ color: "var(--hairline-2)", margin: "0 6px" }}>&bull;</span>
-            <b style={{ color: "var(--ink)" }}>16</b> из базы ·
-            <span style={{ color: "var(--hairline-2)", margin: "0 6px" }}>&bull;</span>
-            <b style={{ color: "var(--ink)" }}>2</b> вручную ·
-            <span style={{ color: "var(--hairline-2)", margin: "0 6px" }}>&bull;</span>
-            <b style={{ color: "var(--warn)" }}>3</b> низкой увер.
-          </span>
-        </div>
-        <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 10, fontWeight: 500 }}>
-          Поведение
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, fontSize: 11 }}>
-          <div>
-            <div className="mono" style={{ fontSize: 11, fontWeight: 500 }}>10.5 ч</div>
-            <div style={{ color: "var(--ink-3)", fontSize: 10, marginTop: 2 }}>окно питания</div>
-          </div>
-          <div>
-            <div className="mono" style={{ fontSize: 11, fontWeight: 500 }}>&lt;1 ч</div>
-            <div style={{ color: "var(--ink-3)", fontSize: 10, marginTop: 2 }}>с последней еды</div>
-          </div>
-          <div>
-            <div className="mono" style={{ fontSize: 11, fontWeight: 500 }}>7</div>
-            <div style={{ color: "var(--ink-3)", fontSize: 10, marginTop: 2 }}>записей сегодня</div>
-          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ padding: "24px 48px 64px", maxWidth: 1040 }}>
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 4, fontWeight: 500 }}>статистика</div>
-        <h1 style={{ fontFamily: "var(--serif)", fontSize: 40, fontWeight: 400, margin: 0, letterSpacing: "-0.02em", lineHeight: 1.05 }}>3 мая 2026 г.</h1>
+    <div style={{ padding: '28px 40px 56px' }}>
+      <Header />
+      <KpiRow />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 14,
+          marginBottom: 14,
+        }}
+      >
+        <CarbsCard />
+        <BalanceCard />
       </div>
-      <Headline />
-      <KpiStrip />
-      <PairedCharts />
-      <GlucoseSection />
-      <HeatSection />
-      <QualityFooter />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 14,
+          marginBottom: 14,
+        }}
+      >
+        <TirCard />
+        <DaypartCard />
+      </div>
+      <HeatmapCard />
+      <FooterRow />
     </div>
   )
 }

@@ -351,6 +351,12 @@ export function SettingsPage() {
                     {connection.data.openapiAvailable ? "доступен" : "недоступен"}
                   </StatusText>
                 </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>Токен</span>
+                  <StatusText tone={connection.data.tokenValid ? "ok" : "danger"}>
+                    {connection.data.tokenValid ? "верный" : "неверный или не задан"}
+                  </StatusText>
+                </div>
               </div>
             ) : null}
           </section>

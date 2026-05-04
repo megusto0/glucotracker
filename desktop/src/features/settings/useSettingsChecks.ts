@@ -18,9 +18,17 @@ export function useConnectionTest() {
       } catch {
         openapiAvailable = false;
       }
+      let tokenValid = false;
+      try {
+        await apiClient.getUserProfile(config);
+        tokenValid = true;
+      } catch {
+        tokenValid = false;
+      }
       return {
         health,
         openapiAvailable,
+        tokenValid,
         runtime: apiRuntimeName(),
       };
     },

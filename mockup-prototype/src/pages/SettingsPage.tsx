@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { I } from '../components/Icons'
 import PageHead from '../components/PageHead'
+import { useTheme } from '../theme'
 
 export default function SettingsPage() {
   const [syncGlucose, setSyncGlucose] = useState(true)
   const [showInsulin, setShowInsulin] = useState(true)
   const [applyNorm, setApplyNorm] = useState(false)
-  const [theme, setTheme] = useState("Светлая")
+  const { mode: theme, setMode: setTheme } = useTheme()
 
   return (
     <div className="gt-page">

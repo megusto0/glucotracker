@@ -1,28 +1,72 @@
 /* ---------- glucotracker design tokens ---------- */
 :root{
+  /* light theme (default) */
   --bg: #F6F4EE;
   --surface: #FFFFFF;
   --surface-2: #FBF9F3;
+  --shade: #F0EBDF;
+
   --ink: #0A0A0A;
   --ink-2: #2A2520;
   --ink-3: #6B6258;
   --ink-4: #A39A8E;
+  --ink-fg: #FFFFFF;            /* foreground for elements with --ink background */
+
   --hairline: #E5E0D6;
   --hairline-2: #D6D0C4;
+
   --accent: #B8842B;
   --accent-soft: #E9D9B5;
   --accent-bg: #F4ECD8;
+
   --good: #4A7C3F;
   --good-soft: #DCE5CB;
+
   --warn: #B85426;
   --warn-soft: #ECCEBE;
-  --shade: #F0EBDF;
+
   --black: #0A0A0A;
+
   --radius: 2px;
   --radius-lg: 4px;
   --mono: "JetBrains Mono","SF Mono","IBM Plex Mono",ui-monospace,Menlo,monospace;
   --sans: "Inter","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
   --serif: "Source Serif 4","Source Serif Pro",Georgia,serif;
+
+  color-scheme: light;
+}
+
+/* ---------- dark theme ---------- */
+/* Warm "leather/coffee" dark — deliberately not the generic blue-black SaaS dark.
+   Keeps editorial identity: dark coffee bg, cream text, amber as the only accent. */
+:root[data-theme="dark"]{
+  --bg: #1A1612;                /* dark coffee */
+  --surface: #232019;           /* slightly lighter — for elevated cards if needed */
+  --surface-2: #1F1B14;         /* default card bg, subtle lift over --bg */
+  --shade: #2A241B;             /* tag/empty-cell background */
+
+  --ink: #F0EAD8;               /* primary text — warm cream */
+  --ink-2: #D5CDB8;             /* softened body text */
+  --ink-3: #9C9282;             /* secondary text */
+  --ink-4: #6E6557;             /* axis labels, muted hints */
+  --ink-fg: #1A1612;            /* foreground for --ink-bg elements (dark on cream) */
+
+  --hairline: #332D24;          /* default divider */
+  --hairline-2: #41392E;        /* stronger divider, input borders */
+
+  --accent: #D9A45F;            /* warmer amber, brighter against dark */
+  --accent-soft: #5C4926;       /* deep amber for borders */
+  --accent-bg: #2D2317;         /* very dark amber for fills (target band) */
+
+  --good: #8AB475;              /* warmer sage, brighter for dark */
+  --good-soft: #2F3E25;         /* dark sage fill */
+
+  --warn: #D8784A;              /* warmer brick */
+  --warn-soft: #3F2A1E;         /* dark warn fill */
+
+  --black: #F0EAD8;             /* inverts — "force-dark" becomes "force-light" */
+
+  color-scheme: dark;
 }
 
 *,*::before,*::after{box-sizing:border-box;}
@@ -96,8 +140,21 @@ body{
   color:var(--ink-4);
   padding:14px 10px 6px;
 }
-.gt-side-foot{
+.gt-side-glucose{
   margin-top:auto;
+  margin-bottom:6px;
+  padding:10px 12px;
+  background:var(--surface);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius-lg);
+  cursor:pointer;
+  transition:border-color .15s, transform .15s;
+}
+.gt-side-glucose:hover{
+  border-color:var(--accent-soft);
+  transform:translateY(-1px);
+}
+.gt-side-foot{
   padding:10px;
   border-top:1px solid var(--hairline);
   font-size:11px;color:var(--ink-3);
@@ -105,7 +162,7 @@ body{
 }
 .gt-avatar{
   width:24px;height:24px;border-radius:50%;
-  background:var(--ink);color:#fff;
+  background:var(--ink);color:var(--ink-fg);
   display:flex;align-items:center;justify-content:center;
   font-size:10px;font-weight:600;letter-spacing:0;
 }
@@ -193,7 +250,7 @@ body{
   cursor:pointer;line-height:1;
 }
 .btn:hover{background:var(--surface-2);}
-.btn.dark{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn.dark{background:var(--ink);color:var(--ink-fg);border-color:var(--ink);}
 .btn.dark:hover{background:var(--ink-2);}
 .btn.icon{width:30px;padding:0;justify-content:center;}
 .btn-link{
@@ -213,7 +270,7 @@ body{
   border-right:1px solid var(--hairline);height:100%;
 }
 .seg button:last-child{border-right:none;}
-.seg button.on{background:var(--ink);color:#fff;}
+.seg button.on{background:var(--ink);color:var(--ink-fg);}
 
 /* tag / chip */
 .tag{
@@ -226,7 +283,7 @@ body{
 .tag.warn{color:var(--warn);border-color:var(--warn-soft);background:#FBEFE6;}
 .tag.good{color:var(--good);border-color:var(--good-soft);background:#EFF3E5;}
 .tag.accent{color:var(--accent);border-color:var(--accent-soft);background:var(--accent-bg);}
-.tag.solid{background:var(--ink);color:#fff;border-color:var(--ink);}
+.tag.solid{background:var(--ink);color:var(--ink-fg);border-color:var(--ink);}
 
 /* card */
 .card{
@@ -254,9 +311,8 @@ body{
   border-bottom:1px solid var(--hairline);
 }
 .kpi > div{
-  padding:14px 0;
+  padding:14px 20px 14px 20px;
   border-right:1px solid var(--hairline);
-  padding-right:24px;padding-left:0;
 }
 .kpi > div:first-child{padding-left:0;}
 .kpi > div:last-child{border-right:none;}
@@ -319,7 +375,7 @@ body{
 }
 .input-bar input::placeholder{color:var(--ink-4);}
 .send-btn{
-  width:30px;height:30px;background:var(--ink);color:#fff;border:none;
+  width:30px;height:30px;background:var(--ink);color:var(--ink-fg);border:none;
   display:flex;align-items:center;justify-content:center;
   border-radius:var(--radius);cursor:pointer;
 }
@@ -348,7 +404,7 @@ body{
 .checkbox .s{font-size:11px;color:var(--ink-3);margin-top:3px;max-width:480px;}
 .checkbox-box{
   width:18px;height:18px;border:1px solid var(--ink);border-radius:2px;
-  background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:var(--ink);color:var(--ink-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;
   cursor:pointer;
 }
 .checkbox-box svg{width:12px;height:12px;}

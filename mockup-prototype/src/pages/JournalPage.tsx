@@ -94,11 +94,26 @@ export default function JournalPage() {
                     {m.sub.map((s, j) => <span key={j}>{j > 0 ? "·" : ""} {s}</span>)}
                   </div>
                 </div>
-                <div style={{ width: 70 }}>
-                  <div className="mp">
-                    <div className="mp-bar c"><i style={{ width: `${Math.min(100, m.c * 1.5)}%` }} /></div>
-                    <div className="mp-bar p"><i style={{ width: `${Math.min(100, m.p * 2)}%` }} /></div>
-                    <div className="mp-bar f"><i style={{ width: `${Math.min(100, m.f * 2)}%` }} /></div>
+                <div style={{ width: 84 }} title={`углеводы ${m.c}г · белки ${m.p}г · жиры ${m.f}г`}>
+                  {(() => {
+                    const cKcal = m.c * 4, pKcal = m.p * 4, fKcal = m.f * 9
+                    const total = cKcal + pKcal + fKcal || 1
+                    return (
+                      <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: 'var(--hairline)' }}>
+                        <div style={{ width: `${(cKcal / total) * 100}%`, background: 'var(--accent)' }} />
+                        <div style={{ width: `${(pKcal / total) * 100}%`, background: 'var(--ink)' }} />
+                        <div style={{ width: `${(fKcal / total) * 100}%`, background: 'var(--ink-3)' }} />
+                      </div>
+                    )
+                  })()}
+                  <div className="mono" style={{ fontSize: 9, color: 'var(--ink-4)', marginTop: 4, textAlign: 'center' }}>
+                    {(() => {
+                      const cKcal = m.c * 4, pKcal = m.p * 4, fKcal = m.f * 9
+                      const total = cKcal + pKcal + fKcal || 1
+                      const top = Math.max(cKcal, pKcal, fKcal)
+                      const label = top === cKcal ? 'У' : top === pKcal ? 'Б' : 'Ж'
+                      return `${label}-доминир. · ${Math.round((top / total) * 100)}%`
+                    })()}
                   </div>
                 </div>
                 <span className="v"><span style={{ color: "var(--accent)" }}>{m.c}</span><span className="u">У</span></span>
