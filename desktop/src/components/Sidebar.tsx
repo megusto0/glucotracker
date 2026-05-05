@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen, Clock, Activity, BarChart3, Database, Settings,
 } from "lucide-react";
@@ -36,6 +36,8 @@ function MiniSparkline({ points }: { points: number[] }) {
 export default function Sidebar() {
   const config = useApiConfig();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isGlucosePage = location.pathname === "/glucose";
 
   const { data: glucose } = useQuery({
     queryKey: ["sidebar-glucose"],
@@ -89,7 +91,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {glucose?.value != null && (
+      {!isGlucosePage && glucose?.value != null && (
         <div className="gt-side-glucose" onClick={() => navigate("/glucose")} title="Перейти к графику глюкозы">
           <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between" }}>
             <span className="lbl">сейчас</span>
@@ -115,7 +117,12 @@ export default function Sidebar() {
           </div>
         </div>
       )}
-
+      {isGlucosePage && (
+        <div
+          aria-hidden="true"
+          style={{ marginTop: "auto", marginBottom: 6, minHeight: 112 }}
+        />
+      )}
       <div className="gt-side-foot">
         <div className="gt-avatar">
           ?

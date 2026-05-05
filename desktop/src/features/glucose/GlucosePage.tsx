@@ -1,16 +1,17 @@
 import {
   Activity,
   AlertTriangle,
+  Info,
   Plus,
   RefreshCw,
   Save,
+  RotateCcw,
 } from "lucide-react";
 import {
   startTransition,
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -24,7 +25,6 @@ import {
 import { apiClient } from "../../api/client";
 import RightPanel from "../../components/RightPanel";
 import {
-  useImportNightscoutContext,
   useNightscoutSettings,
 } from "../nightscout/useNightscout";
 import { useApiConfig } from "../settings/settingsStore";
@@ -37,6 +37,8 @@ import {
   useUpdateFingerstick,
   useDeleteFingerstick,
 } from "./useGlucoseDashboard";
+import { useGlucoseSyncTracker } from "./useGlucoseSyncTracker";
+import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
 type RangePreset = "3h" | "6h" | "12h" | "24h" | "7d";
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
@@ -249,12 +251,10 @@ export function GlucosePage() {
   const [fingerstickValue, setFingerstickValue] = useState("");
   const [meterName, setMeterName] = useState("");
   const [editingFingerstickId, setEditingFingerstickId] = useState<string | null>(null);
-  const [lastImportAt, setLastImportAt] = useState<string | null>(null);
   const [showFingerstickForm, setShowFingerstickForm] = useState(false);
   const [showSensorEdit, setShowSensorEdit] = useState(false);
   const [showSensorPanel, setShowSensorPanel] = useState(false);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
-  const autoImportKeyRef = useRef("");
   const [kcalBalance, setKcalBalance] = useState<KcalBalanceResponse | null>(null);
   const toggleSensorEdit = useCallback(() => setShowSensorEdit((v) => !v), []);
 
@@ -270,16 +270,27 @@ export function GlucosePage() {
   const dashboard = useGlucoseDashboard(from, to, mode);
   const sensors = useSensors();
   const nightscoutSettings = useNightscoutSettings();
-  const nightscoutImport = useImportNightscoutContext(from, to);
-  const importNightscout = nightscoutImport.mutate;
-  const nightscoutImportPending = nightscoutImport.isPending;
-  const importPendingRef = useRef(nightscoutImportPending);
-  importPendingRef.current = nightscoutImportPending;
+
+  const canImportNightscout = Boolean(
+    config.token.trim() &&
+      nightscoutSettings.data?.configured &&
+      nightscoutSettings.data?.sync_glucose,
+  );
+
+  const { syncState, forceRefresh, resetConnection } = useGlucoseSyncTracker(
+    from,
+    to,
+    mode,
+    canImportNightscout,
+    Boolean(nightscoutSettings.data?.configured),
+  );
+
   const createFingerstick = useCreateFingerstick();
   const updateFingerstick = useUpdateFingerstick();
   const deleteFingerstick = useDeleteFingerstick();
   const saveSensor = useSaveSensor();
   const recalculate = useRecalculateSensorCalibration();
+  const isCustomRange = preset === "custom";
 
   const data = dashboard.data;
   const currentSensor = data?.current_sensor ?? null;
@@ -309,7 +320,6 @@ export function GlucosePage() {
 
   const error = [
     dashboard.error,
-    nightscoutImport.error,
     createFingerstick.error,
     updateFingerstick.error,
     deleteFingerstick.error,
@@ -320,72 +330,6 @@ export function GlucosePage() {
   useEffect(() => {
     setSensorForm(currentSensor ? sensorToForm(currentSensor) : emptySensorForm());
   }, [currentSensor?.id, currentSensor?.updated_at]);
-
-  const canImportNightscout = Boolean(
-    config.token.trim() &&
-      nightscoutSettings.data?.configured &&
-      nightscoutSettings.data?.sync_glucose,
-  );
-
-  const refreshNightscout = useCallback(() => {
-    const settings = nightscoutSettings.data;
-    if (!settings?.configured || !settings.sync_glucose || importPendingRef.current) {
-      return;
-    }
-    const nextRange =
-      preset === "custom"
-        ? { from: fromInput, to: toInput }
-        : presetRange(preset);
-    if (!nextRange.from || !nextRange.to) return;
-    if (preset !== "custom") {
-      startTransition(() => {
-        setFromInput(nextRange.from);
-        setToInput(nextRange.to);
-      });
-    }
-    importNightscout(
-      {
-        from_datetime: toApiDateTime(nextRange.from),
-        to_datetime: toApiDateTime(nextRange.to),
-        sync_glucose: true,
-        import_insulin_events: Boolean(settings.import_insulin_events),
-      },
-      {
-        onSuccess: () => setLastImportAt(new Date().toISOString()),
-      },
-    );
-  }, [
-    fromInput,
-    importNightscout,
-    nightscoutSettings.data,
-    preset,
-    toInput,
-  ]);
-
-  useEffect(() => {
-    if (!canImportNightscout) {
-      autoImportKeyRef.current = "";
-      return;
-    }
-    const settings = nightscoutSettings.data;
-    const autoImportKey =
-      preset === "custom"
-        ? `${preset}|${fromInput}|${toInput}|${settings?.import_insulin_events ? "insulin" : "glucose"}`
-        : `${preset}|${settings?.import_insulin_events ? "insulin" : "glucose"}`;
-    if (autoImportKeyRef.current !== autoImportKey) {
-      autoImportKeyRef.current = autoImportKey;
-      refreshNightscout();
-    }
-    const timer = window.setInterval(refreshNightscout, 5 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [
-    canImportNightscout,
-    fromInput,
-    nightscoutSettings.data,
-    preset,
-    refreshNightscout,
-    toInput,
-  ]);
 
   const applyPreset = (value: RangePreset) => {
     const next = presetRange(value);
@@ -470,20 +414,6 @@ export function GlucosePage() {
     );
   };
 
-  const nightscoutImportStatus = nightscoutImportPending
-    ? "Обновляю Nightscout..."
-    : nightscoutImport.isError
-      ? "Nightscout не обновился; можно повторить"
-    : lastImportAt
-      ? `Обновлено ${formatTime(lastImportAt)}`
-      : canImportNightscout
-        ? "Автообновление каждые 5 минут"
-        : nightscoutSettings.isLoading
-          ? "Проверяю настройки Nightscout..."
-          : nightscoutSettings.data?.configured
-            ? "Синхронизация глюкозы выключена в настройках"
-            : "Nightscout не подключён";
-
 
   return (
     <div style={{ display: "flex", height: "100%" }}>
@@ -516,10 +446,19 @@ export function GlucosePage() {
               style={showSensorPanel ? { background: "var(--surface-2)", color: "var(--ink)", borderColor: "var(--ink-3)", boxShadow: "inset 0 -2px 0 var(--ink-3)" } : {}}>
               <Activity size={13} /> Сенсор
             </button>
-            <button className="btn" disabled={!canImportNightscout || nightscoutImportPending} onClick={refreshNightscout}>
+            <button className="btn" disabled={!canImportNightscout || syncState.phase === "importing"} onClick={forceRefresh}>
               <RefreshCw size={13} /> Подтянуть
             </button>
+            {syncState.phase === "offline" && (
+              <button className="btn" onClick={resetConnection} style={{ color: "var(--warn)", borderColor: "var(--warn-soft)" }}>
+                <RotateCcw size={13} /> Переподключить
+              </button>
+            )}
           </div>
+
+          {canImportNightscout && (
+            <SyncStatusIndicator syncState={syncState} />
+          )}
 
           <HeroCard
             correction={correction}
@@ -536,29 +475,52 @@ export function GlucosePage() {
                 <div className="lbl">график глюкозы</div>
                 <h3>{rangeTitle(preset)}</h3>
               </div>
-              <div className="row gap-12" style={{ alignItems: "center" }}>
-                <div className="seg">
-                  {rangeButtons.map((item) => (
-                    <button key={item.value} className={preset === item.value ? "on" : ""} onClick={() => applyPreset(item.value)} type="button">{item.label}</button>
-                  ))}
+              <div className="col gap-8" style={{ alignItems: "flex-end", flex: 1 }}>
+                <div className="row gap-12" style={{ alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <div className="seg">
+                    {rangeButtons.map((item) => (
+                      <button key={item.value} className={preset === item.value ? "on" : ""} onClick={() => applyPreset(item.value)} type="button">{item.label}</button>
+                    ))}
+                    <button
+                      className={isCustomRange ? "on" : ""}
+                      onClick={() => setPreset("custom")}
+                      type="button"
+                    >
+                      Период
+                    </button>
+                  </div>
+                  <div className="seg">
+                    {modes.map((item) => (
+                      <button key={item.value} className={mode === item.value ? "on" : ""} onClick={() => setMode(item.value)} type="button">{item.label}</button>
+                    ))}
+                  </div>
                 </div>
-                <div className="seg">
-                  {modes.map((item) => (
-                    <button key={item.value} className={mode === item.value ? "on" : ""} onClick={() => setMode(item.value)} type="button">{item.label}</button>
-                  ))}
+                <div className="row gap-6" style={{ alignItems: "center", fontSize: 11, color: "var(--ink-4)" }}>
+                  <Info size={12} />
+                  <span>Raw / Сглаж. / Норм. применяются только к отображению.</span>
                 </div>
               </div>
             </div>
-            <div className="row" style={{ padding: "6px 18px 0", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <label className="field" style={{ width: "auto" }}>
-                <span>от</span>
-                <input type="datetime-local" value={fromInput} onChange={(event) => { setPreset("custom"); setFromInput(event.target.value); }} />
-              </label>
-              <label className="field" style={{ width: "auto" }}>
-                <span>до</span>
-                <input type="datetime-local" value={toInput} onChange={(event) => { setPreset("custom"); setToInput(event.target.value); }} />
-              </label>
-              <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 12 }}>{nightscoutImportStatus}</span>
+            <div
+              style={{
+                borderBottom: isCustomRange ? "1px solid var(--hairline)" : "none",
+                maxHeight: isCustomRange ? 90 : 0,
+                opacity: isCustomRange ? 1 : 0,
+                overflow: "hidden",
+                padding: isCustomRange ? "10px 18px" : "0 18px",
+                transition: "max-height 220ms ease, opacity 180ms ease, padding 220ms ease, border-color 220ms ease",
+              }}
+            >
+              <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <label className="field" style={{ width: "auto" }}>
+                  <span>от</span>
+                  <input type="datetime-local" value={fromInput} onChange={(event) => { setPreset("custom"); setFromInput(event.target.value); }} />
+                </label>
+                <label className="field" style={{ width: "auto" }}>
+                  <span>до</span>
+                  <input type="datetime-local" value={toInput} onChange={(event) => { setPreset("custom"); setToInput(event.target.value); }} />
+                </label>
+              </div>
             </div>
             <div style={{ padding: "10px 12px 0" }}>
               <GlucoseChart
@@ -753,14 +715,10 @@ function HeroCard({
           <span>TDEE <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{Math.round(kcalBalance.tdee ?? 0)}</b></span>
           <span>шаги <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{kcalBalance.steps ?? 0}</b></span>
           <span>баланс <b className="mono" style={{ color: ((kcalBalance.net_balance) > 0 ? "var(--warn)" : "var(--good)"), fontWeight: 500 }}>{kcalBalance.net_balance > 0 ? "+" : ""}{Math.round(kcalBalance.net_balance)}</b></span>
-          <span className="spacer" />
-          <span style={{ color: "var(--ink-4)" }}>raw CGM сохранён без изменений · нормализация только на отображение</span>
         </div>
       ) : (
         <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 24, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
           <span>смещ. <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? correction)} ммоль/л</b></span>
-          <span className="spacer" />
-          <span style={{ color: "var(--ink-4)" }}>raw CGM сохранён без изменений · нормализация только на отображение</span>
         </div>
       )}
     </div>
@@ -911,9 +869,6 @@ function SensorPanel({
         </div>
       </div>
 
-      <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 22, lineHeight: 1.5 }}>
-        Это оценка, не медицинская рекомендация. Raw CGM не изменяется — нормализация применяется только на дисплее.
-      </div>
     </>
   );
 }
@@ -3216,7 +3171,7 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
     <section className="border border-[var(--hairline)] bg-[var(--surface)] p-5">
       <h3 className="text-[14px] text-[var(--ink)]">Смещение по времени сенсора</h3>
       <p className="mb-2 text-[10px] text-[var(--ink-3)]">
-        Оценка по записям из пальца · Raw CGM сохраняется без изменений
+        Оценка по записям из пальца
       </p>
       <svg
         className="w-full"
