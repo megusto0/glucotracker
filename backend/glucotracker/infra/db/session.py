@@ -1,6 +1,6 @@
 """Database engine and session helpers."""
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
@@ -57,7 +57,7 @@ def get_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
-def get_session() -> Generator[Session]:
+async def get_session() -> AsyncGenerator[Session, None]:
     """Yield a database session for FastAPI dependencies."""
     session = get_session_factory()()
     try:

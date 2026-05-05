@@ -1,119 +1,106 @@
 # Agent Context
 
-Last updated: 2026-05-01
+Last updated: 2026-05-05
 
-This is the short future-agent orientation note. For full detail, read
-`docs/project-explainer.txt`, `docs/architecture.md`, `docs/api-contract.md`,
-and `docs/frontend-contract.md`.
+This is the short orientation note for future agents. The current source of
+truth for product and UI work is:
 
-## Project TLDR
+- `docs/architecture.md`
+- `docs/screens.md`
+- `docs/ux.md`
+- `docs/UI_RULEBOOK.md`
+- `docs/testing.md`
 
-Glucotracker is a personal food diary for a type-1 diabetic. It logs meals,
-macros, calories, photos, product labels, restaurant shortcuts, saved products,
-daily totals, and optional Nightscout sync. It is informational only.
+Older contracts, screenshots, generated OpenAPI dumps, PDF samples, and
+prototype-era notes live under `docs/archive/2026-05-redesign/`.
 
-Never add insulin dosing, bolus, correction, treatment, or medical decision
-recommendations.
+## Product
 
-## Core Rule
+Glucotracker is a personal food diary and glucose context tool for a person with
+type 1 diabetes. It logs food, photos, macros, calories, local products,
+patterns, CGM context, read-only insulin events from Nightscout, activity/TDEE
+context, statistics, and export/report artifacts.
 
-The backend is the product. The frontend is replaceable.
+It is informational only. Never add insulin dose recommendations, bolus advice,
+correction advice, treatment decisions, or medical conclusions.
+
+## Current Architecture Rule
+
+The backend owns product semantics. The desktop app is a client.
 
 Backend owns:
 
 - database schema and migrations
-- REST API semantics and OpenAPI contract
-- application-service orchestration
-- macro and nutrient math
-- draft, accept, discard, and re-estimate lifecycle
-- Gemini normalization and model-routing behavior
-- product memory and autocomplete semantics
-- daily totals and dashboard data
-- Nightscout sync, local import, and timeline boundaries
+- REST API semantics and OpenAPI-generated types
+- Gemini photo estimation and normalization
+- product memory, known components, autocomplete, and label math
+- accepted meal totals, daily totals, calorie balance, reports
+- Nightscout sync/import and read-only food episode projection
+- glucose dashboard data, sensor sessions, fingersticks, and display-only CGM
+  normalization
 
-The Tauri desktop app is one client. A future Android client should consume the
-same backend API without backend changes for desktop-specific behavior.
+Frontend owns:
+
+- Tauri/React shell and page layout
+- editorial UI hierarchy and responsive rendering
+- local interaction state
+- API calls through `desktop/src/api/client.ts`
+- formatting for display only
+
+The frontend must not recalculate accepted nutrition totals or mutate SQLite
+directly.
 
 ## Stack
 
-- Backend: Python 3.11+, FastAPI, SQLAlchemy 2.0, Alembic, SQLite.
-- AI: backend-only Gemini integration through `google-genai`.
+- Backend: Python 3.12-compatible, FastAPI, SQLAlchemy 2, Alembic, SQLite.
 - Desktop: Tauri 2, React, TypeScript, Tailwind, TanStack Query, Zustand.
-- Tests: backend pytest/ruff; desktop Vitest/build.
+- AI: Gemini through backend only.
+- Reports: backend aggregates data; desktop renders/saves PDF/TXT.
 
-## Main User Flow
+## Recent Global UI Redesign
 
-1. User creates a meal manually, from autocomplete, from a saved product, from a
-   pattern, or by uploading photos.
-2. Photo meals start as drafts.
-3. Backend stores photos, calls Gemini if configured, normalizes the response,
-   and calculates deterministic totals.
-4. UI shows evidence, assumptions, confidence, warnings, and editable items.
-5. User accepts or discards the draft.
-6. Accepted meals count in daily totals. Drafts do not.
-7. Accepted label-derived items can be remembered into the local product DB.
-8. The journal creates new entries in the selected local day. If an old day is
-   open, a new photo/manual meal belongs to that day until the user edits
-   `eaten_at`.
-9. The selected meal panel supports date/time edit and repeat-by-weight. For
-   recognized multi-unit label foods, quick repeat can create one unit/package
-   by calling `POST /meal_items/{id}/copy_by_weight`.
+The active desktop UI is the warm editorial redesign, not the old generic
+dashboard. Key files:
+
+- `desktop/src/App.css` - design tokens, shell, buttons, cards, journal rows.
+- `desktop/src/app/Shell.tsx` - app shell and theme application.
+- `desktop/src/components/Sidebar.tsx` - fixed left nav and mini glucose widget.
+- `desktop/src/design/primitives/Button.tsx` - compact button primitive.
+- `desktop/src/features/chat/ChatPage.tsx` - Journal.
+- `desktop/src/features/feed/FeedPage.tsx` - History.
+- `desktop/src/features/glucose/GlucosePage.tsx` - Glucose dashboard.
+- `desktop/src/features/stats/StatsPage.tsx` - Stats.
+- `desktop/src/features/database/DatabasePage.tsx` - Product DB.
+- `desktop/src/features/settings/SettingsPage.tsx` - Settings and exports.
+- `desktop/src/utils/nutritionFormat.ts` - safe display number formatting.
 
 ## Safety And Data Invariants
 
 - Unknown optional nutrients are `null`, not `0`.
-- Manual overrides beat product, restaurant, pattern, and Gemini estimates.
-- Label/product/restaurant data beats visual estimates.
-- Backend recalculates accepted totals; frontend does not own final macro math.
-- Accepting `label_calc` items recalculates totals from label evidence and
-  extracted facts; client-submitted label totals are not authoritative.
-- Known-component replacement must require specific aliases or terms. Generic
-  overlap such as `base`, `component`, or Russian `osnova` is not enough.
-- Gemini API keys and Nightscout secrets stay backend-only.
-- Nightscout insulin is imported as read-only context only; do not turn it into
-  dosing advice or editable glucotracker treatment data.
-- Raw Nightscout CGM is immutable. Sensor quality and normalized glucose are
-  display-only derived layers; do not make reports/history depend on normalized
-  values unless that is explicitly designed later.
-- Sensor quality is phase-aware: warmup `<48h`, stable `48h..12d`, end of life
-  `>=12d`. First-48-hour fingerstick residuals are warmup context; stable
-  offset/drift should prefer points after 48h and only fall back after 12h with
-  lower confidence.
-- Food episodes are computed projections over accepted meal rows, local CGM,
-  and read-only Nightscout insulin context. Do not merge or replace meals when
-  building the history timeline.
-- Multi-photo estimation must preserve photo identity.
-- Unrelated photos should not be merged into one food item.
-- Local wall-clock meal times should not be shifted through UTC conversion.
-- Editing a meal's `eaten_at` must schedule daily-total recalculation for both
-  the old day and the new day; frontend should use the backend mutation rather
-  than touching SQLite.
-- Repeat-by-weight and quick "one package" actions must send grams to the
-  backend and let backend scale macros. Do not calculate accepted repeat totals
-  in the frontend.
-- Sodium and caffeine should not be visually guessed from plated food.
+- Raw Nightscout CGM is immutable. Normalized CGM is display-only.
+- Nightscout insulin is read-only context. Do not create editable insulin
+  treatments in Glucotracker.
+- Food episodes are projections over accepted meals, CGM, and read-only insulin
+  events. Do not merge or replace meals to build History.
+- Local wall-clock meal times must not shift through UTC conversion.
+- Editing `eaten_at` must recalculate totals for both old and new days through
+  backend mutations.
+- Repeat-by-weight sends grams to backend. Backend scales macros.
+- Sodium/caffeine must not be visually guessed from plated food.
+- Activity/TDEE and calorie balance are context, not medical guidance.
 
-## Important Paths
+## Current UI Data Rules
 
-- `backend/glucotracker/main.py` - FastAPI app and router registration.
-- `backend/glucotracker/api/routers/` - REST endpoints by resource.
-- `backend/glucotracker/application/` - use-case orchestration services.
-- `backend/glucotracker/domain/` - food diary rules and deterministic logic.
-- `backend/glucotracker/domain/known_components.py` - saved component matching guardrails.
-- `backend/glucotracker/infra/db/` - SQLAlchemy models/session/seed helpers.
-- `backend/glucotracker/infra/gemini/client.py` - Gemini prompt/client logic.
-- `backend/glucotracker/application/photo_estimation.py` - photo estimate flow.
-- `backend/glucotracker/application/product_memory.py` - accepted label product upserts.
-- `backend/glucotracker/application/nightscout_sync.py` - optional Nightscout sync orchestration.
-- `backend/glucotracker/application/nightscout_context.py` - local Nightscout import and computed food episodes.
-- `backend/glucotracker/application/glucose_dashboard.py` - glucose dashboard, fingerstick matching, sensor quality, and display-only calibration.
-- `desktop/src/features/glucose/GlucosePage.tsx` - `/glucose` dashboard page.
-- `desktop/src/features/chat/ChatPage.tsx` - main journal/photo draft screen.
-- `desktop/src/features/meals/MealLedger.tsx` - meal rows and detail panels.
-- `desktop/src/features/meals/useMealMutations.ts` - shared meal mutations (updateMealName, updateMealTime, duplicateMeal, createMealFromItemWeight).
-- `desktop/src/api/client.ts` - desktop API wrapper.
+- kcal: integer.
+- grams: integer or one decimal.
+- mmol/L: one decimal.
+- kg: two decimals with comma in Russian UI.
+- percentages: integer.
+- Never show floating point artifacts.
+- Stats calorie deficit/profit excludes the current incomplete day.
+- Stats charts must degrade gracefully with sparse or missing real data.
 
-## Verification Commands
+## Important Commands
 
 Backend:
 
@@ -131,7 +118,14 @@ npm test -- --run
 npm run build
 ```
 
-OpenAPI generation:
+Tauri:
+
+```powershell
+cd desktop\src-tauri
+cargo check
+```
+
+OpenAPI types:
 
 ```powershell
 cd backend
@@ -139,11 +133,3 @@ cd backend
 cd ..\desktop
 npm run api:types
 ```
-
-## Existing Longer References
-
-- `docs/project-explainer.txt` - detailed domain, flow, Gemini, and UX notes.
-- `docs/architecture.md` - stack decisions and layering rules.
-- `docs/api-contract.md` - backend API contract.
-- `docs/frontend-contract.md` - UI behavior contract.
-- `docs/DESIGN.md` - visual design direction.

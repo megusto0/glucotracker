@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { apiClient, type DatabaseItemResponse } from "../../api/client";
 import { FoodImage } from "../../components/FoodImage";
 import { Button } from "../../design/primitives/Button";
-import { RightPanel } from "../meals/MealLedger";
 import { useApiConfig } from "../settings/settingsStore";
 
 type PanelMode = "detail" | "import" | "manual" | null;
@@ -149,132 +148,90 @@ export function DatabasePage() {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-[var(--bg)]">
-      <div
-        className={`flex h-screen min-h-0 flex-col px-12 py-10 transition-[padding] duration-200 ease-out ${
-          panelMode ? "pr-[452px]" : ""
-        }`}
-      >
-        <header className="shrink-0">
-          <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-            продукты, шаблоны, рестораны, импорт
-          </p>
-          <h1 className="mt-4 text-[56px] font-normal leading-none text-[var(--fg)]">
-            База
-          </h1>
-        </header>
+    <div className="gt-page" style={{ minHeight: "100%" }}>
+      <div style={{ display: "flex", minHeight: "100%", transition: "padding-right 0.2s ease-out", paddingRight: panelMode ? 420 : 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <header style={{ marginBottom: 20 }}>
+            <div className="gt-crumbs"><span>продукты, шаблоны, рестораны, импорт</span></div>
+            <h1 className="gt-h1">База</h1>
+          </header>
 
-        <section className="mt-9 grid shrink-0 grid-cols-[minmax(320px,1fr)_180px_200px_auto_auto] gap-3 border-y border-[var(--hairline)] py-4">
-          <label className="grid gap-2">
-            <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-              поиск
-            </span>
-            <span className="grid grid-cols-[20px_1fr] items-center gap-3 border-b border-[var(--hairline)] pb-2">
-              <Search size={16} strokeWidth={1.7} />
-              <input
-                aria-label="Поиск по базе"
-                className="bg-transparent text-[18px] outline-none"
-                onChange={(event) => setQ(event.target.value)}
-                placeholder="Поиск по базе"
-                value={q}
-              />
-            </span>
-          </label>
+          <section style={{ display: "grid", flexShrink: 0, gridTemplateColumns: "minmax(320px,1fr) 180px 200px auto auto", gap: 12, padding: "12px 0", borderTop: "1px solid var(--hairline)", borderBottom: "1px solid var(--hairline)" }}>
+            <div className="field">
+              <span>поиск</span>
+              <div className="input-bar" style={{ padding: "4px 8px" }}>
+                <Search size={14} style={{ color: "var(--ink-4)", flexShrink: 0 }} />
+                <input
+                  aria-label="Поиск по базе"
+                  placeholder="Поиск по базе"
+                  value={q}
+                  onChange={(event) => setQ(event.target.value)}
+                />
+              </div>
+            </div>
+            <FilterSelect label="источник" onChange={setSource} options={sourceOptions} value={source} />
+            <FilterSelect label="тип" onChange={setType} options={typeOptions} value={type} />
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button className="btn" onClick={() => setPanelMode("import")} type="button">
+                <FileUp size={14} />Импорт
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button className="btn dark" onClick={() => setPanelMode("manual")} type="button">
+                <Plus size={14} />Добавить
+              </button>
+            </div>
+          </section>
 
-          <FilterSelect
-            label="источник"
-            onChange={setSource}
-            options={sourceOptions}
-            value={source}
-          />
-          <FilterSelect
-            label="тип"
-            onChange={setType}
-            options={typeOptions}
-            value={type}
-          />
-          <div className="flex items-end">
-            <Button
-              icon={<FileUp size={15} />}
-              onClick={() => setPanelMode("import")}
-            >
-              Импорт
-            </Button>
-          </div>
-          <div className="flex items-end">
-            <Button
-              icon={<Plus size={15} />}
-              onClick={() => setPanelMode("manual")}
-              variant="primary"
-            >
-              Добавить вручную
-            </Button>
-          </div>
-        </section>
-
-        <nav className="mt-7 flex shrink-0 flex-wrap gap-2">
-          {sections.map((section) => (
-            <button
-              className={`border px-4 py-2 text-[12px] uppercase tracking-[0.06em] ${
-                type === section.type
-                  ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
-                  : "border-[var(--hairline)] bg-[var(--surface)] text-[var(--fg)]"
-              }`}
-              key={section.type}
-              onClick={() => setType(section.type)}
-              type="button"
-            >
-              {section.label}
-            </button>
-          ))}
-        </nav>
-
-        <section className="mt-7 min-h-0 flex-1 overflow-y-auto pr-2">
-          {!config.token.trim() ? (
-            <EmptyDatabaseState text="Укажите backend и токен в настройках." />
-          ) : null}
-          {database.isLoading ? (
-            <EmptyDatabaseState text="Загружаю базу." />
-          ) : null}
-          {database.isError ? (
-            <EmptyDatabaseState text="Не удалось загрузить базу." />
-          ) : null}
-          {database.isSuccess && !items.length ? (
-            <EmptyDatabaseState text="В базе ничего не найдено." />
-          ) : null}
-
-          <div className="grid gap-0">
-            {items.map((item) => (
-              <DatabaseRow
-                item={item}
-                key={`${item.kind}-${item.id}`}
-                onClick={() => openDetail(item)}
-                selected={selectedId === item.id && panelMode === "detail"}
-              />
+          <nav style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 4, flexShrink: 0 }}>
+            {sections.map((section) => (
+              <button
+                className={`btn ${type === section.type ? "dark" : ""}`}
+                key={section.type}
+                onClick={() => setType(section.type)}
+                type="button"
+              >
+                {section.label}
+              </button>
             ))}
-          </div>
-        </section>
-      </div>
+          </nav>
 
-      <RightPanel open={Boolean(panelMode)}>
+          <section style={{ marginTop: 16, flex: 1, minHeight: 0, overflowY: "auto" }}>
+            {!config.token.trim() ? <EmptyDatabaseState text="Укажите backend и токен в настройках." /> : null}
+            {database.isLoading ? <EmptyDatabaseState text="Загружаю базу." /> : null}
+            {database.isError ? <EmptyDatabaseState text="Не удалось загрузить базу." /> : null}
+            {database.isSuccess && !items.length ? <EmptyDatabaseState text="В базе ничего не найдено." /> : null}
+            {items.map((item) => (
+              <DatabaseRow item={item} key={`${item.kind}-${item.id}`} onClick={() => openDetail(item)} selected={selectedId === item.id && panelMode === "detail"} />
+            ))}
+          </section>
+        </div>
+
         {panelMode === "detail" && selectedItem ? (
-          <DatabaseDetailPanel
-            imageUploadError={
-              uploadProductImage.error instanceof Error
-                ? uploadProductImage.error.message
-                : null
-            }
-            imageUploadPending={uploadProductImage.isPending}
-            item={selectedItem}
-            onImageDrop={(file) =>
-              uploadProductImage.mutate({ file, productId: selectedItem.id })
-            }
-            onUse={() => navigate("/")}
-          />
+          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+            <button onClick={() => setPanelMode(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>×</button>
+            <DatabaseDetailPanel
+              imageUploadError={uploadProductImage.error instanceof Error ? uploadProductImage.error.message : null}
+              imageUploadPending={uploadProductImage.isPending}
+              item={selectedItem}
+              onImageDrop={(file) => uploadProductImage.mutate({ file, productId: selectedItem.id })}
+              onUse={() => navigate("/")}
+            />
+          </div>
         ) : null}
-        {panelMode === "import" ? <ImportPanel /> : null}
-        {panelMode === "manual" ? <ManualPanel /> : null}
-      </RightPanel>
+        {panelMode === "import" ? (
+          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+            <button onClick={() => setPanelMode(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>×</button>
+            <ImportPanel />
+          </div>
+        ) : null}
+        {panelMode === "manual" ? (
+          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+            <button onClick={() => setPanelMode(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>×</button>
+            <ManualPanel />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -292,7 +249,7 @@ function FilterSelect({
 }) {
   return (
     <label className="grid gap-2">
-      <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+      <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
         {label}
       </span>
       <select
@@ -334,10 +291,10 @@ function DatabaseRow({
         src={item.image_url}
       />
       <span className="grid min-w-0 gap-1">
-        <span className="truncate text-[16px] text-[var(--fg)]">
+        <span className="truncate text-[16px] text-[var(--ink)]">
           {item.display_name}
         </span>
-        <span className="truncate text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+        <span className="truncate text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
           {item.token ?? item.subtitle ?? kindLabels[item.kind]} ·{" "}
           {item.source_name ?? "локально"} ·{" "}
           {item.is_verified ? "проверено" : "не проверено"}
@@ -346,11 +303,11 @@ function DatabaseRow({
       <MacroCell value={item.carbs_g} unit="У" />
       <MacroCell value={item.protein_g} unit="Б" />
       <MacroCell value={item.fat_g} unit="Ж" />
-      <span className="text-right font-mono text-[18px] text-[var(--fg)]">
+      <span className="text-right font-mono text-[18px] text-[var(--ink)]">
         {macroLabel(item.kcal)}
-        <span className="ml-1 text-[11px] text-[var(--muted)]">ккал</span>
+        <span className="ml-1 text-[11px] text-[var(--ink-3)]">ккал</span>
       </span>
-      <span className="text-right font-mono text-[13px] text-[var(--muted)]">
+      <span className="text-right font-mono text-[13px] text-[var(--ink-3)]">
         {item.usage_count}
       </span>
     </button>
@@ -359,10 +316,10 @@ function DatabaseRow({
 
 function MacroCell({ unit, value }: { unit: string; value?: number | null }) {
   return (
-    <span className="text-right font-mono text-[17px] text-[var(--fg)]">
+    <span className="text-right font-mono text-[17px] text-[var(--ink)]">
       {macroLabel(value)}
       {value !== null && value !== undefined ? (
-        <span className="ml-0.5 text-[10px] text-[var(--muted)]">{unit}</span>
+        <span className="ml-0.5 text-[10px] text-[var(--ink-3)]">{unit}</span>
       ) : null}
     </span>
   );
@@ -449,12 +406,12 @@ function DatabaseDetailPanel({
       onDropCapture={handleDrop}
     >
       {dragActive && canReplaceImage ? (
-        <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center border border-dashed border-[var(--fg)] bg-[rgba(246,244,238,0.86)] text-center">
+        <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center border border-dashed border-[var(--ink)] bg-[rgba(246,244,238,0.86)] text-center">
           <div>
-            <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--muted)]">
+            <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--ink-3)]">
               заменить картинку
             </p>
-            <p className="mt-3 text-[24px] leading-none text-[var(--fg)]">
+            <p className="mt-3 text-[24px] leading-none text-[var(--ink)]">
               отпустите фото здесь
             </p>
           </div>
@@ -468,22 +425,22 @@ function DatabaseDetailPanel({
           src={item.image_url}
         />
         <div className="min-w-0">
-          <h2 className="text-[28px] leading-tight text-[var(--fg)]">
+          <h2 className="text-[28px] leading-tight text-[var(--ink)]">
             {item.display_name}
           </h2>
-          <p className="mt-2 text-[13px] text-[var(--muted)]">
+          <p className="mt-2 text-[13px] text-[var(--ink-3)]">
             {item.token ?? item.subtitle ?? "локальная запись"}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Tag>{kindLabels[item.kind]}</Tag>
             <Tag>{item.is_verified ? "проверено" : "не проверено"}</Tag>
           </div>
-          <div className="mt-4 border-t border-[var(--hairline)] pt-3 text-[12px] leading-relaxed text-[var(--muted)]">
+          <div className="mt-4 border-t border-[var(--hairline)] pt-3 text-[12px] leading-relaxed text-[var(--ink-3)]">
             {item.kind === "product" ? (
               <>
                 <p>Перетащите jpg, png или webp на эту правую карточку.</p>
                 <p>Картинка заменится в Базе, Журнале и Истории.</p>
-                <label className="mt-3 inline-flex cursor-pointer border border-[var(--hairline)] px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--fg)]">
+                <label className="mt-3 inline-flex cursor-pointer border border-[var(--hairline)] px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--ink)]">
                   <input
                     accept="image/jpeg,image/png,image/webp"
                     aria-label="Заменить картинку продукта"
@@ -499,12 +456,12 @@ function DatabaseDetailPanel({
               <p>Замена картинки сейчас доступна только для продуктов.</p>
             )}
             {imageUploadPending ? (
-              <p className="mt-2 uppercase tracking-[0.06em] text-[var(--fg)]">
+              <p className="mt-2 uppercase tracking-[0.06em] text-[var(--ink)]">
                 Загружаю картинку...
               </p>
             ) : null}
             {dropError || imageUploadError ? (
-              <p className="mt-2 text-[var(--danger)]">
+              <p className="mt-2 text-[var(--warn)]">
                 {dropError ?? imageUploadError}
               </p>
             ) : null}
@@ -539,7 +496,7 @@ function DatabaseDetailPanel({
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-[13px] text-[var(--muted)]">
+          <p className="mt-4 text-[13px] text-[var(--ink-3)]">
             дополнительные нутриенты неизвестно
           </p>
         )}
@@ -554,10 +511,10 @@ function DatabaseDetailPanel({
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-[13px] text-[var(--muted)]">alias нет</p>
+          <p className="mt-4 text-[13px] text-[var(--ink-3)]">alias нет</p>
         )}
         <button
-          className="mt-4 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]"
+          className="mt-4 text-[12px] uppercase tracking-[0.06em] text-[var(--ink-3)]"
           disabled
           type="button"
         >
@@ -601,7 +558,7 @@ function DatabaseDetailPanel({
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-[13px] text-[var(--muted)]">
+          <p className="mt-4 text-[13px] text-[var(--ink-3)]">
             явных предупреждений нет
           </p>
         )}
@@ -632,7 +589,7 @@ function DatabaseDetailPanel({
 function ImportPanel() {
   return (
     <div className="flex h-full flex-col px-7 py-8">
-      <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+      <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
         импорт
       </p>
       <h2 className="mt-4 text-[34px] leading-none">Импорт базы</h2>
@@ -643,7 +600,7 @@ function ImportPanel() {
       </div>
       <section className="mt-6 border-b border-[var(--hairline)] pb-6">
         <h3 className="text-[12px] uppercase tracking-[0.06em]">preview</h3>
-        <div className="mt-4 grid gap-2 text-[13px] text-[var(--muted)]">
+        <div className="mt-4 grid gap-2 text-[13px] text-[var(--ink-3)]">
           <p>backend import endpoint пока не реализован.</p>
           <p>Импортированные записи должны попадать в статус не проверено.</p>
         </div>
@@ -655,11 +612,11 @@ function ImportPanel() {
 function ManualPanel() {
   return (
     <div className="flex h-full flex-col px-7 py-8">
-      <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+      <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
         вручную
       </p>
       <h2 className="mt-4 text-[34px] leading-none">Добавить вручную</h2>
-      <p className="mt-8 border-y border-[var(--hairline)] py-5 text-[13px] text-[var(--muted)]">
+      <p className="mt-8 border-y border-[var(--hairline)] py-5 text-[13px] text-[var(--ink-3)]">
         Форма редактирования базы будет подключена отдельным шагом. Сейчас
         используйте backend endpoints продуктов и шаблонов.
       </p>
@@ -682,10 +639,10 @@ function Metric({
       <div className="font-mono text-[24px] leading-none">
         {unknown ? "неизвестно" : numberLabel(value)}
         {!unknown && unit ? (
-          <span className="ml-1 text-[11px] text-[var(--muted)]">{unit}</span>
+          <span className="ml-1 text-[11px] text-[var(--ink-3)]">{unit}</span>
         ) : null}
       </div>
-      <div className="mt-2 text-[11px] uppercase tracking-[0.04em] text-[var(--muted)]">
+      <div className="mt-2 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
         {label}
       </div>
     </div>
@@ -695,15 +652,15 @@ function Metric({
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[140px_1fr] gap-3 border-b border-[var(--hairline)] py-2 text-[13px]">
-      <span className="text-[var(--muted)]">{label}</span>
-      <span className="break-words text-[var(--fg)]">{value}</span>
+      <span className="text-[var(--ink-3)]">{label}</span>
+      <span className="break-words text-[var(--ink)]">{value}</span>
     </div>
   );
 }
 
 function Tag({ children }: { children: string }) {
   return (
-    <span className="border border-[var(--hairline)] px-2 py-1 text-[11px] uppercase tracking-[0.04em] text-[var(--fg)]">
+    <span className="border border-[var(--hairline)] px-2 py-1 text-[11px] uppercase tracking-[0.04em] text-[var(--ink)]">
       {children}
     </span>
   );
@@ -711,7 +668,7 @@ function Tag({ children }: { children: string }) {
 
 function EmptyDatabaseState({ text }: { text: string }) {
   return (
-    <div className="border-y border-[var(--hairline)] py-5 text-[15px] text-[var(--muted)]">
+    <div className="border-y border-[var(--hairline)] py-5 text-[15px] text-[var(--ink-3)]">
       {text}
     </div>
   );

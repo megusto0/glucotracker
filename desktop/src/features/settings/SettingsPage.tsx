@@ -3,18 +3,16 @@ import {
   FileJson,
   Moon,
   RefreshCw,
+  Send,
   Sun,
   Trash2,
-  UploadCloud,
   Wifi,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { StatusText } from "../../components/StatusText";
-import { Button } from "../../design/primitives/Button";
 import {
   apiClient,
   apiErrorMessage,
-  type UserProfileResponse,
   type UserProfileUpdate,
 } from "../../api/client";
 import { useApiConfig } from "./settingsStore";
@@ -42,13 +40,13 @@ type SyncFlags = {
 };
 
 export function SettingsPage() {
-  const baseUrl = useSettingsStore((state) => state.baseUrl);
-  const token = useSettingsStore((state) => state.token);
-  const clearUiSettings = useSettingsStore((state) => state.clearUiSettings);
-  const setBackendUrl = useSettingsStore((state) => state.setBackendUrl);
-  const setTheme = useSettingsStore((state) => state.setTheme);
-  const setToken = useSettingsStore((state) => state.setToken);
-  const theme = useSettingsStore((state) => state.theme);
+  const baseUrl = useSettingsStore((s) => s.baseUrl);
+  const token = useSettingsStore((s) => s.token);
+  const clearUiSettings = useSettingsStore((s) => s.clearUiSettings);
+  const setBackendUrl = useSettingsStore((s) => s.setBackendUrl);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+  const setToken = useSettingsStore((s) => s.setToken);
+  const theme = useSettingsStore((s) => s.theme);
   const connection = useConnectionTest();
   const recalculate = useRecalculateTotals();
   const nightscout = useNightscoutSettings();
@@ -63,9 +61,7 @@ export function SettingsPage() {
   });
 
   useEffect(() => {
-    if (!nightscout.data) {
-      return;
-    }
+    if (!nightscout.data) return;
     setNightscoutUrl(nightscout.data.url ?? "");
     setFlags({
       sync_glucose: nightscout.data.sync_glucose,
@@ -124,234 +120,154 @@ export function SettingsPage() {
     nightscout.data?.last_error ??
     null;
   const connectionLabel = testNightscout.data?.ok
-    ? "подключено"
+    ? "Подключено"
     : nightscout.data?.connected
-      ? "подключено"
+      ? "Подключено"
       : connectionError
-        ? "ошибка"
+        ? "Ошибка"
         : nightscout.data?.configured
-          ? "не подключено"
-          : "не настроено";
-  const connectionTone: "ok" | "danger" | "muted" =
+          ? "Не подключено"
+          : "Не настроено";
+  const connectionColor =
     testNightscout.data?.ok || nightscout.data?.connected
-      ? "ok"
+      ? "var(--good)"
       : connectionError
-        ? "danger"
-        : "muted";
+        ? "var(--warn)"
+        : "var(--ink-4)";
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] px-5 py-8 sm:px-8 lg:px-14 lg:py-12">
-      <header className="grid gap-4 border-b border-[var(--hairline)] pb-8 lg:pb-10">
-        <p className="text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          настройки
-        </p>
-        <h1 className="text-[38px] font-normal leading-none text-[var(--fg)] sm:text-[48px] lg:text-[56px]">
-          Интеграция: Nightscout
-        </h1>
-        <p className="max-w-[760px] text-[16px] text-[var(--muted)]">
-          Nightscout остаётся дополнительной интеграцией. glucotracker может
-          читать контекст глюкозы и показывать записи инсулина, но не считает
-          дозы и не отправляет инсулин.
-        </p>
-      </header>
+    <div className="gt-page" style={{ minHeight: "100%" }}>
+      <div className="gt-crumbs"><span>настройки</span><span>интеграции</span></div>
+      <h1 className="gt-h1">Интеграция: Nightscout</h1>
+      <p style={{ maxWidth: 720, color: "var(--ink-3)", marginTop: 12, marginBottom: 30, lineHeight: 1.6 }}>
+        Nightscout остаётся дополнительной интеграцией. glucotracker может читать контекст глюкозы и
+        показывать записи инсулина, но не считает дозы и не отправляет инсулин.
+      </p>
 
-      <main className="grid gap-10 py-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start xl:gap-12">
-        <div className="grid min-w-0 content-start gap-8">
-          <SettingsSection title="Подключение">
-            <label className="grid gap-2">
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                Nightscout URL
-              </span>
-              <input
-                className="h-12 min-w-0 border-0 border-b border-[var(--hairline)] bg-transparent px-0 text-[18px] outline-none focus:border-[var(--fg)]"
-                onChange={(event) => setNightscoutUrl(event.target.value)}
-                placeholder="https://your-nightscout.example"
-                value={nightscoutUrl}
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                API Secret
-              </span>
-              <input
-                className="h-12 min-w-0 border-0 border-b border-[var(--hairline)] bg-transparent px-0 font-mono text-[18px] outline-none focus:border-[var(--fg)]"
-                onChange={(event) => setNightscoutSecret(event.target.value)}
-                placeholder={
-                  nightscout.data?.secret_is_set
-                    ? "секрет сохранён; введите новый для замены"
-                    : "API Secret"
-                }
-                type="password"
-                value={nightscoutSecret}
-              />
-              <span className="text-[12px] text-[var(--muted)]">
-                Секрет хранится только на backend и не возвращается во frontend.
-              </span>
-            </label>
-
-            <div className="flex flex-wrap items-start justify-between gap-4 border border-[var(--hairline)] bg-[var(--surface)] p-4">
-              <div className="grid gap-1">
-                <span className="text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                  Статус
-                </span>
-                <StatusText tone={connectionTone}>{connectionLabel}</StatusText>
-                {connectionError ? (
-                  <span className="max-w-[560px] text-[12px] leading-5 text-[var(--danger)]">
-                    {connectionError}
-                  </span>
-                ) : null}
+      <div className="row gap-32" style={{ alignItems: "stretch" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 18, margin: "0 0 14px" }}>Подключение</h3>
+          <div className="card card-pad">
+            <div className="row gap-16">
+              <div className="field" style={{ flex: 2 }}>
+                <label>Nightscout URL</label>
+                <input
+                  onChange={(e) => setNightscoutUrl(e.target.value)}
+                  placeholder="https://your-nightscout.example"
+                  value={nightscoutUrl}
+                />
               </div>
-              <Button
-                disabled={testNightscout.isPending || updateNightscout.isPending}
-                icon={<Wifi size={18} />}
-                onClick={() => void testCurrentNightscout()}
-              >
-                {testNightscout.isPending ? "Проверяю..." : "Проверить подключение"}
-              </Button>
+              <div className="field" style={{ flex: 1 }}>
+                <label>API Secret</label>
+                <input
+                  onChange={(e) => setNightscoutSecret(e.target.value)}
+                  placeholder={nightscout.data?.secret_is_set ? "секрет сохранён; введите новый для замены" : "API Secret"}
+                  type="password"
+                  value={nightscoutSecret}
+                />
+              </div>
             </div>
-          </SettingsSection>
+            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 8 }}>
+              Секрет хранится только на backend и не возвращается на frontend.
+            </div>
 
-          <SettingsSection title="Синхронизация">
+            <div className="row" style={{ alignItems: "center", marginTop: 18, padding: "12px 14px", background: "var(--surface-2)", borderRadius: "var(--radius-lg)", border: "1px solid var(--hairline)", gap: 14 }}>
+              <div>
+                <div className="lbl">статус</div>
+                <div className="row gap-6" style={{ alignItems: "center", marginTop: 4 }}>
+                  <span className="dot-marker" style={{ background: connectionColor }} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{connectionLabel}</span>
+                  {connectionError ? (
+                    <span style={{ fontSize: 11, color: "var(--warn)" }}>{connectionError}</span>
+                  ) : null}
+                </div>
+              </div>
+              <span className="spacer" />
+              <button className="btn" disabled={testNightscout.isPending || updateNightscout.isPending} onClick={() => void testCurrentNightscout()} type="button">
+                <Wifi size={13} /> {testNightscout.isPending ? "Проверяю..." : "Проверить подключение"}
+              </button>
+            </div>
+          </div>
+
+          <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 18, margin: "28px 0 14px" }}>Синхронизация</h3>
+          <div className="card card-pad">
             <ToggleRow
               checked={flags.sync_glucose}
               description="Если включено, глюкоза из Nightscout загружается и хранится локально."
               label="Синхронизировать глюкозу"
-              onChange={(value) =>
-                setFlags((current) => ({
-                  ...current,
-                  sync_glucose: value,
-                }))
-              }
+              onChange={(v) => setFlags((c) => ({ ...c, sync_glucose: v }))}
             />
             <ToggleRow
               checked={flags.import_insulin_events}
-              description="Только контекст из Nightscout; glucotracker никогда не отправляет инсулин."
+              description="Только контекст из Nightscout. glucotracker никогда не отправляет инсулин и не предлагает дозу."
               label="Показывать записи инсулина из Nightscout"
-              onChange={(value) =>
-                setFlags((current) => ({
-                  ...current,
-                  import_insulin_events: value,
-                }))
-              }
+              onChange={(v) => setFlags((c) => ({ ...c, import_insulin_events: v }))}
             />
-
-            {hasNightscoutChanges ? (
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Button
-                  disabled={updateNightscout.isPending}
-                  onClick={saveNightscout}
-                  variant="primary"
-                >
-                  {updateNightscout.isPending ? "Сохраняю..." : "Сохранить изменения"}
-                </Button>
-                <Button
-                  disabled={updateNightscout.isPending}
-                  onClick={resetNightscoutForm}
-                >
-                  Отмена
-                </Button>
-              </div>
-            ) : null}
-          </SettingsSection>
-
-          <SettingsSection title="Действия">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                disabled={
-                  syncTodayNightscout.isPending || !nightscout.data?.configured
-                }
-                icon={<UploadCloud size={18} />}
-                onClick={() => syncTodayNightscout.mutate()}
-                variant="primary"
-              >
-                {syncTodayNightscout.isPending
-                  ? "Отправляю..."
-                  : "Отправить сегодняшние записи"}
-              </Button>
-              {!nightscout.data?.configured ? (
-                <StatusText>сначала подключите Nightscout</StatusText>
-              ) : null}
+          </div>
+          {hasNightscoutChanges ? (
+            <div className="row gap-8" style={{ marginTop: 12 }}>
+              <button className="btn dark" disabled={updateNightscout.isPending} onClick={saveNightscout} type="button">
+                {updateNightscout.isPending ? "Сохраняю..." : "Сохранить"}
+              </button>
+              <button className="btn" disabled={updateNightscout.isPending} onClick={resetNightscoutForm} type="button">Отмена</button>
             </div>
-            {syncTodayNightscout.data ? (
-              <p className="text-[13px] text-[var(--muted)]">
-                Отправлено: {syncTodayNightscout.data.sent_count}, пропущено:{" "}
-                {syncTodayNightscout.data.skipped_count}, ошибок:{" "}
-                {syncTodayNightscout.data.failed_count}
-              </p>
+          ) : null}
+
+          <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 18, margin: "28px 0 14px" }}>Действия</h3>
+          <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+            <button className="btn dark" disabled={syncTodayNightscout.isPending || !nightscout.data?.configured} onClick={() => syncTodayNightscout.mutate()} type="button">
+              <Send size={13} /> {syncTodayNightscout.isPending ? "Отправляю..." : "Отправить сегодняшние записи"}
+            </button>
+            {!nightscout.data?.configured ? (
+              <span style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: "30px" }}>сначала подключите Nightscout</span>
             ) : null}
-          </SettingsSection>
+          </div>
+          {syncTodayNightscout.data ? (
+            <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 8 }}>
+              Отправлено: {syncTodayNightscout.data.sent_count}, пропущено: {syncTodayNightscout.data.skipped_count}, ошибок: {syncTodayNightscout.data.failed_count}
+            </p>
+          ) : null}
 
           <EndocrinologistReportSection />
           <FoodDiaryExportSection />
         </div>
 
-        <aside className="grid min-w-0 content-start gap-6 border-t border-[var(--hairline)] pt-8 xl:border-l xl:border-t-0 xl:pl-9 xl:pt-0">
-          <section className="grid gap-5 border border-[var(--hairline)] bg-[var(--surface)] p-5">
-            <h2 className="text-[20px] font-normal">Локальный backend</h2>
-            <label className="grid gap-2">
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                Адрес backend
-              </span>
-              <input
-                className="h-11 min-w-0 border-0 border-b border-[var(--hairline)] bg-transparent px-0 text-[17px] outline-none focus:border-[var(--fg)]"
-                onChange={(event) => setBackendUrl(event.target.value)}
-                value={baseUrl}
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                Bearer-токен
-              </span>
-              <input
-                className="h-11 min-w-0 border-0 border-b border-[var(--hairline)] bg-transparent px-0 font-mono text-[17px] outline-none focus:border-[var(--fg)]"
-                onChange={(event) => setToken(event.target.value)}
-                type="password"
-                value={token}
-              />
-            </label>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                disabled={connection.isPending}
-                icon={<Wifi size={18} />}
-                onClick={() => connection.mutate()}
-                variant="primary"
-              >
-                Проверить backend
-              </Button>
-              <Button
-                disabled={recalculate.isPending}
-                icon={<RefreshCw size={18} />}
-                onClick={() => recalculate.mutate()}
-              >
-                Пересчитать итоги
-              </Button>
-              <Button
-                icon={<Trash2 size={18} />}
-                onClick={() => clearUiSettings()}
-                variant="danger"
-              >
-                Очистить UI
-              </Button>
+        <div style={{ width: 340, flex: "0 0 340px", alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card card-pad">
+            <div className="lbl">локальный backend</div>
+            <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 14px" }}>FastAPI</h3>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label>адрес</label>
+              <input onChange={(e) => setBackendUrl(e.target.value)} value={baseUrl} />
+            </div>
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label>bearer-token</label>
+              <input onChange={(e) => setToken(e.target.value)} type="password" value={token} />
+            </div>
+            <div className="col gap-8">
+              <button className="btn" disabled={connection.isPending} onClick={() => connection.mutate()} type="button">
+                <Wifi size={13} /> Проверить backend
+              </button>
+              <button className="btn" disabled={recalculate.isPending} onClick={() => recalculate.mutate()} type="button">
+                <RefreshCw size={13} /> Пересчитать итоги
+              </button>
+              <button className="btn" style={{ color: "var(--warn)", borderColor: "var(--warn-soft)" }} onClick={() => clearUiSettings()} type="button">
+                <Trash2 size={13} /> Очистить UI
+              </button>
             </div>
             {connection.data ? (
-              <div className="grid gap-3 border border-[var(--hairline)] bg-[var(--bg)] p-4 text-[14px]">
-                <div className="flex items-center justify-between gap-4">
+              <div className="card" style={{ marginTop: 12, fontSize: 13 }}>
+                <div className="t-row" style={{ justifyContent: "space-between" }}>
                   <span>Backend</span>
-                  <StatusText tone="ok">
-                    {connection.data.health.status} / v
-                    {connection.data.health.version}
-                  </StatusText>
+                  <StatusText tone="ok">{connection.data.health.status} / v{connection.data.health.version}</StatusText>
                 </div>
-                <div className="flex items-center justify-between gap-4">
+                <div className="t-row" style={{ justifyContent: "space-between" }}>
                   <span>OpenAPI</span>
-                  <StatusText
-                    tone={connection.data.openapiAvailable ? "ok" : "muted"}
-                  >
+                  <StatusText tone={connection.data.openapiAvailable ? "ok" : "muted"}>
                     {connection.data.openapiAvailable ? "доступен" : "недоступен"}
                   </StatusText>
                 </div>
-                <div className="flex items-center justify-between gap-4">
+                <div className="t-row" style={{ justifyContent: "space-between" }}>
                   <span>Токен</span>
                   <StatusText tone={connection.data.tokenValid ? "ok" : "danger"}>
                     {connection.data.tokenValid ? "верный" : "неверный или не задан"}
@@ -359,48 +275,36 @@ export function SettingsPage() {
                 </div>
               </div>
             ) : null}
-          </section>
+          </div>
 
-          <ThemeSwitch theme={theme} onThemeChange={setTheme} />
+          <div className="card card-pad">
+            <div className="lbl">оформление</div>
+            <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 14px" }}>Тема</h3>
+            <div className="seg" style={{ width: "100%", height: 36 }}>
+              {themeOptions.map(({ value, label, icon: Icon }) => (
+                <button key={value} className={theme === value ? "on" : ""} style={{ flex: 1 }} onClick={() => setTheme(value)} type="button">
+                  {Icon ? <Icon size={13} style={{ verticalAlign: "middle", marginRight: 4 }} /> : null}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <UserProfileSection />
+          <div className="card card-pad" style={{ flex: 1 }}>
+            <div className="lbl">профиль для расчёта TDEE</div>
+            <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 4px" }}>BMR — Mifflin-St Jeor</h3>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 14 }}>
+              Данные активности с часов скорректируют TDEE автоматически.
+            </div>
+            <UserProfileForm />
+          </div>
 
-          <section className="border border-[var(--hairline)] p-5">
-            <p className="text-[14px]">API Secret</p>
-            <p className="mt-3 text-[13px] leading-5 text-[var(--muted)]">
-              API Secret находится в админке Nightscout. Вставьте его один раз;
-              потом frontend видит только признак, что секрет сохранён.
-            </p>
-          </section>
-
-          <a
-            className="inline-flex h-10 w-fit items-center justify-center gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-3 text-[13px] font-medium uppercase tracking-[0.06em] text-[var(--fg)] transition duration-200 ease-out hover:border-[var(--fg)]"
-            href={openApiHref(baseUrl)}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <FileJson size={18} />
-            OpenAPI
-            <ExternalLink size={14} />
+          <a className="btn" href={openApiHref(baseUrl)} rel="noreferrer" target="_blank">
+            <FileJson size={14} /> OpenAPI <ExternalLink size={12} />
           </a>
-        </aside>
-      </main>
+        </div>
+      </div>
     </div>
-  );
-}
-
-function SettingsSection({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="grid gap-5 border-b border-[var(--hairline)] pb-8 last:border-b-0">
-      <h2 className="text-[24px] font-normal">{title}</h2>
-      {children}
-    </section>
   );
 }
 
@@ -418,67 +322,32 @@ function ToggleRow({
   onChange?: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 border-b border-[var(--hairline)] py-4 text-[15px] last:border-b-0">
-      <span className="grid gap-1">
-        <span>{label}</span>
-        {description ? (
-          <span className="text-[12px] leading-5 text-[var(--muted)]">
-            {description}
-          </span>
-        ) : null}
-      </span>
-      <input
-        checked={checked}
-        className="h-5 w-10 shrink-0 accent-[var(--fg)]"
-        disabled={disabled}
-        onChange={(event) => onChange?.(event.target.checked)}
-        type="checkbox"
-      />
-    </label>
+    <div className="checkbox">
+      <div>
+        <div className="l">{label}</div>
+        {description ? <div className="s">{description}</div> : null}
+      </div>
+      <div
+        className={`checkbox-box ${checked ? "" : "off"}`}
+        onClick={() => !disabled && onChange?.(!checked)}
+        role="checkbox"
+        aria-checked={checked}
+        tabIndex={0}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+      </div>
+    </div>
   );
 }
 
-const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
+const themeOptions: { value: Theme; label: string; icon: typeof Sun | null }[] = [
   { value: "light", label: "Светлая", icon: Sun },
   { value: "dark", label: "Тёмная", icon: Moon },
-  { value: "system", label: "Системная", icon: null as unknown as typeof Sun },
+  { value: "system", label: "Система", icon: null },
 ];
 
-function ThemeSwitch({
-  theme,
-  onThemeChange,
-}: {
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
-}) {
-  return (
-    <section className="grid gap-3 border border-[var(--hairline)] bg-[var(--surface)] p-5">
-      <p className="text-[14px]">Оформление</p>
-      <div className="flex gap-2">
-        {themeOptions.map(({ value, label, icon: Icon }) => (
-          <button
-            className={`flex h-9 items-center gap-2 border px-3 text-[12px] uppercase tracking-[0.06em] transition duration-200 ease-out ${
-              theme === value
-                ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
-                : "border-[var(--hairline)] text-[var(--muted)] hover:border-[var(--fg)]"
-            }`}
-            key={value}
-            onClick={() => onThemeChange(value)}
-            type="button"
-          >
-            {Icon ? <Icon size={14} /> : null}
-            {label}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function UserProfileSection() {
+function UserProfileForm() {
   const config = useApiConfig();
-  const [_savedProfile, setSavedProfile] = useState<UserProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -488,15 +357,13 @@ export function UserProfileSection() {
   const [sex, setSex] = useState("");
 
   useEffect(() => {
-    if (!config.token.trim()) { setLoading(false); return; }
+    if (!config.token.trim()) return;
     apiClient.getUserProfile(config).then((data) => {
-      setSavedProfile(data);
       setWeight(data.weight_kg != null ? String(data.weight_kg) : "");
       setHeight(data.height_cm != null ? String(data.height_cm) : "");
       setAge(data.age_years != null ? String(data.age_years) : "");
       setSex(data.sex ?? "");
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {});
   }, [config.token, config.baseUrl]);
 
   const save = () => {
@@ -510,8 +377,7 @@ export function UserProfileSection() {
     if (Number.isFinite(h)) body.height_cm = h;
     if (Number.isFinite(a) && a > 0) body.age_years = a;
     if (sex === "male" || sex === "female") body.sex = sex;
-    apiClient.updateUserProfile(config, body).then((data) => {
-      setSavedProfile(data);
+    apiClient.updateUserProfile(config, body).then(() => {
       setSaving(false);
     }).catch((e: unknown) => {
       setError(apiErrorMessage(e));
@@ -519,65 +385,40 @@ export function UserProfileSection() {
     });
   };
 
-  if (loading) return null;
-
   return (
-    <section className="grid gap-3 border border-[var(--hairline)] bg-[var(--surface)] p-5">
-      <p className="text-[14px]">Профиль для расчёта TDEE</p>
-      <p className="text-[12px] text-[var(--muted)]">
-        Вес, рост, возраст и пол нужны для расчёта BMR (Mifflin-St Jeor).
-        Данные активности с часов скорректируют TDEE автоматически.
-      </p>
-      {error ? (
-        <p className="text-[12px] text-[var(--danger)]">{error}</p>
-      ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          вес, кг
-          <input
-            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-            inputMode="decimal"
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="70"
-            value={weight}
-          />
-        </label>
-        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          рост, см
-          <input
-            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-            inputMode="decimal"
-            onChange={(e) => setHeight(e.target.value)}
-            placeholder="175"
-            value={height}
-          />
-        </label>
-        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          возраст
-          <input
-            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-            inputMode="numeric"
-            onChange={(e) => setAge(e.target.value)}
-            placeholder="30"
-            value={age}
-          />
-        </label>
-        <label className="grid gap-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          пол
-          <select
-            className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-            onChange={(e) => setSex(e.target.value)}
-            value={sex}
-          >
+    <>
+      {error ? <p style={{ fontSize: 12, color: "var(--warn)" }}>{error}</p> : null}
+      <div className="row gap-8">
+        <div className="field" style={{ flex: 1 }}>
+          <label>вес, кг</label>
+          <input inputMode="decimal" onChange={(e) => setWeight(e.target.value)} placeholder="70" value={weight} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>рост, см</label>
+          <input inputMode="decimal" onChange={(e) => setHeight(e.target.value)} placeholder="175" value={height} />
+        </div>
+      </div>
+      <div className="row gap-8" style={{ marginTop: 10 }}>
+        <div className="field" style={{ flex: 1 }}>
+          <label>возраст</label>
+          <input inputMode="numeric" onChange={(e) => setAge(e.target.value)} placeholder="30" value={age} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>пол</label>
+          <select onChange={(e) => setSex(e.target.value)} value={sex} style={{ height: 32, width: "100%", padding: "0 10px", border: "1px solid var(--hairline-2)", background: "var(--surface)", fontFamily: "var(--mono)", fontSize: 13, borderRadius: "var(--radius)", color: "var(--ink)", outline: "none" }}>
             <option value="">—</option>
             <option value="male">мужской</option>
             <option value="female">женский</option>
           </select>
-        </label>
+        </div>
       </div>
-      <Button disabled={saving} onClick={save} variant="primary">
+      <button className="btn dark" disabled={saving} onClick={save} type="button" style={{ marginTop: 12 }}>
         {saving ? "Сохраняю..." : "Сохранить профиль"}
-      </Button>
-    </section>
+      </button>
+    </>
   );
+}
+
+export function UserProfileSection() {
+  return <UserProfileForm />;
 }

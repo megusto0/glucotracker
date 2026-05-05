@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, ImagePlus, Plus, X } from "lucide-react";
+import { ArrowRight, Camera, Check, ImagePlus, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type DragEvent,
@@ -31,7 +31,6 @@ import { toLocalDateTimeString } from "../../utils/dateTime";
 import {
   EmptyLog,
   MealRow,
-  RightPanel,
   SelectedMealPanel,
   evidenceLabelsForItem,
   numberLabel,
@@ -216,10 +215,10 @@ const suggestionToItem = (
 
 const itemConfidenceTone = (confidence?: number | null) => {
   if (confidence === null || confidence === undefined || confidence < 0.6) {
-    return "border-l-[var(--danger)]";
+    return "border-l-[var(--warn)]";
   }
   if (confidence > 0.85) {
-    return "border-l-[var(--ok)]";
+    return "border-l-[var(--good)]";
   }
   return "border-l-[var(--accent)]";
 };
@@ -240,20 +239,6 @@ const photoSourceLabels: Record<PhotoSource, string> = {
   file_picker: "файл",
   drag_drop: "перетаскивание",
   clipboard: "буфер",
-};
-
-const estimateModelLabels: Record<EstimateModel, string> = {
-  default: "По умолчанию backend",
-  "gemini-3-flash-preview": "Gemini 3 Flash Preview",
-  "gemini-2.5-flash": "Gemini 2.5 Flash",
-  "gemini-3.1-flash-lite-preview": "Gemini 3.1 Flash Lite",
-};
-
-const estimateModelHint: Record<EstimateModel, string> = {
-  default: "Будет использован GEMINI_MODEL на backend и fallback-модели при ошибке.",
-  "gemini-3-flash-preview": "Принудительно вызвать Gemini 3 Flash Preview.",
-  "gemini-2.5-flash": "Принудительно вызвать Gemini 2.5 Flash.",
-  "gemini-3.1-flash-lite-preview": "Принудительно вызвать Gemini 3.1 Flash Lite.",
 };
 
 const inferMimeType = (name: string) => {
@@ -1046,485 +1031,340 @@ export function ChatPage() {
 
   return (
     <div
-      className="h-screen overflow-hidden bg-[var(--bg)]"
+      className="gt-page"
+      style={{ minHeight: "100%", position: "relative" }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={handleDrop}
       onPaste={handlePaste}
     >
       <div
-        className={`flex h-screen min-h-0 flex-col px-10 py-9 transition-[padding] duration-200 ease-out ${
-          panelMode ? "pr-[452px]" : ""
-        }`}
+        style={{
+          display: "flex",
+          minHeight: "100%",
+          transition: "padding-right 0.2s ease-out",
+          paddingRight: panelMode ? 420 : 0,
+        }}
       >
-        <header className="shrink-0 grid gap-7">
-          <div className="grid grid-cols-[1fr_auto] items-start gap-8">
-            <div>
-              <p className="text-[16px] text-[var(--fg)]">
-                {formatDayWeekday(selectedDate)}
-              </p>
-              <h1 className="mt-5 whitespace-nowrap font-mono text-[56px] font-normal leading-none text-[var(--fg)]">
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <header style={{ flexShrink: 0 }}>
+            <div className="gt-crumbs" style={{ marginBottom: 4 }}>
+              <span>{formatDayWeekday(selectedDate)}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginBottom: 24 }}>
+              <h1 className="gt-h1" style={{ fontFamily: "var(--mono)", fontSize: 36 }}>
                 {formatDayTitle(selectedDate)}
               </h1>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 6 }}>
+                <button className="btn icon" onClick={handleGoToPreviousDay} aria-label="Предыдущий день" type="button">{"<"}</button>
+                <button className="btn" onClick={handleGoToToday} type="button">{dayNavLabel}</button>
+                <button className="btn icon" aria-label="Следующий день" disabled={isViewingToday} onClick={handleGoToNextDay} type="button">{">"}</button>
+              </div>
             </div>
-            <div className="hidden items-center gap-3 pt-12 xl:flex">
-              <button
-                className="h-10 w-10 border border-[var(--hairline)] bg-[var(--surface)] text-[18px]"
-                onClick={handleGoToPreviousDay}
-                aria-label="Предыдущий день"
-                type="button"
-              >
-                {"<"}
-              </button>
-              <button
-                className="h-10 border border-[var(--hairline)] bg-[var(--surface)] px-5 text-[13px] font-medium"
-                onClick={handleGoToToday}
-                aria-label={
-                  isViewingToday
-                    ? "Сегодня выбранный день"
-                    : "Вернуться к сегодня"
-                }
-                type="button"
-              >
-                {dayNavLabel}
-              </button>
-              <button
-                aria-label="Следующий день"
-                className="h-10 w-10 border border-[var(--hairline)] bg-[var(--surface)] text-[18px] disabled:opacity-40"
-                disabled={isViewingToday}
-                onClick={handleGoToNextDay}
-                type="button"
-              >
-                {">"}
-              </button>
-            </div>
-          </div>
-          <DailySummary totals={dayTotals} />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[var(--hairline)] py-3 text-[12px] text-[var(--muted)]">
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  nightscoutDay.data?.connected
-                    ? "bg-[var(--ok)]"
-                    : "bg-[var(--hairline)]"
-                }`}
-              />
-              <span>
-                {nightscoutDay.data?.connected
-                  ? "Nightscout подключён"
-                  : "Nightscout не подключён"}
-              </span>
+            <DailySummary totals={dayTotals} />
+            <div className="ns-strip">
+              <span className="dot-marker" style={{ background: nightscoutDay.data?.connected ? "var(--good)" : "var(--hairline)" }} />
+              <span>{nightscoutDay.data?.connected ? "Nightscout подключён" : "Nightscout не подключён"}</span>
               {nightscoutDay.data?.configured ? (
                 <>
-                  <span>несинхронизировано: {nightscoutDay.data.unsynced_meals_count}</span>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>несинхронизировано: <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{nightscoutDay.data.unsynced_meals_count}</b></span>
                   {nightscoutDay.data.last_sync_at ? (
-                    <span>
-                      последняя синхронизация:{" "}
-                      {new Intl.DateTimeFormat("ru-RU", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }).format(new Date(nightscoutDay.data.last_sync_at))}
+                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>последняя синхронизация:{" "}
+                      {new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(nightscoutDay.data.last_sync_at))}
                     </span>
                   ) : null}
                 </>
               ) : (
-                <a className="underline" href="/settings">
-                  Настроить
-                </a>
+                <a className="btn-link" href="/settings">Настроить</a>
               )}
-            </div>
-            <button
-              className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[12px] uppercase tracking-[0.06em] disabled:opacity-40"
-              disabled={
-                !nightscoutDay.data?.configured ||
-                !nightscoutDay.data?.connected ||
-                !nightscoutDay.data?.unsynced_meals_count ||
-                syncTodayNightscout.isPending
-              }
-              onClick={() => syncTodayNightscout.mutate()}
-              type="button"
-            >
-              {syncTodayNightscout.isPending
-                ? "Отправляю..."
-                : "Отправить день в Nightscout"}
-            </button>
-            {syncTodayNightscout.data ? (
-              <span className="w-full text-[12px] text-[var(--fg)]">
-                Отправлено: {syncTodayNightscout.data.sent_count}, пропущено:{" "}
-                {syncTodayNightscout.data.skipped_count}, ошибок:{" "}
-                {syncTodayNightscout.data.failed_count}
-              </span>
-            ) : null}
-          </div>
-        </header>
-
-        <section className="mt-7 min-h-0 flex-1 overflow-y-auto pr-2">
-          <div className="grid gap-0">
-            {!config.token.trim() ? (
-              <EmptyLog message="Укажите адрес backend и токен в настройках." />
-            ) : null}
-            {config.token.trim() && meals.isLoading ? (
-              <EmptyLog message="Загружаю еду." />
-            ) : null}
-            {config.token.trim() && meals.isSuccess && !todayMeals.length ? (
-              <EmptyLog message={emptyDayMessage} />
-            ) : null}
-            {todayMeals.map((meal) => (
-              <MealRow
-                key={meal.id}
-                meal={meal}
-                selected={selectedMealId === meal.id}
-                onToggle={() => handleMealToggle(meal)}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="shrink-0 pt-4">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {chips.map((chip, index) => (
-              <div
-                className="flex items-center gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-2 py-1 text-[12px] uppercase tracking-[0.06em]"
-                key={`${chip.token}-${index}`}
-              >
-                <button
-                  aria-label={chip.token}
-                  onClick={() =>
-                    setChips((current) =>
-                      current.filter((_, chipIndex) => chipIndex !== index),
-                    )
-                  }
-                  type="button"
-                >
-                  {chip.token} <span className="text-[var(--muted)]">x</span>
-                </button>
-                {chip.kind === "product" ? (
-                  <label className="flex items-center gap-1 normal-case tracking-normal text-[var(--muted)]">
-                    <span>Количество</span>
-                    <input
-                      aria-label={`Количество ${chip.display_name}`}
-                      className="h-6 w-14 border border-[var(--hairline)] bg-[var(--bg)] px-1 text-right font-mono text-[12px] text-[var(--fg)] outline-none"
-                      min="0.1"
-                      onChange={(event) => {
-                        const rawValue = event.target.value;
-                        const value = Number(event.target.value);
-                        setChips((current) =>
-                          current.map((currentChip, chipIndex) =>
-                            chipIndex === index
-                              ? {
-                                  ...currentChip,
-                                  quantity:
-                                    rawValue === ""
-                                      ? undefined
-                                      : Number.isFinite(value) && value > 0
-                                        ? value
-                                        : 1,
-                                }
-                              : currentChip,
-                          ),
-                        );
-                      }}
-                      step="0.5"
-                      type="number"
-                      value={chip.quantity ?? ""}
-                    />
-                    <span>шт</span>
-                  </label>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          {estimatePhase !== "idle" ? (
-            <div className="mb-3 text-[12px] uppercase tracking-[0.06em] text-[var(--accent)] transition duration-200 ease-out">
-              Оцениваю фото... {estimatePhaseText[estimatePhase]}
-            </div>
-          ) : null}
-
-          <form
-            className="relative grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 border-t border-[var(--hairline)] pt-6"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleSubmit();
-            }}
-          >
-            <button
-              aria-label="Добавить еду"
-              className="flex h-12 w-12 items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--fg)]"
-              onClick={() => commandInputRef.current?.focus()}
-              type="button"
-            >
-              <Plus size={22} strokeWidth={1.7} />
-            </button>
-            <label className="sr-only" htmlFor="command-input">
-              Командный ввод
-            </label>
-            <div className="relative">
-              <input
-                className="h-14 w-full border border-[var(--hairline)] bg-[var(--surface)] px-11 pr-14 font-mono text-[24px] leading-none outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--fg)]"
-                id="command-input"
-                onChange={(event) => {
-                  setInput(event.target.value);
-                  setAutocompleteDismissedToken("");
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="bk:whopper"
-                ref={commandInputRef}
-                value={input}
-              />
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[var(--muted)]">
-                {">"}
-              </span>
-              {input ? (
-                <button
-                  aria-label="Очистить команду"
-                  className="absolute right-14 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-                  onClick={() => {
-                    setInput("");
-                    setAutocompleteDismissedToken("");
-                  }}
-                  type="button"
-                >
-                  <X size={17} />
-                </button>
-              ) : null}
-              <button
-                aria-label="Записать"
-                className="absolute right-1 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center bg-[var(--fg)] text-[var(--surface)]"
-                disabled={createMeal.isPending}
-                onClick={handleSubmit}
-                type="button"
-              >
-                <ArrowRight size={20} />
+              <span className="spacer" />
+              <button className="btn" disabled={!nightscoutDay.data?.configured || !nightscoutDay.data?.connected || !nightscoutDay.data?.unsynced_meals_count || syncTodayNightscout.isPending}
+                onClick={() => syncTodayNightscout.mutate()} type="button">
+                {syncTodayNightscout.isPending ? "Отправляю..." : "Отправить день в Nightscout"}
               </button>
             </div>
-            <button
-              aria-label="Фото"
-              className="flex h-12 items-center gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-4 text-[13px] text-[var(--fg)]"
-              onClick={() => {
-                setPhotoPanelOpen(true);
-                imageInputRef.current?.click();
-              }}
-              type="button"
-            >
-              <ImagePlus size={20} strokeWidth={1.7} />
-              <span>Фото</span>
-            </button>
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              aria-label="Выбрать фото"
-              className="sr-only"
-              multiple
-              onChange={(event) => {
-                if (event.target.files?.length) {
-                  addFilesToPendingPhotos(event.target.files, "file_picker");
-                  event.target.value = "";
-                }
-              }}
-              ref={imageInputRef}
-              type="file"
-            />
-          </form>
-        </section>
-      </div>
+            {syncTodayNightscout.data ? (
+              <div className="ns-strip" style={{ marginTop: 0, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                <span style={{ width: "100%", fontSize: 12, color: "var(--ink)" }}>
+                  Отправлено: {syncTodayNightscout.data.sent_count}, пропущено: {syncTodayNightscout.data.skipped_count}, ошибок: {syncTodayNightscout.data.failed_count}
+                </span>
+              </div>
+            ) : null}
+          </header>
 
-      <RightPanel open={Boolean(panelMode)}>
-        {panelMode === "batch" && batchEstimation ? (
-          <BatchEstimatePanel
-            drafts={batchEstimation.created_drafts ?? []}
-            onAcceptAll={(drafts) => acceptAllCreatedDrafts.mutate(drafts)}
-            onDiscardAll={(drafts) => {
-              if (confirmDiscardDraft()) {
-                discardAllCreatedDrafts.mutate(drafts);
-              }
-            }}
-            onDiscardOne={(draft) => {
-              if (confirmDiscardDraft()) {
-                discardCreatedDraft.mutate(draft);
-              }
-            }}
-            onOpen={(draft) => {
-              setSelectedMealId(draft.meal_id);
-              setBatchEstimation(null);
-            }}
-            onSaveOne={(draft) => acceptCreatedDraft.mutate(draft)}
-            saving={
-              acceptCreatedDraft.isPending ||
-              discardCreatedDraft.isPending ||
-              acceptAllCreatedDrafts.isPending ||
-              discardAllCreatedDrafts.isPending
-            }
-            warnings={batchEstimation.image_quality_warnings}
-          />
+          <section style={{ marginTop: 6, flex: 1, minHeight: 0 }}>
+            <div className="card" style={{ padding: "8px 16px" }}>
+            {!config.token.trim() ? <EmptyLog message="Укажите адрес backend и токен в настройках." /> : null}
+            {config.token.trim() && meals.isLoading ? <EmptyLog message="Загружаю еду." /> : null}
+            {config.token.trim() && meals.isSuccess && !todayMeals.length ? <EmptyLog message={emptyDayMessage} /> : null}
+            {todayMeals.map((meal) => (
+              <MealRow key={meal.id} meal={meal} selected={selectedMealId === meal.id} onToggle={() => handleMealToggle(meal)} />
+            ))}
+            </div>
+          </section>
+
+          <section style={{ flexShrink: 0, paddingTop: 14 }}>
+            <div style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {chips.map((chip, index) => (
+                <div className="tag accent" key={`${chip.token}-${index}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    aria-label={chip.token}
+                    onClick={() => setChips((current) => current.filter((_, ci) => ci !== index))}
+                    type="button"
+                  >
+                    {chip.token} <span style={{ color: "var(--ink-3)" }}>×</span>
+                  </button>
+                  {chip.kind === "product" ? (
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, textTransform: "none", letterSpacing: 0, color: "var(--ink-3)" }}>
+                      <span>Кол-во</span>
+                      <input
+                        aria-label={`Количество ${chip.display_name}`}
+                        style={{ width: 40, height: 20, border: "1px solid var(--hairline-2)", background: "var(--bg)", padding: "0 4px", textAlign: "right", fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink)", outline: "none" }}
+                        min="0.1" step="0.5" type="number" value={chip.quantity ?? ""}
+                        onChange={(event) => {
+                          const rawValue = event.target.value;
+                          const value = Number(event.target.value);
+                          setChips((current) => current.map((c, ci) => ci === index ? { ...c, quantity: rawValue === "" ? undefined : Number.isFinite(value) && value > 0 ? value : 1 } : c));
+                        }}
+                      />
+                      <span>шт</span>
+                    </label>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {estimatePhase !== "idle" ? (
+              <div className="lbl" style={{ marginBottom: 8, color: "var(--accent)" }}>
+                Оцениваю фото... {estimatePhaseText[estimatePhase]}
+              </div>
+            ) : null}
+
+            <div className="row gap-12" style={{ alignItems: "center" }}>
+              <div className="input-bar" style={{ flex: 1, borderColor: panelMode === "autocomplete" ? "var(--ink)" : "var(--hairline-2)" }}>
+                <button className="btn icon" style={{ border: "none", background: "transparent" }} type="button" onClick={() => commandInputRef.current?.focus()}>
+                  <ImagePlus size={15} />
+                </button>
+                <span className="mono" style={{ color: "var(--ink-4)", flexShrink: 0 }}>{">"}</span>
+                <input
+                  id="command-input"
+                  onChange={(event) => { setInput(event.target.value); setAutocompleteDismissedToken(""); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="bk:whopper · введите еду или используйте префикс bk: / mc:"
+                  ref={commandInputRef}
+                  value={input}
+                />
+                {input ? (
+                  <button aria-label="Очистить команду" className="btn icon" style={{ border: "none", background: "transparent", color: "var(--ink-3)" }}
+                    onClick={() => { setInput(""); setAutocompleteDismissedToken(""); }} type="button"><X size={14} /></button>
+                ) : null}
+                <button className="send-btn" aria-label="Записать" disabled={createMeal.isPending} onClick={handleSubmit} type="button">
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+              <button className="btn" type="button" onClick={() => { setPhotoPanelOpen(true); imageInputRef.current?.click(); }}>
+                <Camera size={14} /> Фото
+              </button>
+              <input
+                accept="image/jpeg,image/png,image/webp" aria-label="Выбрать фото" className="sr-only" multiple
+                onChange={(event) => { if (event.target.files?.length) { addFilesToPendingPhotos(event.target.files, "file_picker"); event.target.value = ""; } }}
+                ref={imageInputRef} type="file"
+              />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 8, marginLeft: 4 }}>
+              подсказки: <span className="mono">bk:</span> Burger King · <span className="mono">mc:</span> McDonald's · перетащите фото — Gemini оценит макросы
+            </div>
+          </section>
+        </div>
+
+        {panelMode ? (
+          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+            <button onClick={clearActivePanelState} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>
+              <X size={16} />
+            </button>
+            {panelMode === "batch" && batchEstimation ? (
+              <BatchEstimatePanel
+                drafts={batchEstimation.created_drafts ?? []}
+                onAcceptAll={(drafts) => acceptAllCreatedDrafts.mutate(drafts)}
+                onDiscardAll={(drafts) => {
+                  if (confirmDiscardDraft()) {
+                    discardAllCreatedDrafts.mutate(drafts);
+                  }
+                }}
+                onDiscardOne={(draft) => {
+                  if (confirmDiscardDraft()) {
+                    discardCreatedDraft.mutate(draft);
+                  }
+                }}
+                onOpen={(draft) => {
+                  setSelectedMealId(draft.meal_id);
+                  setBatchEstimation(null);
+                }}
+                onSaveOne={(draft) => acceptCreatedDraft.mutate(draft)}
+                saving={
+                  acceptCreatedDraft.isPending ||
+                  discardCreatedDraft.isPending ||
+                  acceptAllCreatedDrafts.isPending ||
+                  discardAllCreatedDrafts.isPending
+                }
+                warnings={batchEstimation.image_quality_warnings}
+              />
+            ) : null}
+            {panelMode === "autocomplete" ? (
+              <AutocompletePanel
+                activeIndex={selectedSuggestion}
+                loading={autocomplete.isFetching}
+                onSelect={handleSuggestionSelect}
+                results={autocomplete.data ?? []}
+                token={autocompleteQuery}
+              />
+            ) : null}
+            {panelMode === "meal" && selectedMeal ? (
+              <SelectedMealPanel
+                applyingReestimate={applyEstimationRun.isPending}
+                createFromWeightPending={createFromWeight.isPending}
+                deletePending={deleteMeal.isPending}
+                meal={selectedMeal}
+                onCreateFromWeight={(item, grams) =>
+                  createFromWeight.mutate(
+                    { grams, itemId: item.id },
+                    { onSuccess: (meal) => setSelectedMealId(meal.id) },
+                  )
+                }
+                onDelete={(meal) => deleteMeal.mutate(meal.id)}
+                onUpdateItemWeight={(item, grams) =>
+                  updateItemWeight.mutate({ grams, itemId: item.id })
+                }
+                onReestimate={() => reestimateMeal.mutate()}
+                onReestimateApply={(mode, comparison) =>
+                  applyEstimationRun.mutate({ applyMode: mode, comparison })
+                }
+                onReestimateCancel={() => setReestimateComparison(null)}
+                onRememberProduct={(item, aliases) =>
+                  rememberProduct.mutate({ aliases, itemId: item.id })
+                }
+                onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
+                onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
+                onUpdateName={(meal, name) =>
+                  updateMealName.mutate({ meal, name })
+                }
+                onUpdateTime={(meal, eatenAt) =>
+                  updateMealTime.mutate({ eatenAt, mealId: meal.id })
+                }
+                rememberPending={rememberProduct.isPending}
+                reestimateComparison={reestimateComparison}
+                reestimateError={reestimateError}
+                reestimateModel={reestimateModel}
+                reestimatePending={reestimateMeal.isPending}
+                onReestimateModelChange={setReestimateModel}
+                syncNightscoutPending={
+                  syncMealNightscout.isPending || resyncMealNightscout.isPending
+                }
+                updateNamePending={updateMealName.isPending}
+                updateTimePending={updateMealTime.isPending}
+                updateWeightPending={updateItemWeight.isPending}
+              />
+            ) : null}
+            {panelMode === "draft" && selectedDraftEstimation ? (
+              <EstimatePanel
+                edited={selectedDraftEdited}
+                estimation={selectedDraftEstimation}
+                items={selectedDraftItems}
+                onChangeItem={(index, next) => {
+                  setSelectedDraftItems((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, ...next } : item,
+                    ),
+                  );
+                  setSelectedDraftEdited(true);
+                }}
+                onDiscard={() => {
+                  if (confirmDiscardDraft()) {
+                    discardSelectedDraft.mutate();
+                  }
+                }}
+                onSave={() => acceptSelectedDraft.mutate()}
+                saving={
+                  acceptSelectedDraft.isPending ||
+                  discardSelectedDraft.isPending ||
+                  saveDraftItems.isPending
+                }
+              />
+            ) : null}
+            {panelMode === "photos" ? (
+              <PendingPhotoPanel
+                contextNote={estimateContextNote}
+                estimateModel={estimateModel}
+                estimating={estimateDraft.isPending}
+                error={photoError}
+                onChangeContextNote={setEstimateContextNote}
+                onChangeModel={setEstimateModel}
+                onClear={clearPendingPhotos}
+                onEstimate={() => estimateDraft.mutate()}
+                onRemove={removePendingPhoto}
+                photos={pendingPhotos}
+              />
+            ) : null}
+            {panelMode === "estimate" && estimation ? (
+              <EstimatePanel
+                edited={estimateEdited}
+                estimation={estimation}
+                items={estimateItems}
+                onChangeItem={(index, next) => {
+                  setEstimateItems((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, ...next } : item,
+                    ),
+                  );
+                  setEstimateEdited(true);
+                }}
+                onDiscard={() => {
+                  if (confirmDiscardDraft()) {
+                    discardDraft.mutate();
+                  }
+                }}
+                onSave={() => acceptDraft.mutate()}
+                saving={acceptDraft.isPending || discardDraft.isPending}
+              />
+            ) : null}
+          </div>
         ) : null}
-        {panelMode === "autocomplete" ? (
-          <AutocompletePanel
-            activeIndex={selectedSuggestion}
-            loading={autocomplete.isFetching}
-            onSelect={handleSuggestionSelect}
-            results={autocomplete.data ?? []}
-            token={autocompleteQuery}
-          />
-        ) : null}
-        {panelMode === "meal" && selectedMeal ? (
-          <SelectedMealPanel
-            applyingReestimate={applyEstimationRun.isPending}
-            createFromWeightPending={createFromWeight.isPending}
-            deletePending={deleteMeal.isPending}
-            meal={selectedMeal}
-            onCreateFromWeight={(item, grams) =>
-              createFromWeight.mutate(
-                { grams, itemId: item.id },
-                { onSuccess: (meal) => setSelectedMealId(meal.id) },
-              )
-            }
-            onDelete={(meal) => deleteMeal.mutate(meal.id)}
-            onUpdateItemWeight={(item, grams) =>
-              updateItemWeight.mutate({ grams, itemId: item.id })
-            }
-            onReestimate={() => reestimateMeal.mutate()}
-            onReestimateApply={(mode, comparison) =>
-              applyEstimationRun.mutate({ applyMode: mode, comparison })
-            }
-            onReestimateCancel={() => setReestimateComparison(null)}
-            onRememberProduct={(item, aliases) =>
-              rememberProduct.mutate({ aliases, itemId: item.id })
-            }
-            onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
-            onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
-            onUpdateName={(meal, name) =>
-              updateMealName.mutate({ meal, name })
-            }
-            onUpdateTime={(meal, eatenAt) =>
-              updateMealTime.mutate({ eatenAt, mealId: meal.id })
-            }
-            rememberPending={rememberProduct.isPending}
-            reestimateComparison={reestimateComparison}
-            reestimateError={reestimateError}
-            reestimateModel={reestimateModel}
-            reestimatePending={reestimateMeal.isPending}
-            onReestimateModelChange={setReestimateModel}
-            syncNightscoutPending={
-              syncMealNightscout.isPending || resyncMealNightscout.isPending
-            }
-            updateNamePending={updateMealName.isPending}
-            updateTimePending={updateMealTime.isPending}
-            updateWeightPending={updateItemWeight.isPending}
-          />
-        ) : null}
-        {panelMode === "draft" && selectedDraftEstimation ? (
-          <EstimatePanel
-            edited={selectedDraftEdited}
-            estimation={selectedDraftEstimation}
-            items={selectedDraftItems}
-            onChangeItem={(index, next) => {
-              setSelectedDraftItems((current) =>
-                current.map((item, itemIndex) =>
-                  itemIndex === index ? { ...item, ...next } : item,
-                ),
-              );
-              setSelectedDraftEdited(true);
-            }}
-            onDiscard={() => {
-              if (confirmDiscardDraft()) {
-                discardSelectedDraft.mutate();
-              }
-            }}
-            onSave={() => acceptSelectedDraft.mutate()}
-            saving={
-              acceptSelectedDraft.isPending ||
-              discardSelectedDraft.isPending ||
-              saveDraftItems.isPending
-            }
-          />
-        ) : null}
-        {panelMode === "photos" ? (
-          <PendingPhotoPanel
-            contextNote={estimateContextNote}
-            estimateModel={estimateModel}
-            estimating={estimateDraft.isPending}
-            error={photoError}
-            onChangeContextNote={setEstimateContextNote}
-            onChangeModel={setEstimateModel}
-            onClear={clearPendingPhotos}
-            onEstimate={() => estimateDraft.mutate()}
-            onRemove={removePendingPhoto}
-            photos={pendingPhotos}
-          />
-        ) : null}
-        {panelMode === "estimate" && estimation ? (
-          <EstimatePanel
-            edited={estimateEdited}
-            estimation={estimation}
-            items={estimateItems}
-            onChangeItem={(index, next) => {
-              setEstimateItems((current) =>
-                current.map((item, itemIndex) =>
-                  itemIndex === index ? { ...item, ...next } : item,
-                ),
-              );
-              setEstimateEdited(true);
-            }}
-            onDiscard={() => {
-              if (confirmDiscardDraft()) {
-                discardDraft.mutate();
-              }
-            }}
-            onSave={() => acceptDraft.mutate()}
-            saving={acceptDraft.isPending || discardDraft.isPending}
-          />
-        ) : null}
-      </RightPanel>
+      </div>
     </div>
   );
 }
 
 function DailySummary({ totals }: { totals: DayTotals }) {
-  const progress = Math.min(100, Math.max(0, (totals.kcal / 2200) * 100));
-  const metrics = [
-    ["углеводы", totals.carbs, "г"],
-    ["ккал", totals.kcal, "ккал"],
-    ["белки", totals.protein, "г"],
-    ["жиры", totals.fat, "г"],
-    ["клетчатка", totals.fiber, "г"],
-  ] as const;
-
+  const carbPct = Math.round((totals.carbs / 225) * 100);
+  const kcalPct = Math.round((totals.kcal / 2200) * 100);
   return (
-    <section className="grid gap-6">
-      <div className="grid grid-cols-[repeat(5,minmax(74px,1fr))] gap-6">
-        {metrics.map(([label, value, unit]) => (
-          <div className="grid gap-2" key={label}>
-            <span className="text-[11px] uppercase tracking-[0.02em] text-[var(--fg)]">
-              {label}
-            </span>
-            <span className="font-mono text-[34px] leading-none text-[var(--fg)]">
-              {numberLabel(value)}
-              <span className="ml-2 text-[12px] lowercase tracking-normal text-[var(--fg)]">
-                {unit}
-              </span>
-            </span>
-          </div>
-        ))}
+    <section className="kpi" style={{ marginBottom: 14 }}>
+      <div>
+        <div className="lbl">углеводы</div>
+        <div className="kpi-val" style={{ marginTop: 8 }}>{numberLabel(totals.carbs)}<span className="u">г</span></div>
+        <div className="pbar accent" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, carbPct)}%` }} /></div>
+        <div className="kpi-sub">цель 225 г · <span className="mono">{carbPct}%</span></div>
       </div>
-      <div className="grid gap-3">
-        <div
-          aria-label="Прогресс цели на день"
-          className="h-[3px] bg-[var(--hairline)]"
-          role="progressbar"
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={Math.round(progress)}
-        >
-          <div
-            className="h-[3px] bg-[var(--fg)]"
-            style={{ width: `${progress}%` }}
-          />
+      <div>
+        <div className="lbl">ккал</div>
+        <div className="kpi-val" style={{ marginTop: 8 }}>{numberLabel(totals.kcal)}<span className="u">ккал</span></div>
+        <div className="pbar good" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, kcalPct)}%` }} /></div>
+        <div className="kpi-sub">цель 2200 · <span className="mono">{kcalPct}%</span></div>
+      </div>
+      <div>
+        <div className="lbl">белки · жиры · клетчатка</div>
+        <div className="row gap-12" style={{ marginTop: 8, alignItems: "baseline" }}>
+          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.protein)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Б</span></span>
+          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.fat)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Ж</span></span>
+          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.fiber)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Кл</span></span>
         </div>
-        <div className="grid grid-cols-2 text-[12px] text-[var(--fg)]">
-          <span>Цель на день: 2200 ккал</span>
-          <span className="text-right">
-            {numberLabel(totals.kcal)} / 2200 ккал
-          </span>
+        <div className="kpi-sub" style={{ marginTop: 10 }}>дневная сводка</div>
+      </div>
+      <div>
+        <div className="lbl">ккал / TDEE</div>
+        <div className="kpi-val" style={{ marginTop: 8 }}>
+          {numberLabel(totals.kcal)}<span className="u">ккал</span>
         </div>
+        <div className="kpi-sub" style={{ marginTop: 10 }}>дневная цель 2200</div>
       </div>
     </section>
   );
@@ -1554,124 +1394,73 @@ function PendingPhotoPanel({
   photos: PendingPhoto[];
 }) {
   return (
-    <div className="flex h-full min-w-0 flex-col overflow-x-hidden px-7 py-8">
-      <div className="border-b border-[var(--hairline)] pb-6">
-        <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          фото к оценке
-        </p>
-        <h2 className="mt-4 font-mono text-[34px] font-normal leading-none text-[var(--fg)]">
-          {photos.length ? `${photos.length} фото` : "добавьте фото"}
-        </h2>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div className="hairline" style={{ paddingBottom: 16 }}>
+        <div className="lbl">фото к оценке</div>
+        <h2 style={{ marginTop: 8 }}>{photos.length ? `${photos.length} фото` : "добавьте фото"}</h2>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {!photos.length ? (
-          <div className="border-b border-[var(--hairline)] py-6">
-            <p className="text-[15px] leading-snug text-[var(--fg)]">
-              Перетащите фото из Связи с телефоном или Проводника Windows
-            </p>
-            <p className="mt-3 text-[13px] leading-snug text-[var(--muted)]">
-              Фото не отправляются в облако, они загружаются только в ваш
-              локальный backend
-            </p>
+          <div className="hairline" style={{ padding: "16px 0" }}>
+            <p style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.5 }}>Перетащите фото из Связи с телефоном или Проводника Windows</p>
+            <p style={{ marginTop: 8, fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>Фото не отправляются в облако, они загружаются только в ваш локальный backend</p>
           </div>
         ) : null}
 
         {photos.map((photo) => (
-          <div
-            className="grid grid-cols-[56px_1fr_auto] items-center gap-4 border-b border-[var(--hairline)] py-4"
-            key={photo.id}
-          >
-            <img
-              alt={photo.name}
-              className="h-14 w-14 border border-[var(--hairline)] object-cover"
-              src={photo.previewUrl}
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[15px] text-[var(--fg)]">
-                {photo.name}
-              </div>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                {photoSourceLabels[photo.source]}
-                {photo.mimeType ? ` / ${photo.mimeType}` : ""}
-              </div>
+          <div className="t-row" key={photo.id}>
+            <img alt={photo.name} style={{ width: 44, height: 44, borderRadius: 3, objectFit: "cover", border: "1px solid var(--hairline)" }} src={photo.previewUrl} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{photo.name}</div>
+              <div className="lbl" style={{ marginTop: 2 }}>{photoSourceLabels[photo.source]}{photo.mimeType ? ` / ${photo.mimeType}` : ""}</div>
             </div>
-            <button
-              className="text-[12px] uppercase tracking-[0.06em] text-[var(--danger)]"
-              onClick={() => onRemove(photo.id)}
-              type="button"
-            >
-              Удалить
-            </button>
+            <button className="btn-link" style={{ color: "var(--warn)" }} onClick={() => onRemove(photo.id)} type="button">Удалить</button>
           </div>
         ))}
       </div>
 
       {estimating ? (
-        <div className="border-t border-[var(--hairline)] py-4 text-[12px] uppercase tracking-[0.06em] text-[var(--accent)]">
-          Оцениваю фото...
-        </div>
+        <div className="lbl" style={{ padding: "12px 0", color: "var(--accent)" }}>Оцениваю фото...</div>
       ) : null}
       {error ? (
-        <p className="border-t border-[var(--hairline)] py-4 text-[13px] text-[var(--danger)]">
-          {error}
-        </p>
+        <p style={{ padding: "12px 0", fontSize: 13, color: "var(--warn)" }}>{error}</p>
       ) : null}
 
-      <div className="sticky bottom-0 mt-auto grid gap-3 border-t border-[var(--hairline)] bg-[var(--bg)] py-4">
-        <label className="grid gap-2 border-b border-[var(--hairline)] pb-4 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          Контекст для фото
+      <div className="hairline" style={{ paddingTop: 12, marginTop: "auto" }}>
+        <div className="field" style={{ marginBottom: 12 }}>
+          <label>Контекст для фото</label>
           <textarea
             aria-label="Контекст для фото"
-            className="min-h-20 resize-none border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] normal-case leading-snug tracking-normal text-[var(--fg)] outline-none"
             disabled={estimating}
             maxLength={1200}
             onChange={(event) => onChangeContextNote(event.target.value)}
             placeholder="например: 100 г варёного риса, половина тортильи, без соуса"
             value={contextNote}
           />
-          <span className="text-[11px] normal-case tracking-normal text-[var(--muted)]">
-            Этот текст отправляется только в backend как подсказка для оценки.
-          </span>
-        </label>
-        <div className="grid gap-2 border-b border-[var(--hairline)] pb-4">
-          <label className="grid gap-2 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-            Модель оценки
-            <select
-              aria-label="Модель оценки фото"
-              className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] normal-case tracking-normal text-[var(--fg)] outline-none"
-              disabled={estimating}
-              onChange={(event) =>
-                onChangeModel(event.target.value as EstimateModel)
-              }
-              value={estimateModel}
-            >
-              <option value="default">По умолчанию backend</option>
-              <option value="gemini-3-flash-preview">
-                Gemini 3 Flash Preview
-              </option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-3.1-flash-lite-preview">
-                Gemini 3.1 Flash Lite
-              </option>
-            </select>
-          </label>
-          <p className="text-[12px] leading-snug text-[var(--muted)]">
-            Сейчас: {estimateModelLabels[estimateModel]}.{" "}
-            {estimateModelHint[estimateModel]}
-          </p>
+          <span style={{ fontSize: 10, color: "var(--ink-3)" }}>Этот текст отправляется только в backend как подсказка для оценки.</span>
         </div>
-        <Button
-          disabled={!photos.length || estimating}
-          icon={<ImagePlus size={16} />}
-          onClick={onEstimate}
-          variant="primary"
-        >
-          {error ? "Повторить оценку" : "Оценить"}
-        </Button>
-        <Button disabled={!photos.length || estimating} onClick={onClear}>
-          Очистить фото
-        </Button>
+        <div className="field" style={{ marginBottom: 12 }}>
+          <label>Модель оценки</label>
+          <select
+            aria-label="Модель оценки фото"
+            style={{ height: 32, border: "1px solid var(--hairline-2)", background: "var(--surface)", padding: "0 8px", fontFamily: "var(--mono)", fontSize: 12, borderRadius: "var(--radius)", color: "var(--ink)", outline: "none" }}
+            disabled={estimating}
+            onChange={(event) => onChangeModel(event.target.value as EstimateModel)}
+            value={estimateModel}
+          >
+            <option value="default">По умолчанию backend</option>
+            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite</option>
+          </select>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn dark" disabled={!photos.length || estimating} onClick={onEstimate} type="button">
+            <ImagePlus size={14} />{error ? "Повторить" : "Оценить"}
+          </button>
+          <button className="btn" disabled={!photos.length || estimating} onClick={onClear} type="button">Очистить</button>
+        </div>
       </div>
     </div>
   );
@@ -1691,75 +1480,60 @@ function AutocompletePanel({
   token: string;
 }) {
   return (
-    <div className="flex h-full flex-col px-7 py-8">
-      <div className="border-b border-[var(--hairline)] pb-6">
-        <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          автозаполнение
-        </p>
-        <h2 className="mt-4 break-all font-mono text-[42px] font-normal leading-none text-[var(--fg)]">
-          {token}
-        </h2>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div className="hairline" style={{ paddingBottom: 16 }}>
+        <div className="lbl">автозаполнение</div>
+        <h2 style={{ marginTop: 8, wordBreak: "break-all" }}>{token}</h2>
       </div>
 
-      <div className="mt-6 border-b border-[var(--hairline)] pb-3">
-        <p className="text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          частые
-        </p>
+      <div className="hairline" style={{ padding: "10px 0" }}>
+        <div className="lbl">частые</div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {loading ? (
-          <div className="border-b border-[var(--hairline)] px-5 py-3">
-            <StatusText>Поиск</StatusText>
-          </div>
+          <div className="t-row"><StatusText>Поиск</StatusText></div>
         ) : null}
         {results.length ? (
           results.map((result, index) => (
             <button
-              className={`grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)] items-center gap-4 border-b border-[var(--hairline)] py-4 text-left ${
-                activeIndex === index ? "bg-[var(--bg)]" : ""
-              }`}
+              className={`ac-item ${activeIndex === index ? "selected" : ""}`}
               key={`${result.kind}-${result.id ?? result.token}`}
               onClick={() => onSelect(result)}
               type="button"
+              style={{ width: "100%", textAlign: "left" }}
             >
-              <FoodImage
-                alt={`${result.display_name} фото`}
-                className="h-10 w-10"
-                fit="contain"
-                src={result.image_url}
-              />
-              <span className="grid min-w-0 gap-1">
-                <span className="truncate text-[15px] text-[var(--fg)]">
-                  {result.display_name}
-                </span>
-                <span className="truncate text-[12px] text-[var(--muted)]">
+              <div style={{ width: 36, height: 36, borderRadius: 3, background: "var(--shade)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <FoodImage
+                  alt={`${result.display_name} фото`}
+                  fit="contain"
+                  src={result.image_url}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.display_name}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {suggestionKindLabel(result)} · {result.subtitle ?? result.token}
-                </span>
-                <span className="mt-3 flex min-w-0 flex-wrap justify-end gap-x-3 gap-y-1 text-right">
+                </div>
+                <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
                   <AutocompleteMacro value={result.carbs_g} unit="У" />
                   <AutocompleteMacro value={result.protein_g} unit="Б" />
                   <AutocompleteMacro value={result.fat_g} unit="Ж" />
-                  <span className="whitespace-nowrap font-mono text-[13px]">
-                    {formatKcal(result.kcal)}
-                  </span>
-                </span>
-              </span>
+                  <span className="mono" style={{ fontSize: 13 }}>{formatKcal(result.kcal)}</span>
+                </div>
+              </div>
             </button>
           ))
         ) : !loading ? (
-          <p className="border-b border-[var(--hairline)] py-4 text-[13px] text-[var(--muted)]">
-            Ничего не найдено
-          </p>
+          <p className="t-row" style={{ fontSize: 13, color: "var(--ink-3)" }}>Ничего не найдено</p>
         ) : null}
       </div>
-      <button
-        className="sticky bottom-0 grid w-full grid-cols-[1fr_auto] border-t border-[var(--hairline)] bg-[var(--bg)] py-4 text-left text-[13px] text-[var(--fg)]"
-        type="button"
-      >
-        <span>Показать все результаты для «{token}»</span>
-        <span className="font-mono text-[18px]">-&gt;</span>
-      </button>
+      <div className="hairline" style={{ paddingTop: 10 }}>
+        <button className="btn" style={{ width: "100%", justifyContent: "space-between" }} type="button">
+          <span>Все результаты для «{token}»</span>
+          <span className="mono">→</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -1810,10 +1584,10 @@ function BatchEstimatePanel({
   return (
     <div className="flex h-full flex-col overflow-y-auto px-7 py-8">
       <section className="border-b border-[var(--hairline)] pb-6">
-        <p className="text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
+        <p className="text-[12px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
           Результат оценки
         </p>
-        <h2 className="mt-3 text-[30px] leading-none text-[var(--fg)]">
+        <h2 className="mt-3 text-[30px] leading-none text-[var(--ink)]">
           Создано черновиков: {drafts.length}
         </h2>
         {warnings.length ? (
@@ -1839,15 +1613,15 @@ function BatchEstimatePanel({
                   size="item"
                 />
               ) : (
-                <div className="flex h-[72px] w-[72px] items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)]">
+                <div className="flex h-[72px] w-[72px] items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-3)]">
                   <ImagePlus size={20} strokeWidth={1.5} />
                 </div>
               )}
               <div className="min-w-0">
-                <div className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+                <div className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
                   {index + 1}. Фото / черновик
                 </div>
-                <h3 className="mt-2 truncate text-[20px] leading-tight text-[var(--fg)]">
+                <h3 className="mt-2 truncate text-[20px] leading-tight text-[var(--ink)]">
                   {draft.title}
                 </h3>
                 <div className="mt-3 grid grid-cols-4 gap-2 font-mono text-[14px]">
@@ -2056,22 +1830,22 @@ function EstimatePanel({
 
       <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-[var(--hairline)] py-6">
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+          <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
             черновик
           </p>
-          <h2 className="mt-3 text-[26px] leading-tight text-[var(--fg)]">
+          <h2 className="mt-3 text-[26px] leading-tight text-[var(--ink)]">
             {primaryItem?.name ?? "Еда по фото"}
           </h2>
           {subtitle ? (
-            <p className="mt-2 text-[13px] text-[var(--muted)]">{subtitle}</p>
+            <p className="mt-2 text-[13px] text-[var(--ink-3)]">{subtitle}</p>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="border border-[var(--fg)] px-2 py-1 text-[11px]">
+            <span className="border border-[var(--ink)] px-2 py-1 text-[11px]">
               {readableItemSourceKind(
                 primaryItem?.source_kind ?? "photo_estimate",
               )}
             </span>
-            <span className="border border-[var(--fg)] px-2 py-1 text-[11px]">
+            <span className="border border-[var(--ink)] px-2 py-1 text-[11px]">
               черновик
             </span>
             {primaryItem?.calculation_method ? (
@@ -2085,7 +1859,7 @@ function EstimatePanel({
           <div className="font-mono text-[34px] leading-none">
             {formatKcalValue(estimation.suggested_totals.total_kcal)}
           </div>
-          <div className="mt-1 text-[12px] text-[var(--fg)]">ккал</div>
+          <div className="mt-1 text-[12px] text-[var(--ink)]">ккал</div>
         </div>
       </div>
 
@@ -2190,12 +1964,12 @@ function EstimatePanel({
             Источник
           </h3>
           <div className="min-h-16 bg-[rgba(255,255,255,0.42)] p-4">
-            <div className="text-[15px] text-[var(--fg)]">
+            <div className="text-[15px] text-[var(--ink)]">
               {readableItemSourceKind(
                 primaryItem?.source_kind ?? "photo_estimate",
               )}
             </div>
-            <div className="mt-2 text-[12px] text-[var(--muted)]">
+            <div className="mt-2 text-[12px] text-[var(--ink-3)]">
               {readableCalculationMethod(primaryItem?.calculation_method) ||
                 "черновик Gemini"}
             </div>
@@ -2209,7 +1983,7 @@ function EstimatePanel({
             <div className="font-mono text-[28px] leading-none">
               {confidenceLabel}
             </div>
-            <div className="mt-2 text-[12px] text-[var(--muted)]">
+            <div className="mt-2 text-[12px] text-[var(--ink-3)]">
               {primaryItem?.confidence_reason ?? "нет данных"}
             </div>
           </div>
@@ -2237,7 +2011,7 @@ function EstimatePanel({
                     }
                     value={item.name}
                   />
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.04em] text-[var(--muted)]">
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
                     <span>{estimateItemTypeLabel(item)}</span>
                     <span>{readableItemSourceKind(item.source_kind)}</span>
                     <span>
@@ -2251,7 +2025,7 @@ function EstimatePanel({
                     </span>
                   </div>
                   {item.confidence_reason ? (
-                    <p className="mt-2 text-[12px] text-[var(--muted)]">
+                    <p className="mt-2 text-[12px] text-[var(--ink-3)]">
                       {item.confidence_reason}
                     </p>
                   ) : null}
@@ -2269,7 +2043,7 @@ function EstimatePanel({
                   ] as const
                 ).map((field) => (
                   <label className="grid gap-1" key={field}>
-                    <span className="text-[10px] uppercase tracking-[0.04em] text-[var(--muted)]">
+                    <span className="text-[10px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
                       {field
                         .replace("grams", "масса")
                         .replace("carbs_g", "углеводы")
@@ -2310,7 +2084,7 @@ function EstimatePanel({
               .slice(0, 8)
               .map((label) => <EvidenceLine key={label} label={label} />)
           ) : (
-            <p className="text-[13px] text-[var(--muted)]">данных нет</p>
+            <p className="text-[13px] text-[var(--ink-3)]">данных нет</p>
           )}
         </div>
       </section>
@@ -2336,7 +2110,7 @@ function EstimatePanel({
               <EvidenceLine key={step} label={step} />
             ))
           ) : (
-            <p className="text-[13px] text-[var(--muted)]">
+            <p className="text-[13px] text-[var(--ink-3)]">
               расчётная история недоступна
             </p>
           )}
@@ -2354,7 +2128,7 @@ function EstimatePanel({
             ))}
           </ul>
         ) : (
-          <p className="mt-3 text-[13px] text-[var(--muted)]">Допущений нет.</p>
+          <p className="mt-3 text-[13px] text-[var(--ink-3)]">Допущений нет.</p>
         )}
       </section>
 
@@ -2381,7 +2155,7 @@ function EstimatePanel({
         >
           Отменить
         </Button>
-        <p className="pt-5 text-[11px] text-[var(--muted)]">
+        <p className="pt-5 text-[11px] text-[var(--ink-3)]">
           Это оценка, не медицинская рекомендация.
         </p>
       </div>
@@ -2397,7 +2171,7 @@ function SourcePhotoPreview({
   const first = photos[0];
   if (!first) {
     return (
-      <div className="flex h-52 items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)]">
+      <div className="flex h-52 items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-3)]">
         <ImagePlus size={28} strokeWidth={1.6} />
       </div>
     );
@@ -2430,10 +2204,10 @@ function SourcePhotosDebug({ photos }: { photos: EstimateSourcePhoto[] }) {
               size="thumb"
             />
             <div className="min-w-0">
-              <div className="text-[13px] text-[var(--fg)]">
+              <div className="text-[13px] text-[var(--ink)]">
                 Фото {photo.index}
               </div>
-              <div className="truncate text-[11px] text-[var(--muted)]">
+              <div className="truncate text-[11px] text-[var(--ink-3)]">
                 {photo.original_filename ?? photo.id}
               </div>
             </div>
@@ -2459,7 +2233,7 @@ function EstimateItemPhoto({
 
   if (!photoId) {
     return (
-      <div className="flex h-[72px] w-[72px] items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)]">
+      <div className="flex h-[72px] w-[72px] items-center justify-center border border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-3)]">
         <ImagePlus size={18} strokeWidth={1.6} />
       </div>
     );
@@ -2485,7 +2259,7 @@ function EstimateItemReview({ item }: { item: MealItemCreate }) {
     <div className="grid gap-4 border-t border-[var(--hairline)] pt-3">
       {evidenceRows.length ? (
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--muted)]">
+          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
             данные
           </h4>
           <div className="mt-2 grid gap-1">
@@ -2497,10 +2271,10 @@ function EstimateItemReview({ item }: { item: MealItemCreate }) {
       ) : null}
       {assumptions.length ? (
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--muted)]">
+          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
             допущения
           </h4>
-          <ul className="mt-2 grid gap-1 pl-5 text-[12px] text-[var(--fg)]">
+          <ul className="mt-2 grid gap-1 pl-5 text-[12px] text-[var(--ink)]">
             {assumptions.slice(0, 4).map((assumption, index) => (
               <li className="list-disc" key={`${assumption}-${index}`}>
                 {assumption}
@@ -2511,7 +2285,7 @@ function EstimateItemReview({ item }: { item: MealItemCreate }) {
       ) : null}
       {warnings.length ? (
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--muted)]">
+          <h4 className="text-[11px] uppercase tracking-[0.05em] text-[var(--ink-3)]">
             предупреждения
           </h4>
           <div className="mt-2 grid gap-1">
@@ -2555,7 +2329,7 @@ function SourcePhotoImage({
         <img alt={alt} className={className} src={photoObjectUrl} />
       ) : (
         <div
-          className={`flex items-center justify-center text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] ${
+          className={`flex items-center justify-center text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)] ${
             size === "large" ? "h-52" : size === "item" ? "h-[72px]" : "h-14"
           }`}
         >
@@ -2595,8 +2369,8 @@ function BreakdownBlock({
             className="grid grid-cols-[1fr_auto] border-b border-[var(--hairline)] py-2 text-[13px]"
             key={`${title}-${label}`}
           >
-            <span className="text-[var(--muted)]">{label}</span>
-            <span className="font-mono text-[var(--fg)]">
+            <span className="text-[var(--ink-3)]">{label}</span>
+            <span className="font-mono text-[var(--ink)]">
               {kind === "kcal"
                 ? formatKcalValue(value)
                 : kind === "integer"
@@ -2613,7 +2387,7 @@ function BreakdownBlock({
 
 function EvidenceLine({ label }: { label: string }) {
   return (
-    <div className="border-b border-[var(--hairline)] py-2 text-[13px] text-[var(--fg)]">
+    <div className="border-b border-[var(--hairline)] py-2 text-[13px] text-[var(--ink)]">
       {label}
     </div>
   );
@@ -2634,7 +2408,7 @@ function DraftMacro({
         {numberLabel(value)}
       </div>
       <div className="mt-2 text-[11px] uppercase tracking-[0.02em]">
-        {label} <span className="lowercase text-[var(--muted)]">{unit}</span>
+        {label} <span className="lowercase text-[var(--ink-3)]">{unit}</span>
       </div>
     </div>
   );
