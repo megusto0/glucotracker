@@ -12,11 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type Dispatch,
   type FormEvent,
-  type HTMLAttributes,
-  type ReactNode,
-  type SetStateAction,
 } from "react";
 import {
   apiErrorMessage,
@@ -26,7 +22,7 @@ import {
   type SensorSessionResponse,
 } from "../../api/client";
 import { apiClient } from "../../api/client";
-import { Button } from "../../design/primitives/Button";
+import RightPanel from "../../components/RightPanel";
 import {
   useImportNightscoutContext,
   useNightscoutSettings,
@@ -57,6 +53,16 @@ const rangeButtons: { label: string; value: RangePreset }[] = [
   { label: "24ч", value: "24h" },
   { label: "7д", value: "7d" },
 ];
+
+const rangeTitle = (preset: RangePreset | "custom") =>
+  ({
+    "3h": "Последние 3 часа",
+    "6h": "Последние 6 часов",
+    "12h": "Последние 12 часов",
+    "24h": "Последние 24 часа",
+    "7d": "Последние 7 дней",
+    custom: "Выбранный период",
+  })[preset];
 
 const modes: { label: string; value: GlucoseMode }[] = [
   { label: "Raw", value: "raw" },
@@ -150,19 +156,6 @@ const confidenceLabel = (
   );
 };
 
-const sensorPhaseLabel = (
-  phase?: string | null,
-  ageDays?: number | null,
-) => {
-  if (phase === "warmup") {
-    const hours = Math.min(48, Math.max(0, Math.round((ageDays ?? 0) * 24)));
-    return `Автокалибровка: ${hours} ч из 48`;
-  }
-  if (phase === "stable") return "Стабильная фаза";
-  if (phase === "end_of_life") return "Конец срока";
-  return "Фаза не определена";
-};
-
 const sensorPhaseCompact = (
   phase?: string | null,
   ageDays?: number | null,
@@ -186,20 +179,6 @@ const fingerstickCountLabel = (count: number) => {
         ? "записи"
         : "записей";
   return `${count} ${word} из пальца`;
-};
-
-const calibrationStrategyLabel = (strategy?: string | null) =>
-  ({
-    insufficient: "недостаточно данных",
-    linear: "линейная",
-    median_delta: "медиана Δ",
-    warmup_blend: "автокалибровка",
-  })[strategy ?? ""] ?? "—";
-
-const warmupSequenceText = (values?: number[] | null) => {
-  const filtered = (values ?? []).filter((value) => Number.isFinite(value));
-  if (filtered.length < 2) return null;
-  return filtered.map((value) => formatSigned(value)).join("  ");
 };
 
 const blankToNull = (value: string) => {
@@ -265,6 +244,7 @@ export function GlucosePage() {
   const [mode, setMode] = useState<GlucoseMode>("normalized");
   const [activityTab, setActivityTab] = useState<ActivityTab>("episodes");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [hoveredEpisodeId, setHoveredEpisodeId] = useState<string | null>(null);
   const [fingerstickAt, setFingerstickAt] = useState(toDateTimeInput(new Date()));
   const [fingerstickValue, setFingerstickValue] = useState("");
   const [meterName, setMeterName] = useState("");
@@ -272,9 +252,11 @@ export function GlucosePage() {
   const [lastImportAt, setLastImportAt] = useState<string | null>(null);
   const [showFingerstickForm, setShowFingerstickForm] = useState(false);
   const [showSensorEdit, setShowSensorEdit] = useState(false);
+  const [showSensorPanel, setShowSensorPanel] = useState(false);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
   const autoImportKeyRef = useRef("");
   const [kcalBalance, setKcalBalance] = useState<KcalBalanceResponse | null>(null);
+  const toggleSensorEdit = useCallback(() => setShowSensorEdit((v) => !v), []);
 
   useEffect(() => {
     if (!config.token.trim()) return;
@@ -310,7 +292,6 @@ export function GlucosePage() {
   const previousPoint =
     data && data.points.length > 1 ? data.points[data.points.length - 2] : null;
   const correction = currentCorrection(latestPoint);
-  const normalizedAvailable = latestPoint?.normalized_value !== undefined && latestPoint?.normalized_value !== null;
   const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
   const trust = confidenceLabel(summary?.calibration_confidence, validCalibrationPoints);
   const events = useMemo(() => buildEventRows(data), [data]);
@@ -503,818 +484,440 @@ export function GlucosePage() {
             ? "Синхронизация глюкозы выключена в настройках"
             : "Nightscout не подключён";
 
+
   return (
-    <div className="min-h-screen bg-[var(--bg)] px-5 py-5 sm:px-8 lg:px-10">
-      <header className="flex flex-col gap-2 pb-4">
-        <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-[var(--muted)]">
-          <Activity size={14} />
-          NIGHTSCOUT / ЛОКАЛЬНЫЙ КОНТЕКСТ
-        </p>
-        <h1 className="font-mono text-[46px] font-normal leading-none text-[var(--fg)] sm:text-[56px]">
-          Глюкоза
-        </h1>
-      </header>
+    <div style={{ display: "flex", height: "100%" }}>
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <div className="gt-page">
+          {!config.token.trim() ? (
+            <div className="card card-pad" style={{ marginBottom: 16, fontSize: 14, color: "var(--ink-3)" }}>
+              Укажите токен backend в настройках, чтобы загрузить локальные данные Nightscout.
+            </div>
+          ) : null}
 
-      {!config.token.trim() ? (
-        <div className="mb-5 border border-[var(--hairline)] bg-[var(--surface)] p-4 text-[14px] text-[var(--muted)]">
-          Укажите токен backend в настройках, чтобы загрузить локальные данные
-          Nightscout.
-        </div>
-      ) : null}
+          {error ? (
+            <div className="card card-pad" style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--warn)", borderColor: "var(--warn)" }}>
+              <AlertTriangle size={18} />
+              {apiErrorMessage(error)}
+            </div>
+          ) : null}
 
-      {error ? (
-        <div className="mb-5 flex items-start gap-3 border border-[var(--danger)] bg-[var(--surface)] p-4 text-[14px] text-[var(--danger)]">
-          <AlertTriangle size={18} />
-          {apiErrorMessage(error)}
-        </div>
-      ) : null}
+          <header style={{ marginBottom: 20 }}>
+            <div className="gt-crumbs">
+              <Activity size={14} />
+              <span>NIGHTSCOUT / ЛОКАЛЬНЫЙ КОНТЕКСТ</span>
+            </div>
+            <h1 className="gt-h1">Глюкоза</h1>
+          </header>
 
-      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
-        <main className="grid min-w-0 gap-5">
-          <HeroSummary
+          <div className="row gap-8" style={{ marginBottom: 22 }}>
+            <button className="btn" onClick={openNewFingerstickForm}><Plus size={13} /> Запись из пальца</button>
+            <button className="btn" onClick={() => setShowSensorPanel(!showSensorPanel)}
+              style={showSensorPanel ? { background: "var(--surface-2)", color: "var(--ink)", borderColor: "var(--ink-3)", boxShadow: "inset 0 -2px 0 var(--ink-3)" } : {}}>
+              <Activity size={13} /> Сенсор
+            </button>
+            <button className="btn" disabled={!canImportNightscout || nightscoutImportPending} onClick={refreshNightscout}>
+              <RefreshCw size={13} /> Подтянуть
+            </button>
+          </div>
+
+          <HeroCard
             correction={correction}
             latestPoint={latestPoint}
-            normalizedAvailable={normalizedAvailable}
             previousPoint={previousPoint}
             quality={quality}
             sensor={currentSensor}
-            summary={summary}
-            trust={trust}
+            kcalBalance={kcalBalance}
           />
 
-          <KcalBalanceStrip balance={kcalBalance} />
-
-          <section className="border border-[var(--hairline)] bg-[var(--surface)]">
-            <div className="grid gap-4 border-b border-[var(--hairline)] px-5 py-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
+          <section className="card" style={{ marginBottom: 22 }}>
+            <div className="card-head">
               <div>
-                <h2 className="text-[18px] text-[var(--fg)]">График глюкозы</h2>
-                <p className="mt-1 max-w-[640px] text-[12px] text-[var(--muted)]">
-                  Raw CGM сохраняется без изменений. Нормализация влияет только
-                  на отображение.
-                </p>
+                <div className="lbl">график глюкозы</div>
+                <h3>{rangeTitle(preset)}</h3>
               </div>
-
-              <div className="grid gap-3">
-                <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+              <div className="row gap-12" style={{ alignItems: "center" }}>
+                <div className="seg">
                   {rangeButtons.map((item) => (
-                    <button
-                      className={`border px-3 py-2 text-[12px] uppercase tracking-[0.06em] ${
-                        preset === item.value
-                          ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
-                          : "border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)]"
-                      }`}
-                      key={item.value}
-                      onClick={() => applyPreset(item.value)}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
+                    <button key={item.value} className={preset === item.value ? "on" : ""} onClick={() => applyPreset(item.value)} type="button">{item.label}</button>
                   ))}
-                  <Button
-                    disabled={!canImportNightscout || nightscoutImportPending}
-                    icon={<RefreshCw size={14} />}
-                    onClick={refreshNightscout}
-                    variant="primary"
-                  >
-                    Подтянуть актуальные данные
-                  </Button>
                 </div>
-
-                <div className="flex flex-wrap gap-2 xl:justify-end">
-                  <label className="grid gap-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                    от
-                    <input
-                      className="h-9 border border-[var(--hairline)] bg-[var(--surface)] px-2 text-[12px] text-[var(--fg)]"
-                      onChange={(event) => {
-                        setPreset("custom");
-                        setFromInput(event.target.value);
-                      }}
-                      type="datetime-local"
-                      value={fromInput}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                    до
-                    <input
-                      className="h-9 border border-[var(--hairline)] bg-[var(--surface)] px-2 text-[12px] text-[var(--fg)]"
-                      onChange={(event) => {
-                        setPreset("custom");
-                        setToInput(event.target.value);
-                      }}
-                      type="datetime-local"
-                      value={toInput}
-                    />
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                <div className="seg">
                   {modes.map((item) => (
-                    <button
-                      className={`border px-3 py-2 text-[12px] uppercase tracking-[0.06em] ${
-                        mode === item.value
-                          ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
-                          : "border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)]"
-                      }`}
-                      key={item.value}
-                      onClick={() => setMode(item.value)}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
+                    <button key={item.value} className={mode === item.value ? "on" : ""} onClick={() => setMode(item.value)} type="button">{item.label}</button>
                   ))}
-                  <span className="text-[12px] text-[var(--muted)]">
-                    {nightscoutImportStatus}
-                  </span>
                 </div>
               </div>
             </div>
-
-            <GlucoseChart
-              data={data}
-              episodes={episodes}
-              loading={dashboard.isLoading}
-              mode={mode}
-              onEpisodeSelect={setSelectedEpisodeId}
-              selectedEpisodeId={selectedEpisodeId}
-            />
+            <div className="row" style={{ padding: "6px 18px 0", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <label className="field" style={{ width: "auto" }}>
+                <span>от</span>
+                <input type="datetime-local" value={fromInput} onChange={(event) => { setPreset("custom"); setFromInput(event.target.value); }} />
+              </label>
+              <label className="field" style={{ width: "auto" }}>
+                <span>до</span>
+                <input type="datetime-local" value={toInput} onChange={(event) => { setPreset("custom"); setToInput(event.target.value); }} />
+              </label>
+              <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 12 }}>{nightscoutImportStatus}</span>
+            </div>
+            <div style={{ padding: "10px 12px 0" }}>
+              <GlucoseChart
+                data={data}
+                episodes={episodes}
+                hoveredEpisodeId={hoveredEpisodeId}
+                loading={dashboard.isLoading}
+                mode={mode}
+                onEpisodeHover={setHoveredEpisodeId}
+                onEpisodeSelect={setSelectedEpisodeId}
+                preset={preset}
+                selectedEpisodeId={selectedEpisodeId}
+              />
+            </div>
+            <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 18, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
+              <span className="row gap-6" style={{ alignItems: "center" }}><span style={{ width: 18, height: 1.6, background: "var(--ink)", display: "inline-block" }} /> норм.</span>
+              <span className="row gap-6" style={{ alignItems: "center" }}><span style={{ width: 18, height: 1, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> raw CGM</span>
+              <span className="row gap-6" style={{ alignItems: "center" }}><span className="dot-marker" style={{ background: "var(--accent)" }} /> приём пищи</span>
+              <span className="row gap-6" style={{ alignItems: "center" }}><span style={{ width: 8, height: 8, background: "var(--surface)", border: "1.4px solid var(--ink)", transform: "rotate(45deg)", display: "inline-block" }} /> запись из пальца</span>
+              <span className="row gap-6" style={{ alignItems: "center" }}><span style={{ width: 12, height: 8, background: "var(--ink)", display: "inline-block" }} /> инсулин</span>
+              <span className="spacer" />
+              <span className="mono" style={{ color: "var(--ink-4)" }}>
+                {data ? `${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(new Date(data.from_datetime))} · ${formatTime(data.from_datetime)} — ${formatTime(data.to_datetime)}` : "—"}
+              </span>
+            </div>
           </section>
 
           <GlucoseActivityPanel
             activeTab={activityTab}
             episodes={episodes}
-            onTabChange={setActivityTab}
+            hoveredEpisodeId={hoveredEpisodeId}
+            onEpisodeHover={setHoveredEpisodeId}
             onEpisodeSelect={setSelectedEpisodeId}
+            onTabChange={setActivityTab}
             rows={events}
             selectedEpisodeId={selectedEpisodeId}
           />
-        </main>
 
-        <SensorQualityPanel
-          editingFingerstickId={editingFingerstickId}
-          fingerstickAt={fingerstickAt}
-          fingerstickPending={createFingerstick.isPending || updateFingerstick.isPending}
-          fingerstickValue={fingerstickValue}
-          meterName={meterName}
-          onCancelFingerstickForm={resetFingerstickForm}
-          onDeleteFingerstick={deleteFingerstickHandler}
-          onEditFingerstick={editFingerstick}
-          onFingerstickAtChange={setFingerstickAt}
-          onFingerstickValueChange={setFingerstickValue}
-          onMeterNameChange={setMeterName}
-          onRecalculate={() => {
-            if (currentSensor?.id) recalculate.mutate(currentSensor.id);
-          }}
-          onSensorFormChange={setSensorForm}
-          artifactCount={data?.artifacts.length ?? 0}
-          points={data?.points ?? []}
-          quality={quality}
-          recentFingersticks={recentFingersticks}
-          recalculatePending={recalculate.isPending}
-          saveSensor={saveSensor}
-          sensor={currentSensor}
-          sensorForm={sensorForm}
-          sensorList={sensorList}
-          showFingerstickForm={showFingerstickForm}
-          showSensorEdit={showSensorEdit}
-          submitFingerstick={submitFingerstick}
-          submitSensor={submitSensor}
-          openNewFingerstickForm={openNewFingerstickForm}
-          toggleSensorEdit={() => setShowSensorEdit((value) => !value)}
-        />
-
-        <BiasOverLifetimeChart data={data?.bias_over_lifetime ?? null} />
-      </section>
-    </div>
-  );
-}
-
-function HeroSummary({
-  correction,
-  latestPoint,
-  normalizedAvailable,
-  previousPoint,
-  quality,
-  sensor,
-  summary,
-  trust,
-}: {
-  correction: number | null;
-  latestPoint: DashboardPoint | null;
-  normalizedAvailable: boolean;
-  previousPoint: DashboardPoint | null;
-  quality?: GlucoseDashboardResponse["quality"];
-  sensor: SensorSessionResponse | null;
-  summary?: GlucoseDashboardResponse["summary"];
-  trust: string;
-}) {
-  const current = summary?.current_glucose ?? latestPoint?.display_value;
-  const correctionEstimate =
-    quality?.correction_now_mmol_l ?? summary?.bias_mmol_l ?? correction;
-  const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
-  const delta =
-    latestPoint && previousPoint
-      ? latestPoint.display_value - previousPoint.display_value
-      : 0;
-  const trend = delta > 0.2 ? "↑" : delta < -0.2 ? "↓" : "→";
-  const phaseText = sensorPhaseLabel(
-    quality?.sensor_phase,
-    quality?.sensor_age_days,
-  );
-
-  return (
-    <section className="grid gap-4 border border-[var(--hairline)] bg-[var(--surface)] p-5 lg:grid-cols-[minmax(220px,0.9fr)_minmax(280px,1.2fr)_minmax(220px,0.8fr)] lg:items-center">
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-          сейчас
-        </div>
-        <div className="mt-2 flex items-end gap-3">
-          <span className="font-mono text-[48px] leading-none text-[var(--fg)]">
-            {formatNumber(current)}
-          </span>
-          <span className="mb-1 text-[13px] text-[var(--muted)]">ммоль/л</span>
-          <span className="mb-0.5 font-mono text-[30px] text-[var(--fg)]">
-            {trend}
-          </span>
-        </div>
-      </div>
-
-      <div className="border-y border-[var(--hairline)] py-3 lg:border-x lg:border-y-0 lg:px-6 lg:py-0">
-        <div className="font-mono text-[18px] text-[var(--fg)]">
-          {normalizedAvailable ? (
-            `Смещение в этот момент ${formatSigned(correctionEstimate)} ммоль/л`
-          ) : (
-            "Нормализация недоступна: мало записей из пальца"
-          )}
-        </div>
-        <div className="mt-2 font-mono text-[12px] text-[var(--muted)]">
-          {fingerstickCountLabel(validCalibrationPoints)} ·{" "}
-          {sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}
-          {latestPoint?.contributing_fingerstick_count != null && latestPoint.contributing_fingerstick_count > 0 ? (
-            <> · из пальца: {latestPoint.contributing_fingerstick_count}</>
-          ) : null}
-          {latestPoint?.nearest_fingerstick_distance_min != null ? (
-            <> · ближайшее: {formatNumber(latestPoint.nearest_fingerstick_distance_min, 0)} мин</>
-          ) : null}
-        </div>
-        <div className="mt-1 text-[12px] text-[var(--muted)]">
-          Raw CGM сохраняется без изменений
-        </div>
-      </div>
-
-      <div className="grid gap-2 text-[13px]">
-        <div className="font-mono text-[20px] text-[var(--fg)]">
-          {sensorName(sensor)}{" "}
-          <span className="text-[var(--muted)]">
-            день {formatNumber(quality?.sensor_age_days)} /{" "}
-            {formatNumber(sensor?.expected_life_days, 0)}
-          </span>
-        </div>
-        <div className="text-[var(--muted)]">
-          Доверие: <span className="text-[var(--fg)]">{trust}</span>
-        </div>
-        <div className="text-[12px] text-[var(--muted)]">{phaseText}</div>
-      </div>
-    </section>
-  );
-}
-
-function KcalBalanceStrip({ balance }: { balance: KcalBalanceResponse | null }) {
-  if (!balance?.bmr_available || balance.net_balance == null) return null;
-  const net = balance.net_balance;
-  return (
-    <div className="flex items-baseline gap-6 border border-[var(--hairline)] bg-[var(--surface)] px-5 py-3">
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">съедено</span>
-        <span className="font-mono text-[18px] leading-none text-[var(--fg)]">
-          {Math.round(balance.kcal_in)}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">TDEE</span>
-        <span className="font-mono text-[18px] leading-none text-[var(--fg)]">
-          {Math.round(balance.tdee ?? 0)}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">шаги</span>
-        <span className="font-mono text-[14px] leading-none text-[var(--fg)]">
-          {balance.steps ?? 0}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">баланс</span>
-        <span
-          className={`font-mono text-[18px] leading-none ${
-            net > 0 ? "text-[var(--danger)]" : "text-[var(--ok)]"
-          }`}
-        >
-          {net > 0 ? "+" : ""}
-          {Math.round(net)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function SensorQualityPanel({
-  editingFingerstickId,
-  fingerstickAt,
-  fingerstickPending,
-  fingerstickValue,
-  meterName,
-  onCancelFingerstickForm,
-  onDeleteFingerstick,
-  onEditFingerstick,
-  onFingerstickAtChange,
-  onFingerstickValueChange,
-  onMeterNameChange,
-  onRecalculate,
-  onSensorFormChange,
-  artifactCount,
-  points,
-  quality,
-  recentFingersticks,
-  recalculatePending,
-  saveSensor,
-  sensor,
-  sensorForm,
-  sensorList,
-  showFingerstickForm,
-  showSensorEdit,
-  submitFingerstick,
-  submitSensor,
-  openNewFingerstickForm,
-  toggleSensorEdit,
-}: {
-  artifactCount: number;
-  editingFingerstickId: string | null;
-  fingerstickAt: string;
-  fingerstickPending: boolean;
-  fingerstickValue: string;
-  meterName: string;
-  onCancelFingerstickForm: () => void;
-  onDeleteFingerstick: () => void;
-  onEditFingerstick: (row: Fingerstick) => void;
-  onFingerstickAtChange: (value: string) => void;
-  onFingerstickValueChange: (value: string) => void;
-  onMeterNameChange: (value: string) => void;
-  onRecalculate: () => void;
-  onSensorFormChange: Dispatch<SetStateAction<SensorForm>>;
-  points: DashboardPoint[];
-  quality?: GlucoseDashboardResponse["quality"];
-  recentFingersticks: Fingerstick[];
-  recalculatePending: boolean;
-  saveSensor: ReturnType<typeof useSaveSensor>;
-  sensor: SensorSessionResponse | null;
-  sensorForm: SensorForm;
-  sensorList: SensorSessionResponse[];
-  showFingerstickForm: boolean;
-  showSensorEdit: boolean;
-  submitFingerstick: (event: FormEvent<HTMLFormElement>) => void;
-  submitSensor: (event: FormEvent<HTMLFormElement>) => void;
-  openNewFingerstickForm: () => void;
-  toggleSensorEdit: () => void;
-}) {
-  const validCalibrationPoints = quality?.valid_calibration_points ?? 0;
-  const enoughCalibration = validCalibrationPoints >= 1;
-  const correctionEstimate =
-    quality?.correction_now_mmol_l ??
-    quality?.median_delta_mmol_l ??
-    quality?.median_bias_mmol_l;
-  const deltaRange =
-    quality?.delta_min_mmol_l !== null &&
-    quality?.delta_min_mmol_l !== undefined &&
-    quality?.delta_max_mmol_l !== null &&
-    quality?.delta_max_mmol_l !== undefined
-      ? `${formatSigned(quality.delta_min_mmol_l)}…${formatSigned(
-          quality.delta_max_mmol_l,
-        )}`
-      : "—";
-  const phaseText = sensorPhaseLabel(
-    quality?.sensor_phase,
-    quality?.sensor_age_days,
-  );
-  const warmupMetrics = quality?.warmup_metrics;
-  const warmupResiduals = warmupSequenceText(
-    warmupMetrics?.residual_sequence_mmol_l,
-  );
-  const warmupBehaviorDetected =
-    Boolean(warmupResiduals) &&
-    (warmupMetrics?.warmup_instability_score ?? 0) >= 0.8;
-  const calibrationBasisNote =
-    quality?.calibration_basis === "warmup_after_12h_fallback"
-      ? "Оценка смещения построена по данным после 12 ч, информационно."
-      : null;
-
-  return (
-    <aside className="grid h-fit gap-5 border border-[var(--hairline)] bg-[var(--surface)] p-5 2xl:sticky 2xl:top-5">
-      <PanelSection title="Текущий сенсор">
-        {sensor ? (
-          <div className="grid gap-3">
-            <div className="flex items-start justify-between gap-3">
+          <section className="card" style={{ marginTop: 22, marginBottom: 28 }}>
+            <div className="card-head">
               <div>
-                <div className="font-mono text-[22px] text-[var(--fg)]">
-                  {sensorName(sensor)}
-                </div>
-                <div className="mt-1 text-[12px] text-[var(--muted)]">
-                  {sensor.vendor || "производитель —"} /{" "}
-                  {sensor.model || "модель —"}
-                </div>
+                <div className="lbl">raw CGM сохраняется без изменений</div>
+                <h3>Смещение сенсора</h3>
               </div>
-              <span className="border border-[var(--hairline)] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[var(--fg)]">
-                active
+              <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                текущее <b style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? quality?.median_delta_mmol_l)} ммоль/л</b>
               </span>
             </div>
-            <div className="font-mono text-[15px] text-[var(--muted)]">
-              день {formatNumber(quality?.sensor_age_days)} /{" "}
-              {formatNumber(sensor.expected_life_days, 0)}
+            <div style={{ padding: "10px 12px 14px" }}>
+              <BiasOverLifetimeChart data={data?.bias_over_lifetime ?? null} />
             </div>
-          </div>
-        ) : (
-          <p className="text-[13px] text-[var(--muted)]">
-            В выбранном диапазоне нет активного сенсора.
-          </p>
-        )}
-      </PanelSection>
-
-      <PanelSection title="Фаза">
-        <div className="grid gap-2 border border-[var(--hairline)] bg-[var(--bg)] p-3 text-[13px]">
-          <div className="font-mono text-[18px] text-[var(--fg)]">{phaseText}</div>
-          <p className="text-[12px] text-[var(--muted)]">
-            Фаза влияет только на оценку качества и отображение нормализации.
-          </p>
+          </section>
         </div>
-      </PanelSection>
+      </div>
 
-      <PanelSection title="Качество">
-        <div className="grid gap-3 text-[13px]">
-          <div className="font-mono text-[28px] leading-none text-[var(--fg)]">
-            {enoughCalibration
-              ? `${quality?.quality_score ?? 0}/100`
-              : "Качество не рассчитано"}
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-[12px]">
-            <Metric
-              label="Артефакты"
-              value={String(artifactCount)}
-            />
-            <Metric
-              label="Compression lows"
-              value={String(quality?.suspected_compression_count ?? 0)}
-            />
-            <Metric label="Noise" value={formatNumber(quality?.noise_score)} />
-            <Metric
-              label="Доверие"
-              value={confidenceLabel(quality?.confidence, validCalibrationPoints)}
-            />
-          </div>
-        </div>
-      </PanelSection>
-
-      <PanelSection title="Оценка смещения">
-        {enoughCalibration ? (
-          <div className="grid gap-3">
-            <div className="grid gap-1 border border-[var(--hairline)] bg-[var(--bg)] p-3">
-              <div className="font-mono text-[24px] leading-none text-[var(--fg)]">
-                Оценка смещения {formatSigned(correctionEstimate)} ммоль/л
-              </div>
-              <div className="text-[12px] text-[var(--muted)]">
-                {fingerstickCountLabel(validCalibrationPoints)} ·{" "}
-                {sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}
-              </div>
-              <div className="text-[12px] text-[var(--muted)]">
-                Raw CGM сохраняется без изменений
-              </div>
-            </div>
-            <dl className="grid grid-cols-2 gap-3 text-[12px]">
-              <Metric
-                label="Медиана Δ"
-                value={`${formatSigned(quality?.median_delta_mmol_l)} ммоль/л`}
-              />
-              <Metric
-                label="Диапазон Δ"
-                value={`${deltaRange} ммоль/л`}
-              />
-              <Metric
-                label="b0"
-                value={`${formatSigned(quality?.b0_mmol_l)} ммоль/л`}
-              />
-              <Metric
-                label="b1 raw"
-                value={`${formatSigned(quality?.b1_raw_mmol_l_per_day)} / день`}
-              />
-              <Metric
-                label="b1 capped"
-                value={`${formatSigned(quality?.b1_capped_mmol_l_per_day)} / день`}
-              />
-              <Metric label="MARD" value={`${formatNumber(quality?.mard_percent)}%`} />
-              <Metric
-                label="Модель"
-                value={calibrationStrategyLabel(quality?.calibration_strategy)}
-              />
-            </dl>
-            {calibrationBasisNote ? (
-              <p className="text-[12px] text-[var(--muted)]">
-                {calibrationBasisNote}
-              </p>
-            ) : null}
-            {warmupBehaviorDetected ? (
-              <p className="text-[12px] text-[var(--muted)]">
-                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="grid gap-2 text-[13px] text-[var(--muted)]">
-            <p className="text-[var(--fg)]">Оценка смещения: недостаточно данных</p>
-            <p>{fingerstickCountLabel(quality?.fingerstick_count ?? 0)}</p>
-            <p>Нужна хотя бы 1 валидная запись после 12 ч сенсора</p>
-            {warmupBehaviorDetected ? (
-              <p>
-                В первые 12 ч расхождение менялось: {warmupResiduals} ммоль/л.
-              </p>
-            ) : null}
-          </div>
-        )}
-      </PanelSection>
-
-      <PanelSection title="Действия">
-        <div className="grid gap-2">
-          <Button
-            icon={<Plus size={14} />}
-            onClick={openNewFingerstickForm}
-            variant="primary"
-          >
-            + Запись из пальца
-          </Button>
-          <Button onClick={toggleSensorEdit}>
-            {sensor ? "Редактировать сенсор" : "Создать сенсор"}
-          </Button>
-          {sensor?.id ? (
-            <Button
-              disabled={recalculatePending}
-              icon={<RefreshCw size={14} />}
-              onClick={onRecalculate}
-            >
-              Пересчитать
-            </Button>
-          ) : null}
-        </div>
-      </PanelSection>
+      {showSensorPanel && (
+        <RightPanel onClose={() => setShowSensorPanel(false)}>
+          <SensorPanel
+            currentSensor={currentSensor}
+            quality={quality}
+            data={data}
+            trust={trust}
+            validCalibrationPoints={validCalibrationPoints}
+            recentFingersticks={recentFingersticks}
+            sensorList={sensorList}
+            openNewFingerstickForm={openNewFingerstickForm}
+            toggleSensorEdit={toggleSensorEdit}
+            recalculate={recalculate}
+            recalculatePending={recalculate.isPending}
+            editFingerstick={editFingerstick}
+          />
+        </RightPanel>
+      )}
 
       {showFingerstickForm ? (
-        <form
-          className="grid gap-3 border-y border-[var(--hairline)] py-4"
-          onSubmit={submitFingerstick}
-        >
-          <h3 className="text-[13px] uppercase tracking-[0.06em] text-[var(--fg)]">
-            {editingFingerstickId ? "Редактировать запись из пальца" : "Новая запись из пальца"}
-          </h3>
-          <DateTimeInput
-            label="время"
-            onChange={onFingerstickAtChange}
-            value={fingerstickAt}
-          />
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
-            <TextInput
-              inputMode="decimal"
-              label="глюкоза, ммоль/л"
-              onChange={onFingerstickValueChange}
-              placeholder="6.8"
-              value={fingerstickValue}
-            />
-            <TextInput
-              label="глюкометр"
-              onChange={onMeterNameChange}
-              placeholder="опционально"
-              value={meterName}
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
-            <Button
-              disabled={fingerstickPending || !fingerstickValue.trim()}
-              icon={editingFingerstickId ? <Save size={14} /> : <Plus size={14} />}
-              type="submit"
-              variant="primary"
-            >
-              {editingFingerstickId ? "Сохранить изменения" : "Добавить"}
-            </Button>
-            {editingFingerstickId ? (
-              <Button
-                disabled={fingerstickPending}
-                onClick={onDeleteFingerstick}
-                type="button"
-                variant="danger"
-              >
-                Удалить
-              </Button>
-            ) : null}
-            <Button onClick={onCancelFingerstickForm} type="button">
-              Отмена
-            </Button>
-          </div>
-        </form>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={resetFingerstickForm}>
+          <form className="card" style={{ padding: 24, width: 400, maxHeight: "90vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()} onSubmit={(e) => { submitFingerstick(e); }}>
+            <h3 style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 500, margin: "0 0 16px" }}>{editingFingerstickId ? "Редактировать запись из пальца" : "Новая запись из пальца"}</h3>
+            <div className="col gap-16">
+              <label className="field"><span>время</span><input type="datetime-local" value={fingerstickAt} onChange={(e) => setFingerstickAt(e.target.value)} /></label>
+              <div className="row gap-16">
+                <label className="field" style={{ flex: 1 }}><span>глюкоза, ммоль/л</span><input inputMode="decimal" placeholder="6.8" value={fingerstickValue} onChange={(e) => setFingerstickValue(e.target.value)} /></label>
+                <label className="field" style={{ flex: 1 }}><span>глюкометр</span><input placeholder="опционально" value={meterName} onChange={(e) => setMeterName(e.target.value)} /></label>
+              </div>
+              <div className="row gap-8">
+                <button className="btn dark" type="submit" disabled={createFingerstick.isPending || updateFingerstick.isPending || !fingerstickValue.trim()}><Save size={14} />{editingFingerstickId ? "Сохранить" : "Добавить"}</button>
+                {editingFingerstickId ? (<button className="btn" type="button" onClick={deleteFingerstickHandler} style={{ color: "var(--warn)", borderColor: "var(--warn-soft)" }}>Удалить</button>) : null}
+                <button className="btn" type="button" onClick={resetFingerstickForm}>Отмена</button>
+              </div>
+            </div>
+          </form>
+        </div>
       ) : null}
 
       {showSensorEdit ? (
-        <form className="grid gap-3 border-y border-[var(--hairline)] py-4" onSubmit={submitSensor}>
-          <h3 className="text-[13px] uppercase tracking-[0.06em] text-[var(--fg)]">
-            {sensor ? "Параметры сенсора" : "Новый сенсор"}
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
-            <TextInput
-              label="производитель"
-              onChange={(vendor) =>
-                onSensorFormChange((state) => ({ ...state, vendor }))
-              }
-              value={sensorForm.vendor}
-            />
-            <TextInput
-              label="модель"
-              onChange={(model) =>
-                onSensorFormChange((state) => ({ ...state, model }))
-              }
-              value={sensorForm.model}
-            />
-          </div>
-          <TextInput
-            label="метка"
-            onChange={(label) =>
-              onSensorFormChange((state) => ({ ...state, label }))
-            }
-            value={sensorForm.label}
-          />
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
-            <DateTimeInput
-              label="старт"
-              onChange={(started_at) =>
-                onSensorFormChange((state) => ({ ...state, started_at }))
-              }
-              value={sensorForm.started_at}
-            />
-            <DateTimeInput
-              label="конец"
-              onChange={(ended_at) =>
-                onSensorFormChange((state) => ({ ...state, ended_at }))
-              }
-              value={sensorForm.ended_at}
-            />
-          </div>
-          <TextInput
-            label="заметки"
-            onChange={(notes) =>
-              onSensorFormChange((state) => ({ ...state, notes }))
-            }
-            value={sensorForm.notes}
-          />
-          <Button
-            disabled={saveSensor.isPending || !sensorForm.started_at}
-            icon={<Save size={14} />}
-            type="submit"
-            variant="primary"
-          >
-            Сохранить сенсор
-          </Button>
-        </form>
-      ) : null}
-
-      <PanelSection title="Последние записи из пальца">
-        {recentFingersticks.length ? (
-          <div className="grid gap-2">
-            {recentFingersticks.map((row) => {
-              const nearest = nearestPoint(points, row.measured_at);
-              const delta = nearest ? row.glucose_mmol_l - nearest.raw_value : null;
-              return (
-                <div
-                  className="grid grid-cols-[52px_1fr_auto_auto] items-center gap-3 border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[12px]"
-                  key={row.id}
-                >
-                  <span className="font-mono text-[var(--fg)]">
-                    {formatTime(row.measured_at)}
-                  </span>
-                  <span className="font-mono text-[var(--fg)]">
-                    {formatNumber(row.glucose_mmol_l)} ммоль/л
-                  </span>
-                  <span className="font-mono text-[var(--muted)]">
-                    Δ {formatSigned(delta)}
-                  </span>
-                  <button
-                    className="border border-[var(--hairline)] bg-[var(--surface)] px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)] transition hover:text-[var(--fg)]"
-                    onClick={() => onEditFingerstick(row)}
-                    type="button"
-                  >
-                    изменить
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-[13px] text-[var(--muted)]">Записей пока нет.</p>
-        )}
-      </PanelSection>
-
-      <PanelSection title="Предыдущие сенсоры">
-        {sensorList.length ? (
-          <div className="grid gap-2">
-            {sensorList.slice(0, 5).map((row) => (
-              <div
-                className="border border-[var(--hairline)] bg-[var(--bg)] p-3 text-[12px]"
-                key={row.id}
-              >
-                <div className="text-[var(--fg)]">{sensorName(row)}</div>
-                <div className="mt-1 text-[var(--muted)]">
-                  {formatDateTime(row.started_at)} → {formatDateTime(row.ended_at)}
-                </div>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowSensorEdit(false)}>
+          <form className="card" style={{ padding: 24, width: 420, maxHeight: "90vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()} onSubmit={submitSensor}>
+            <h3 style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 500, margin: "0 0 16px" }}>{currentSensor ? "Параметры сенсора" : "Новый сенсор"}</h3>
+            <div className="col gap-16">
+              <div className="row gap-16">
+                <label className="field" style={{ flex: 1 }}><span>производитель</span><input value={sensorForm.vendor} onChange={(e) => setSensorForm(s => ({ ...s, vendor: e.target.value }))} /></label>
+                <label className="field" style={{ flex: 1 }}><span>модель</span><input value={sensorForm.model} onChange={(e) => setSensorForm(s => ({ ...s, model: e.target.value }))} /></label>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[13px] text-[var(--muted)]">
-            Сенсоры пока не заведены.
-          </p>
-        )}
-      </PanelSection>
-    </aside>
-  );
-}
-
-function PanelSection({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="grid gap-3">
-      <h3 className="text-[11px] uppercase tracking-[0.08em] text-[var(--muted)]">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
-        {label}
-      </dt>
-      <dd className="mt-1 text-[var(--fg)]">{value}</dd>
+              <label className="field"><span>метка</span><input value={sensorForm.label} onChange={(e) => setSensorForm(s => ({ ...s, label: e.target.value }))} /></label>
+              <div className="row gap-16">
+                <label className="field" style={{ flex: 1 }}><span>старт</span><input type="datetime-local" value={sensorForm.started_at} onChange={(e) => setSensorForm(s => ({ ...s, started_at: e.target.value }))} /></label>
+                <label className="field" style={{ flex: 1 }}><span>конец</span><input type="datetime-local" value={sensorForm.ended_at} onChange={(e) => setSensorForm(s => ({ ...s, ended_at: e.target.value }))} /></label>
+              </div>
+              <label className="field"><span>заметки</span><textarea value={sensorForm.notes} onChange={(e) => setSensorForm(s => ({ ...s, notes: e.target.value }))} rows={3} /></label>
+              <div className="row gap-8">
+                <button className="btn dark" type="submit" disabled={saveSensor.isPending || !sensorForm.started_at}><Save size={14} />Сохранить сенсор</button>
+                <button className="btn" type="button" onClick={() => setShowSensorEdit(false)}>Отмена</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function TextInput({
-  inputMode,
-  label,
-  onChange,
-  placeholder,
-  value,
+function HeroCard({
+  correction,
+  latestPoint,
+  previousPoint,
+  quality,
+  sensor,
+  kcalBalance,
 }: {
-  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
-  label: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  value: string;
+  correction: number | null;
+  latestPoint: DashboardPoint | null;
+  previousPoint: DashboardPoint | null;
+  quality?: GlucoseDashboardResponse["quality"];
+  sensor: SensorSessionResponse | null;
+  kcalBalance: KcalBalanceResponse | null;
 }) {
+  const current = latestPoint?.display_value;
+  const correctionEstimate = quality?.correction_now_mmol_l ?? correction;
+  const delta = latestPoint && previousPoint ? latestPoint.display_value - previousPoint.display_value : 0;
+  const trend = delta > 0.2 ? "↑" : delta < -0.2 ? "↓" : "→";
+
   return (
-    <label className="grid gap-1 text-[12px] text-[var(--muted)]">
-      {label}
-      <input
-        className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-        inputMode={inputMode}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        value={value}
-      />
-    </label>
+    <div className="card" style={{ marginBottom: 22, overflow: "hidden" }}>
+      <div className="row" style={{ alignItems: "stretch" }}>
+        <div style={{ padding: "20px 22px", borderRight: "1px solid var(--hairline)", minWidth: 200 }}>
+          <div className="lbl">сейчас</div>
+          <div className="row gap-6" style={{ alignItems: "baseline", marginTop: 6 }}>
+            <span className="g-now">{formatNumber(current)}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>ммоль/л</span>
+          </div>
+          <div className="row gap-6" style={{ alignItems: "center", marginTop: 6 }}>
+            <span className="tag accent">{trend} {delta !== 0 ? `${formatSigned(correctionEstimate ?? delta)}` : ""}</span>
+          </div>
+        </div>
+        <div style={{ padding: "20px 22px", borderRight: "1px solid var(--hairline)", flex: 1 }}>
+          <div className="lbl">время в диапазоне · 24ч</div>
+          <div className="row" style={{ height: 8, marginTop: 12, borderRadius: 1, overflow: "hidden" }}>
+            <div style={{ width: "4%", background: "var(--warn)" }} />
+            <div style={{ width: "68%", background: "var(--good)" }} />
+            <div style={{ width: "26%", background: "var(--accent)" }} />
+            <div style={{ width: "2%", background: "var(--ink)" }} />
+          </div>
+          <div className="row" style={{ marginTop: 8, gap: 14, fontSize: 11, color: "var(--ink-3)" }}>
+            <span><span className="dot-marker" style={{ background: "var(--warn)" }} /> &lt;3.9 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>4%</b></span>
+            <span><span className="dot-marker" style={{ background: "var(--good)" }} /> 3.9–9.3 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>68%</b></span>
+            <span><span className="dot-marker" style={{ background: "var(--accent)" }} /> 9.3–13 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>26%</b></span>
+            <span><span className="dot-marker" style={{ background: "var(--ink)" }} /> &gt;13 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>2%</b></span>
+          </div>
+        </div>
+        <div style={{ padding: "20px 22px", minWidth: 240 }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+            <span className="lbl">сенсор {sensorName(sensor)}</span>
+            <span className="tag good">актив.</span>
+          </div>
+          <div className="row gap-6" style={{ alignItems: "baseline", marginTop: 6 }}>
+            <span className="mono" style={{ fontSize: 26, fontWeight: 500 }}>{formatNumber(quality?.sensor_age_days)}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>/ {formatNumber(sensor?.expected_life_days, 0)} дней</span>
+          </div>
+          <div className="pbar" style={{ marginTop: 8 }}>
+            <i style={{ width: `${((quality?.sensor_age_days ?? 0) / (sensor?.expected_life_days ?? 15) * 100)}%` }} />
+          </div>
+          <div className="row" style={{ marginTop: 6, fontSize: 11, color: "var(--ink-3)", justifyContent: "space-between" }}>
+            <span>{sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}</span>
+            <span className="mono">{quality?.quality_score ?? 0}/100</span>
+          </div>
+        </div>
+      </div>
+      {kcalBalance?.bmr_available && kcalBalance.net_balance != null ? (
+        <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 24, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
+          <span>смещ. <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? correction)} ммоль/л</b></span>
+          <span>ккал <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{Math.round(kcalBalance.kcal_in)}</b></span>
+          <span>TDEE <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{Math.round(kcalBalance.tdee ?? 0)}</b></span>
+          <span>шаги <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{kcalBalance.steps ?? 0}</b></span>
+          <span>баланс <b className="mono" style={{ color: ((kcalBalance.net_balance) > 0 ? "var(--warn)" : "var(--good)"), fontWeight: 500 }}>{kcalBalance.net_balance > 0 ? "+" : ""}{Math.round(kcalBalance.net_balance)}</b></span>
+          <span className="spacer" />
+          <span style={{ color: "var(--ink-4)" }}>raw CGM сохранён без изменений · нормализация только на отображение</span>
+        </div>
+      ) : (
+        <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 24, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
+          <span>смещ. <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? correction)} ммоль/л</b></span>
+          <span className="spacer" />
+          <span style={{ color: "var(--ink-4)" }}>raw CGM сохранён без изменений · нормализация только на отображение</span>
+        </div>
+      )}
+    </div>
   );
 }
 
-function DateTimeInput({
-  label,
-  onChange,
-  value,
+function SensorPanel({
+  currentSensor,
+  quality,
+  data,
+  trust,
+  validCalibrationPoints,
+  recentFingersticks,
+  sensorList,
+  openNewFingerstickForm,
+  toggleSensorEdit,
+  recalculate,
+  recalculatePending,
+  editFingerstick,
 }: {
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
+  currentSensor: SensorSessionResponse | null;
+  quality?: GlucoseDashboardResponse["quality"];
+  data?: GlucoseDashboardResponse;
+  trust: string;
+  validCalibrationPoints: number;
+  recentFingersticks: Fingerstick[];
+  sensorList: SensorSessionResponse[];
+  openNewFingerstickForm: () => void;
+  toggleSensorEdit: () => void;
+  recalculate: ReturnType<typeof useRecalculateSensorCalibration>;
+  recalculatePending: boolean;
+  editFingerstick: (row: Fingerstick) => void;
 }) {
   return (
-    <label className="grid gap-1 text-[12px] text-[var(--muted)]">
-      {label}
-      <input
-        className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--fg)]"
-        onChange={(event) => onChange(event.target.value)}
-        type="datetime-local"
-        value={value}
-      />
-    </label>
+    <>
+      <div className="lbl">текущий сенсор</div>
+      <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between", marginTop: 4 }}>
+        <h2 style={{ margin: 0, fontFamily: "var(--serif)", fontSize: 24, fontWeight: 500 }}>{sensorName(currentSensor)}</h2>
+        <span className="tag good">актив.</span>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+        <span className="mono">{currentSensor?.model || "—"}</span> · день <span className="mono">{formatNumber(quality?.sensor_age_days)} / {formatNumber(currentSensor?.expected_life_days, 0)}</span>
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <div className="lbl" style={{ marginBottom: 6 }}>Качество</div>
+        <div className="row" style={{ alignItems: "baseline", gap: 4 }}>
+          <span className="mono" style={{ fontSize: 28, fontWeight: 500 }}>{quality?.quality_score ?? 0}</span>
+          <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>/ 100</span>
+        </div>
+        <div className="pbar good" style={{ marginTop: 6 }}><i style={{ width: `${quality?.quality_score ?? 0}%` }} /></div>
+      </div>
+
+      <div className="row" style={{ marginTop: 18, gap: 0, borderTop: "1px solid var(--hairline)", borderBottom: "1px solid var(--hairline)" }}>
+        {[
+          { l: "артефакты", v: String(data?.artifacts.length ?? 0) },
+          { l: "compr. lows", v: String(quality?.suspected_compression_count ?? 0) },
+          { l: "noise", v: formatNumber(quality?.noise_score) },
+          { l: "доверие", v: trust },
+        ].map((m, i) => (
+          <div key={i} style={{ flex: 1, padding: "10px 0", borderRight: i < 3 ? "1px solid var(--hairline)" : "none", textAlign: "center" }}>
+            <div className="mono" style={{ fontSize: 13 }}>{m.v}</div>
+            <div className="lbl" style={{ marginTop: 2, fontSize: 9 }}>{m.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card-offset-box">
+        <div className="lbl">оценка смещения</div>
+        <div className="row" style={{ alignItems: "baseline", marginTop: 4, gap: 4 }}>
+          <span className="mono" style={{ fontSize: 22, fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? quality?.median_delta_mmol_l)}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>ммоль/л</span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4, lineHeight: 1.4 }}>
+          {fingerstickCountLabel(quality?.fingerstick_count ?? validCalibrationPoints)} · {sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}
+        </div>
+        <div className="row" style={{ marginTop: 12, gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div className="lbl" style={{ fontSize: 9 }}>медиана Δ</div>
+            <div className="mono" style={{ fontSize: 12 }}>{formatSigned(quality?.median_delta_mmol_l)}</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="lbl" style={{ fontSize: 9 }}>диапазон</div>
+            <div className="mono" style={{ fontSize: 12 }}>
+              {quality?.delta_min_mmol_l != null && quality?.delta_max_mmol_l != null
+                ? `${formatSigned(quality.delta_min_mmol_l)}…${formatSigned(quality.delta_max_mmol_l)}`
+                : "—"}
+            </div>
+          </div>
+        </div>
+        <div className="row" style={{ marginTop: 8, gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div className="lbl" style={{ fontSize: 9 }}>дрейф</div>
+            <div className="mono" style={{ fontSize: 12 }}>{formatSigned(quality?.b1_capped_mmol_l_per_day)}/день</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="lbl" style={{ fontSize: 9 }}>mard</div>
+            <div className="mono" style={{ fontSize: 12 }}>{formatNumber(quality?.mard_percent)}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="col gap-8" style={{ marginTop: 18 }}>
+        <button className="btn dark" onClick={openNewFingerstickForm}><Plus size={13} /> Запись из пальца</button>
+        <button className="btn" onClick={toggleSensorEdit}><Activity size={13} /> {currentSensor ? "Редактировать сенсор" : "Создать сенсор"}</button>
+        {currentSensor?.id ? (
+          <button className="btn" disabled={recalculatePending} onClick={() => recalculate.mutate(currentSensor.id)}><RefreshCw size={13} /> Пересчитать</button>
+        ) : null}
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <div className="lbl">последняя запись из пальца</div>
+        {recentFingersticks.length ? (
+          recentFingersticks.slice(0, 1).map((row) => {
+            const nearest = nearestPoint(data?.points ?? [], row.measured_at);
+            const delta = nearest ? row.glucose_mmol_l - nearest.raw_value : null;
+            return (
+              <div key={row.id} className="row" style={{ alignItems: "center", marginTop: 6, padding: "10px 12px", border: "1px solid var(--hairline)", borderRadius: "var(--radius)", background: "var(--surface)", gap: 8, cursor: "pointer" }} onClick={() => editFingerstick(row)}>
+                <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{formatTime(row.measured_at)}</span>
+                <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{formatNumber(row.glucose_mmol_l)}</span>
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>ммоль/л</span>
+                <span className="spacer" />
+                <span className="tag accent">Δ {formatSigned(delta)}</span>
+              </div>
+            );
+          })
+        ) : (
+          <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 6 }}>Записей пока нет.</div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <div className="lbl">предыдущие сенсоры</div>
+        <div style={{ marginTop: 8 }}>
+          {sensorList.length ? (
+            sensorList.slice(0, 5).map((s) => (
+              <div key={s.id} className="row" style={{ alignItems: "center", padding: "8px 0", borderTop: "1px solid var(--hairline)", borderBottom: "1px solid var(--hairline)", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12 }}>{sensorName(s)}</div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{formatDateTime(s.started_at)} · день {formatNumber(s.expected_life_days, 0)}</div>
+                </div>
+                <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>—</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--ink-4)" }}>Сенсоры пока не заведены.</div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 22, lineHeight: 1.5 }}>
+        Это оценка, не медицинская рекомендация. Raw CGM не изменяется — нормализация применяется только на дисплее.
+      </div>
+    </>
   );
 }
+
 
 type EpisodeDetailEvent = {
   data: string;
@@ -1329,6 +932,7 @@ type GroupedEpisode = {
   carbsTotal: number;
   cgmMax: number | null;
   cgmMin: number | null;
+  cgmPeakAt: string | null;
   cgmStart: number | null;
   endAt: string;
   fingerstickEvents: Fingerstick[];
@@ -1347,6 +951,8 @@ type GroupedEpisode = {
 function GlucoseActivityPanel({
   activeTab,
   episodes,
+  hoveredEpisodeId,
+  onEpisodeHover,
   onEpisodeSelect,
   onTabChange,
   rows,
@@ -1354,6 +960,8 @@ function GlucoseActivityPanel({
 }: {
   activeTab: ActivityTab;
   episodes: GroupedEpisode[];
+  hoveredEpisodeId: string | null;
+  onEpisodeHover: (episodeId: string | null) => void;
   onEpisodeSelect: (episodeId: string) => void;
   onTabChange: (tab: ActivityTab) => void;
   rows: EventRow[];
@@ -1363,8 +971,8 @@ function GlucoseActivityPanel({
     <section className="border border-[var(--hairline)] bg-[var(--surface)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--hairline)] px-5 py-4">
         <div>
-          <h2 className="text-[18px] text-[var(--fg)]">Активность на графике</h2>
-          <p className="mt-1 text-[12px] text-[var(--muted)]">
+          <h2 className="text-[18px] text-[var(--ink)]">Активность на графике</h2>
+          <p className="mt-1 text-[12px] text-[var(--ink-3)]">
             Эпизоды группируют еду и ближайший контекст, raw события доступны отдельно.
           </p>
         </div>
@@ -1374,10 +982,10 @@ function GlucoseActivityPanel({
             { label: "События", value: "events" as const },
           ].map((item) => (
             <button
-              className={`px-4 py-2 text-[12px] uppercase tracking-[0.06em] ${
+              className={`px-3 py-1.5 text-[12px] ${
                 activeTab === item.value
-                  ? "bg-[var(--fg)] text-[var(--surface)]"
-                  : "bg-[var(--surface)] text-[var(--muted)]"
+                  ? "bg-[var(--surface-2)] text-[var(--ink)] shadow-[inset_0_-2px_0_var(--ink-3)]"
+                  : "bg-[var(--surface)] text-[var(--ink-3)]"
               }`}
               key={item.value}
               onClick={() => onTabChange(item.value)}
@@ -1391,6 +999,8 @@ function GlucoseActivityPanel({
       {activeTab === "episodes" ? (
         <EpisodeList
           episodes={episodes}
+          hoveredEpisodeId={hoveredEpisodeId}
+          onEpisodeHover={onEpisodeHover}
           onEpisodeSelect={onEpisodeSelect}
           selectedEpisodeId={selectedEpisodeId}
         />
@@ -1403,10 +1013,14 @@ function GlucoseActivityPanel({
 
 function EpisodeList({
   episodes,
+  hoveredEpisodeId,
+  onEpisodeHover,
   onEpisodeSelect,
   selectedEpisodeId,
 }: {
   episodes: GroupedEpisode[];
+  hoveredEpisodeId: string | null;
+  onEpisodeHover: (episodeId: string | null) => void;
   onEpisodeSelect: (episodeId: string) => void;
   selectedEpisodeId: string | null;
 }) {
@@ -1425,7 +1039,7 @@ function EpisodeList({
 
   if (!episodes.length) {
     return (
-      <div className="px-5 py-8 text-center text-[13px] text-[var(--muted)]">
+      <div className="px-5 py-8 text-center text-[13px] text-[var(--ink-3)]">
         Эпизодов за выбранный период нет.
       </div>
     );
@@ -1437,7 +1051,9 @@ function EpisodeList({
         <EpisodeCard
           episode={episode}
           expanded={expanded.has(episode.id)}
+          hovered={hoveredEpisodeId === episode.id}
           key={episode.id}
+          onHover={onEpisodeHover}
           onToggle={() => {
             onEpisodeSelect(episode.id);
             toggleEpisode(episode.id);
@@ -1452,11 +1068,15 @@ function EpisodeList({
 function EpisodeCard({
   episode,
   expanded,
+  hovered,
+  onHover,
   onToggle,
   selected,
 }: {
   episode: GroupedEpisode;
   expanded: boolean;
+  hovered: boolean;
+  onHover: (episodeId: string | null) => void;
   onToggle: () => void;
   selected: boolean;
 }) {
@@ -1474,8 +1094,13 @@ function EpisodeCard({
   return (
     <article
       className={`border-b border-[var(--hairline)] last:border-b-0 ${
-        selected ? "bg-[#F6F0E5]" : ""
+        selected || hovered ? "bg-[#F6F0E5]" : ""
       }`}
+      onMouseEnter={() => onHover(episode.id)}
+      onMouseLeave={() => onHover(null)}
+      style={{
+        boxShadow: selected || hovered ? "inset 2px 0 0 var(--accent)" : "none",
+      }}
     >
       <button
         aria-pressed={selected}
@@ -1483,24 +1108,24 @@ function EpisodeCard({
         onClick={onToggle}
         type="button"
       >
-        <div className="font-mono text-[14px] text-[var(--fg)]">
+        <div className="font-mono text-[14px] text-[var(--ink)]">
           {formatEpisodeRange(episode.startAt, episode.endAt)}
         </div>
         <div className="grid gap-1">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[16px] text-[var(--fg)]">Приём пищи</span>
-            <span className="border border-[var(--hairline)] bg-[var(--bg)] px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
+            <span className="text-[16px] text-[var(--ink)]">Приём пищи</span>
+            <span className="border border-[var(--hairline)] bg-[var(--bg)] px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
               {eventCount} событий
             </span>
           </div>
-          <div className="text-[13px] text-[var(--muted)]">{episode.title}</div>
+          <div className="text-[13px] text-[var(--ink-3)]">{episode.title}</div>
         </div>
-        <div className="grid grid-cols-3 gap-3 font-mono text-[13px] text-[var(--fg)] lg:grid-cols-1">
+        <div className="grid grid-cols-3 gap-3 font-mono text-[13px] text-[var(--ink)] lg:grid-cols-1">
           <span>{formatNumber(episode.carbsTotal, 1)} г</span>
           <span>{formatNumber(episode.kcalTotal, 0)} ккал</span>
           <span>{formatNumber(episode.insulinTotal, 1)} ЕД</span>
         </div>
-        <div className="grid gap-1 text-[12px] text-[var(--muted)]">
+        <div className="grid gap-1 text-[12px] text-[var(--ink-3)]">
           <span>{cgmSummary}</span>
           <span className="text-[10px] uppercase tracking-[0.06em]">
             {expanded ? "свернуть детали" : "показать детали"}
@@ -1522,9 +1147,9 @@ function EpisodeDetails({ episode }: { episode: GroupedEpisode }) {
             className="grid gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] sm:grid-cols-[64px_1fr_auto]"
             key={row.id}
           >
-            <span className="font-mono text-[var(--fg)]">{row.time}</span>
-            <span className="text-[var(--fg)]">{row.label}</span>
-            <span className="font-mono text-[var(--muted)]">{row.data}</span>
+            <span className="font-mono text-[var(--ink)]">{row.time}</span>
+            <span className="text-[var(--ink)]">{row.label}</span>
+            <span className="font-mono text-[var(--ink-3)]">{row.data}</span>
           </div>
         ))}
       </div>
@@ -1536,7 +1161,7 @@ function EventsTable({ rows }: { rows: EventRow[] }) {
   return (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
-          <thead className="text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">
+          <thead className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-3)]">
             <tr>
               {["Время", "Тип", "Данные", "CGM", "Комментарий"].map((label) => (
                 <th className="border-b border-[var(--hairline)] px-5 py-3 font-normal" key={label}>
@@ -1549,16 +1174,16 @@ function EventsTable({ rows }: { rows: EventRow[] }) {
             {rows.length ? (
               rows.map((row) => (
                 <tr className="border-b border-[var(--hairline)] last:border-b-0" key={row.id}>
-                  <td className="px-5 py-3 font-mono text-[var(--fg)]">{row.time}</td>
-                  <td className="px-5 py-3 text-[var(--fg)]">{row.type}</td>
-                  <td className="px-5 py-3 font-mono text-[var(--fg)]">{row.data}</td>
-                  <td className="px-5 py-3 font-mono text-[var(--muted)]">{row.cgm}</td>
-                  <td className="px-5 py-3 text-[var(--muted)]">{row.comment}</td>
+                  <td className="px-5 py-3 font-mono text-[var(--ink)]">{row.time}</td>
+                  <td className="px-5 py-3 text-[var(--ink)]">{row.type}</td>
+                  <td className="px-5 py-3 font-mono text-[var(--ink)]">{row.data}</td>
+                  <td className="px-5 py-3 font-mono text-[var(--ink-3)]">{row.cgm}</td>
+                  <td className="px-5 py-3 text-[var(--ink-3)]">{row.comment}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td className="px-5 py-8 text-center text-[var(--muted)]" colSpan={5}>
+                <td className="px-5 py-8 text-center text-[var(--ink-3)]" colSpan={5}>
                   Событий за выбранный период нет.
                 </td>
               </tr>
@@ -1688,6 +1313,7 @@ function buildGroupedEpisodes(data?: GlucoseDashboardResponse): GroupedEpisode[]
       carbsTotal: foodCluster.reduce((sum, event) => sum + event.carbs_g, 0),
       cgmMax: cgm.max,
       cgmMin: cgm.min,
+      cgmPeakAt: cgm.maxAt,
       cgmStart: cgm.start,
       endAt: toLocalDateTimeSecond(new Date(endMs)),
       fingerstickEvents,
@@ -1720,7 +1346,15 @@ function cgmSummaryForEpisode(
     return pointMs >= windowStart && pointMs <= windowEnd;
   });
   if (!pointsInWindow.length) {
-    return { max: null, min: null, start: null, timeToMax: null, timeToMin: null };
+    return {
+      max: null,
+      maxAt: null,
+      min: null,
+      minAt: null,
+      start: null,
+      timeToMax: null,
+      timeToMin: null,
+    };
   }
   const valueFor = (point: DashboardPoint) =>
     point.display_value ?? point.normalized_value ?? point.smoothed_value ?? point.raw_value;
@@ -1739,7 +1373,9 @@ function cgmSummaryForEpisode(
     Math.max(0, Math.round((Date.parse(point.timestamp) - foodStartMs) / 60000));
   return {
     max: valueFor(maxPoint),
+    maxAt: maxPoint.timestamp,
     min: valueFor(minPoint),
+    minAt: minPoint.timestamp,
     start: valueFor(startPoint),
     timeToMax: minutesFromStart(maxPoint),
     timeToMin: minutesFromStart(minPoint),
@@ -1794,7 +1430,854 @@ function nearestPoint(points: DashboardPoint[], iso: string) {
   }, points[0]);
 }
 
+type ChartDensity = "full" | "compact" | "aggregate";
+
+type DailyAggregate = {
+  carbs: number;
+  fingersticks: number;
+  insulin: number;
+  meals: number;
+};
+
 function GlucoseChart({
+  data,
+  episodes,
+  hoveredEpisodeId,
+  loading,
+  mode,
+  onEpisodeHover,
+  onEpisodeSelect,
+  preset,
+  selectedEpisodeId,
+}: {
+  data?: GlucoseDashboardResponse;
+  episodes: GroupedEpisode[];
+  hoveredEpisodeId: string | null;
+  loading: boolean;
+  mode: GlucoseMode;
+  onEpisodeHover: (episodeId: string | null) => void;
+  onEpisodeSelect: (episodeId: string) => void;
+  preset: RangePreset | "custom";
+  selectedEpisodeId: string | null;
+}) {
+  const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
+  const points = data?.points ?? [];
+  const width = 1180;
+  const left = 64;
+  const right = 20;
+  const chartTop = 24;
+  const chartHeight = 258;
+  const chartBottom = chartTop + chartHeight;
+  const laneGap = 32;
+  const laneHeight = 34;
+  const lanesTop = chartBottom + 34;
+  const lane1Y = lanesTop;
+  const lane2Y = lane1Y + laneHeight + laneGap;
+  const lane3Y = lane2Y + laneHeight + laneGap;
+  const lanesBottom = lane3Y + laneHeight;
+  const height = lanesBottom + 34;
+  const chartWidth = width - left - right;
+  const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 6 * 3600000;
+  const toMs = data ? Date.parse(data.to_datetime) : Date.now();
+  const duration = Math.max(toMs - fromMs, 1);
+  const density = chartDensityForRange(preset, duration);
+  const chartValues = [
+    ...points.flatMap((point) => [
+      point.raw_value,
+      point.smoothed_value,
+      point.normalized_value,
+      point.display_value,
+    ]),
+    ...(data?.fingersticks.map((row) => row.glucose_mmol_l) ?? []),
+  ].filter((value): value is number => typeof value === "number");
+  const { max: maxValue, min: minValue } = glucoseChartDomain(chartValues);
+  const yRange = Math.max(maxValue - minValue, 1);
+  const scaleXMs = (ms: number) =>
+    left + clamp((ms - fromMs) / duration, 0, 1) * chartWidth;
+  const scaleX = (iso: string) => scaleXMs(Date.parse(iso));
+  const scaleY = (value: number) =>
+    chartTop + (1 - (value - minValue) / yRange) * chartHeight;
+  const line = (
+    source: DashboardPoint[],
+    value: (point: DashboardPoint) => number | null | undefined,
+  ) =>
+    source
+      .map((point) => {
+        const yValue = value(point);
+        if (yValue === null || yValue === undefined) return "";
+        return `${scaleX(point.timestamp)},${scaleY(yValue)}`;
+      })
+      .filter(Boolean)
+      .join(" ");
+  const rawLine = line(points, (point) => point.raw_value);
+  const mainLine = line(points, (point) => glucosePointValue(point, mode));
+  const xTicks = timeAxisTicks(fromMs, toMs);
+  const yTicks = glucoseTickValues(minValue, maxValue);
+  const dailyAggregates =
+    density === "aggregate"
+      ? buildDailyAggregates(data, episodes, fromMs, toMs)
+      : [];
+  const maxDayCarbs = Math.max(...dailyAggregates.map((day) => day.carbs), 1);
+  const maxDayInsulin = Math.max(
+    ...dailyAggregates.map((day) => day.insulin),
+    1,
+  );
+  const activeEpisodeId = hoveredEpisodeId ?? selectedEpisodeId;
+  const activeEpisode =
+    activeEpisodeId !== null
+      ? episodes.find((episode) => episode.id === activeEpisodeId) ?? null
+      : null;
+  const activeDayIndex =
+    hoveredDayIndex ??
+    (activeEpisode
+      ? aggregateIndexForMs(Date.parse(activeEpisode.startAt), fromMs, toMs)
+      : null);
+
+  if (!points.length) {
+    return (
+      <div
+        aria-label="График глюкозы"
+        className="grid h-[520px] place-items-center text-[14px] text-[var(--ink-3)]"
+        role="img"
+      >
+        {loading ? "Загружаю CGM..." : "CGM за период не найден."}
+      </div>
+    );
+  }
+
+  const targetTop = scaleY(9.3);
+  const targetBottom = scaleY(3.9);
+
+  return (
+    <div className="overflow-x-auto">
+      <svg
+        aria-label="График глюкозы"
+        className="min-w-[940px] text-[var(--ink-3)]"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        style={{
+          display: "block",
+          fontFamily: "var(--sans)",
+          width: "100%",
+        }}
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <rect fill="var(--surface)" height={height} width={width} />
+
+        <rect
+          fill="var(--accent-bg)"
+          height={Math.max(1, targetBottom - targetTop)}
+          opacity="0.35"
+          width={chartWidth}
+          x={left}
+          y={targetTop}
+        />
+        <text
+          fill="var(--accent)"
+          fontFamily="var(--mono)"
+          fontSize="10"
+          x={left + 8}
+          y={targetTop + 13}
+        >
+          целевой 3.9–9.3
+        </text>
+
+        {data?.artifacts.map((artifact) => {
+          const x = scaleX(artifact.start_at);
+          const w = Math.max(5, scaleX(artifact.end_at) - x);
+          return (
+            <rect
+              fill="var(--shade)"
+              height={chartHeight}
+              key={`${artifact.start_at}-${artifact.kind}`}
+              opacity={0.54}
+              width={w}
+              x={x}
+              y={chartTop}
+            />
+          );
+        })}
+
+        {density === "aggregate" && activeDayIndex !== null ? (
+          <rect
+            fill="var(--accent)"
+            height={lanesBottom - chartTop}
+            opacity="0.055"
+            width={chartWidth / 7 - 4}
+            x={left + activeDayIndex * (chartWidth / 7) + 2}
+            y={chartTop}
+          />
+        ) : null}
+
+        {activeEpisode && density !== "aggregate" ? (
+          <EpisodeChartHighlight
+            chartBottom={chartBottom}
+            chartHeight={chartHeight}
+            chartTop={chartTop}
+            episode={activeEpisode}
+            laneY={lane1Y + laneHeight / 2}
+            scaleX={scaleX}
+            scaleY={scaleY}
+          />
+        ) : null}
+
+        {yTicks.map((tick) => (
+          <g key={tick}>
+            <line
+              stroke={tick === 3.9 || tick === 9.3 ? "var(--accent-soft)" : "var(--hairline)"}
+              strokeDasharray={tick === 3.9 || tick === 9.3 ? undefined : "2 5"}
+              x1={left}
+              x2={width - right}
+              y1={scaleY(tick)}
+              y2={scaleY(tick)}
+            />
+            <text
+              fill="var(--ink-4)"
+              fontFamily="var(--mono)"
+              fontSize="10"
+              textAnchor="end"
+              x={left - 8}
+              y={scaleY(tick) + 3}
+            >
+              {tick.toFixed(1)}
+            </text>
+          </g>
+        ))}
+
+        {mode !== "raw" ? (
+          <polyline
+            fill="none"
+            opacity="0.7"
+            points={rawLine}
+            stroke="var(--ink-3)"
+            strokeDasharray="2 3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.3"
+          />
+        ) : null}
+        <polyline
+          fill="none"
+          points={mainLine}
+          stroke="var(--ink)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.9"
+        />
+
+        {points.map((point, i) => {
+          const mainVal = glucosePointValue(point, mode);
+          if (mainVal == null) return null;
+          const tooltipText = [
+            formatTime(point.timestamp),
+            `Raw: ${point.raw_value.toFixed(1)}`,
+            point.normalized_value != null
+              ? `Нормализованная: ${point.normalized_value.toFixed(1)}`
+              : null,
+            point.correction_mmol_l != null
+              ? `Смещение: ${formatSigned(point.correction_mmol_l)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <circle
+              cx={scaleX(point.timestamp)}
+              cy={scaleY(mainVal)}
+              fill="transparent"
+              key={`pt-${i}`}
+              r="7"
+            >
+              <title>{tooltipText}</title>
+            </circle>
+          );
+        })}
+
+        {data?.fingersticks.map((row) => {
+          const x = scaleX(row.measured_at);
+          const y = scaleY(row.glucose_mmol_l);
+          return (
+            <polygon
+              fill="var(--surface)"
+              key={row.id}
+              points={`${x},${y - 6} ${x + 6},${y} ${x},${y + 6} ${x - 6},${y}`}
+              stroke="var(--ink)"
+              strokeWidth="1.4"
+            >
+              <title>
+                {`${formatTime(row.measured_at)} · ${formatNumber(row.glucose_mmol_l)} ммоль/л`}
+              </title>
+            </polygon>
+          );
+        })}
+
+        <line
+          stroke="var(--ink)"
+          strokeWidth="1"
+          x1={left}
+          x2={width - right}
+          y1={chartBottom}
+          y2={chartBottom}
+        />
+
+        {[
+          { label: "Питание", y: lane1Y },
+          { label: "Инсулин", y: lane2Y },
+          { label: "Калибровка", y: lane3Y },
+        ].map((lane) => (
+          <g key={lane.label}>
+            <text
+              fill="var(--ink-4)"
+              fontSize="10"
+              fontWeight="500"
+              textAnchor="end"
+              x={left - 8}
+              y={lane.y + laneHeight / 2 + 4}
+            >
+              {lane.label}
+            </text>
+            <line
+              stroke="var(--hairline)"
+              strokeWidth="0.8"
+              x1={left}
+              x2={width - right}
+              y1={lane.y + laneHeight / 2}
+              y2={lane.y + laneHeight / 2}
+            />
+          </g>
+        ))}
+
+        {density === "aggregate" ? (
+          dailyAggregates.map((day, index) => {
+            const colW = chartWidth / dailyAggregates.length;
+            const cx = left + index * colW + colW / 2;
+            const active = activeDayIndex === index;
+            const carbsBarHeight = (day.carbs / maxDayCarbs) * (laneHeight - 8);
+            const insulinBarHeight =
+              day.insulin > 0
+                ? (day.insulin / maxDayInsulin) * (laneHeight - 8)
+                : 0;
+            return (
+              <g
+                cursor="pointer"
+                key={`day-${index}`}
+                onMouseEnter={() => setHoveredDayIndex(index)}
+                onMouseLeave={() => setHoveredDayIndex(null)}
+              >
+                <title>
+                  {`${axisLabelForTime(fromMs + (index + 0.5) * (duration / 7), "aggregate", duration)} · ${Math.round(
+                    day.carbs,
+                  )} г · ${day.meals} приёмов · ${formatNumber(day.insulin, 1)} ЕД · ${day.fingersticks} калибр.`}
+                </title>
+                <rect
+                  fill={active ? "var(--accent)" : "var(--accent-soft)"}
+                  height={carbsBarHeight}
+                  width={Math.max(12, colW * 0.48)}
+                  x={cx - Math.max(12, colW * 0.48) / 2}
+                  y={lane1Y + laneHeight - 4 - carbsBarHeight}
+                />
+                <text
+                  fill={active ? "var(--accent)" : "var(--ink-2)"}
+                  fontFamily="var(--mono)"
+                  fontSize="10"
+                  fontWeight="500"
+                  textAnchor="middle"
+                  x={cx}
+                  y={lane1Y - 3}
+                >
+                  {Math.round(day.carbs)}г
+                </text>
+                <text
+                  fill="var(--ink-4)"
+                  fontFamily="var(--mono)"
+                  fontSize="9"
+                  textAnchor="middle"
+                  x={cx}
+                  y={lane1Y + laneHeight + 10}
+                >
+                  {day.meals} приём.
+                </text>
+
+                {insulinBarHeight > 0 ? (
+                  <rect
+                    fill={active ? "var(--ink)" : "var(--ink-3)"}
+                    height={insulinBarHeight}
+                    width={Math.max(8, colW * 0.28)}
+                    x={cx - Math.max(8, colW * 0.28) / 2}
+                    y={lane2Y + laneHeight - 4 - insulinBarHeight}
+                  />
+                ) : (
+                  <line
+                    stroke="var(--hairline-2)"
+                    strokeWidth="1"
+                    x1={cx - 7}
+                    x2={cx + 7}
+                    y1={lane2Y + laneHeight - 5}
+                    y2={lane2Y + laneHeight - 5}
+                  />
+                )}
+                <text
+                  fill={active ? "var(--ink)" : "var(--ink-2)"}
+                  fontFamily="var(--mono)"
+                  fontSize="10"
+                  fontWeight="500"
+                  textAnchor="middle"
+                  x={cx}
+                  y={lane2Y - 3}
+                >
+                  {day.insulin > 0 ? day.insulin.toFixed(1) : "—"}
+                </text>
+
+                <text
+                  fill={day.fingersticks > 0 ? "var(--ink-2)" : "var(--ink-4)"}
+                  fontFamily="var(--mono)"
+                  fontSize="13"
+                  fontWeight="500"
+                  textAnchor="middle"
+                  x={cx}
+                  y={lane3Y + laneHeight / 2 + 4}
+                >
+                  {day.fingersticks}
+                </text>
+              </g>
+            );
+          })
+        ) : density === "compact" ? (
+          <>
+            {episodes.map((episode) => {
+              const x1 = scaleX(episode.startAt);
+              const x2 = scaleX(episode.endAt);
+              const cx = (x1 + x2) / 2;
+              const cy = lane1Y + laneHeight / 2;
+              const active = activeEpisodeId === episode.id;
+              const r = Math.max(4, Math.min(12, 3 + Math.sqrt(episode.carbsTotal) * 0.9));
+              return (
+                <g
+                  cursor="pointer"
+                  key={`meal-dot-${episode.id}`}
+                  onClick={() => onEpisodeSelect(episode.id)}
+                  onMouseEnter={() => onEpisodeHover(episode.id)}
+                  onMouseLeave={() => onEpisodeHover(null)}
+                >
+                  <title>{episodeTooltip(episode)}</title>
+                  {x2 - x1 > 10 ? (
+                    <line
+                      opacity="0.82"
+                      stroke={active ? "var(--accent)" : "var(--accent-soft)"}
+                      strokeWidth="2.5"
+                      x1={x1}
+                      x2={x2}
+                      y1={cy}
+                      y2={cy}
+                    />
+                  ) : null}
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    fill={active ? "var(--accent)" : "var(--accent-bg)"}
+                    r={r}
+                    stroke={active ? "var(--accent)" : "var(--accent-soft)"}
+                    strokeWidth={active ? "1.6" : "1"}
+                  />
+                </g>
+              );
+            })}
+            {(data?.insulin_events ?? []).map((event, index) => {
+              const x = scaleX(event.timestamp);
+              return (
+                <rect
+                  fill="var(--ink)"
+                  height={laneHeight - 12}
+                  key={`insulin-tick-${event.timestamp}-${index}`}
+                  width="2"
+                  x={x - 1}
+                  y={lane2Y + 6}
+                >
+                  <title>
+                    {`${formatTime(event.timestamp)} · ${formatNumber(event.insulin_units, 1)} ЕД`}
+                  </title>
+                </rect>
+              );
+            })}
+            {(data?.fingersticks ?? []).map((row) => {
+              const x = scaleX(row.measured_at);
+              const cy = lane3Y + laneHeight / 2;
+              return (
+                <rect
+                  fill="var(--surface)"
+                  height="8"
+                  key={`finger-lane-${row.id}`}
+                  stroke="var(--ink)"
+                  strokeWidth="1.2"
+                  transform={`rotate(45 ${x} ${cy})`}
+                  width="8"
+                  x={x - 4}
+                  y={cy - 4}
+                >
+                  <title>
+                    {`${formatTime(row.measured_at)} · ${formatNumber(row.glucose_mmol_l)} ммоль/л`}
+                  </title>
+                </rect>
+              );
+            })}
+            <text
+              fill="var(--ink-4)"
+              fontFamily="var(--mono)"
+              fontSize="9"
+              fontStyle="italic"
+              textAnchor="end"
+              x={width - right}
+              y={lane1Y - 3}
+            >
+              {episodes.length} приёмов · наведите для деталей
+            </text>
+          </>
+        ) : (
+          <>
+            {episodes.map((episode) => {
+              const x1 = scaleX(episode.startAt);
+              const x2 = scaleX(episode.endAt);
+              const pillWidth = Math.max(24, x2 - x1) + 8;
+              const pillX = x1 - 4;
+              const active = activeEpisodeId === episode.id;
+              const totalCarbs = Math.max(episode.carbsTotal, 1);
+              return (
+                <g
+                  cursor="pointer"
+                  key={`meal-pill-${episode.id}`}
+                  onClick={() => onEpisodeSelect(episode.id)}
+                  onMouseEnter={() => onEpisodeHover(episode.id)}
+                  onMouseLeave={() => onEpisodeHover(null)}
+                >
+                  <title>{episodeTooltip(episode)}</title>
+                  <rect
+                    fill={active ? "var(--accent)" : "var(--accent-bg)"}
+                    height={laneHeight - 8}
+                    rx={(laneHeight - 8) / 2}
+                    stroke={active ? "var(--accent)" : "var(--accent-soft)"}
+                    strokeWidth="1"
+                    width={pillWidth}
+                    x={pillX}
+                    y={lane1Y + 4}
+                  />
+                  {episode.foodEvents.map((event, eventIndex) => (
+                    <circle
+                      cx={scaleX(event.timestamp)}
+                      cy={lane1Y + laneHeight / 2}
+                      fill={active ? "var(--surface)" : "var(--accent)"}
+                      key={`meal-event-${episode.id}-${eventIndex}`}
+                      r={Math.max(2.2, Math.min(5, (event.carbs_g / totalCarbs) * 16))}
+                    />
+                  ))}
+                  <text
+                    fill={active ? "var(--accent)" : "var(--ink-2)"}
+                    fontFamily="var(--mono)"
+                    fontSize="10"
+                    fontWeight="500"
+                    textAnchor="middle"
+                    x={pillX + pillWidth / 2}
+                    y={lane1Y - 3}
+                  >
+                    {formatNumber(episode.carbsTotal, 1)} г
+                  </text>
+                  <text
+                    fill="var(--ink-4)"
+                    fontFamily="var(--mono)"
+                    fontSize="9"
+                    textAnchor="middle"
+                    x={pillX + pillWidth / 2}
+                    y={lane1Y + laneHeight + 10}
+                  >
+                    {episode.foodEvents.length} событий · {formatEpisodeRange(episode.startAt, episode.endAt)}
+                  </text>
+                </g>
+              );
+            })}
+            {(data?.insulin_events ?? []).map((event, index) => {
+              const x = scaleX(event.timestamp);
+              const badgeX = Math.min(x + 26, width - right - 24);
+              return (
+                <g key={`insulin-full-${event.timestamp}-${index}`}>
+                  <title>
+                    {`${formatTime(event.timestamp)} · ${formatNumber(event.insulin_units, 1)} ЕД`}
+                  </title>
+                  <rect
+                    fill="var(--ink)"
+                    height={laneHeight - 10}
+                    width="3"
+                    x={x - 1.5}
+                    y={lane2Y + 5}
+                  />
+                  <rect
+                    fill="var(--surface)"
+                    height="18"
+                    rx="2"
+                    stroke="var(--ink)"
+                    strokeWidth="1"
+                    width="44"
+                    x={badgeX - 22}
+                    y={lane2Y + 8}
+                  />
+                  <text
+                    fill="var(--ink)"
+                    fontFamily="var(--mono)"
+                    fontSize="10"
+                    fontWeight="500"
+                    textAnchor="middle"
+                    x={badgeX}
+                    y={lane2Y + 21}
+                  >
+                    {formatNumber(event.insulin_units, 1)} ЕД
+                  </text>
+                  <text
+                    fill="var(--ink-4)"
+                    fontFamily="var(--mono)"
+                    fontSize="9"
+                    textAnchor="middle"
+                    x={x}
+                    y={lane2Y + laneHeight + 10}
+                  >
+                    {formatTime(event.timestamp)}
+                  </text>
+                </g>
+              );
+            })}
+            {(data?.fingersticks ?? []).map((row) => {
+              const x = scaleX(row.measured_at);
+              const cy = lane3Y + laneHeight / 2;
+              const labelOnLeft = x > width - right - 90;
+              return (
+                <g key={`finger-full-${row.id}`}>
+                  <title>
+                    {`${formatTime(row.measured_at)} · ${formatNumber(row.glucose_mmol_l)} ммоль/л`}
+                  </title>
+                  <rect
+                    fill="var(--surface)"
+                    height="10"
+                    stroke="var(--ink)"
+                    strokeWidth="1.4"
+                    transform={`rotate(45 ${x} ${cy})`}
+                    width="10"
+                    x={x - 5}
+                    y={cy - 5}
+                  />
+                  <text
+                    fill="var(--ink)"
+                    fontFamily="var(--mono)"
+                    fontSize="10"
+                    fontWeight="500"
+                    textAnchor={labelOnLeft ? "end" : "start"}
+                    x={x + (labelOnLeft ? -12 : 12)}
+                    y={cy + 4}
+                  >
+                    {formatNumber(row.glucose_mmol_l)} ммоль
+                  </text>
+                  <text
+                    fill="var(--ink-4)"
+                    fontFamily="var(--mono)"
+                    fontSize="9"
+                    textAnchor="middle"
+                    x={x}
+                    y={lane3Y + laneHeight + 10}
+                  >
+                    {formatTime(row.measured_at)}
+                  </text>
+                </g>
+              );
+            })}
+          </>
+        )}
+
+        {xTicks.map((tick, index) => {
+          const x = left + (index / (xTicks.length - 1)) * chartWidth;
+          return (
+            <text
+              fill="var(--ink-4)"
+              fontFamily="var(--mono)"
+              fontSize="9"
+              key={tick}
+              textAnchor="middle"
+              x={x}
+              y={height - 6}
+            >
+              {axisLabelForTime(tick, density, duration)}
+            </text>
+          );
+        })}
+
+        <g transform={`translate(${width - 448},${height - 8})`}>
+          <LegendItem color="var(--ink-3)" dashed label="raw CGM" x={0} />
+          <LegendItem color="var(--ink)" label={modeLabel(mode)} x={98} />
+          <LegendItem color="var(--accent)" label="еда" x={244} />
+          <LegendItem color="var(--ink)" label="инсулин" x={304} />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function EpisodeChartHighlight({
+  chartHeight,
+  chartTop,
+  episode,
+  laneY,
+  scaleX,
+  scaleY,
+}: {
+  chartBottom: number;
+  chartHeight: number;
+  chartTop: number;
+  episode: GroupedEpisode;
+  laneY: number;
+  scaleX: (iso: string) => number;
+  scaleY: (value: number) => number;
+}) {
+  const x1 = scaleX(episode.startAt);
+  const x2 = Math.max(scaleX(episode.endAt), x1 + 4);
+  const peakX = episode.cgmPeakAt ? scaleX(episode.cgmPeakAt) : x2;
+  const peakY = episode.cgmMax !== null ? scaleY(episode.cgmMax) : chartTop + chartHeight / 2;
+  return (
+    <g>
+      <rect
+        fill="var(--accent)"
+        height={chartHeight}
+        opacity="0.10"
+        width={Math.max(4, x2 - x1)}
+        x={x1}
+        y={chartTop}
+      />
+      <line
+        opacity="0.72"
+        stroke="var(--accent)"
+        strokeDasharray="2 3"
+        strokeWidth="1"
+        x1={peakX}
+        x2={peakX}
+        y1={peakY}
+        y2={laneY}
+      />
+      <circle
+        cx={peakX}
+        cy={peakY}
+        fill="var(--surface)"
+        r="4"
+        stroke="var(--accent)"
+        strokeWidth="1.6"
+      />
+      {episode.cgmMax !== null ? (
+        <text
+          fill="var(--accent)"
+          fontFamily="var(--mono)"
+          fontSize="10"
+          fontWeight="500"
+          x={peakX + 8}
+          y={peakY - 5}
+        >
+          пик {formatNumber(episode.cgmMax)}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function glucosePointValue(point: DashboardPoint, mode: GlucoseMode) {
+  if (mode === "normalized") {
+    return point.normalized_value ?? point.raw_value;
+  }
+  if (mode === "smoothed") return point.smoothed_value ?? point.raw_value;
+  return point.raw_value;
+}
+
+function chartDensityForRange(
+  preset: RangePreset | "custom",
+  durationMs: number,
+): ChartDensity {
+  if (preset === "7d" || durationMs >= 6 * 24 * 60 * 60 * 1000) {
+    return "aggregate";
+  }
+  if (
+    preset === "12h" ||
+    preset === "24h" ||
+    durationMs > 6.5 * 60 * 60 * 1000
+  ) {
+    return "compact";
+  }
+  return "full";
+}
+
+function glucoseChartDomain(values: number[]) {
+  const baseMin = 3.5;
+  const baseMax = 12;
+  if (!values.length) return { max: baseMax, min: baseMin };
+  const rawMin = Math.min(...values, 3.9);
+  const rawMax = Math.max(...values, 9.3);
+  const min = rawMin < baseMin ? Math.max(0, Math.floor((rawMin - 0.6) * 2) / 2) : baseMin;
+  const max = rawMax > baseMax ? Math.ceil((rawMax + 0.6) * 2) / 2 : baseMax;
+  return { max, min };
+}
+
+function glucoseTickValues(minValue: number, maxValue: number) {
+  return Array.from(new Set([minValue, 3.9, 6.5, 9.3, 12, maxValue]))
+    .filter((tick) => tick >= minValue && tick <= maxValue)
+    .sort((left, right) => left - right);
+}
+
+function timeAxisTicks(fromMs: number, toMs: number) {
+  const duration = Math.max(toMs - fromMs, 1);
+  return Array.from({ length: 7 }, (_, index) => fromMs + (duration * index) / 6);
+}
+
+function axisLabelForTime(ms: number, density: ChartDensity, durationMs: number) {
+  if (density === "aggregate") {
+    return new Intl.DateTimeFormat("ru-RU", { weekday: "short" })
+      .format(new Date(ms))
+      .replace(".", "");
+  }
+  if (durationMs > 6.5 * 60 * 60 * 1000) {
+    return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit" }).format(
+      new Date(ms),
+    );
+  }
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(ms));
+}
+
+function buildDailyAggregates(
+  data: GlucoseDashboardResponse | undefined,
+  episodes: GroupedEpisode[],
+  fromMs: number,
+  toMs: number,
+): DailyAggregate[] {
+  const buckets: DailyAggregate[] = Array.from({ length: 7 }, () => ({
+    carbs: 0,
+    fingersticks: 0,
+    insulin: 0,
+    meals: 0,
+  }));
+  episodes.forEach((episode) => {
+    const index = aggregateIndexForMs(Date.parse(episode.startAt), fromMs, toMs);
+    buckets[index].carbs += episode.carbsTotal;
+    buckets[index].meals += 1;
+  });
+  data?.insulin_events.forEach((event) => {
+    const index = aggregateIndexForMs(Date.parse(event.timestamp), fromMs, toMs);
+    buckets[index].insulin += event.insulin_units ?? 0;
+  });
+  data?.fingersticks.forEach((row) => {
+    const index = aggregateIndexForMs(Date.parse(row.measured_at), fromMs, toMs);
+    buckets[index].fingersticks += 1;
+  });
+  return buckets;
+}
+
+function aggregateIndexForMs(ms: number, fromMs: number, toMs: number) {
+  const duration = Math.max(toMs - fromMs, 1);
+  return clamp(Math.floor(((ms - fromMs) / duration) * 7), 0, 6);
+}
+
+export function LegacyGlucoseChart({
   data,
   episodes,
   loading,
@@ -1885,7 +2368,7 @@ function GlucoseChart({
     return (
       <div
         aria-label="График глюкозы"
-        className="grid h-[520px] place-items-center text-[14px] text-[var(--muted)]"
+        className="grid h-[520px] place-items-center text-[14px] text-[var(--ink-3)]"
         role="img"
       >
         {loading ? "Загружаю CGM..." : "CGM за период не найден."}
@@ -1897,7 +2380,7 @@ function GlucoseChart({
     <div className="overflow-x-auto">
       <svg
         aria-label="График глюкозы"
-        className="min-w-[940px] text-[var(--muted)]"
+        className="min-w-[940px] text-[var(--ink-3)]"
         role="img"
         viewBox={`0 0 ${width} ${height}`}
       >
@@ -1909,7 +2392,7 @@ function GlucoseChart({
           y1={eventTop + eventHeight + 10}
           y2={eventTop + eventHeight + 10}
         />
-        <text fill="var(--muted)" fontSize="11" x={left} y={18}>
+        <text fill="var(--ink-3)" fontSize="11" x={left} y={18}>
           события
         </text>
 
@@ -1954,7 +2437,7 @@ function GlucoseChart({
                 y={chartTop}
               />
               <rect
-                fill={selected ? "var(--fg)" : "var(--accent)"}
+                fill={selected ? "var(--ink)" : "var(--accent)"}
                 height={selected ? "5" : "3"}
                 opacity={selected ? 0.9 : 0.58}
                 width={w}
@@ -1973,7 +2456,7 @@ function GlucoseChart({
           x={left}
           y={scaleY(10)}
         />
-        <text fill="var(--muted)" fontSize="11" x={left + 8} y={scaleY(10) + 14}>
+        <text fill="var(--ink-3)" fontSize="11" x={left + 8} y={scaleY(10) + 14}>
           целевой диапазон 3.9–10.0
         </text>
 
@@ -1988,7 +2471,7 @@ function GlucoseChart({
               y2={scaleY(tick)}
             />
             <text
-              fill="var(--muted)"
+              fill="var(--ink-3)"
               fontSize="12"
               textAnchor="end"
               x={left - 10}
@@ -2023,7 +2506,7 @@ function GlucoseChart({
         <polyline
           fill="none"
           points={mainLine}
-          stroke="var(--fg)"
+          stroke="var(--ink)"
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="3"
@@ -2091,7 +2574,7 @@ function GlucoseChart({
               <polygon
                 fill="var(--surface)"
                 points={`${x},${y - 7} ${x + 7},${y} ${x},${y + 7} ${x - 7},${y}`}
-                stroke="var(--fg)"
+                stroke="var(--ink)"
                 strokeWidth="2"
               />
             </g>
@@ -2121,7 +2604,7 @@ function GlucoseChart({
             <line
               key={`${event.timestamp}-${event.event_type ?? "insulin"}`}
               opacity={0.58}
-              stroke="var(--fg)"
+              stroke="var(--ink)"
               strokeDasharray="5 5"
               strokeWidth="1"
               x1={x}
@@ -2133,7 +2616,7 @@ function GlucoseChart({
         })}
 
         <line
-          stroke="var(--fg)"
+          stroke="var(--ink)"
           strokeWidth="1"
           x1={left}
           x2={width - right}
@@ -2144,7 +2627,7 @@ function GlucoseChart({
           const x = left + ((tick - fromMs) / duration) * chartWidth;
           return (
             <text
-              fill="var(--muted)"
+              fill="var(--ink-3)"
               fontSize="12"
               key={tick}
               textAnchor="middle"
@@ -2179,21 +2662,21 @@ function GlucoseChart({
         <rect
           fill="transparent"
           height={overviewHeight}
-          stroke="var(--fg)"
+          stroke="var(--ink)"
           strokeWidth="1"
           width={chartWidth}
           x={left}
           y={overviewTop}
         />
-        <text fill="var(--muted)" fontSize="11" x={left} y={height - 4}>
+        <text fill="var(--ink-3)" fontSize="11" x={left} y={height - 4}>
           обзор выбранного периода
         </text>
 
         <g transform={`translate(${width - 430},${height - 4})`}>
           <LegendItem color="#9B958B" dashed label="raw CGM" x={0} />
-          <LegendItem color="var(--fg)" label={modeLabel(mode)} x={100} />
+          <LegendItem color="var(--ink)" label={modeLabel(mode)} x={100} />
           <LegendItem color="var(--accent)" label="еда" x={258} />
-          <LegendItem color="var(--fg)" label="инсулин" x={320} />
+          <LegendItem color="var(--ink)" label="инсулин" x={320} />
         </g>
       </svg>
     </div>
@@ -2322,7 +2805,7 @@ function EpisodeSummaryChip({
         fill={selected ? "#E3C17D" : "#F1E4CE"}
         height={height}
         rx="0"
-        stroke={selected ? "var(--fg)" : "var(--accent)"}
+        stroke={selected ? "var(--ink)" : "var(--accent)"}
         strokeOpacity={selected ? "0.86" : "0.58"}
         strokeWidth={selected ? "1.6" : "1"}
         width={layout.width}
@@ -2333,13 +2816,13 @@ function EpisodeSummaryChip({
           cy={height / 2}
           fill="var(--accent)"
           r={4}
-          stroke={selected ? "var(--fg)" : "none"}
+          stroke={selected ? "var(--ink)" : "none"}
           strokeWidth="1.2"
         />
       ) : (
         <>
           <text
-            fill="var(--fg)"
+            fill="var(--ink)"
             fontSize={layout.density === "minimal" ? "11" : "12"}
             fontWeight={selected ? "700" : "600"}
             textAnchor="middle"
@@ -2350,7 +2833,7 @@ function EpisodeSummaryChip({
           </text>
           {layout.secondaryLabel ? (
             <text
-              fill="var(--muted)"
+              fill="var(--ink-3)"
               fontSize="10"
               textAnchor="middle"
               x={layout.width / 2}
@@ -2408,7 +2891,7 @@ function InsulinEventMarker({
       <title>{title}</title>
       <line
         opacity={compact ? 0.58 : 0.82}
-        stroke="var(--fg)"
+        stroke="var(--ink)"
         strokeLinecap="round"
         strokeWidth={compact ? "1.4" : "2"}
         x1={x}
@@ -2439,7 +2922,7 @@ function FingerstickEventMarker({
         fill="var(--surface)"
         opacity={compact ? 0.7 : 1}
         points={`${x},${y - size} ${x + size},${y} ${x},${y + size} ${x - size},${y}`}
-        stroke="var(--fg)"
+        stroke="var(--ink)"
         strokeWidth={compact ? "1.2" : "1.6"}
       />
     </g>
@@ -2657,7 +3140,7 @@ function LegendItem({
         y1="-5"
         y2="-5"
       />
-      <text fill="var(--muted)" fontSize="11" x="25" y="-1">
+      <text fill="var(--ink-3)" fontSize="11" x="25" y="-1">
         {label}
       </text>
     </g>
@@ -2676,8 +3159,8 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
   if (!data || data.residuals.length === 0) {
     return (
       <section className="border border-[var(--hairline)] bg-[var(--surface)] p-5">
-        <h3 className="text-[14px] text-[var(--fg)]">Смещение по времени сенсора</h3>
-        <p className="mt-2 text-[12px] text-[var(--muted)]">
+        <h3 className="text-[14px] text-[var(--ink)]">Смещение по времени сенсора</h3>
+        <p className="mt-2 text-[12px] text-[var(--ink-3)]">
           Недостаточно записей из пальца для графика смещения.
         </p>
       </section>
@@ -2731,8 +3214,8 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
 
   return (
     <section className="border border-[var(--hairline)] bg-[var(--surface)] p-5">
-      <h3 className="text-[14px] text-[var(--fg)]">Смещение по времени сенсора</h3>
-      <p className="mb-2 text-[10px] text-[var(--muted)]">
+      <h3 className="text-[14px] text-[var(--ink)]">Смещение по времени сенсора</h3>
+      <p className="mb-2 text-[10px] text-[var(--ink-3)]">
         Оценка по записям из пальца · Raw CGM сохраняется без изменений
       </p>
       <svg
@@ -2748,24 +3231,24 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
         <line stroke="var(--hairline)" x1={padL} x2={padL} y1={padT} y2={padT + chartH} />
         <line stroke="var(--hairline)" x1={padL} x2={padL + chartW} y1={padT + chartH} y2={padT + chartH} />
         {ticks.map((h) => (
-          <text fill="var(--muted)" fontSize="6" key={h} textAnchor="middle" x={xForAge(h)} y={viewH - 3}>
+          <text fill="var(--ink-3)" fontSize="6" key={h} textAnchor="middle" x={xForAge(h)} y={viewH - 3}>
             {formatAge(h)}
           </text>
         ))}
-        <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + 4}>
+        <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + 4}>
           {yHi.toFixed(1)}
         </text>
-        <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + chartH}>
+        <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + chartH}>
           {yLo.toFixed(1)}
         </text>
-        <text fill="var(--muted)" fontSize="5" textAnchor="end" x={padL - 3} y={padT + chartH / 2 + 2}>
+        <text fill="var(--ink-3)" fontSize="5" textAnchor="end" x={padL - 3} y={padT + chartH / 2 + 2}>
           ммоль/л
         </text>
         {biasLine ? (
           <polyline
             fill="none"
             points={biasLine}
-            stroke="var(--fg)"
+            stroke="var(--ink)"
             strokeLinejoin="round"
             strokeWidth="1"
           />
@@ -2788,7 +3271,7 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
             fill="none"
             key={`ex-${i}`}
             r="2"
-            stroke="var(--muted)"
+            stroke="var(--ink-3)"
             strokeWidth="0.5"
           >
             <title>
@@ -2797,17 +3280,17 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
           </circle>
         ))}
       </svg>
-      <div className="mt-1 flex gap-4 text-[10px] text-[var(--muted)]">
+      <div className="mt-1 flex gap-4 text-[10px] text-[var(--ink-3)]">
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rotate-45 bg-[var(--accent)]" />
           из пальца (включено)
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full border border-[var(--muted)]" />
+          <span className="inline-block h-2 w-2 rounded-full border border-[var(--ink-3)]" />
           исключено
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-0 w-3 border-t border-[var(--fg)]" />
+          <span className="inline-block h-0 w-3 border-t border-[var(--ink)]" />
           оценка смещения
         </span>
       </div>

@@ -13,14 +13,14 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variants = {
-    primary: "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]",
-    quiet: "border-[var(--hairline)] bg-[var(--surface)] text-[var(--fg)]",
-    danger: "border-[var(--danger)] bg-[var(--surface)] text-[var(--danger)]",
+    primary: "border-[var(--ink-3)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--ink-2)] hover:bg-[var(--surface-2)]",
+    quiet: "border-[var(--hairline-2)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--ink-3)] hover:bg-[var(--surface-2)]",
+    danger: "border-[var(--warn-soft)] bg-[var(--surface)] text-[var(--warn)] hover:border-[var(--warn)]",
   };
 
   return (
     <button
-      className={`inline-flex h-10 items-center justify-center gap-2 border px-3 text-[13px] font-medium uppercase tracking-[0.06em] transition duration-200 ease-out hover:border-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       type="button"
       {...props}
     >

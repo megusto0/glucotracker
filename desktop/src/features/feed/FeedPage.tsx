@@ -7,12 +7,10 @@ import {
   type MealResponse,
 } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import { Button } from "../../design/primitives/Button";
 import {
   EmptyLog,
   MealRow,
   mealTitle,
-  RightPanel,
   SelectedMealPanel,
 } from "../meals/MealLedger";
 import {
@@ -35,6 +33,7 @@ import { FeedFiltersBar } from "./FeedFiltersBar";
 import type { DayGroup, FeedItem } from "./FeedPage.types";
 import { QuickFilterChips, useQuickFilterChips } from "./QuickFilterChips";
 import { filterValidCGM } from "./cgmUtils";
+import { formatGlucose, formatKcalValue, formatMacroValue } from "../../utils/nutritionFormat";
 import {
   buildFeedMealQuery,
   FEED_PAGE_SIZE,
@@ -223,97 +222,88 @@ export function FeedPage() {
   }, [feed.fetchNextPage, feed.hasNextPage, feed.isFetchingNextPage]);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-[var(--bg)]">
-      <div className={`min-h-full px-14 py-12 pb-24 transition-[padding] duration-200 ease-out ${selectedMeal ? "pr-[404px]" : ""}`}>
-        <header className="grid gap-3">
-          <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">история</p>
-          <h1 className="text-[56px] font-normal leading-none text-[var(--fg)]">История</h1>
-        </header>
+    <div className="gt-page" style={{ minHeight: "100%" }}>
+      <div style={{ display: "flex", minHeight: "100%", transition: "padding-right 0.2s ease-out", paddingRight: selectedMeal ? 420 : 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <header style={{ marginBottom: 20 }}>
+            <div className="gt-crumbs"><span>все записи</span></div>
+            <h1 className="gt-h1">История</h1>
+          </header>
 
-        <FeedFiltersBar filters={filters} onChange={setFilters} />
-        <QuickFilterChips active={activeChips} onToggle={toggleChip} />
+          <FeedFiltersBar filters={filters} onChange={setFilters} />
+          <QuickFilterChips active={activeChips} onToggle={toggleChip} />
 
-        <section className="mt-10 grid gap-10">
-          {!config.token.trim() ? <EmptyLog message="Укажите адрес backend и токен в настройках." /> : null}
-          {config.token.trim() && feed.isLoading ? <EmptyLog message="Загружаю записи." /> : null}
-          {config.token.trim() && feed.isError ? <EmptyLog message="Не удалось загрузить записи." /> : null}
-          {config.token.trim() && feed.isSuccess && !meals.length ? <EmptyLog message="записей пока нет" /> : null}
+          <section style={{ marginTop: 24 }}>
+            {!config.token.trim() ? <EmptyLog message="Укажите адрес backend и токен в настройках." /> : null}
+            {config.token.trim() && feed.isLoading ? <EmptyLog message="Загружаю записи." /> : null}
+            {config.token.trim() && feed.isError ? <EmptyLog message="Не удалось загрузить записи." /> : null}
+            {config.token.trim() && feed.isSuccess && !meals.length ? <EmptyLog message="записей пока нет" /> : null}
 
-          {groups.map((group) => (
-            <section className="grid gap-0" key={group.key}>
-              <div className="sticky top-0 z-10 border-b border-[var(--hairline)] bg-[var(--bg)]">
-                <h2 className="py-4 text-[40px] font-normal leading-none text-[var(--fg)]">
-                  {group.label}
-                </h2>
-                <DaySummaryBar date={group.date} items={group.items} />
-              </div>
-              {group.items.map((item) => {
-                if (item.kind === "episode") {
+            {groups.map((group) => (
+              <section key={group.key}>
+                <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", borderBottom: "1px solid var(--hairline)" }}>
+                  <h2 style={{ padding: "12px 0", fontFamily: "var(--serif)", fontSize: 28, fontWeight: 400, letterSpacing: "-0.01em" }}>{group.label}</h2>
+                  <DaySummaryBar date={group.date} items={group.items} />
+                </div>
+                {group.items.map((item) => {
+                  if (item.kind === "episode") {
+                    return (
+                      <FoodEpisodeCard episode={item.episode} key={item.id} selectedMealId={selectedMealId}
+                        onMealToggle={(mealId) => setSelectedMealId((cur) => cur === mealId ? null : mealId)}
+                      />
+                    );
+                  }
+                  if (item.kind === "insulin") {
+                    return <UngroupedInsulinRow event={item.event} key={item.id} />;
+                  }
                   return (
-                    <FoodEpisodeCard
-                      episode={item.episode}
-                      key={item.id}
-                      selectedMealId={selectedMealId}
-                      onMealToggle={(mealId) =>
-                        setSelectedMealId((cur) => cur === mealId ? null : mealId)
-                      }
+                    <MealRow key={item.id} meal={item.meal} selected={selectedMealId === item.meal.id}
+                      onToggle={() => setSelectedMealId((cur) => cur === item.meal.id ? null : item.meal.id)}
                     />
                   );
-                }
-                if (item.kind === "insulin") {
-                  return <UngroupedInsulinRow event={item.event} key={item.id} />;
-                }
-                return (
-                  <MealRow
-                    key={item.id}
-                    meal={item.meal}
-                    selected={selectedMealId === item.meal.id}
-                    onToggle={() =>
-                      setSelectedMealId((cur) => cur === item.meal.id ? null : item.meal.id)
-                    }
-                  />
-                );
-              })}
-            </section>
-          ))}
-        </section>
+                })}
+              </section>
+            ))}
+          </section>
 
-        <div className="py-10" ref={sentinelRef}>
-          {feed.hasNextPage ? (
-            <Button disabled={feed.isFetchingNextPage} onClick={() => feed.fetchNextPage()}>
-              {feed.isFetchingNextPage ? "Загружаю" : "Загрузить еще"}
-            </Button>
-          ) : null}
+          <div style={{ padding: "32px 0" }} ref={sentinelRef}>
+            {feed.hasNextPage ? (
+              <button className="btn" disabled={feed.isFetchingNextPage} onClick={() => feed.fetchNextPage()}>
+                {feed.isFetchingNextPage ? "Загружаю" : "Загрузить еще"}
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      <RightPanel open={Boolean(selectedMeal)}>
         {selectedMeal ? (
-          <SelectedMealPanel
-            duplicatePending={duplicate.isPending}
-            createFromWeightPending={createFromWeight.isPending}
-            meal={selectedMeal}
-            onCreateFromWeight={(item, grams) =>
-              createFromWeight.mutate(
-                { grams, itemId: item.id },
-                { onSuccess: (meal) => setSelectedMealId(meal.id) },
-              )
-            }
-            onDuplicate={(meal) => duplicate.mutate(meal)}
-            onUpdateItemWeight={(item, grams) =>
-              updateItemWeight.mutate({ grams, itemId: item.id })
-            }
-            onUpdateName={(meal, name) => updateMealName.mutate({ meal, name })}
-            onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
-            onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
-            onUpdateTime={(meal, eatenAt) => updateMealTime.mutate({ eatenAt, mealId: meal.id })}
-            syncNightscoutPending={syncMealNightscout.isPending || resyncMealNightscout.isPending}
-            updateNamePending={updateMealName.isPending}
-            updateTimePending={updateMealTime.isPending}
-            updateWeightPending={updateItemWeight.isPending}
-          />
+          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+            <button onClick={() => setSelectedMealId(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>
+              ×
+            </button>
+            <SelectedMealPanel
+              duplicatePending={duplicate.isPending}
+              createFromWeightPending={createFromWeight.isPending}
+              meal={selectedMeal}
+              onCreateFromWeight={(item, grams) =>
+                createFromWeight.mutate(
+                  { grams, itemId: item.id },
+                  { onSuccess: (meal) => setSelectedMealId(meal.id) },
+                )
+              }
+              onDuplicate={(meal) => duplicate.mutate(meal)}
+              onUpdateItemWeight={(item, grams) => updateItemWeight.mutate({ grams, itemId: item.id })}
+              onUpdateName={(meal, name) => updateMealName.mutate({ meal, name })}
+              onSyncNightscout={(meal) => syncMealNightscout.mutate(meal.id)}
+              onResyncNightscout={(meal) => resyncMealNightscout.mutate(meal.id)}
+              onUpdateTime={(meal, eatenAt) => updateMealTime.mutate({ eatenAt, mealId: meal.id })}
+              syncNightscoutPending={syncMealNightscout.isPending || resyncMealNightscout.isPending}
+              updateNamePending={updateMealName.isPending}
+              updateTimePending={updateMealTime.isPending}
+              updateWeightPending={updateItemWeight.isPending}
+            />
+          </div>
         ) : null}
-      </RightPanel>
+      </div>
     </div>
   );
 }
@@ -350,7 +340,7 @@ function glucosePeakSummary(
   const minutesToPeak = Math.round(
     (new Date(peakEntry.timestamp).getTime() - firstMealTs) / 60000,
   );
-  return `${beforeValue.toFixed(1)} → пик ${peakEntry.value.toFixed(1)} через ${minutesToPeak} мин`;
+  return `${formatGlucose(beforeValue)} → пик ${formatGlucose(peakEntry.value)} через ${minutesToPeak} мин`;
 }
 
 function FoodEpisodeCard({
@@ -373,49 +363,36 @@ function FoodEpisodeCard({
   const glMax = glucoseValues.length ? Math.max(...glucoseValues) : null;
 
   return (
-    <section className="border border-[var(--hairline)] bg-[var(--surface)]">
-      <div className="grid gap-4 p-5 lg:grid-cols-[72px_1fr_260px]">
-        <div className="font-mono text-[13px] leading-6">
+    <section className="card" style={{ marginBottom: 8 }}>
+      <div className="card-pad" style={{ display: "grid", gap: 16, gridTemplateColumns: "72px 1fr 260px" }}>
+        <div className="mono" style={{ fontSize: 13, lineHeight: "24px" }}>
           <div>{formatTime(episode.start_at)}</div>
           <div>{formatTime(episode.end_at)}</div>
         </div>
-        <div className="grid gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-[22px] font-normal">Приём пищи</h3>
-            <span className="border border-[var(--hairline)] bg-[var(--bg)] px-2 py-1 text-[11px] font-mono">
-              {formatEpisodeRange(episode.start_at, episode.end_at)}
-            </span>
+        <div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+            <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 18, letterSpacing: "-0.005em" }}>Приём пищи</h3>
+            <span className="tag">{formatEpisodeRange(episode.start_at, episode.end_at)}</span>
           </div>
-          <p className="text-[11px] uppercase tracking-[0.04em] text-[var(--muted)]">
-            Сгруппировано: события рядом по времени
-          </p>
-          <p className="text-[13px] text-[var(--muted)]">
-            {eventCount} события · {Math.round(episode.total_kcal)} ккал · {episode.total_carbs_g} г углеводов
+          <p className="lbl" style={{ marginTop: 6 }}>Сгруппировано: события рядом по времени</p>
+          <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
+            {eventCount} события · {formatKcalValue(episode.total_kcal)} ккал · {formatMacroValue(episode.total_carbs_g)} г углеводов
             {insulin.length ? ` · ${insulin.length} ${insulinLabel}` : ""}
           </p>
         </div>
-        <div className="grid gap-1">
-          <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--ink-3)" }}>
             <span>Глюкоза (CGM)</span>
-              <span className="font-mono">
-                {glMin ?? "--"}–{glMax ?? "--"} ммоль/л
-              </span>
+            <span className="mono">{formatGlucose(glMin)}–{formatGlucose(glMax)} ммоль/л</span>
           </div>
           <MiniGlucoseChart entries={glucose} meals={episode.meals} />
-          {peakSummary ? (
-            <p className="text-[10px] text-[var(--muted)]">{peakSummary}</p>
-          ) : null}
+          {peakSummary ? <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 4 }}>{peakSummary}</p> : null}
         </div>
       </div>
 
-      <div className="grid">
+      <div>
         {episode.meals.map((meal) => (
-          <EpisodeMealLine
-            key={meal.id}
-            meal={meal}
-            selected={selectedMealId === meal.id}
-            onToggle={() => onMealToggle(meal.id)}
-          />
+          <EpisodeMealLine key={meal.id} meal={meal} selected={selectedMealId === meal.id} onToggle={() => onMealToggle(meal.id)} />
         ))}
         {insulin.map((event) => (
           <EpisodeInsulinRow event={event} key={event.nightscout_id ?? event.timestamp} />
@@ -446,13 +423,13 @@ function EpisodeMealLine({
       <span className="font-mono text-[13px]">{formatTime(meal.eaten_at)}</span>
       <span className="flex items-baseline gap-3 truncate">
         <span className="truncate text-[13px]">{title}</span>
-        <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+        <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
           еда / {meal.status === "accepted" ? "принято" : meal.status === "draft" ? "черновик" : meal.status}
         </span>
       </span>
       <span className="grid shrink-0 grid-cols-[64px_72px] gap-4 text-right font-mono text-[13px]">
-        <span>{meal.total_carbs_g} г</span>
-        <span>{Math.round(meal.total_kcal)} ккал</span>
+        <span>{formatMacroValue(meal.total_carbs_g)} г</span>
+        <span>{formatKcalValue(meal.total_kcal)} ккал</span>
       </span>
     </button>
   );
@@ -464,14 +441,14 @@ function EpisodeInsulinRow({
   event: NonNullable<FoodEpisodeResponse["insulin"]>[number];
 }) {
   return (
-    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-t border-[var(--hairline)] bg-[var(--surface)] px-5 py-3 text-[14px] text-[var(--muted)]">
+    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-t border-[var(--hairline)] bg-[var(--surface)] px-5 py-3 text-[14px] text-[var(--ink-3)]" style={{ opacity: 0.74 }}>
       <span className="font-mono text-[13px]">{formatTime(event.timestamp)}</span>
-      <Syringe size={14} strokeWidth={1.4} className="text-[var(--muted)]" />
+      <Syringe size={14} strokeWidth={1.4} className="text-[var(--ink-3)]" />
       <span className="grid gap-0.5">
         <span className="text-[13px]">Инсулин из Nightscout</span>
         <span className="text-[10px] uppercase tracking-[0.06em]">инсулин / ns · только чтение</span>
       </span>
-      <span className="font-mono text-[13px]">{event.insulin_units ?? "--"} ЕД</span>
+      <span className="font-mono text-[13px]">{formatMacroValue(event.insulin_units)} ЕД</span>
     </div>
   );
 }
@@ -482,14 +459,14 @@ function UngroupedInsulinRow({
   event: NonNullable<{ timestamp: string; insulin_units?: number | null; nightscout_id?: string | null }>;
 }) {
   return (
-    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-b border-[var(--hairline)] py-4 text-[14px] text-[var(--muted)]">
+    <div className="grid grid-cols-[72px_28px_1fr_auto] items-center border-b border-[var(--hairline)] py-4 text-[14px] text-[var(--ink-3)]" style={{ opacity: 0.74 }}>
       <span className="font-mono text-[13px]">{formatTime(event.timestamp)}</span>
       <Syringe size={14} strokeWidth={1.4} />
       <span className="grid gap-0.5">
         <span className="text-[13px]">Инсулин из Nightscout</span>
         <span className="text-[10px] uppercase tracking-[0.06em]">инсулин / ns · только чтение</span>
       </span>
-      <span className="font-mono text-[13px]">{event.insulin_units ?? "--"} ЕД</span>
+      <span className="font-mono text-[13px]">{formatMacroValue(event.insulin_units)} ЕД</span>
     </div>
   );
 }
@@ -505,7 +482,7 @@ function MiniGlucoseChart({
 }) {
   if (entries.length < 2) {
     return (
-      <div className="grid h-[80px] place-items-center border border-[var(--hairline)] text-[11px] text-[var(--muted)]">
+      <div className="grid h-[80px] place-items-center border border-[var(--hairline)] text-[11px] text-[var(--ink-3)]">
         CGM нет за этот период
       </div>
     );
@@ -577,16 +554,16 @@ function MiniGlucoseChart({
       role="img"
       viewBox={`0 0 ${viewBoxW} ${viewBoxH}`}
     >
-      <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padLeft - 2} y={yForValue(vHi) + 2}>
-        {vMax.toFixed(1)}
+      <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padLeft - 2} y={yForValue(vHi) + 2}>
+        {formatGlucose(vMax)}
       </text>
-      <text fill="var(--muted)" fontSize="6" textAnchor="end" x={padLeft - 2} y={yForValue(vLo) + 2}>
-        {vMin.toFixed(1)}
+      <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padLeft - 2} y={yForValue(vLo) + 2}>
+        {formatGlucose(vMin)}
       </text>
       <polyline
         fill="none"
         points={points}
-        stroke="var(--fg)"
+        stroke="var(--ink)"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1"
@@ -612,11 +589,11 @@ function MiniGlucoseChart({
           {mp.label}
         </text>
       ))}
-      <text fill="var(--muted)" fontSize="5.5" textAnchor="end" x={viewBoxW - 6} y={padTop}>
+      <text fill="var(--ink-3)" fontSize="5.5" textAnchor="end" x={viewBoxW - 6} y={padTop}>
         мин от еды
       </text>
       {tickTimestamps.map((ts) => (
-        <text fill="var(--muted)" fontSize="6" key={`t-${ts}`} textAnchor="middle" x={xForTime(ts)} y={viewBoxH - 3}>
+        <text fill="var(--ink-3)" fontSize="6" key={`t-${ts}`} textAnchor="middle" x={xForTime(ts)} y={viewBoxH - 3}>
           {relativeLabel(ts)}
         </text>
       ))}
