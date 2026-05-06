@@ -634,7 +634,7 @@ def test_multi_photo_estimate_keeps_per_item_photo_identity(
     api_client: TestClient,
     db_engine: Engine,
 ) -> None:
-    """Drink and wrap photos produce separate draft meals with their own photos."""
+    """Drink and wrap photos produce separate accepted meals with their own photos."""
     meal = _create_photo_meal(api_client)
     drink_photo = _upload_photo(api_client, meal["id"], "drink.jpg")
     wrap_photo = _upload_photo(api_client, meal["id"], "wrap.jpg")
@@ -729,13 +729,13 @@ def test_multi_photo_estimate_keeps_per_item_photo_identity(
     assert wrap_draft["totals"]["total_kcal"] == pytest.approx(375)
 
     meals = api_client.get("/meals").json()["items"]
-    draft_rows = [row for row in meals if row["status"] == "draft"]
-    assert len(draft_rows) == 2
-    assert {row["title"] for row in draft_rows} == {
+    accepted_rows = [row for row in meals if row["status"] == "accepted"]
+    assert len(accepted_rows) == 2
+    assert {row["title"] for row in accepted_rows} == {
         "Напиток энергетический",
         "Лаваш с курицей",
     }
-    assert {row["thumbnail_url"] for row in draft_rows} == {
+    assert {row["thumbnail_url"] for row in accepted_rows} == {
         f"/photos/{drink_photo['id']}/file",
         f"/photos/{wrap_photo['id']}/file",
     }
@@ -743,18 +743,7 @@ def test_multi_photo_estimate_keeps_per_item_photo_identity(
     with Session(db_engine) as session:
         daily = session.get(DailyTotal, date(2026, 4, 28))
         assert daily is not None
-        assert daily.meal_count == 0
-
-    accepted = api_client.post(
-        f"/meals/{wrap_draft['meal_id']}/accept",
-        json={"items": [wrap_draft["item"]]},
-    )
-    assert accepted.status_code == 200
-
-    with Session(db_engine) as session:
-        daily = session.get(DailyTotal, date(2026, 4, 28))
-        assert daily is not None
-        assert daily.meal_count == 1
+        assert daily.meal_count == 2
         assert daily.carbs_g == pytest.approx(34)
 
 
@@ -933,8 +922,10 @@ def test_label_full_split_identical_packages_uses_backend_calculation(
     )
 
 
-def test_split_identical_packages_save_as_one_draft_row(api_client: TestClient) -> None:
-    """Two identical packages stay one draft row with count in the title."""
+def test_split_identical_packages_save_as_one_accepted_row(
+    api_client: TestClient,
+) -> None:
+    """Two identical packages stay one accepted row with count in the title."""
     meal = _create_photo_meal(api_client)
     _upload_photo(api_client, meal["id"], "candies.jpg")
     _override_gemini(
@@ -979,7 +970,124 @@ def test_split_identical_packages_save_as_one_draft_row(api_client: TestClient) 
     rows = api_client.get("/meals").json()["items"]
     assert len(rows) == 1
     assert rows[0]["title"] == "Бисквит-сэндвич ×2"
-    assert rows[0]["status"] == "draft"
+    assert rows[0]["status"] == "accepted"
+
+
+def test_plated_visible_count_keeps_total_visible_values(
+    api_client: TestClient,
+) -> None:
+    """PLATED count is display context unless Gemini says values are per unit."""
+    meal = _create_photo_meal(api_client)
+    photo = _upload_photo(api_client, meal["id"], "crispbread.jpg")
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Crispbread",
+                    display_name_ru="Хлебцы",
+                    scenario="PLATED",
+                    item_type="plated_food",
+                    source_photo_ids=[photo["id"]],
+                    primary_photo_id=photo["id"],
+                    source_photo_indices=[1],
+                    count_detected=4,
+                    count_confidence=0.95,
+                    values_basis="total_visible",
+                    grams_mid=40,
+                    carbs_g_mid=26,
+                    protein_g_mid=4,
+                    fat_g_mid=1,
+                    fiber_g_mid=3.2,
+                    kcal_mid=132,
+                    component_estimates=[
+                        EstimatedComponent(
+                            name_ru="Хлебцы",
+                            component_type="carb_base",
+                            estimated_grams_mid=40,
+                            carbs_g_mid=26,
+                            protein_g_mid=4,
+                            fat_g_mid=1,
+                            fiber_g_mid=3.2,
+                            kcal_mid=132,
+                            visual_count=4,
+                            evidence=["4 хлебца"],
+                        )
+                    ],
+                    confidence=0.8,
+                    confidence_reason=(
+                        "Four crispbreads visible; top-level values are total."
+                    ),
+                    evidence=["Визуально 4 порции", "Типичный вес всей порции 40 г"],
+                )
+            ],
+            overall_notes="Four crispbreads.",
+        )
+    )
+
+    response = api_client.post(f"/meals/{meal['id']}/estimate", json={})
+
+    assert response.status_code == 200
+    item = response.json()["suggested_items"][0]
+    assert item["name"] == "Хлебцы"
+    assert item["grams"] == pytest.approx(40)
+    assert item["carbs_g"] == pytest.approx(26)
+    assert item["protein_g"] == pytest.approx(4)
+    assert item["fat_g"] == pytest.approx(1)
+    assert item["fiber_g"] == pytest.approx(3.2)
+    assert item["kcal"] == pytest.approx(132)
+    assert item["calculation_method"] == "visual_estimate_gemini_mid_visible_count_4"
+    assert item["evidence"]["count_detected"] == 4
+    assert item["evidence"]["values_basis"] == "total_visible"
+
+
+def test_plated_per_unit_values_can_still_multiply_count(
+    api_client: TestClient,
+) -> None:
+    """A per-unit PLATED estimate can explicitly opt into count multiplication."""
+    meal = _create_photo_meal(api_client)
+    photo = _upload_photo(api_client, meal["id"], "curd-bars.jpg")
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Curd bar",
+                    display_name_ru="Сырок глазированный",
+                    scenario="PLATED",
+                    item_type="packaged_food",
+                    source_photo_ids=[photo["id"]],
+                    primary_photo_id=photo["id"],
+                    source_photo_indices=[1],
+                    count_detected=2,
+                    count_confidence=0.9,
+                    values_basis="per_unit",
+                    grams_mid=40,
+                    carbs_g_mid=16,
+                    protein_g_mid=3,
+                    fat_g_mid=10,
+                    fiber_g_mid=0,
+                    kcal_mid=165,
+                    confidence=0.72,
+                    confidence_reason=(
+                        "Two matching bars; top-level values describe one bar."
+                    ),
+                    evidence=["На фото 2 сырка", "Вес и нутриенты указаны за 1 сырок"],
+                )
+            ],
+            overall_notes="Two curd bars with per-unit estimate.",
+        )
+    )
+
+    response = api_client.post(f"/meals/{meal['id']}/estimate", json={})
+
+    assert response.status_code == 200
+    item = response.json()["suggested_items"][0]
+    assert item["grams"] == pytest.approx(80)
+    assert item["carbs_g"] == pytest.approx(32)
+    assert item["protein_g"] == pytest.approx(6)
+    assert item["fat_g"] == pytest.approx(20)
+    assert item["kcal"] == pytest.approx(330)
+    assert item["calculation_method"] == "visual_estimate_gemini_mid_count_2"
+    assert item["evidence"]["values_basis"] == "per_unit"
 
 
 def test_label_partial_uses_assumed_volume_backend_calculation(
@@ -1540,7 +1648,7 @@ def test_estimate_and_save_draft_stores_raw_ai_run_and_items(
     api_client: TestClient,
     db_engine: Engine,
 ) -> None:
-    """Saving an estimate stores raw AI output and draft items."""
+    """Saving an estimate stores raw AI output and accepted items."""
     meal = _create_photo_meal(api_client)
     _upload_photo(api_client, meal["id"])
     _override_gemini(_plated_result())
@@ -1555,7 +1663,7 @@ def test_estimate_and_save_draft_stores_raw_ai_run_and_items(
     assert body["suggested_totals"]["total_kcal"] == 414
 
     meal_response = api_client.get(f"/meals/{meal['id']}").json()
-    assert meal_response["status"] == "draft"
+    assert meal_response["status"] == "accepted"
     assert len(meal_response["items"]) == 1
     assert meal_response["total_kcal"] == 414
     assert meal_response["photos"][0]["gemini_response_raw"]["overall_notes"]

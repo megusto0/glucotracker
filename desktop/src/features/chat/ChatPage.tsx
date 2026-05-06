@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Camera, Check, ImagePlus, X } from "lucide-react";
+import { Check, ImagePlus, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -21,7 +22,9 @@ import {
 import { StatusText } from "../../components/StatusText";
 import { FoodImage } from "../../components/FoodImage";
 import { Button } from "../../design/primitives/Button";
+import { KpiCard } from "../../design/primitives/KpiCard";
 import {
+  formatDecimal,
   formatKcal,
   formatKcalValue,
   formatMacro,
@@ -75,7 +78,7 @@ type EstimatePhase =
   | "idle"
   | "reading label"
   | "estimating portion"
-  | "building draft";
+  | "saving entry";
 
 type ReestimateModel =
   | "default"
@@ -90,6 +93,11 @@ type DayTotals = {
   protein: number;
   fat: number;
   fiber: number;
+};
+
+type MealTimeGroup = {
+  meals: MealResponse[];
+  time: string;
 };
 
 const formatTodayTitle = (date: Date) =>
@@ -162,6 +170,24 @@ const sumDayTotals = (meals: MealResponse[]): DayTotals =>
       { carbs: 0, kcal: 0, protein: 0, fat: 0, fiber: 0 },
     );
 
+const groupMealsByTime = (meals: MealResponse[]): MealTimeGroup[] => {
+  const groups: MealTimeGroup[] = [];
+  meals.forEach((meal) => {
+    const time = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hour12: false,
+      minute: "2-digit",
+    }).format(new Date(meal.eaten_at));
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.time === time) {
+      lastGroup.meals.push(meal);
+      return;
+    }
+    groups.push({ time, meals: [meal] });
+  });
+  return groups;
+};
+
 const namespaceCommandPattern = /^([a-zA-Zа-яА-Я0-9_-]+):(.*)$/;
 
 const findCommandToken = (value: string) => {
@@ -226,7 +252,7 @@ const itemConfidenceTone = (confidence?: number | null) => {
 const estimatePhaseText: Record<Exclude<EstimatePhase, "idle">, string> = {
   "reading label": "читаю этикетку",
   "estimating portion": "оцениваю порцию",
-  "building draft": "собираю черновик",
+  "saving entry": "сохраняю запись",
 };
 
 const supportedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -311,66 +337,6 @@ const extractFilesFromClipboard = (clipboardData: DataTransfer) => {
       );
 };
 
-type MealItemResponse = NonNullable<MealResponse["items"]>[number];
-
-const mealItemToCreate = (
-  item: MealItemResponse,
-  position: number,
-): MealItemCreate => ({
-  name: item.name,
-  brand: item.brand,
-  grams: item.grams,
-  serving_text: item.serving_text,
-  carbs_g: item.carbs_g,
-  protein_g: item.protein_g,
-  fat_g: item.fat_g,
-  fiber_g: item.fiber_g,
-  kcal: item.kcal,
-  confidence: item.confidence,
-  confidence_reason: item.confidence_reason,
-  source_kind: item.source_kind,
-  calculation_method: item.calculation_method,
-  assumptions: item.assumptions ?? [],
-  evidence: item.evidence ?? {},
-  warnings: item.warnings ?? [],
-  pattern_id: item.pattern_id,
-  product_id: item.product_id,
-  photo_id: item.photo_id,
-  position,
-});
-
-const mealItemsToCreate = (meal: MealResponse): MealItemCreate[] =>
-  (meal.items ?? []).map((item, index) => mealItemToCreate(item, index));
-
-const mealToDraftEstimation = (meal: MealResponse): EstimateMealResponse => ({
-  meal_id: meal.id,
-  source_photos: (meal.photos ?? []).map((photo, index) => ({
-    id: photo.id,
-    index: index + 1,
-    url: `/photos/${photo.id}/file`,
-    thumbnail_url: `/photos/${photo.id}/file`,
-    original_filename: photo.original_filename,
-  })),
-  suggested_items: mealItemsToCreate(meal),
-  suggested_totals: {
-    total_carbs_g: meal.total_carbs_g,
-    total_protein_g: meal.total_protein_g,
-    total_fat_g: meal.total_fat_g,
-    total_fiber_g: meal.total_fiber_g,
-    total_kcal: meal.total_kcal,
-  },
-  calculation_breakdowns: [],
-  gemini_notes: "",
-  image_quality_warnings:
-    meal.items?.flatMap((item) =>
-      (item.warnings ?? []).map((warning) => String(warning)),
-    ) ?? [],
-  reference_detected: meal.photos?.[0]?.reference_kind ?? "none",
-  ai_run_id: meal.id,
-  raw_gemini_response: meal.photos?.find((photo) => photo.gemini_response_raw)
-    ?.gemini_response_raw,
-});
-
 const confirmDiscardDraft = () => {
   try {
     const confirmed = window.confirm(
@@ -390,6 +356,7 @@ export function ChatPage() {
   );
   const meals = useMealsForDate(selectedDate);
   const [input, setInput] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [chips, setChips] = useState<Chip[]>([]);
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -414,16 +381,15 @@ export function ChatPage() {
   const [estimateItems, setEstimateItems] = useState<MealItemCreate[]>([]);
   const [estimateEdited, setEstimateEdited] = useState(false);
   const [estimateContextNote, setEstimateContextNote] = useState("");
-  const [selectedDraftItems, setSelectedDraftItems] = useState<
-    MealItemCreate[]
-  >([]);
-  const [selectedDraftEdited, setSelectedDraftEdited] = useState(false);
   const [estimateModel, setEstimateModel] = useState<EstimateModel>("default");
   const [reestimateModel, setReestimateModel] =
     useState<ReestimateModel>("gemini-3-flash-preview");
   const [reestimateComparison, setReestimateComparison] =
     useState<ReestimateMealResponse | null>(null);
   const [reestimateError, setReestimateError] = useState<string | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    window.innerWidth,
+  );
 
   const commandToken = findCommandToken(input);
   const plainAutocompleteQuery = input.trim();
@@ -444,6 +410,11 @@ export function ChatPage() {
     }, 150);
     return () => window.clearTimeout(timer);
   }, [autocompleteQuery]);
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const autocomplete = useQuery({
     queryKey: ["autocomplete", debouncedCommand],
@@ -454,6 +425,8 @@ export function ChatPage() {
   const today = startOfLocalDay(new Date());
   const isViewingToday = isSameLocalDay(selectedDate, today);
   const todayMeals = meals.data?.items ?? [];
+  const mealTimeGroups = useMemo(() => groupMealsByTime(todayMeals), [todayMeals]);
+  const showContextHelp = isInputFocused || todayMeals.length === 0;
   const dayTotals = sumDayTotals(todayMeals);
   const selectedDayKey = localDateKey(selectedDate);
   const nightscoutDay = useNightscoutDayStatus(selectedDayKey);
@@ -462,11 +435,6 @@ export function ChatPage() {
   const resyncMealNightscout = useResyncMealToNightscout(selectedDayKey);
   const selectedMeal =
     todayMeals.find((meal) => meal.id === selectedMealId) ?? null;
-  const selectedDraftMeal =
-    selectedMeal?.status === "draft" ? selectedMeal : null;
-  const selectedDraftEstimation = selectedDraftMeal
-    ? mealToDraftEstimation(selectedDraftMeal)
-    : null;
 
   const panelMode = batchEstimation
     ? "batch"
@@ -474,23 +442,11 @@ export function ChatPage() {
       ? "estimate"
       : autocompleteOpen
         ? "autocomplete"
-        : pendingPhotos.length || photoPanelOpen
-          ? "photos"
-          : selectedDraftMeal
-            ? "draft"
-            : selectedMeal
-              ? "meal"
-              : null;
-
-  useEffect(() => {
-    if (!selectedDraftMeal) {
-      setSelectedDraftItems([]);
-      setSelectedDraftEdited(false);
-      return;
-    }
-    setSelectedDraftItems(mealItemsToCreate(selectedDraftMeal));
-    setSelectedDraftEdited(false);
-  }, [selectedDraftMeal?.id, selectedDraftMeal?.updated_at]);
+      : pendingPhotos.length || photoPanelOpen
+        ? "photos"
+        : selectedMeal
+          ? "meal"
+          : null;
 
   useEffect(() => {
     setReestimateComparison(null);
@@ -621,7 +577,7 @@ export function ChatPage() {
         setUploadedPhotosMealId(mealId);
       }
 
-      setEstimatePhase("building draft");
+      setEstimatePhase("saving entry");
       return apiClient.estimateAndSaveDraft(config, mealId, {
         use_patterns: [],
         use_products: [],
@@ -630,21 +586,11 @@ export function ChatPage() {
       });
     },
     onSuccess: (result) => {
-      const createdDrafts = result.created_drafts ?? [];
-      if (createdDrafts.length > 1) {
-        setBatchEstimation(result);
-        setEstimation(null);
-        setEstimateItems([]);
-        setDraftMealId(null);
-      } else {
-        setBatchEstimation(null);
-        setEstimation(result);
-        setEstimateItems(result.suggested_items);
-        setDraftMealId(createdDrafts[0]?.meal_id ?? result.meal_id);
-      }
-      setEstimateEdited(false);
+      const createdRows = result.created_drafts ?? [];
+      const createdMealId = createdRows[0]?.meal_id ?? result.meal_id;
+      clearEstimate();
+      setSelectedMealId(createdMealId);
       setEstimatePhase("idle");
-      clearPendingPhotos();
       setEstimateContextNote("");
       invalidateMeals();
     },
@@ -681,39 +627,6 @@ export function ChatPage() {
     },
     onSuccess: () => {
       clearEstimate();
-      invalidateMeals();
-    },
-  });
-
-  const acceptSelectedDraft = useMutation({
-    mutationFn: async () => {
-      if (!selectedDraftMeal) {
-        throw new Error("Нет выбранного черновика.");
-      }
-      return apiClient.acceptMeal(
-        config,
-        selectedDraftMeal.id,
-        selectedDraftItems,
-      );
-    },
-    onSuccess: (meal) => {
-      setSelectedMealId(meal.id);
-      setSelectedDraftEdited(false);
-      invalidateMeals();
-    },
-  });
-
-  const discardSelectedDraft = useMutation({
-    mutationFn: async () => {
-      if (!selectedDraftMeal) {
-        throw new Error("Нет выбранного черновика.");
-      }
-      return apiClient.discardMeal(config, selectedDraftMeal.id);
-    },
-    onSuccess: () => {
-      setSelectedMealId(null);
-      setSelectedDraftItems([]);
-      setSelectedDraftEdited(false);
       invalidateMeals();
     },
   });
@@ -965,12 +878,6 @@ export function ChatPage() {
     if (estimation && draftMealId && estimateEdited) {
       saveDraftItems.mutate({ mealId: draftMealId, items: estimateItems });
     }
-    if (selectedDraftMeal && selectedDraftEdited) {
-      saveDraftItems.mutate({
-        mealId: selectedDraftMeal.id,
-        items: selectedDraftItems,
-      });
-    }
   };
 
   const handleMealToggle = (meal: MealResponse) => {
@@ -990,8 +897,6 @@ export function ChatPage() {
 
   const clearActivePanelState = () => {
     setSelectedMealId(null);
-    setSelectedDraftItems([]);
-    setSelectedDraftEdited(false);
     setPhotoPanelOpen(false);
     setReestimateComparison(null);
     setReestimateError(null);
@@ -1028,6 +933,22 @@ export function ChatPage() {
     ? "Сегодня пока нет записей."
     : `За ${formatDayTitle(selectedDate)} пока нет записей.`;
   const dayNavLabel = isViewingToday ? "Сегодня" : formatDayTitle(selectedDate);
+  const canSubmitMeal = Boolean(chips.length || input.trim());
+  const hasPendingPhotos = pendingPhotos.length > 0;
+  const primaryCtaLabel = hasPendingPhotos ? "Оценить фото" : "Добавить запись";
+  const primaryCtaPending = hasPendingPhotos
+    ? estimateDraft.isPending
+    : createMeal.isPending;
+  const desktopPanelWidth = viewportWidth >= 1280 ? 384 : 320;
+  const hasDesktopPanel = Boolean(panelMode && viewportWidth >= 744);
+  const handlePrimaryCta = () => {
+    if (hasPendingPhotos) {
+      setPhotoPanelOpen(true);
+      estimateDraft.mutate();
+      return;
+    }
+    handleSubmit();
+  };
 
   return (
     <div
@@ -1042,7 +963,7 @@ export function ChatPage() {
           display: "flex",
           minHeight: "100%",
           transition: "padding-right 0.2s ease-out",
-          paddingRight: panelMode ? 420 : 0,
+          paddingRight: hasDesktopPanel ? desktopPanelWidth : 0,
         }}
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -1050,7 +971,7 @@ export function ChatPage() {
             <div className="gt-crumbs" style={{ marginBottom: 4 }}>
               <span>{formatDayWeekday(selectedDate)}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginBottom: 14 }}>
               <h1 className="gt-h1" style={{ fontFamily: "var(--mono)", fontSize: 36 }}>
                 {formatDayTitle(selectedDate)}
               </h1>
@@ -1061,44 +982,92 @@ export function ChatPage() {
               </div>
             </div>
             <DailySummary totals={dayTotals} />
-            <div className="ns-strip">
-              <span className="dot-marker" style={{ background: nightscoutDay.data?.connected ? "var(--good)" : "var(--hairline)" }} />
-              <span>{nightscoutDay.data?.connected ? "Nightscout подключён" : "Nightscout не подключён"}</span>
-              {nightscoutDay.data?.configured ? (
-                <>
-                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>несинхронизировано: <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{nightscoutDay.data.unsynced_meals_count}</b></span>
-                  {nightscoutDay.data.last_sync_at ? (
-                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>последняя синхронизация:{" "}
-                      {new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(nightscoutDay.data.last_sync_at))}
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                <a className="btn-link" href="/settings">Настроить</a>
-              )}
-              <span className="spacer" />
-              <button className="btn" disabled={!nightscoutDay.data?.configured || !nightscoutDay.data?.connected || !nightscoutDay.data?.unsynced_meals_count || syncTodayNightscout.isPending}
-                onClick={() => syncTodayNightscout.mutate()} type="button">
-                {syncTodayNightscout.isPending ? "Отправляю..." : "Отправить день в Nightscout"}
-              </button>
-            </div>
-            {syncTodayNightscout.data ? (
-              <div className="ns-strip" style={{ marginTop: 0, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-                <span style={{ width: "100%", fontSize: 12, color: "var(--ink)" }}>
-                  Отправлено: {syncTodayNightscout.data.sent_count}, пропущено: {syncTodayNightscout.data.skipped_count}, ошибок: {syncTodayNightscout.data.failed_count}
+            <div className="ns-strip ns-strip-compact">
+              <span
+                className="dot-marker"
+                style={{
+                  background: nightscoutDay.data?.connected
+                    ? "var(--good)"
+                    : "var(--hairline-2)",
+                }}
+              />
+              <span className="mono" style={{ fontSize: 11 }}>
+                {nightscoutDay.data?.configured
+                  ? `NS · ${nightscoutDay.data.unsynced_meals_count} несинхр.`
+                  : "NS не настроен"}
+              </span>
+              {nightscoutDay.data?.last_sync_at ? (
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  обновлено{" "}
+                  {new Intl.DateTimeFormat("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }).format(new Date(nightscoutDay.data.last_sync_at))}
                 </span>
-              </div>
-            ) : null}
+              ) : null}
+              {syncTodayNightscout.data ? (
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  отправлено {syncTodayNightscout.data.sent_count} · ошибок{" "}
+                  {syncTodayNightscout.data.failed_count}
+                </span>
+              ) : null}
+              <span className="spacer" />
+              {nightscoutDay.data?.configured ? (
+                <button
+                  className="btn"
+                  disabled={
+                    !nightscoutDay.data?.connected ||
+                    !nightscoutDay.data?.unsynced_meals_count ||
+                    syncTodayNightscout.isPending
+                  }
+                  onClick={() => syncTodayNightscout.mutate()}
+                  type="button"
+                >
+                  {syncTodayNightscout.isPending ? "Отправляю..." : "Синхронизировать"}
+                </button>
+              ) : (
+                <a className="btn-link" href="/settings">
+                  Настроить
+                </a>
+              )}
+            </div>
           </header>
 
-          <section style={{ marginTop: 6, flex: 1, minHeight: 0 }}>
-            <div className="card" style={{ padding: "8px 16px" }}>
-            {!config.token.trim() ? <EmptyLog message="Укажите адрес backend и токен в настройках." /> : null}
-            {config.token.trim() && meals.isLoading ? <EmptyLog message="Загружаю еду." /> : null}
-            {config.token.trim() && meals.isSuccess && !todayMeals.length ? <EmptyLog message={emptyDayMessage} /> : null}
-            {todayMeals.map((meal) => (
-              <MealRow key={meal.id} meal={meal} selected={selectedMealId === meal.id} onToggle={() => handleMealToggle(meal)} />
-            ))}
+          <section style={{ marginTop: 10, flex: 1, minHeight: 0 }}>
+            <div className="card" style={{ padding: "10px 12px", height: "100%" }}>
+              {!config.token.trim() ? (
+                <EmptyLog message="Укажите адрес backend и токен в настройках." />
+              ) : null}
+              {config.token.trim() && meals.isLoading ? (
+                <EmptyLog message="Загружаю еду." />
+              ) : null}
+              {config.token.trim() && meals.isSuccess && !todayMeals.length ? (
+                <EmptyLog message={emptyDayMessage} />
+              ) : null}
+              {mealTimeGroups.map((group) => (
+                <div className="meal-time-group" key={`${group.time}-${group.meals[0]?.id}`}>
+                  {group.meals.map((meal, index) => {
+                    const position =
+                      group.meals.length === 1
+                        ? "single"
+                        : index === 0
+                          ? "start"
+                          : index === group.meals.length - 1
+                            ? "end"
+                            : "middle";
+                    return (
+                      <MealRow
+                        groupPosition={position}
+                        key={meal.id}
+                        meal={meal}
+                        onToggle={() => handleMealToggle(meal)}
+                        selected={selectedMealId === meal.id}
+                        showTime={index === 0}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </section>
 
@@ -1139,17 +1108,36 @@ export function ChatPage() {
               </div>
             ) : null}
 
-            <div className="row gap-12" style={{ alignItems: "center" }}>
-              <div className="input-bar" style={{ flex: 1, borderColor: panelMode === "autocomplete" ? "var(--ink)" : "var(--hairline-2)" }}>
-                <button className="btn icon" style={{ border: "none", background: "transparent" }} type="button" onClick={() => commandInputRef.current?.focus()}>
+            <div className="row gap-8" style={{ alignItems: "center" }}>
+              <div
+                className="input-bar"
+                style={{
+                  flex: 1,
+                  borderColor:
+                    panelMode === "autocomplete"
+                      ? "var(--ink)"
+                      : "var(--hairline-2)",
+                }}
+              >
+                <button
+                  aria-label="Добавить фото"
+                  className="btn icon"
+                  style={{ border: "none", background: "transparent" }}
+                  type="button"
+                  onClick={() => {
+                    setPhotoPanelOpen(true);
+                    imageInputRef.current?.click();
+                  }}
+                >
                   <ImagePlus size={15} />
                 </button>
-                <span className="mono" style={{ color: "var(--ink-4)", flexShrink: 0 }}>{">"}</span>
                 <input
                   id="command-input"
+                  onBlur={() => setIsInputFocused(false)}
                   onChange={(event) => { setInput(event.target.value); setAutocompleteDismissedToken(""); }}
+                  onFocus={() => setIsInputFocused(true)}
                   onKeyDown={handleKeyDown}
-                  placeholder="bk:whopper · введите еду или используйте префикс bk: / mc:"
+                  placeholder="Введите еду, вес или комментарий"
                   ref={commandInputRef}
                   value={input}
                 />
@@ -1157,12 +1145,23 @@ export function ChatPage() {
                   <button aria-label="Очистить команду" className="btn icon" style={{ border: "none", background: "transparent", color: "var(--ink-3)" }}
                     onClick={() => { setInput(""); setAutocompleteDismissedToken(""); }} type="button"><X size={14} /></button>
                 ) : null}
-                <button className="send-btn" aria-label="Записать" disabled={createMeal.isPending} onClick={handleSubmit} type="button">
-                  <ArrowRight size={16} />
-                </button>
+                {hasPendingPhotos ? (
+                  <span className="tag accent" style={{ marginLeft: 4 }}>
+                    фото: {pendingPhotos.length}
+                  </span>
+                ) : null}
               </div>
-              <button className="btn" type="button" onClick={() => { setPhotoPanelOpen(true); imageInputRef.current?.click(); }}>
-                <Camera size={14} /> Фото
+              <button
+                className="btn dark"
+                disabled={
+                  primaryCtaPending ||
+                  (!hasPendingPhotos && !canSubmitMeal)
+                }
+                onClick={handlePrimaryCta}
+                style={{ minWidth: 164, justifyContent: "center" }}
+                type="button"
+              >
+                {primaryCtaPending ? "Выполняю..." : primaryCtaLabel}
               </button>
               <input
                 accept="image/jpeg,image/png,image/webp" aria-label="Выбрать фото" className="sr-only" multiple
@@ -1170,14 +1169,12 @@ export function ChatPage() {
                 ref={imageInputRef} type="file"
               />
             </div>
-            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 8, marginLeft: 4 }}>
-              подсказки: <span className="mono">bk:</span> Burger King · <span className="mono">mc:</span> McDonald's · перетащите фото — Gemini оценит макросы
-            </div>
+            {showContextHelp ? <ComposerHelp isEmpty={!todayMeals.length} /> : null}
           </section>
         </div>
 
         {panelMode ? (
-          <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
+          <div className="gt-rightpanel gt-rightpanel-open">
             <button onClick={clearActivePanelState} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>
               <X size={16} />
             </button>
@@ -1264,32 +1261,6 @@ export function ChatPage() {
                 updateWeightPending={updateItemWeight.isPending}
               />
             ) : null}
-            {panelMode === "draft" && selectedDraftEstimation ? (
-              <EstimatePanel
-                edited={selectedDraftEdited}
-                estimation={selectedDraftEstimation}
-                items={selectedDraftItems}
-                onChangeItem={(index, next) => {
-                  setSelectedDraftItems((current) =>
-                    current.map((item, itemIndex) =>
-                      itemIndex === index ? { ...item, ...next } : item,
-                    ),
-                  );
-                  setSelectedDraftEdited(true);
-                }}
-                onDiscard={() => {
-                  if (confirmDiscardDraft()) {
-                    discardSelectedDraft.mutate();
-                  }
-                }}
-                onSave={() => acceptSelectedDraft.mutate()}
-                saving={
-                  acceptSelectedDraft.isPending ||
-                  discardSelectedDraft.isPending ||
-                  saveDraftItems.isPending
-                }
-              />
-            ) : null}
             {panelMode === "photos" ? (
               <PendingPhotoPanel
                 contextNote={estimateContextNote}
@@ -1336,37 +1307,89 @@ export function ChatPage() {
 function DailySummary({ totals }: { totals: DayTotals }) {
   const carbPct = Math.round((totals.carbs / 225) * 100);
   const kcalPct = Math.round((totals.kcal / 2200) * 100);
+  const proteinPct = Math.round((totals.protein / 120) * 100);
+  const remainingKcal = Math.max(0, 2200 - totals.kcal);
+  const remainingPct = Math.max(0, Math.round((remainingKcal / 2200) * 100));
   return (
-    <section className="kpi" style={{ marginBottom: 14 }}>
-      <div>
-        <div className="lbl">углеводы</div>
-        <div className="kpi-val" style={{ marginTop: 8 }}>{numberLabel(totals.carbs)}<span className="u">г</span></div>
-        <div className="pbar accent" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, carbPct)}%` }} /></div>
-        <div className="kpi-sub">цель 225 г · <span className="mono">{carbPct}%</span></div>
-      </div>
-      <div>
-        <div className="lbl">ккал</div>
-        <div className="kpi-val" style={{ marginTop: 8 }}>{numberLabel(totals.kcal)}<span className="u">ккал</span></div>
-        <div className="pbar good" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, kcalPct)}%` }} /></div>
-        <div className="kpi-sub">цель 2200 · <span className="mono">{kcalPct}%</span></div>
-      </div>
-      <div>
-        <div className="lbl">белки · жиры · клетчатка</div>
-        <div className="row gap-12" style={{ marginTop: 8, alignItems: "baseline" }}>
-          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.protein)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Б</span></span>
-          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.fat)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Ж</span></span>
-          <span className="mono" style={{ fontSize: 20, fontWeight: 500 }}>{numberLabel(totals.fiber)}<span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 2 }}>г Кл</span></span>
-        </div>
-        <div className="kpi-sub" style={{ marginTop: 10 }}>дневная сводка</div>
-      </div>
-      <div>
-        <div className="lbl">ккал / TDEE</div>
-        <div className="kpi-val" style={{ marginTop: 8 }}>
-          {numberLabel(totals.kcal)}<span className="u">ккал</span>
-        </div>
-        <div className="kpi-sub" style={{ marginTop: 10 }}>дневная цель 2200</div>
-      </div>
+    <section className="gt-kpi-grid" style={{ marginBottom: 14 }}>
+      <KpiCard
+        data-testid="kpi-kcal"
+        label="ккал"
+        progress={kcalPct / 100}
+        progressTone="good"
+        sub={
+          <>
+            цель 2200 · <span className="mono">{kcalPct}%</span>
+          </>
+        }
+        unit="ккал"
+        value={numberLabel(totals.kcal)}
+      />
+      <KpiCard
+        data-testid="kpi-protein"
+        label="белки"
+        progress={proteinPct / 100}
+        progressTone="neutral"
+        sub={
+          <>
+            цель 120 г · <span className="mono">{proteinPct}%</span>
+          </>
+        }
+        unit="г"
+        value={numberLabel(totals.protein)}
+      />
+      <KpiCard
+        data-testid="kpi-carbs"
+        label="углеводы"
+        progress={carbPct / 100}
+        progressTone="accent"
+        sub={
+          <>
+            цель 225 г · <span className="mono">{carbPct}%</span>
+          </>
+        }
+        unit="г"
+        value={numberLabel(totals.carbs)}
+      />
+      <KpiCard
+        data-testid="kpi-remaining"
+        label="осталось до цели"
+        progress={remainingPct / 100}
+        progressTone="neutral"
+        sub={`${remainingPct}% от цели`}
+        title="Осталось до цели = max(2200 - дневные ккал, 0)"
+        unit="ккал"
+        value={numberLabel(remainingKcal)}
+        valueSize={22}
+      />
     </section>
+  );
+}
+
+function ComposerHelp({ isEmpty }: { isEmpty: boolean }) {
+  return (
+    <div
+      className="card"
+      style={{
+        marginTop: 8,
+        padding: "8px 10px",
+        fontSize: 11,
+        color: "var(--ink-3)",
+      }}
+    >
+      <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+        <span>
+          Быстрые команды: <span className="mono">bk:</span>,{" "}
+          <span className="mono">mc:</span>
+        </span>
+        <span>Фото можно добавить кнопкой слева или перетаскиванием.</span>
+        {isEmpty ? (
+          <span style={{ color: "var(--ink)" }}>
+            Дневник пуст: добавьте первую запись или оцените фото.
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -1782,7 +1805,7 @@ function EstimatePanel({
   const confidenceLabel =
     confidence === null || confidence === undefined
       ? "--"
-      : confidence.toFixed(2);
+      : formatDecimal(confidence, 2);
   const assumptions = (
     primaryBreakdown?.assumptions ??
     items.flatMap((item) =>
@@ -2021,7 +2044,7 @@ function EstimatePanel({
                       уверенность{" "}
                       {item.confidence === null || item.confidence === undefined
                         ? "--"
-                        : item.confidence.toFixed(2)}
+                        : formatDecimal(item.confidence, 2)}
                     </span>
                   </div>
                   {item.confidence_reason ? (

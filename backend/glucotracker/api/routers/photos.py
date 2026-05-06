@@ -823,7 +823,7 @@ def _save_suggested_items_as_drafts(
     photos: list[Photo],
     session: SessionDep,
 ) -> list[EstimateCreatedDraftResponse]:
-    """Persist estimated items as one editable draft journal row per item."""
+    """Persist estimated items as accepted journal rows."""
     created: list[EstimateCreatedDraftResponse] = []
     moved_photo_ids: set[UUID] = set()
     original_items = list(result.items)
@@ -839,14 +839,14 @@ def _save_suggested_items_as_drafts(
                 eaten_at=source_meal.eaten_at,
                 title=_draft_title(item),
                 note=source_meal.note,
-                status=MealStatus.draft,
+                status=MealStatus.accepted,
                 source=MealSource.photo,
             )
             session.add(draft_meal)
             session.flush()
         else:
             draft_meal.title = _draft_title(item)
-            draft_meal.status = MealStatus.draft
+            draft_meal.status = MealStatus.accepted
             draft_meal.source = MealSource.photo
 
         item.position = 0
@@ -1341,7 +1341,7 @@ def estimate_and_save_meal_draft(
     session: SessionDep,
     gemini_client: GeminiClientDep,
 ) -> EstimateMealResponse:
-    """Estimate draft items from meal photos and save them to the draft meal."""
+    """Estimate items from meal photos and save them as accepted journal rows."""
     return _photo_estimation_service(session, gemini_client).estimate(
         meal_id=meal_id,
         payload=payload,

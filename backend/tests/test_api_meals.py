@@ -303,6 +303,64 @@ def test_accept_meal_draft_replaces_items_and_accepts(api_client: TestClient) ->
     assert body["total_kcal"] == 365
 
 
+def test_accept_meal_draft_with_empty_payload_keeps_draft_items(
+    api_client: TestClient,
+) -> None:
+    """Empty accept payloads use saved draft items instead of clearing them."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(
+            source="photo",
+            status="draft",
+            items=[
+                {
+                    "name": "Choco pie",
+                    "grams": 28,
+                    "carbs_g": 16.2,
+                    "protein_g": 1.5,
+                    "fat_g": 5.9,
+                    "fiber_g": 0,
+                    "kcal": 116,
+                    "source_kind": "photo_estimate",
+                    "confidence": 0.8,
+                }
+            ],
+        ),
+    ).json()
+
+    accepted = api_client.post(
+        f"/meals/{created['id']}/accept",
+        json={"items": []},
+    )
+
+    assert accepted.status_code == 200
+    body = accepted.json()
+    assert body["status"] == "accepted"
+    assert len(body["items"]) == 1
+    assert body["items"][0]["name"] == "Choco pie"
+    assert body["total_carbs_g"] == pytest.approx(16.2)
+    assert body["total_kcal"] == pytest.approx(116)
+
+
+def test_accept_empty_meal_draft_is_rejected(api_client: TestClient) -> None:
+    """A draft with no items cannot become an accepted zero-total meal."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(source="photo", status="draft", items=[]),
+    ).json()
+
+    accepted = api_client.post(
+        f"/meals/{created['id']}/accept",
+        json={"items": []},
+    )
+
+    assert accepted.status_code == 422
+    assert accepted.json()["detail"] == "Draft has no items to accept."
+    meal = api_client.get(f"/meals/{created['id']}").json()
+    assert meal["status"] == "draft"
+    assert meal["items"] == []
+
+
 def test_accept_label_calc_item_remembers_product(
     api_client: TestClient,
     db_engine: Engine,

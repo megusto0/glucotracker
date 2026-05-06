@@ -993,7 +993,15 @@ def accept_meal(
 ) -> Meal:
     """Accept a draft by atomically replacing Gemini-suggested items."""
     meal = _get_meal(session, meal_id)
-    final_items = [_build_item(item, meal.id, session) for item in payload.items]
+    if payload.items:
+        final_items = [_build_item(item, meal.id, session) for item in payload.items]
+    else:
+        final_items = list(meal.items)
+    if not final_items:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Draft has no items to accept.",
+        )
     ProductMemoryService(session).remember_items(final_items)
     for item in final_items:
         _increment_usage_counters(session, item)

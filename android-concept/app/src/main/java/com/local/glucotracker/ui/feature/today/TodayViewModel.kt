@@ -1,0 +1,515 @@
+package com.local.glucotracker.ui.feature.today
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.data.settings.SettingsStore
+import com.local.glucotracker.domain.model.CachedView
+import com.local.glucotracker.domain.model.DayTotals
+import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.Meal
+import com.local.glucotracker.domain.model.OutboxItem
+import com.local.glucotracker.domain.model.OutboxKind
+import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.SyncStatus
+import com.local.glucotracker.domain.model.UserGoals
+import com.local.glucotracker.domain.repository.GlucoseRepository
+import com.local.glucotracker.domain.repository.OutboxRepository
+import com.local.glucotracker.domain.repository.SyncRepository
+import com.local.glucotracker.domain.repository.TodayRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
+
+sealed interface TodayState {
+    data object Loading : TodayState
+    data class Empty(
+        val date: LocalDate,
+        val syncStatus: SyncStatus,
+        val isRefreshing: Boolean,
+        val canGoNext: Boolean,
+    ) : TodayState
+    data class Day(
+        val date: LocalDate,
+        val totals: DayTotals,
+        val goals: UserGoals,
+        val rows: List<TodayMealRowUi>,
+        val pendingQueueCount: Int,
+        val glucose: MiniGlucoseUiState,
+        val syncStatus: SyncStatus,
+        val isRefreshing: Boolean,
+        val lastAddedId: String?,
+        val canGoNext: Boolean,
+    ) : TodayState
+}
+
+data class TodayMealRowUi(
+    val id: String,
+    val recordId: String?,
+    val outboxId: String?,
+    val draftOutboxId: String?,
+    val kind: TodayMealRowKind,
+    val eatenAt: Instant,
+    val title: String?,
+    val source: TodayMealSource,
+    val status: TodayMealStatus,
+    val photo: String?,
+    val totalKcal: Double?,
+    val totalCarbsG: Double?,
+    val totalProteinG: Double?,
+    val totalFatG: Double?,
+)
+
+enum class TodayMealRowKind {
+    Accepted,
+    Pending,
+}
+
+enum class TodayMealSource {
+    Photo,
+    Pattern,
+    Manual,
+    Mixed,
+    Text,
+}
+
+enum class TodayMealStatus {
+    Accepted,
+    Draft,
+    Estimating,
+    EstimateReady,
+    Queued,
+    Conflict,
+}
+
+sealed interface MiniGlucoseUiState {
+    data object Empty : MiniGlucoseUiState
+    data class Reading(
+        val valueMmol: Double,
+        val deltaMmol: Double?,
+        val minutesAgo: Int,
+        val points: List<Double>,
+    ) : MiniGlucoseUiState
+}
+
+@HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
+class TodayViewModel @Inject constructor(
+    private val todayRepository: TodayRepository,
+    private val outboxRepository: OutboxRepository,
+    private val glucoseRepository: GlucoseRepository,
+    private val syncRepository: SyncRepository,
+    settingsStore: SettingsStore,
+) : ViewModel() {
+    private val selectedDate = MutableStateFlow(currentLocalDate())
+    private val refreshTick = MutableStateFlow(0)
+
+    private val dayView = combine(selectedDate, refreshTick) { date, _ -> date }
+        .flatMapLatest { date -> todayRepository.observeDay(date) }
+
+    private val glucoseView = refreshTick
+        .flatMapLatest { glucoseRepository.observeRange(lastSixHoursFromNow(), Clock.System.now()) }
+
+    private val coreState = combine(
+        selectedDate,
+        dayView,
+        outboxRepository.observe(),
+        syncRepository.observeStatus(),
+    ) { date, cachedDay, outbox, syncStatus ->
+        TodayCoreState(
+            date = date,
+            cachedDay = cachedDay,
+            outbox = outbox,
+            syncStatus = syncStatus,
+        )
+    }
+
+    val state = combine(
+        coreState,
+        glucoseView,
+        settingsStore.userGoals,
+    ) { core, glucose, goals ->
+        toTodayState(
+            date = core.date,
+            cachedDay = core.cachedDay,
+            outbox = core.outbox,
+            syncStatus = core.syncStatus,
+            glucose = glucose,
+            goals = goals,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = TodayState.Loading,
+    )
+
+    init {
+        requestSyncInBackground()
+    }
+
+    fun refresh() {
+        refreshTick.value += 1
+        requestSyncInBackground()
+    }
+
+    fun previousDay() {
+        selectedDate.value = selectedDate.value.plus(DatePeriod(days = -1))
+    }
+
+    fun nextDay() {
+        if (selectedDate.value < currentLocalDate()) {
+            selectedDate.value = selectedDate.value.plus(DatePeriod(days = 1))
+        }
+    }
+
+    fun deleteRow(row: TodayMealRowUi) {
+        viewModelScope.launch {
+            if (row.kind == TodayMealRowKind.Pending && row.outboxId != null) {
+                outboxRepository.remove(row.outboxId)
+            } else if (row.recordId != null) {
+                outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = row.recordId))
+            }
+        }
+    }
+
+    private fun requestSyncInBackground() {
+        viewModelScope.launch {
+            runCatching { syncRepository.requestSync() }
+        }
+    }
+}
+
+private data class TodayCoreState(
+    val date: LocalDate,
+    val cachedDay: CachedView<com.local.glucotracker.domain.model.DayState>,
+    val outbox: List<OutboxItem>,
+    val syncStatus: SyncStatus,
+)
+
+private fun toTodayState(
+    date: LocalDate,
+    cachedDay: CachedView<com.local.glucotracker.domain.model.DayState>,
+    outbox: List<OutboxItem>,
+    syncStatus: SyncStatus,
+    glucose: CachedView<GlucoseRange>,
+    goals: UserGoals,
+): TodayState {
+    val day = cachedDay.value
+    val serverMeals = day?.meals.orEmpty()
+    val acceptedMeals = serverMeals.filter { it.isAcceptedStatus() }
+    val backendDrafts = serverMeals.filter { it.isDraftStatus() }
+    val activeOutbox = outbox.filter { it.state.isActiveQueueState() }
+        .filterNot { item -> item.isAlreadyAccepted(acceptedMeals) }
+    val pendingCount = activeOutbox.count { item -> item.affectsDay(date, acceptedMeals) }
+    val visibleSyncStatus = syncStatus.copy(
+        queueDepth = activeOutbox.count { item -> item.state.countsInSyncQueue() },
+    )
+    val rows = buildRows(date, acceptedMeals, backendDrafts, activeOutbox)
+
+    if (day == null && rows.isEmpty()) {
+        return if (cachedDay.isRefreshing) {
+            TodayState.Loading
+        } else {
+            TodayState.Empty(
+                date = date,
+                syncStatus = visibleSyncStatus,
+                isRefreshing = cachedDay.isRefreshing,
+                canGoNext = date < currentLocalDate(),
+            )
+        }
+    }
+
+    return TodayState.Day(
+        date = date,
+        totals = day?.totals ?: DayTotals(
+            date = date,
+            kcal = 0.0,
+            carbsG = 0.0,
+            proteinG = 0.0,
+            fatG = 0.0,
+            fiberG = 0.0,
+            mealCount = 0,
+        ),
+        goals = goals,
+        rows = rows,
+        pendingQueueCount = pendingCount,
+        glucose = glucose.toMiniGlucose(),
+        syncStatus = visibleSyncStatus,
+        isRefreshing = cachedDay.isRefreshing,
+        lastAddedId = null,
+        canGoNext = date < currentLocalDate(),
+    )
+}
+
+private fun buildRows(
+    date: LocalDate,
+    acceptedMeals: List<Meal>,
+    backendDrafts: List<Meal>,
+    outbox: List<OutboxItem>,
+): List<TodayMealRowUi> {
+    val deleteItemsByServerId = outbox
+        .mapNotNull { item -> (item.kind as? OutboxKind.DeleteMeal)?.serverId?.let { it to item } }
+        .toMap()
+    val editItemsByServerId = outbox
+        .mapNotNull { item -> (item.kind as? OutboxKind.EditMeal)?.serverId?.let { it to item } }
+        .toMap()
+    val itemPatchItemsByMealId = outbox
+        .mapNotNull { item -> (item.kind as? OutboxKind.PatchMealItem)?.mealId?.let { it to item } }
+        .toMap()
+    val localDraftMealIds = outbox.mapNotNull { item -> item.referencedDraftMealId() }.toSet()
+
+    val acceptedRows = acceptedMeals
+        .filterNot { meal -> deleteItemsByServerId[meal.id]?.state?.let { it != OutboxState.Conflict } == true }
+        .map { meal ->
+            val deleteItem = deleteItemsByServerId[meal.id]
+            val editItem = editItemsByServerId[meal.id]
+            val activeItem = deleteItem ?: editItem ?: itemPatchItemsByMealId[meal.id]
+            meal.toAcceptedRow(activeItem)
+        }
+
+    val backendDraftRows = backendDrafts
+        .filterNot { meal -> deleteItemsByServerId[meal.id]?.state?.let { it != OutboxState.Conflict } == true }
+        .filterNot { meal -> meal.id in localDraftMealIds }
+        .map { meal ->
+            val deleteItem = deleteItemsByServerId[meal.id]
+            val editItem = editItemsByServerId[meal.id]
+            val activeItem = deleteItem ?: editItem ?: itemPatchItemsByMealId[meal.id]
+            meal.toBackendDraftRow(activeItem)
+        }
+
+    val pendingRows = outbox.mapNotNull { item -> item.toPendingRow(date) }
+
+    return (acceptedRows + backendDraftRows + pendingRows).sortedByDescending { row -> row.eatenAt }
+}
+
+private fun Meal.toAcceptedRow(outboxItem: OutboxItem?): TodayMealRowUi {
+    val editPatch = (outboxItem?.kind as? OutboxKind.EditMeal)?.patch
+    return TodayMealRowUi(
+        id = id,
+        recordId = id,
+        outboxId = outboxItem?.id,
+        draftOutboxId = null,
+        kind = TodayMealRowKind.Accepted,
+        eatenAt = editPatch?.eatenAt ?: eatenAt,
+        title = editPatch?.title ?: title,
+        source = source.toMealSource(),
+        status = outboxItem?.state.toMealStatus() ?: TodayMealStatus.Accepted,
+        photo = thumbnailUrl,
+        totalKcal = totalKcal,
+        totalCarbsG = totalCarbsG,
+        totalProteinG = totalProteinG,
+        totalFatG = totalFatG,
+    )
+}
+
+private fun Meal.toBackendDraftRow(outboxItem: OutboxItem?): TodayMealRowUi {
+    val editPatch = (outboxItem?.kind as? OutboxKind.EditMeal)?.patch
+    return TodayMealRowUi(
+        id = id,
+        recordId = id,
+        outboxId = outboxItem?.id,
+        draftOutboxId = null,
+        kind = TodayMealRowKind.Pending,
+        eatenAt = editPatch?.eatenAt ?: eatenAt,
+        title = editPatch?.title ?: title,
+        source = source.toMealSource(),
+        status = outboxItem?.state.toMealStatus() ?: TodayMealStatus.Draft,
+        photo = thumbnailUrl,
+        totalKcal = totalKcal,
+        totalCarbsG = totalCarbsG,
+        totalProteinG = totalProteinG,
+        totalFatG = totalFatG,
+    )
+}
+
+private fun OutboxItem.toPendingRow(date: LocalDate): TodayMealRowUi? {
+    return when (val outboxKind = kind) {
+        is OutboxKind.CreateMeal -> {
+            if (outboxKind.eatenAt.localDate() != date) return null
+            val draft = outboxKind.payload
+            TodayMealRowUi(
+                id = id,
+                recordId = null,
+                outboxId = id,
+                draftOutboxId = null,
+                kind = TodayMealRowKind.Pending,
+                eatenAt = outboxKind.eatenAt,
+                title = draft.title,
+                source = outboxKind.source.toMealSource(),
+                status = state.toMealStatus(),
+                photo = draft.localPhotoPath,
+                totalKcal = draft.totalKcal,
+                totalCarbsG = draft.totalCarbsG,
+                totalProteinG = draft.totalProteinG,
+                totalFatG = draft.totalFatG,
+            )
+        }
+        is OutboxKind.PhotoEstimateRequest -> {
+            if (outboxKind.capturedAt.localDate() != date) return null
+            TodayMealRowUi(
+                id = id,
+                recordId = null,
+                outboxId = id,
+                draftOutboxId = null,
+                kind = TodayMealRowKind.Pending,
+                eatenAt = outboxKind.capturedAt,
+                title = draft?.title,
+                source = TodayMealSource.Photo,
+                status = state.toMealStatus(),
+                photo = outboxKind.localPhotoPath,
+                totalKcal = draft?.totalKcal,
+                totalCarbsG = draft?.totalCarbsG,
+                totalProteinG = draft?.totalProteinG,
+                totalFatG = draft?.totalFatG,
+            )
+        }
+        is OutboxKind.AcceptDraft -> {
+            if (outboxKind.eatenAt.localDate() != date) return null
+            TodayMealRowUi(
+                id = id,
+                recordId = null,
+                outboxId = id,
+                draftOutboxId = null,
+                kind = TodayMealRowKind.Pending,
+                eatenAt = outboxKind.eatenAt,
+                title = draft?.title,
+                source = TodayMealSource.Photo,
+                status = state.toMealStatus(),
+                photo = draft?.localPhotoPath,
+                totalKcal = draft?.totalKcal,
+                totalCarbsG = draft?.totalCarbsG,
+                totalProteinG = draft?.totalProteinG,
+                totalFatG = draft?.totalFatG,
+            )
+        }
+        is OutboxKind.CopyMealItemWeight,
+        is OutboxKind.DeleteMeal,
+        is OutboxKind.EditMeal,
+        is OutboxKind.PatchMealItem,
+        is OutboxKind.CreateFingerstick,
+        -> null
+    }
+}
+
+private fun OutboxItem.affectsDay(date: LocalDate, acceptedMeals: List<Meal>): Boolean =
+    when (val outboxKind = kind) {
+        is OutboxKind.CreateMeal -> outboxKind.eatenAt.localDate() == date
+        is OutboxKind.PhotoEstimateRequest -> outboxKind.capturedAt.localDate() == date
+        is OutboxKind.AcceptDraft -> outboxKind.eatenAt.localDate() == date
+        is OutboxKind.CopyMealItemWeight -> false
+        is OutboxKind.CreateFingerstick -> false
+        is OutboxKind.EditMeal -> {
+            outboxKind.patch.eatenAt?.localDate() == date ||
+                acceptedMeals.any { meal -> meal.id == outboxKind.serverId }
+        }
+        is OutboxKind.PatchMealItem -> acceptedMeals.any { meal -> meal.id == outboxKind.mealId }
+        is OutboxKind.DeleteMeal -> acceptedMeals.any { meal -> meal.id == outboxKind.serverId }
+    }
+
+private fun OutboxItem.isAlreadyAccepted(acceptedMeals: List<Meal>): Boolean {
+    val acceptedIds = acceptedMeals.map { it.id }.toSet()
+    return when (val outboxKind = kind) {
+        is OutboxKind.AcceptDraft -> outboxKind.estimateId in acceptedIds
+        is OutboxKind.PhotoEstimateRequest -> draft?.id in acceptedIds ||
+            (attempts > 0 && acceptedMeals.any { meal -> meal.matchesPhotoCapture(outboxKind.capturedAt) })
+        else -> false
+    }
+}
+
+private fun CachedView<GlucoseRange>.toMiniGlucose(): MiniGlucoseUiState {
+    val readings = value?.readings.orEmpty()
+    val latest = readings.lastOrNull() ?: return MiniGlucoseUiState.Empty
+    val now = Clock.System.now()
+    val ageMinutes = ((now.toEpochMilliseconds() - latest.readingAt.toEpochMilliseconds()) / 60_000L)
+        .coerceAtLeast(0L)
+        .toInt()
+    if (ageMinutes > 60) return MiniGlucoseUiState.Empty
+    val previous = readings.dropLast(1).lastOrNull()
+    return MiniGlucoseUiState.Reading(
+        valueMmol = latest.displayValueMmolL,
+        deltaMmol = previous?.let { latest.displayValueMmolL - it.displayValueMmolL },
+        minutesAgo = ageMinutes,
+        points = readings.takeLast(24).map { it.displayValueMmolL },
+    )
+}
+
+private fun OutboxState?.toMealStatus(): TodayMealStatus =
+    when (this) {
+        OutboxState.Conflict -> TodayMealStatus.Conflict
+        OutboxState.Estimating -> TodayMealStatus.Estimating
+        OutboxState.EstimateReady -> TodayMealStatus.EstimateReady
+        OutboxState.Queued,
+        OutboxState.Sending,
+        -> TodayMealStatus.Queued
+        else -> TodayMealStatus.Accepted
+    }
+
+private fun OutboxState.countsInSyncQueue(): Boolean =
+    this == OutboxState.Queued ||
+        this == OutboxState.Sending ||
+        this == OutboxState.Conflict ||
+        this == OutboxState.Estimating
+
+private fun OutboxState.isActiveQueueState(): Boolean =
+    this == OutboxState.Queued ||
+        this == OutboxState.Sending ||
+        this == OutboxState.Conflict ||
+        this == OutboxState.Estimating
+
+private fun OutboxItem.referencedDraftMealId(): String? =
+    when (val outboxKind = kind) {
+        is OutboxKind.AcceptDraft -> outboxKind.estimateId
+        is OutboxKind.PhotoEstimateRequest -> draft?.id ?: serverIdOnSuccess
+        else -> null
+    }
+
+private fun String.toMealSource(): TodayMealSource =
+    when (lowercase()) {
+        "photo",
+        "photo_estimate",
+        "gallery",
+        -> TodayMealSource.Photo
+        "pattern",
+        "template",
+        -> TodayMealSource.Pattern
+        "manual" -> TodayMealSource.Manual
+        "text" -> TodayMealSource.Text
+        else -> TodayMealSource.Mixed
+    }
+
+private fun Meal.isAcceptedStatus(): Boolean =
+    status.equals("accepted", ignoreCase = true)
+
+private fun Meal.isDraftStatus(): Boolean =
+    status.equals("draft", ignoreCase = true)
+
+private fun Meal.matchesPhotoCapture(capturedAt: Instant): Boolean =
+    source.toMealSource() == TodayMealSource.Photo &&
+        eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).let { mealTime ->
+            val capturedTime = capturedAt.toLocalDateTime(TimeZone.currentSystemDefault())
+            mealTime.date == capturedTime.date &&
+                mealTime.hour == capturedTime.hour &&
+                mealTime.minute == capturedTime.minute
+        }
+
+private fun currentLocalDate(): LocalDate =
+    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+private fun Instant.localDate(): LocalDate =
+    toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+private fun lastSixHoursFromNow(): Instant =
+    Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds() - 6 * 60 * 60 * 1_000L)
