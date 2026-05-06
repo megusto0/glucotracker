@@ -21,6 +21,15 @@ from glucotracker.api.schemas import (
     SensorSessionResponse,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.nightscout_context import NightscoutContextImportService
+from glucotracker.application.nightscout_sync import NightscoutSettingsService
+from glucotracker.infra.db.models import utc_now
+from glucotracker.infra.nightscout.client import (
+    NightscoutClient,
+    get_nightscout_client,
+)
+
+NightscoutDep = Annotated[NightscoutClient | None, Depends(get_nightscout_client)]
 
 router = APIRouter(
     tags=["glucose"],
@@ -33,18 +42,68 @@ router = APIRouter(
     response_model=GlucoseDashboardResponse,
     operation_id="getGlucoseDashboard",
 )
-def get_glucose_dashboard(
+async def get_glucose_dashboard(
     session: SessionDep,
+    client: NightscoutDep,
     from_datetime: Annotated[datetime, Query(alias="from")],
     to_datetime: Annotated[datetime, Query(alias="to")],
     mode: Literal["raw", "smoothed", "normalized"] = "raw",
 ) -> GlucoseDashboardResponse:
     """Return display-only glucose dashboard data."""
+    await _refresh_nightscout_glucose_cache(
+        session,
+        client,
+        from_datetime,
+        to_datetime,
+    )
     return GlucoseDashboardService(session).dashboard(
         from_datetime,
         to_datetime,
         mode,
     )
+
+
+async def _refresh_nightscout_glucose_cache(
+    session: SessionDep,
+    client: NightscoutClient | None,
+    from_datetime: datetime,
+    to_datetime: datetime,
+) -> None:
+    """Best-effort import of Nightscout glucose before serving the dashboard."""
+    settings_svc = NightscoutSettingsService(session)
+    row = settings_svc.get_or_create()
+    effective_client = settings_svc.client(client)
+    if (
+        not row.enabled
+        or not row.sync_glucose
+        or effective_client is None
+        or not effective_client.configured
+    ):
+        session.commit()
+        return
+
+    session.commit()
+    importer = NightscoutContextImportService(session, effective_client)
+    try:
+        glucose_rows = await effective_client.fetch_glucose_entries(
+            from_datetime,
+            to_datetime,
+        )
+        importer.import_fetched(
+            from_datetime,
+            to_datetime,
+            glucose_rows=glucose_rows,
+            insulin_rows=[],
+        )
+    except Exception as exc:
+        session.rollback()
+        try:
+            state = importer._state()
+            state.last_error = str(exc) or "Nightscout glucose refresh failed"
+            state.updated_at = utc_now()
+            session.commit()
+        except Exception:
+            session.rollback()
 
 
 @router.post(

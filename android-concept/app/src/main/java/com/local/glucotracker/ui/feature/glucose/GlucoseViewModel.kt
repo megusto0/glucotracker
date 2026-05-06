@@ -13,9 +13,11 @@ import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -69,44 +71,50 @@ data class GlucoseDaypartUi(
 )
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class GlucoseViewModel @Inject constructor(
     glucoseRepository: GlucoseRepository,
     historyRepository: HistoryRepository,
     private val outboxRepository: OutboxRepository,
 ) : ViewModel() {
     private val selectedWindow = MutableStateFlow(GlucoseWindow.ThreeHours)
-    private val anchor = Clock.System.now()
+    private val anchor = MutableStateFlow(Clock.System.now())
     private val windows = GlucoseWindow.entries
 
-    private val glucoseWindows = combine(
-        windows.map { window ->
-            val from = anchor.minusHours(window.hours)
-            glucoseRepository.observeRange(from = from, to = anchor).map { cached ->
-                window to cached
-            }
-        },
-    ) { entries -> entries.toList().toMap() }
+    private val glucoseWindows = anchor.flatMapLatest { currentAnchor ->
+        combine(
+            windows.map { window ->
+                val from = currentAnchor.minusHours(window.hours)
+                glucoseRepository.observeRange(from = from, to = currentAnchor).map { cached ->
+                    window to cached
+                }
+            },
+        ) { entries -> entries.toList().toMap() }
+    }
 
-    private val mealWindows = combine(
-        windows.map { window ->
-            val from = anchor.minusHours(window.hours)
-            historyRepository.observeCachedMeals(from = from, to = anchor).map { meals ->
-                window to meals
-            }
-        },
-    ) { entries -> entries.toList().toMap() }
+    private val mealWindows = anchor.flatMapLatest { currentAnchor ->
+        combine(
+            windows.map { window ->
+                val from = currentAnchor.minusHours(window.hours)
+                historyRepository.observeCachedMeals(from = from, to = currentAnchor).map { meals ->
+                    window to meals
+                }
+            },
+        ) { entries -> entries.toList().toMap() }
+    }
 
     val state = combine(
         selectedWindow,
         glucoseWindows,
         mealWindows,
     ) { selected, glucoseByWindow, mealsByWindow ->
+        val currentAnchor = anchor.value
         val windowStates = windows.map { window ->
-            val from = anchor.minusHours(window.hours)
+            val from = currentAnchor.minusHours(window.hours)
             glucoseByWindow.getValue(window).toWindowState(
                 window = window,
                 from = from,
-                to = anchor,
+                to = currentAnchor,
                 meals = mealsByWindow[window].orEmpty(),
             )
         }
@@ -125,10 +133,11 @@ class GlucoseViewModel @Inject constructor(
         initialValue = GlucoseScreenState(
             selectedWindow = GlucoseWindow.ThreeHours,
             windows = windows.map { window ->
+                val currentAnchor = anchor.value
                 GlucoseWindowState(
                     window = window,
-                    from = anchor.minusHours(window.hours),
-                    to = anchor,
+                    from = currentAnchor.minusHours(window.hours),
+                    to = currentAnchor,
                     readings = emptyList(),
                     mealMarkers = emptyList(),
                     tirSegments = emptyTirSegments(),
@@ -145,6 +154,10 @@ class GlucoseViewModel @Inject constructor(
 
     fun selectWindow(window: GlucoseWindow) {
         selectedWindow.value = window
+    }
+
+    fun refresh() {
+        anchor.value = Clock.System.now()
     }
 
     fun enqueueFingerstick(valueMmol: Double) {

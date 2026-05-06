@@ -9,6 +9,27 @@ import pytest
 from fastapi.testclient import TestClient
 
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
+from glucotracker.infra.nightscout.client import get_nightscout_client
+from glucotracker.main import app
+
+
+class FakeDashboardNightscoutClient:
+    """Configured Nightscout client double for glucose dashboard refresh tests."""
+
+    configured = True
+
+    def __init__(self, glucose_rows: list[dict[str, Any]]) -> None:
+        self.glucose_rows = glucose_rows
+        self.requests: list[tuple[datetime, datetime]] = []
+
+    async def fetch_glucose_entries(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[dict[str, Any]]:
+        """Record the range and return fake Nightscout entries."""
+        self.requests.append((from_datetime, to_datetime))
+        return self.glucose_rows
 
 
 def _seed_cgm(
@@ -66,6 +87,52 @@ def _create_fingerstick(
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_dashboard_refreshes_nightscout_glucose_before_rendering(
+    api_client: TestClient,
+) -> None:
+    """Dashboard fetches current Nightscout glucose before reading local cache."""
+    fake_client = FakeDashboardNightscoutClient(
+        [
+            {
+                "_id": "current-1",
+                "dateString": "2026-04-28T09:05:00",
+                "sgv": 108,
+                "direction": "Flat",
+                "device": "Dexcom",
+            }
+        ]
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake_client
+
+    try:
+        settings_response = api_client.put(
+            "/settings/nightscout",
+            json={
+                "nightscout_enabled": True,
+                "nightscout_url": "https://nightscout.example",
+                "nightscout_api_secret": "secret",
+                "sync_glucose": True,
+            },
+        )
+        response = api_client.get(
+            "/glucose/dashboard",
+            params={
+                "from": "2026-04-28T08:00:00",
+                "to": "2026-04-28T10:00:00",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_nightscout_client, None)
+
+    assert settings_response.status_code == 200
+    assert response.status_code == 200
+    assert len(fake_client.requests) == 1
+    body = response.json()
+    assert body["points"][0]["timestamp"].startswith("2026-04-28T09:05:00")
+    assert body["points"][0]["raw_value"] == pytest.approx(6.0)
+    assert body["summary"]["current_glucose"] == pytest.approx(6.0)
 
 
 def test_sensor_and_fingerstick_crud(api_client: TestClient) -> None:

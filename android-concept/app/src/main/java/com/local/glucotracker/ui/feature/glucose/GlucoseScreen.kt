@@ -74,6 +74,9 @@ import kotlinx.datetime.toLocalDateTime
 fun GlucoseRoute(
     viewModel: GlucoseViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
     val state by viewModel.state.collectAsState()
     GlucoseScreen(
         state = state,
