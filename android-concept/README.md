@@ -12,20 +12,23 @@ Mobile companion for glucotracker — a personal food diary for a person with ty
 ## Build
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleGlucoDebug assembleFoodDebug
 ```
 
-Install on connected device:
+Install both flavors on a connected device:
 
 ```bash
-./gradlew installDebug
+./gradlew installGlucoDebug
+./gradlew installFoodDebug
 ```
+
+The `gluco` flavor keeps package `com.glucotracker.mobile`. The `food` flavor installs
+side-by-side as `com.glucotracker.mobile.food` and uses the launcher name `Журнал`.
 
 ## Verify
 
 ```bash
-./gradlew lint
-./gradlew test
+./gradlew lint testGlucoDebug testFoodDebug
 ```
 
 ## Architecture

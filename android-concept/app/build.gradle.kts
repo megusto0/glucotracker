@@ -19,13 +19,25 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.local.glucotracker"
+        applicationId = "com.glucotracker.mobile"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "edition"
+    productFlavors {
+        create("gluco") {
+            dimension = "edition"
+        }
+        create("food") {
+            dimension = "edition"
+            applicationIdSuffix = ".food"
+            versionNameSuffix = "-food"
+        }
     }
 
     buildTypes {
@@ -57,6 +69,14 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir(generatedOpenApiKotlinDir)
+        }
+        getByName("gluco") {
+            java.srcDir("src/gluco/java")
+            res.srcDir("src/gluco/res")
+        }
+        getByName("food") {
+            java.srcDir("src/food/java")
+            res.srcDir("src/food/res")
         }
     }
 
@@ -119,6 +139,36 @@ tasks.register<JavaExec>("generateApiClient") {
                         "kotlin.collections.Map<kotlin.String, kotlin.Any>",
                         "kotlin.collections.Map<kotlin.String, kotlinx.serialization.json.JsonElement>",
                     )
+                    .replace(
+                        "authorization: kotlin.String?",
+                        "authorization: kotlin.String? = null",
+                    )
+
+                if (file.name == "DashboardApi.kt") {
+                    text = text
+                        .replace(
+                            "import com.local.glucotracker.generated.model.ResponseGetdashboardtoday\n",
+                            "import com.local.glucotracker.generated.model.DashboardTodayResponse\n" +
+                                "import com.local.glucotracker.generated.model.ResponseGetdashboardtoday\n",
+                        )
+                        .replace(
+                            "HttpResponse<ResponseGetdashboardtoday>",
+                            "HttpResponse<DashboardTodayResponse>",
+                        )
+                }
+
+                if (file.name == "NightscoutApi.kt") {
+                    text = text
+                        .replace(
+                            "import com.local.glucotracker.generated.model.ResponseGettimeline\n",
+                            "import com.local.glucotracker.generated.model.ResponseGettimeline\n" +
+                                "import com.local.glucotracker.generated.model.TimelineResponse\n",
+                        )
+                        .replace(
+                            "HttpResponse<ResponseGettimeline>",
+                            "HttpResponse<TimelineResponse>",
+                        )
+                }
 
                 if (file.name == "ApiClient.kt") {
                     text = text

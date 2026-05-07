@@ -63,15 +63,14 @@ class GlucoseViewModelTest {
             outboxRepository = FakeOutboxRepository(),
         )
 
-        assertEquals(4, glucoseRepository.networkCalls)
-        assertEquals(0, glucoseRepository.cachedCalls)
-
         viewModel.state.test {
             var loaded = awaitItem()
             while (loaded.windows.all { it.readings.isEmpty() }) {
                 loaded = awaitItem()
             }
 
+            assertEquals(4, glucoseRepository.networkCalls)
+            assertEquals(0, glucoseRepository.cachedCalls)
             assertEquals(GlucoseWindow.ThreeHours, loaded.selectedWindow)
             assertFalse(loaded.windows.first { it.window == GlucoseWindow.ThreeHours }.hasGap)
             assertFalse(loaded.windows.first { it.window == GlucoseWindow.SixHours }.hasGap)

@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">glucotracker</string>
     <string name="sync_channel_name">Синхронизация</string>
     <string name="sync_channel_description">Отправка записей и фотографий</string>
     <string name="notification_sync_title">Синхронизация</string>
