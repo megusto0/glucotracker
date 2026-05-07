@@ -4,19 +4,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import DatabaseItemPageResponse, DatabaseItemResponse
 from glucotracker.infra.db.models import MealItem, Pattern, Product
 from glucotracker.infra.db.product_merge import collapse_duplicate_source_photo_products
 
-router = APIRouter(
-    tags=["database"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["database"])
 
 RESTAURANT_PREFIXES = {"bk", "mc", "rostics", "vit"}
 SOURCE_NAMES = {
@@ -283,6 +280,7 @@ def _sort_key(item: DatabaseItemResponse) -> tuple[int, int, float, str]:
 )
 def list_database_items(
     session: SessionDep,
+    current_user: CurrentUserDep,
     type_filter: str | None = Query(default=None, alias="type"),
     source: str | None = None,
     q: str | None = None,
@@ -293,11 +291,13 @@ def list_database_items(
     """List local pattern and product database rows for desktop management."""
     patterns = session.scalars(
         select(Pattern)
-        .where(Pattern.is_archived.is_(False))
+        .where(Pattern.is_archived.is_(False), Pattern.owner_id == current_user.id)
         .options(selectinload(Pattern.aliases))
     ).all()
     products = session.scalars(
-        select(Product).options(
+        select(Product)
+        .where((Product.owner_id.is_(None)) | (Product.owner_id == current_user.id))
+        .options(
             selectinload(Product.aliases),
             selectinload(Product.items).load_only(MealItem.photo_id),
         )

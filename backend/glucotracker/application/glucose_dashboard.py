@@ -110,19 +110,22 @@ class CalibrationResult:
 class GlucoseDashboardService:
     """Coordinate glucose dashboard, fingerstick, and sensor APIs."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
+        self.user_id = user_id
 
     def list_sensors(self) -> list[SensorSessionResponse]:
         """Return sensor sessions newest first."""
         rows = self.session.scalars(
-            select(SensorSession).order_by(SensorSession.started_at.desc())
+            select(SensorSession)
+            .where(SensorSession.owner_id == self.user_id)
+            .order_by(SensorSession.started_at.desc())
         ).all()
         return [SensorSessionResponse.model_validate(row) for row in rows]
 
     def create_sensor(self, payload: SensorSessionCreate) -> SensorSessionResponse:
         """Create a sensor session."""
-        row = SensorSession(**payload.model_dump())
+        row = SensorSession(owner_id=self.user_id, **payload.model_dump())
         row.started_at = _local_wall_time(row.started_at)
         if row.ended_at is not None:
             row.ended_at = _local_wall_time(row.ended_at)
@@ -165,6 +168,7 @@ class GlucoseDashboardService:
         rows = self.session.scalars(
             select(FingerstickReading)
             .where(*filters)
+            .where(FingerstickReading.owner_id == self.user_id)
             .order_by(FingerstickReading.measured_at.asc())
         ).all()
         return [FingerstickReadingResponse.model_validate(row) for row in rows]
@@ -174,7 +178,7 @@ class GlucoseDashboardService:
         payload: FingerstickReadingCreate,
     ) -> FingerstickReadingResponse:
         """Create a manual capillary glucose reading."""
-        row = FingerstickReading(**payload.model_dump())
+        row = FingerstickReading(owner_id=self.user_id, **payload.model_dump())
         row.measured_at = _local_wall_time(row.measured_at)
         self.session.add(row)
         self.session.commit()
@@ -267,6 +271,7 @@ class GlucoseDashboardService:
                 sensor_raw,
                 sensor_fingersticks,
                 calibration,
+                as_of=local_to,
             )
             notes.extend(calibration.notes)
         else:
@@ -310,7 +315,7 @@ class GlucoseDashboardService:
 
     def _sensor(self, sensor_id: UUID) -> SensorSession:
         sensor = self.session.get(SensorSession, sensor_id)
-        if sensor is None:
+        if sensor is None or sensor.owner_id != self.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Sensor session not found.",
@@ -319,7 +324,7 @@ class GlucoseDashboardService:
 
     def _fingerstick(self, fingerstick_id: UUID) -> FingerstickReading:
         row = self.session.get(FingerstickReading, fingerstick_id)
-        if row is None:
+        if row is None or row.owner_id != self.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Fingerstick reading not found.",
@@ -336,6 +341,7 @@ class GlucoseDashboardService:
             .where(
                 NightscoutGlucoseEntry.timestamp >= _local_wall_time(from_datetime),
                 NightscoutGlucoseEntry.timestamp <= _local_wall_time(to_datetime),
+                NightscoutGlucoseEntry.owner_id == self.user_id,
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
@@ -357,6 +363,7 @@ class GlucoseDashboardService:
         rows = self.session.scalars(
             select(FingerstickReading)
             .where(*filters)
+            .where(FingerstickReading.owner_id == self.user_id)
             .order_by(FingerstickReading.measured_at.asc())
         ).all()
         return list(rows)
@@ -371,6 +378,7 @@ class GlucoseDashboardService:
                 select(SensorSession)
                 .where(
                     SensorSession.started_at <= to_datetime,
+                    SensorSession.owner_id == self.user_id,
                     (SensorSession.ended_at.is_(None))
                     | (SensorSession.ended_at >= from_datetime),
                 )
@@ -387,6 +395,7 @@ class GlucoseDashboardService:
             select(Meal)
             .where(
                 Meal.status == MealStatus.accepted,
+                Meal.owner_id == self.user_id,
                 Meal.eaten_at >= from_datetime,
                 Meal.eaten_at <= to_datetime,
             )
@@ -412,6 +421,7 @@ class GlucoseDashboardService:
             .where(
                 NightscoutInsulinEvent.timestamp >= from_datetime,
                 NightscoutInsulinEvent.timestamp <= to_datetime,
+                NightscoutInsulinEvent.owner_id == self.user_id,
             )
             .order_by(NightscoutInsulinEvent.timestamp.asc())
         ).all()
@@ -579,10 +589,13 @@ class GlucoseDashboardService:
         raw_points: list[RawPoint],
         fingersticks: list[FingerstickReading],
         calibration: CalibrationResult,
+        *,
+        as_of: datetime | None = None,
     ) -> SensorQualityResponse:
         metrics = calibration.metrics
+        quality_at = as_of or sensor.ended_at or _now_local()
         sensor_age_days = round(
-            _sensor_age_days(sensor, sensor.ended_at or _now_local()),
+            _sensor_age_days(sensor, quality_at),
             2,
         )
         warmup_metrics = metrics.get("warmup_metrics")
@@ -593,7 +606,7 @@ class GlucoseDashboardService:
                 if interval.kind == "compression_suspected"
             ]
         )
-        missing_pct = _missing_data_pct(raw_points, sensor.started_at, sensor.ended_at)
+        missing_pct = _missing_data_pct(raw_points, sensor.started_at, quality_at)
         noise = _noise_score(raw_points)
         correction_now = _correction_now(sensor, raw_points, calibration)
         quality_score = _quality_score(

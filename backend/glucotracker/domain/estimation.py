@@ -226,6 +226,7 @@ def _base_evidence(item: EstimatedItem) -> dict[str, Any]:
     )
     evidence["count_detected"] = item.count_detected
     evidence["count_confidence"] = item.count_confidence
+    evidence["values_basis"] = item.values_basis
     evidence["net_weight_per_unit_g"] = item.net_weight_per_unit_g
     evidence["total_weight_g"] = item.total_weight_g
     evidence["evidence_is_split_across_identical_items"] = (
@@ -605,7 +606,8 @@ def _plated_item(
     optional_nutrients.update(_known_component_nutrients(adjustment))
 
     count = item.count_detected or 1
-    if count > 1:
+    count_applies_to_top_level_values = count > 1 and item.values_basis == "per_unit"
+    if count_applies_to_top_level_values:
         final_values = {
             k: (v * count if isinstance(v, (int, float)) else v)
             for k, v in final_values.items()
@@ -619,11 +621,28 @@ def _plated_item(
             f"Модель определила {count} порций; значения умножены на {count}."
         )
         calculation_method = f"{calculation_method}_count_{count}"
+    elif count > 1:
+        evidence.setdefault(
+            "raw_model_estimate",
+            {
+                "carbs_g": item.carbs_g_mid,
+                "protein_g": item.protein_g_mid,
+                "fat_g": item.fat_g_mid,
+                "fiber_g": item.fiber_g_mid,
+                "kcal": item.kcal_mid,
+            },
+        )
+        evidence["final_backend_adjusted_values"] = final_values
+        assumptions.append(
+            f"Модель определила {count} видимых порций; "
+            "значения приняты как итог за всю видимую порцию."
+        )
+        calculation_method = f"{calculation_method}_visible_count_{count}"
 
     grams = item.grams_mid
     if grams is None:
         grams = _component_grams_mid(item.component_estimates)
-    if grams is not None and count > 1:
+    if grams is not None and count_applies_to_top_level_values:
         grams *= count
 
     normalized = MealItemCreate(

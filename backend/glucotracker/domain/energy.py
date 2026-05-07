@@ -82,7 +82,6 @@ def estimate_active_kcal_hybrid(
         hr_rest = 60.0
 
     bmr = bmr_mifflin_st_jeor(weight_kg, height_cm, age_years, sex)
-    bmr_per_min = bmr / 1440.0
     flex_hr = hr_rest + FLEX_HR_OFFSET
 
     kcal_from_steps = steps_kcal(total_steps, weight_kg)

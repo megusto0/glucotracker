@@ -52,6 +52,12 @@ For each distinct visible item:
 5. For plated food, estimate grams and macros as low/mid/high. Do not visually
    guess sodium or caffeine. Fiber may be included only from a known food
    database or context match and must be marked as estimated.
+   For PLATED items, grams_mid and macro mid values MUST describe the total
+   visible/eaten amount represented by the item. If four bread crisps are
+   visible and together weigh about 40g, return grams_mid=40 and
+   values_basis="total_visible"; do not return one-crisp values at top level.
+   Only if the top-level values intentionally describe one unit, set
+   values_basis="per_unit" so the backend can multiply by count_detected.
    Also return component_estimates with component-level raw macros:
    carbs_g_mid, protein_g_mid, fat_g_mid, fiber_g_mid, kcal_mid. Identify
    reusable known components separately: tortilla / лаваш, bread / булка /

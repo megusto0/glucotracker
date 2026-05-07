@@ -10,8 +10,9 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from glucotracker.domain.auth import UserRole
 from glucotracker.domain.nutrients import normalize_nutrients_object
-from glucotracker.infra.db.models import Pattern, PatternAlias, utc_now
+from glucotracker.infra.db.models import Pattern, PatternAlias, User, utc_now
 from glucotracker.infra.db.session import get_session_factory
 
 
@@ -57,6 +58,7 @@ def _load_seed_file(path: Path) -> dict[str, Any]:
 def _upsert_pattern(
     session: Session,
     *,
+    owner_id: object,
     prefix: str,
     source_url: str | None,
     source_name: str | None,
@@ -67,11 +69,16 @@ def _upsert_pattern(
     key = _normalize_token(str(item["key"]))
     pattern = session.scalar(
         select(Pattern)
-        .where(Pattern.prefix == prefix, Pattern.key == key)
+        .where(
+            Pattern.owner_id == owner_id,
+            Pattern.prefix == prefix,
+            Pattern.key == key,
+        )
         .options(selectinload(Pattern.aliases))
     )
     if pattern is None:
         pattern = Pattern(
+            owner_id=owner_id,
             prefix=prefix,
             key=key,
             display_name=str(item["display_name"]),
@@ -124,6 +131,15 @@ def load_pattern_seeds(
     seen_keys: set[tuple[str, str]] = set()
     loaded_prefixes: set[str] = set()
     try:
+        owner_id = active_session.scalar(
+            select(User.id)
+            .where(User.role == UserRole.gluco)
+            .order_by(User.username == "admin", User.created_at, User.username)
+            .limit(1)
+        )
+        if owner_id is None:
+            msg = "Cannot load pattern seeds: no gluco user exists."
+            raise RuntimeError(msg)
         for path in _seed_files(seed_dir, seed_file):
             data = _load_seed_file(path)
             prefix = _normalize_token(str(data["prefix"]))
@@ -137,6 +153,7 @@ def load_pattern_seeds(
                     raise ValueError(msg)
                 _upsert_pattern(
                     active_session,
+                    owner_id=owner_id,
                     prefix=prefix,
                     source_url=source_url,
                     source_name=source_name,
@@ -153,7 +170,10 @@ def load_pattern_seeds(
                     key for item_prefix, key in seen_keys if item_prefix == prefix
                 }
                 patterns = active_session.scalars(
-                    select(Pattern).where(Pattern.prefix == prefix)
+                    select(Pattern).where(
+                        Pattern.owner_id == owner_id,
+                        Pattern.prefix == prefix,
+                    )
                 ).all()
                 for pattern in patterns:
                     if pattern.key not in present:

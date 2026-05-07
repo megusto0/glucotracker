@@ -9,7 +9,7 @@ plugins {
 }
 
 val openApiGenerator by configurations.creating
-val openApiSpec = rootProject.layout.projectDirectory.file("../docs/openapi.json")
+val openApiSpec = rootProject.layout.projectDirectory.file("../docs/openapi.yaml")
 val openApiSpecPath = openApiSpec.asFile.absolutePath.replace('\\', '/')
 val generatedOpenApiDir = layout.buildDirectory.dir("generated/openapi")
 val generatedOpenApiKotlinDir = generatedOpenApiDir.map { it.dir("src/main/kotlin") }
@@ -72,7 +72,7 @@ kapt {
 
 tasks.register<JavaExec>("generateApiClient") {
     group = "code generation"
-    description = "Generate the Kotlin/Ktor OpenAPI client from docs/openapi.json."
+    description = "Generate the Kotlin/Ktor OpenAPI client from docs/openapi.yaml."
 
     classpath = openApiGenerator
     mainClass.set("org.openapitools.codegen.OpenAPIGenerator")

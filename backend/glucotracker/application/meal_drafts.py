@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from sqlalchemy.orm import Session
 
 from glucotracker.application.daily_totals import DailyTotalsService
@@ -12,9 +14,10 @@ from glucotracker.infra.db.models import Meal, MealItem
 class MealDraftService:
     """Coordinate draft state transitions with persistence side effects."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
-        self.daily_totals = DailyTotalsService(session)
+        self.user_id = user_id
+        self.daily_totals = DailyTotalsService(session, user_id)
 
     def accept(self, meal: Meal, final_items: list[MealItem]) -> Meal:
         """Accept a draft with final reviewed items and update affected totals."""

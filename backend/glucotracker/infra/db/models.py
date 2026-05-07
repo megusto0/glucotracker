@@ -26,6 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
@@ -73,6 +74,85 @@ class TimestampMixin:
     )
 
 
+class User(Base):
+    """Application user account used for JWT authentication."""
+
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_users_username"),
+        Index("ix_users_username", "username"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(80), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    role: Mapped[UserRole] = enum_column(
+        UserRole,
+        "user_role",
+        default=UserRole.gluco,
+        server_default=UserRole.gluco.value,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    feature_flags: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class RefreshToken(Base):
+    """Hashed refresh token record for long-lived sessions."""
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_refresh_tokens_token_hash"),
+        Index("ix_refresh_tokens_user_id", "user_id"),
+        Index("ix_refresh_tokens_expires_at", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    device_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="refresh_tokens")
+
+
 class Meal(Base, TimestampMixin):
     """Meal journal entry whose totals are calculated by the backend."""
 
@@ -83,9 +163,15 @@ class Meal(Base, TimestampMixin):
             name="ck_meals_confidence_range",
         ),
         Index("ix_meals_eaten_at", "eaten_at"),
+        Index("ix_meals_owner_eaten_at", "owner_id", "eaten_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     eaten_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -162,6 +248,7 @@ class Meal(Base, TimestampMixin):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    owner: Mapped[User] = relationship()
 
     @property
     def thumbnail_url(self) -> str | None:
@@ -387,9 +474,17 @@ class Photo(Base):
     """Uploaded photo associated with a meal draft or accepted meal."""
 
     __tablename__ = "photos"
-    __table_args__ = (Index("ix_photos_meal_id", "meal_id"),)
+    __table_args__ = (
+        Index("ix_photos_meal_id", "meal_id"),
+        Index("ix_photos_owner_created_at", "owner_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     meal_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("meals.id", ondelete="CASCADE"),
@@ -435,6 +530,7 @@ class Photo(Base):
 
     meal: Mapped[Meal] = relationship(back_populates="photos")
     items: Mapped[list[MealItem]] = relationship(back_populates="photo")
+    owner: Mapped[User] = relationship()
 
 
 class Pattern(Base, TimestampMixin):
@@ -442,11 +538,22 @@ class Pattern(Base, TimestampMixin):
 
     __tablename__ = "patterns"
     __table_args__ = (
-        UniqueConstraint("prefix", "key", name="uq_patterns_prefix_key"),
+        UniqueConstraint(
+            "owner_id",
+            "prefix",
+            "key",
+            name="uq_patterns_owner_prefix_key",
+        ),
         Index("ix_patterns_prefix", "prefix"),
+        Index("ix_patterns_owner_prefix", "owner_id", "prefix"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     prefix: Mapped[str] = mapped_column(String, nullable=False)
     key: Mapped[str] = mapped_column(String, nullable=False)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
@@ -526,6 +633,7 @@ class Pattern(Base, TimestampMixin):
         passive_deletes=True,
     )
     items: Mapped[list[MealItem]] = relationship(back_populates="pattern")
+    owner: Mapped[User] = relationship()
 
 
 class PatternAlias(Base):
@@ -557,9 +665,17 @@ class Product(Base, TimestampMixin):
     """Known packaged or database-backed product."""
 
     __tablename__ = "products"
-    __table_args__ = (Index("ix_products_barcode", "barcode"),)
+    __table_args__ = (
+        Index("ix_products_barcode", "barcode"),
+        Index("ix_products_owner_name", "owner_id", "name"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     barcode: Mapped[str | None] = mapped_column(String, nullable=True)
     brand: Mapped[str | None] = mapped_column(String, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -606,6 +722,7 @@ class Product(Base, TimestampMixin):
         passive_deletes=True,
     )
     items: Mapped[list[MealItem]] = relationship(back_populates="product")
+    owner: Mapped[User | None] = relationship()
 
 
 class ProductAlias(Base):
@@ -620,9 +737,15 @@ class ProductAlias(Base):
         ),
         Index("ix_product_aliases_product_id", "product_id"),
         Index("ix_product_aliases_alias", "alias"),
+        Index("ix_product_aliases_owner_alias", "owner_id", "alias"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     product_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("products.id", ondelete="CASCADE"),
@@ -631,13 +754,20 @@ class ProductAlias(Base):
     alias: Mapped[str] = mapped_column(String, nullable=False)
 
     product: Mapped[Product] = relationship(back_populates="aliases")
+    owner: Mapped[User | None] = relationship()
 
 
 class DailyTotal(Base):
     """Daily aggregate maintained from accepted backend meal totals."""
 
     __tablename__ = "daily_totals"
+    __table_args__ = (Index("ix_daily_totals_owner_date", "owner_id", "date"),)
 
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     date: Mapped[date] = mapped_column(Date, primary_key=True)
     kcal: Mapped[float] = mapped_column(
         Float,
@@ -693,14 +823,68 @@ class DailyTotal(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
+
+
+class MealAuditEvent(Base):
+    """Append-only audit events for meal lifecycle investigations."""
+
+    __tablename__ = "meal_audit_events"
+    __table_args__ = (
+        Index("ix_meal_audit_events_meal_id", "meal_id"),
+        Index("ix_meal_audit_events_event_at", "event_at"),
+        Index("ix_meal_audit_events_eaten_at", "eaten_at"),
+        Index("ix_meal_audit_events_owner_event_at", "owner_id", "event_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    meal_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    eaten_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    total_kcal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_carbs_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    item_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    owner: Mapped[User] = relationship()
 
 
 class NightscoutSettings(Base, TimestampMixin):
     """Server-side Nightscout connection and display settings."""
 
     __tablename__ = "nightscout_settings"
+    __table_args__ = (
+        UniqueConstraint("owner_id", name="uq_nightscout_settings_owner"),
+        Index("ix_nightscout_settings_owner_id", "owner_id", "id"),
+    )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     enabled: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -750,6 +934,7 @@ class NightscoutSettings(Base, TimestampMixin):
         nullable=True,
     )
     last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    owner: Mapped[User] = relationship()
 
 
 class NightscoutGlucoseEntry(Base, TimestampMixin):
@@ -757,12 +942,22 @@ class NightscoutGlucoseEntry(Base, TimestampMixin):
 
     __tablename__ = "nightscout_glucose_entries"
     __table_args__ = (
-        UniqueConstraint("source_key", name="uq_nightscout_glucose_source_key"),
+        UniqueConstraint(
+            "owner_id",
+            "source_key",
+            name="uq_nightscout_glucose_owner_source_key",
+        ),
         Index("ix_nightscout_glucose_timestamp", "timestamp"),
         Index("ix_nightscout_glucose_nightscout_id", "nightscout_id"),
+        Index("ix_nightscout_glucose_owner_timestamp", "owner_id", "timestamp"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     source_key: Mapped[str] = mapped_column(String, nullable=False)
     nightscout_id: Mapped[str | None] = mapped_column(String, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -782,6 +977,7 @@ class NightscoutGlucoseEntry(Base, TimestampMixin):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
 
 
 class NightscoutInsulinEvent(Base, TimestampMixin):
@@ -789,12 +985,22 @@ class NightscoutInsulinEvent(Base, TimestampMixin):
 
     __tablename__ = "nightscout_insulin_events"
     __table_args__ = (
-        UniqueConstraint("source_key", name="uq_nightscout_insulin_source_key"),
+        UniqueConstraint(
+            "owner_id",
+            "source_key",
+            name="uq_nightscout_insulin_owner_source_key",
+        ),
         Index("ix_nightscout_insulin_timestamp", "timestamp"),
         Index("ix_nightscout_insulin_nightscout_id", "nightscout_id"),
+        Index("ix_nightscout_insulin_owner_timestamp", "owner_id", "timestamp"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     source_key: Mapped[str] = mapped_column(String, nullable=False)
     nightscout_id: Mapped[str | None] = mapped_column(String, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -815,14 +1021,24 @@ class NightscoutInsulinEvent(Base, TimestampMixin):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
 
 
 class NightscoutImportState(Base):
     """Singleton import watermark for local Nightscout context cache."""
 
     __tablename__ = "nightscout_import_state"
+    __table_args__ = (
+        UniqueConstraint("owner_id", name="uq_nightscout_import_state_owner"),
+        Index("ix_nightscout_import_state_owner_id", "owner_id", "id"),
+    )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     last_glucose_import_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -838,6 +1054,7 @@ class NightscoutImportState(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
 
 
 class SensorSession(Base, TimestampMixin):
@@ -847,9 +1064,15 @@ class SensorSession(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_sensor_sessions_started_at", "started_at"),
         Index("ix_sensor_sessions_ended_at", "ended_at"),
+        Index("ix_sensor_sessions_owner_started_at", "owner_id", "started_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     source: Mapped[str] = mapped_column(
         String,
         default="manual",
@@ -881,15 +1104,24 @@ class SensorSession(Base, TimestampMixin):
         passive_deletes=True,
         order_by="CgmCalibrationModel.created_at.desc()",
     )
+    owner: Mapped[User] = relationship()
 
 
 class FingerstickReading(Base):
     """Manual capillary glucose reading used for display calibration analytics."""
 
     __tablename__ = "fingerstick_readings"
-    __table_args__ = (Index("ix_fingerstick_readings_measured_at", "measured_at"),)
+    __table_args__ = (
+        Index("ix_fingerstick_readings_measured_at", "measured_at"),
+        Index("ix_fingerstick_readings_owner_measured_at", "owner_id", "measured_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     measured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -903,6 +1135,7 @@ class FingerstickReading(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
 
 
 class CgmCalibrationModel(Base):
@@ -1034,8 +1267,17 @@ class UserProfile(Base, TimestampMixin):
     """Singleton row with user body metrics for BMR/TDEE calculation."""
 
     __tablename__ = "user_profile"
+    __table_args__ = (
+        UniqueConstraint("owner_id", name="uq_user_profile_owner"),
+        Index("ix_user_profile_owner_id", "owner_id", "id"),
+    )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
     age_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -1046,14 +1288,23 @@ class UserProfile(Base, TimestampMixin):
         server_default="moderate",
         nullable=False,
     )
+    owner: Mapped[User] = relationship()
 
 
 class DailyActivity(Base):
     """Daily activity data synced from wearable (Gadgetbridge)."""
 
     __tablename__ = "daily_activity"
-    __table_args__ = (Index("ix_daily_activity_date", "date"),)
+    __table_args__ = (
+        Index("ix_daily_activity_date", "date"),
+        Index("ix_daily_activity_owner_date", "owner_id", "date"),
+    )
 
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     date: Mapped[date] = mapped_column(Date, primary_key=True)
     steps: Mapped[int] = mapped_column(
         Integer,
@@ -1123,3 +1374,4 @@ class DailyActivity(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    owner: Mapped[User] = relationship()

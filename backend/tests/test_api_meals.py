@@ -1,6 +1,6 @@
 """Meal REST API tests."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 import pytest
@@ -9,7 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from glucotracker.infra.db.models import MealItem, Product
+from glucotracker.config import get_settings
+from glucotracker.infra.db.models import DailyTotal, MealAuditEvent, MealItem, Product
 
 
 def meal_payload(**overrides: object) -> dict:
@@ -105,6 +106,68 @@ def test_cascade_delete_removes_items(
     with Session(db_engine) as session:
         item_count = session.scalar(select(func.count(MealItem.id)))
     assert item_count == 0
+
+
+def test_delete_meal_writes_audit_event(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Meal deletes leave an audit snapshot for later investigation."""
+    created = api_client.post("/meals", json=meal_payload(title="Audit snack")).json()
+    meal_id = UUID(created["id"])
+
+    response = api_client.delete(f"/meals/{created['id']}")
+
+    assert response.status_code == 200
+    with Session(db_engine) as session:
+        events = list(
+            session.scalars(
+                select(MealAuditEvent)
+                .where(MealAuditEvent.meal_id == meal_id)
+                .order_by(MealAuditEvent.event_at.asc(), MealAuditEvent.action.asc())
+            )
+        )
+    assert [event.action for event in events] == ["created", "deleted"]
+    deleted = next(event for event in events if event.action == "deleted")
+    assert deleted.title == "Audit snack"
+    assert deleted.total_carbs_g == 8
+
+
+def test_aware_meal_time_is_stored_as_app_local_wall_time(
+    api_client: TestClient,
+    db_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UTC instants from mobile land on the user's local meal date."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(eaten_at="2026-05-06T20:30:00Z"),
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["eaten_at"].startswith("2026-05-07T00:30:00")
+
+    listed = api_client.get(
+        "/meals",
+        params={
+            "from": "2026-05-07T00:00:00+04:00",
+            "to": "2026-05-08T00:00:00+04:00",
+        },
+    )
+    assert listed.status_code == 200
+    assert listed.json()["total"] == 1
+    assert listed.json()["items"][0]["id"] == body["id"]
+
+    with Session(db_engine) as session:
+        daily = session.scalar(
+            select(DailyTotal).where(DailyTotal.date == date(2026, 5, 7))
+        )
+    assert daily is not None
+    assert daily.meal_count == 1
 
 
 def test_patch_updates_updated_at(api_client: TestClient) -> None:

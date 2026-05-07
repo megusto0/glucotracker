@@ -56,10 +56,12 @@ class PhotoEstimationService:
     def __init__(
         self,
         session: Session,
+        user_id: UUID,
         gemini_client: GeminiClient,
         dependencies: PhotoEstimationDependencies,
     ) -> None:
         self.session = session
+        self.user_id = user_id
         self.gemini_client = gemini_client
         self.dependencies = dependencies
 
@@ -179,7 +181,9 @@ class PhotoEstimationService:
                 photos=ordered_photos,
                 session=self.session,
             )
-            DailyTotalsService(self.session).schedule_for_meal_times([meal.eaten_at])
+            DailyTotalsService(self.session, self.user_id).schedule_for_meal_times(
+                [meal.eaten_at]
+            )
 
         self.session.flush()
         response = deps.estimation_response(

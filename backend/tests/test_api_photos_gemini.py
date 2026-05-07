@@ -741,7 +741,9 @@ def test_multi_photo_estimate_keeps_per_item_photo_identity(
     }
 
     with Session(db_engine) as session:
-        daily = session.get(DailyTotal, date(2026, 4, 28))
+        daily = session.scalar(
+            select(DailyTotal).where(DailyTotal.date == date(2026, 4, 28))
+        )
         assert daily is not None
         assert daily.meal_count == 2
         assert daily.carbs_g == pytest.approx(34)

@@ -5,15 +5,19 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from glucotracker.application.nightscout_context import NightscoutContextImportService
 from glucotracker.config import get_settings
 from glucotracker.infra.db.models import DailyTotal
 from glucotracker.infra.nightscout.client import (
+    NightscoutConnectError,
     NightscoutHTTPError,
     NightscoutTimeoutError,
     _meal_treatment_payload,
@@ -36,7 +40,9 @@ class FakeNightscoutClient:
         delete_error: Exception | None = None,
         status_error: Exception | None = None,
         glucose_rows: list[dict[str, Any]] | None = None,
+        glucose_error: Exception | None = None,
         insulin_rows: list[dict[str, Any]] | None = None,
+        insulin_error: Exception | None = None,
         treatment_rows: list[dict[str, Any]] | None = None,
     ) -> None:
         self.post_response = post_response or {"_id": "ns-treatment-1"}
@@ -45,7 +51,9 @@ class FakeNightscoutClient:
         self.delete_error = delete_error
         self.status_error = status_error
         self.glucose_rows = glucose_rows or []
+        self.glucose_error = glucose_error
         self.insulin_rows = insulin_rows or []
+        self.insulin_error = insulin_error
         self.treatment_rows = treatment_rows or []
         self.posted_meals = []
         self.lookup_meals = []
@@ -94,6 +102,8 @@ class FakeNightscoutClient:
         to_datetime: datetime,
     ) -> list[dict[str, Any]]:
         """Return fake glucose rows."""
+        if self.glucose_error is not None:
+            raise self.glucose_error
         return self.glucose_rows
 
     async def fetch_insulin_events(
@@ -102,7 +112,38 @@ class FakeNightscoutClient:
         to_datetime: datetime,
     ) -> list[dict[str, Any]]:
         """Return fake insulin rows."""
+        if self.insulin_error is not None:
+            raise self.insulin_error
         return self.insulin_rows
+
+
+class FailingCommitSession:
+    """Small session double for Nightscout import rollback behavior."""
+
+    def __init__(self) -> None:
+        self.commit_calls = 0
+        self.rollback_calls = 0
+
+    def commit(self) -> None:
+        """Fail the first commit like SQLite did under writer contention."""
+        self.commit_calls += 1
+        if self.commit_calls == 1:
+            raise RuntimeError("database is locked")
+
+    def rollback(self) -> None:
+        """Record rollbacks."""
+        self.rollback_calls += 1
+
+
+class RecordingNightscoutImportService(NightscoutContextImportService):
+    """Nightscout import service with DB access replaced by in-memory state."""
+
+    def __init__(self, session: FailingCommitSession) -> None:
+        super().__init__(session, uuid4())  # type: ignore[arg-type]
+        self.state = SimpleNamespace(last_error=None, updated_at=None)
+
+    def _state(self) -> SimpleNamespace:
+        return self.state
 
 
 def _today() -> date:
@@ -161,7 +202,7 @@ def _create_meal(
 def _daily_total(db_engine: Engine, day: date) -> DailyTotal:
     """Fetch a daily total row."""
     with Session(db_engine) as session:
-        row = session.get(DailyTotal, day)
+        row = session.scalar(select(DailyTotal).where(DailyTotal.date == day))
         assert row is not None
         return row
 
@@ -278,6 +319,24 @@ def test_nightscout_treatment_payload_converts_aware_local_time_to_utc() -> None
 
     assert payload["created_at"] == "2026-04-28T12:30:00+04:00"
     assert payload["utcOffset"] == 240
+
+
+def test_nightscout_import_rolls_back_before_recording_commit_error() -> None:
+    """A failed import flush is rolled back before storing last_error."""
+    session = FailingCommitSession()
+    service = RecordingNightscoutImportService(session)
+
+    with pytest.raises(RuntimeError, match="database is locked"):
+        service.import_fetched(
+            datetime(2026, 4, 28, 7, tzinfo=UTC),
+            datetime(2026, 4, 28, 8, tzinfo=UTC),
+            glucose_rows=[],
+            insulin_rows=[],
+        )
+
+    assert session.rollback_calls == 1
+    assert session.commit_calls == 2
+    assert service.state.last_error == "database is locked"
 
 
 def test_nightscout_500_and_timeout_are_mapped(api_client: TestClient) -> None:
@@ -462,27 +521,27 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     """Imported Nightscout context is stored locally and grouped around meals."""
     fake = FakeNightscoutClient(
         glucose_rows=[
-            {
-                "dateString": "2026-04-28T11:45:00+04:00",
-                "sgv": 100,
-                "direction": "Flat",
-                "device": "CGM",
+                {
+                    "dateString": "2026-04-28T11:45:00",
+                    "sgv": 100,
+                    "direction": "Flat",
+                    "device": "CGM",
                 "_id": "glucose-before",
-            },
-            {
-                "dateString": "2026-04-28T12:40:00+04:00",
-                "sgv": 176,
-                "direction": "SingleUp",
-                "device": "CGM",
+                },
+                {
+                    "dateString": "2026-04-28T12:40:00",
+                    "sgv": 176,
+                    "direction": "SingleUp",
+                    "device": "CGM",
                 "_id": "glucose-peak",
             },
         ],
-        insulin_rows=[
-            {
-                "created_at": "2026-04-28T12:08:00+04:00",
-                "insulin": 4,
-                "eventType": "Correction Bolus",
-                "enteredBy": "Nightscout",
+            insulin_rows=[
+                {
+                    "created_at": "2026-04-28T12:08:00",
+                    "insulin": 4,
+                    "eventType": "Correction Bolus",
+                    "enteredBy": "Nightscout",
                 "_id": "insulin-episode",
             }
         ],
@@ -539,6 +598,41 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     assert episodes[0]["glucose_summary"]["before_value"] == 5.5
     assert episodes[0]["glucose_summary"]["peak_value"] == 9.8
     assert episodes[0]["total_carbs_g"] == 68
+
+
+def test_nightscout_import_maps_connect_errors_to_502(api_client: TestClient) -> None:
+    """Import endpoint returns stable 502 instead of raw traceback on DNS errors."""
+    fake = FakeNightscoutClient(
+        insulin_error=NightscoutConnectError(
+            "Nightscout host lookup failed. Проверьте URL Nightscout."
+        )
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    payload = {
+        "from_datetime": "2026-04-28T11:00:00",
+        "to_datetime": "2026-04-28T15:00:00",
+        "sync_glucose": False,
+        "import_insulin_events": True,
+    }
+    imported = api_client.post("/nightscout/import", json=payload)
+
+    assert imported.status_code == 502
+    assert "Nightscout host lookup failed" in imported.json()["detail"]
+
+
+def test_nightscout_settings_reject_invalid_url(api_client: TestClient) -> None:
+    """Settings endpoint validates URL shape before saving."""
+    response = api_client.put(
+        "/settings/nightscout",
+        json={
+            "nightscout_enabled": True,
+            "nightscout_url": "nightscout local",
+            "nightscout_api_secret": "secret",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Nightscout URL" in response.json()["detail"]
 
 
 def test_daily_totals_recalculate_on_create_update_delete(
@@ -651,6 +745,59 @@ def test_admin_recalculate_and_dashboard_range(api_client: TestClient) -> None:
     assert body["summary"]["total_meals"] == 2
     assert body["summary"]["total_carbs_g"] == 60
     assert body["summary"]["avg_carbs_g"] == 30
+
+
+def test_dashboard_range_does_not_backfill_daily_totals_on_read(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Dashboard reads compute missing daily rows without writing daily_totals."""
+    today = _today()
+    _create_meal(api_client, day=today, items=[_manual_item(carbs_g=20, kcal=200)])
+
+    with Session(db_engine) as session:
+        row = session.scalar(select(DailyTotal).where(DailyTotal.date == today))
+        assert row is not None
+        session.delete(row)
+        session.commit()
+
+    response = api_client.get(
+        "/dashboard/range",
+        params={"from": str(today), "to": str(today)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["total_carbs_g"] == 20
+    with Session(db_engine) as session:
+        missing_daily_total = session.scalar(
+            select(DailyTotal).where(DailyTotal.date == today)
+        )
+        assert missing_daily_total is None
+
+
+def test_dashboard_today_recomputes_stale_daily_total_row(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Dashboard reads do not trust stale persisted daily_totals rows."""
+    today = _today()
+    _create_meal(api_client, day=today, items=[_manual_item(carbs_g=20, kcal=200)])
+
+    with Session(db_engine) as session:
+        row = session.scalar(select(DailyTotal).where(DailyTotal.date == today))
+        assert row is not None
+        row.carbs_g = 0
+        row.kcal = 0
+        row.meal_count = 0
+        session.commit()
+
+    response = api_client.get("/dashboard/today")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["carbs_g"] == 20
+    assert body["kcal"] == 200
+    assert body["meal_count"] == 1
 
 
 def test_dashboard_averages_ignore_days_without_meals(

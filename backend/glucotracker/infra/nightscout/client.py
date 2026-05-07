@@ -36,6 +36,10 @@ class NightscoutTimeoutError(NightscoutClientError):
     """Raised when Nightscout does not respond in time."""
 
 
+class NightscoutConnectError(NightscoutClientError):
+    """Raised when Nightscout host cannot be reached/resolved."""
+
+
 def is_nightscout_configured() -> bool:
     """Return whether Nightscout has the required settings."""
     settings = get_settings()
@@ -184,10 +188,18 @@ class NightscoutClient:
                 response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise NightscoutTimeoutError("Nightscout request timed out") from exc
+        except httpx.ConnectError as exc:
+            raise NightscoutConnectError(
+                "Nightscout host lookup failed. Проверьте URL Nightscout."
+            ) from exc
         except httpx.HTTPStatusError as exc:
             raise NightscoutHTTPError(
                 exc.response.status_code,
                 exc.response.text or "Nightscout request failed",
+            ) from exc
+        except httpx.RequestError as exc:
+            raise NightscoutClientError(
+                "Nightscout request failed before response. Проверьте URL и сеть."
             ) from exc
 
         if not response.content:

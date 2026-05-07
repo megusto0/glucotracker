@@ -1,6 +1,6 @@
 """Application configuration loaded from environment variables."""
 
-from datetime import datetime
+from datetime import datetime, tzinfo
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -16,12 +16,23 @@ class Settings(BaseSettings):
 
     app_version: str = "0.1.0"
     token: str | None = None
+    jwt_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("JWT_SECRET", "GLUCOTRACKER_JWT_SECRET"),
+    )
     database_url: str = "sqlite:///./data/glucotracker.sqlite3"
     photo_storage_dir: Path = Field(
         default=Path("./data/photos"),
         validation_alias=AliasChoices(
             "PHOTO_STORAGE_DIR",
             "GLUCOTRACKER_PHOTO_STORAGE_DIR",
+        ),
+    )
+    activity_log_dir: Path = Field(
+        default=Path("./data/activity_logs"),
+        validation_alias=AliasChoices(
+            "ACTIVITY_LOG_DIR",
+            "GLUCOTRACKER_ACTIVITY_LOG_DIR",
         ),
     )
     gemini_api_key: str | None = Field(
@@ -102,7 +113,7 @@ class Settings(BaseSettings):
     )
 
     @property
-    def local_zoneinfo(self) -> ZoneInfo:
+    def local_zoneinfo(self) -> tzinfo:
         """Return the configured app timezone or the host local timezone."""
         if self.app_timezone:
             try:
@@ -113,9 +124,16 @@ class Settings(BaseSettings):
                 ) from exc
 
         local_tz = datetime.now().astimezone().tzinfo
-        if isinstance(local_tz, ZoneInfo):
+        if local_tz is not None:
             return local_tz
         return ZoneInfo("UTC")
+
+    def validated_jwt_secret(self) -> str:
+        """Return the JWT signing secret or reject unsafe backend startup."""
+        if self.jwt_secret is None or len(self.jwt_secret) < 32:
+            msg = "JWT_SECRET must be set and contain at least 32 characters."
+            raise RuntimeError(msg)
+        return self.jwt_secret
 
 
 @lru_cache

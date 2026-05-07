@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date as date_type
 from datetime import datetime, time, timedelta
 from typing import Literal
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -117,8 +118,14 @@ class FoodEpisode:
 class EndocrinologistReportService:
     """Build one-page PDF report data from locally stored facts."""
 
-    def __init__(self, session: Session, now: datetime | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        user_id: UUID,
+        now: datetime | None = None,
+    ) -> None:
         self.session = session
+        self.user_id = user_id
         self.now = _local_wall_time(now) if now is not None else _now_local()
 
     def build(self, from_date: date_type, to_date: date_type) -> dict[str, object]:
@@ -225,6 +232,7 @@ class EndocrinologistReportService:
                 select(Meal)
                 .where(
                     Meal.status == MealStatus.accepted,
+                    Meal.owner_id == self.user_id,
                     Meal.eaten_at >= from_datetime,
                     Meal.eaten_at <= to_datetime,
                 )
@@ -245,6 +253,7 @@ class EndocrinologistReportService:
                 .where(
                     NightscoutGlucoseEntry.timestamp >= from_datetime,
                     NightscoutGlucoseEntry.timestamp <= to_datetime,
+                    NightscoutGlucoseEntry.owner_id == self.user_id,
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
             )
@@ -261,6 +270,7 @@ class EndocrinologistReportService:
                 .where(
                     NightscoutInsulinEvent.timestamp >= from_datetime,
                     NightscoutInsulinEvent.timestamp <= to_datetime,
+                    NightscoutInsulinEvent.owner_id == self.user_id,
                 )
                 .order_by(NightscoutInsulinEvent.timestamp.asc())
             )

@@ -9,12 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
-from glucotracker.infra.nightscout.client import get_nightscout_client
-from glucotracker.main import app
 
 
 class FakeDashboardNightscoutClient:
-    """Configured Nightscout client double for glucose dashboard refresh tests."""
+    """Configured Nightscout client double for dashboard locality tests."""
 
     configured = True
 
@@ -89,10 +87,10 @@ def _create_fingerstick(
     return response.json()
 
 
-def test_dashboard_refreshes_nightscout_glucose_before_rendering(
+def test_dashboard_reads_local_cache_without_refreshing_nightscout(
     api_client: TestClient,
 ) -> None:
-    """Dashboard fetches current Nightscout glucose before reading local cache."""
+    """Dashboard reads local cache; Nightscout import is owned by sync endpoints."""
     fake_client = FakeDashboardNightscoutClient(
         [
             {
@@ -104,31 +102,23 @@ def test_dashboard_refreshes_nightscout_glucose_before_rendering(
             }
         ]
     )
-    app.dependency_overrides[get_nightscout_client] = lambda: fake_client
+    _seed_cgm(
+        api_client,
+        start=datetime(2026, 4, 28, 9, 5),
+        values=[(0, 6.0)],
+        prefix="local-current",
+    )
 
-    try:
-        settings_response = api_client.put(
-            "/settings/nightscout",
-            json={
-                "nightscout_enabled": True,
-                "nightscout_url": "https://nightscout.example",
-                "nightscout_api_secret": "secret",
-                "sync_glucose": True,
-            },
-        )
-        response = api_client.get(
-            "/glucose/dashboard",
-            params={
-                "from": "2026-04-28T08:00:00",
-                "to": "2026-04-28T10:00:00",
-            },
-        )
-    finally:
-        app.dependency_overrides.pop(get_nightscout_client, None)
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T08:00:00",
+            "to": "2026-04-28T10:00:00",
+        },
+    )
 
-    assert settings_response.status_code == 200
     assert response.status_code == 200
-    assert len(fake_client.requests) == 1
+    assert fake_client.requests == []
     body = response.json()
     assert body["points"][0]["timestamp"].startswith("2026-04-28T09:05:00")
     assert body["points"][0]["raw_value"] == pytest.approx(6.0)

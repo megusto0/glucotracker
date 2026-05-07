@@ -5,16 +5,13 @@ from __future__ import annotations
 from datetime import date as date_type
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import AdminRecalculateResponse
 from glucotracker.application.daily_totals import DailyTotalsService
 
-router = APIRouter(
-    tags=["admin"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["admin"])
 
 
 @router.post(
@@ -24,11 +21,15 @@ router = APIRouter(
 )
 def admin_recalculate_daily_totals(
     session: SessionDep,
+    current_user: CurrentUserDep,
     from_date: Annotated[date_type, Query(alias="from")],
     to_date: Annotated[date_type, Query(alias="to")],
 ) -> AdminRecalculateResponse:
     """Backfill daily totals for an inclusive date range."""
-    totals = DailyTotalsService(session).recalculate_range(from_date, to_date)
+    totals = DailyTotalsService(session, current_user.id).recalculate_range(
+        from_date,
+        to_date,
+    )
     session.commit()
     return AdminRecalculateResponse(
         from_date=from_date,

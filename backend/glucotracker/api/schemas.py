@@ -1049,6 +1049,16 @@ class NightscoutImportResponse(BaseModel):
     last_error: str | None = None
 
 
+class NightscoutLatestReadingResponse(BaseModel):
+    """Latest glucose reading from the local Nightscout cache."""
+
+    timestamp: datetime | None = None
+    value_mmol_l: float | None = None
+    trend: str | None = None
+    sensor_id: str | None = None
+    total_entries: int = 0
+
+
 class TimelineGlucoseSummary(BaseModel):
     """Small CGM summary for a computed food episode."""
 
@@ -1075,6 +1085,18 @@ class FoodEpisodeResponse(BaseModel):
     total_kcal: float
 
 
+class FoodEpisodeFoodResponse(BaseModel):
+    """Computed food-only episode."""
+
+    id: str
+    start_at: datetime
+    end_at: datetime
+    title: str
+    meals: list[MealResponse]
+    total_carbs_g: float
+    total_kcal: float
+
+
 class TimelineInsulinEventResponse(NightscoutInsulinEventResponse):
     """Read-only insulin event not grouped into a food episode."""
 
@@ -1088,6 +1110,14 @@ class TimelineResponse(BaseModel):
     to_datetime: datetime
     episodes: list[FoodEpisodeResponse]
     ungrouped_insulin: list[TimelineInsulinEventResponse] = Field(default_factory=list)
+
+
+class TimelineFoodResponse(BaseModel):
+    """Food-only history timeline response."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    episodes: list[FoodEpisodeFoodResponse]
 
 
 class SensorSessionBase(BaseModel):
@@ -1449,6 +1479,13 @@ class DashboardTodayResponse(BaseModel):
     prev_week_avg_carbs: float
     prev_week_avg_kcal: float
     nutrients: list[DashboardNutrientTotal] = Field(default_factory=list)
+
+
+class DashboardTodayWithGlucoseResponse(DashboardTodayResponse):
+    """Dashboard summary for a role with glucose context enabled."""
+
+    current_glucose: float | None
+    current_glucose_at: datetime | None
 
 
 class DashboardDayResponse(BaseModel):

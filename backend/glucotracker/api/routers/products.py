@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import (
     ProductCreate,
     ProductFromLabelRequest,
@@ -26,10 +26,7 @@ from glucotracker.infra.db.product_merge import (
 )
 from glucotracker.infra.storage import product_image_store
 
-router = APIRouter(
-    tags=["products"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["products"])
 
 
 def _product_options() -> tuple:
@@ -37,10 +34,15 @@ def _product_options() -> tuple:
     return (selectinload(Product.aliases),)
 
 
-def _get_product(session: SessionDep, product_id: UUID) -> Product:
+def _visible_product_filter(user_id: UUID):
+    return (Product.owner_id.is_(None)) | (Product.owner_id == user_id)
+
+
+def _get_product(session: SessionDep, user_id: UUID, product_id: UUID) -> Product:
     """Fetch a product or raise 404."""
     product = session.scalar(
         select(Product).where(Product.id == product_id).options(*_product_options())
+        .where(_visible_product_filter(user_id))
     )
     if product is None:
         raise HTTPException(
@@ -92,11 +94,14 @@ def _replace_aliases(product: Product, aliases: list[str]) -> None:
         if not normalized or normalized.lower() in seen:
             continue
         seen.add(normalized.lower())
-        product.aliases.append(ProductAlias(alias=normalized))
+        product.aliases.append(
+            ProductAlias(owner_id=product.owner_id, alias=normalized)
+        )
 
 
 def _find_product_for_label(
     session: SessionDep,
+    user_id: UUID,
     payload: ProductFromLabelRequest,
 ) -> Product | None:
     """Find an existing product suitable for label-fact update."""
@@ -104,6 +109,7 @@ def _find_product_for_label(
         product = session.scalar(
             select(Product)
             .where(Product.barcode == payload.barcode)
+            .where(_visible_product_filter(user_id))
             .options(*_product_options())
         )
         if product is not None:
@@ -111,7 +117,11 @@ def _find_product_for_label(
 
     brand = (payload.brand or "").casefold()
     name = payload.name.casefold()
-    products = session.scalars(select(Product).options(*_product_options())).all()
+    products = session.scalars(
+        select(Product)
+        .where(_visible_product_filter(user_id))
+        .options(*_product_options())
+    ).all()
     for product in products:
         brand_matches = (product.brand or "").casefold() == brand
         name_matches = product.name.casefold() == name
@@ -127,6 +137,7 @@ def _find_product_for_label(
 )
 def list_products(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -146,6 +157,7 @@ def list_products(
     products = session.scalars(
         select(Product)
         .where(*filters)
+        .where(_visible_product_filter(current_user.id))
         .options(*_product_options())
         .order_by(Product.name.asc())
     ).all()
@@ -167,18 +179,22 @@ def list_products(
     status_code=status.HTTP_201_CREATED,
     operation_id="createProduct",
 )
-def create_product(payload: ProductCreate, session: SessionDep) -> ProductResponse:
+def create_product(
+    payload: ProductCreate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> ProductResponse:
     """Create a manually saved packaged food."""
     data = payload.model_dump(exclude={"aliases"})
     data["nutrients_json"] = normalize_nutrients_object(
         data.get("nutrients_json"),
         default_source_kind="product_db",
     )
-    product = Product(**data)
+    product = Product(owner_id=current_user.id, **data)
     _replace_aliases(product, payload.aliases)
     session.add(product)
     session.commit()
-    return _product_response(_get_product(session, product.id))
+    return _product_response(_get_product(session, current_user.id, product.id))
 
 
 @router.post(
@@ -189,6 +205,7 @@ def create_product(payload: ProductCreate, session: SessionDep) -> ProductRespon
 def create_or_update_product_from_label(
     payload: ProductFromLabelRequest,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> ProductResponse:
     """Create or update a product from manually confirmed label facts."""
     data = payload.model_dump(exclude={"aliases"})
@@ -196,9 +213,9 @@ def create_or_update_product_from_label(
         data.get("nutrients_json"),
         default_source_kind="label_calc",
     )
-    product = _find_product_for_label(session, payload)
+    product = _find_product_for_label(session, current_user.id, payload)
     if product is None:
-        product = Product(**data)
+        product = Product(owner_id=current_user.id, **data)
         session.add(product)
     else:
         for field, value in data.items():
@@ -207,7 +224,7 @@ def create_or_update_product_from_label(
 
     _replace_aliases(product, payload.aliases)
     session.commit()
-    return _product_response(_get_product(session, product.id))
+    return _product_response(_get_product(session, current_user.id, product.id))
 
 
 @router.get(
@@ -217,6 +234,7 @@ def create_or_update_product_from_label(
 )
 def search_products(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str,
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[ProductResponse]:
@@ -232,6 +250,7 @@ def search_products(
                 Product.aliases.any(ProductAlias.alias.ilike(term)),
             )
         )
+        .where(_visible_product_filter(current_user.id))
         .options(*_product_options())
         .limit(limit)
     ).all()
@@ -253,9 +272,13 @@ def search_products(
     response_model=ProductResponse,
     operation_id="getProduct",
 )
-def get_product(product_id: UUID, session: SessionDep) -> ProductResponse:
+def get_product(
+    product_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> ProductResponse:
     """Return a saved product."""
-    return _product_response(_get_product(session, product_id))
+    return _product_response(_get_product(session, current_user.id, product_id))
 
 
 @router.patch(
@@ -267,9 +290,10 @@ def patch_product(
     product_id: UUID,
     payload: ProductPatch,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> ProductResponse:
     """Patch a saved product."""
-    product = _get_product(session, product_id)
+    product = _get_product(session, current_user.id, product_id)
     data = payload.model_dump(exclude_unset=True)
     aliases = data.pop("aliases", None)
     for field, value in data.items():
@@ -282,7 +306,7 @@ def patch_product(
     merge_duplicate_source_photo_products(session, product)
 
     session.commit()
-    return _product_response(_get_product(session, product.id))
+    return _product_response(_get_product(session, current_user.id, product.id))
 
 
 @router.post(
@@ -293,10 +317,11 @@ def patch_product(
 def upload_product_image(
     product_id: UUID,
     session: SessionDep,
+    current_user: CurrentUserDep,
     file: Annotated[UploadFile, File(...)],
 ) -> ProductResponse:
     """Upload and replace a local product image."""
-    product = _get_product(session, product_id)
+    product = _get_product(session, current_user.id, product_id)
     try:
         product_image_store.save_upload(product.id, file)
     except product_image_store.ProductImageStorageError as exc:
@@ -308,16 +333,20 @@ def upload_product_image(
     product.image_url = f"/products/{product.id}/image/file"
     product.updated_at = utc_now()
     session.commit()
-    return _product_response(_get_product(session, product.id))
+    return _product_response(_get_product(session, current_user.id, product.id))
 
 
 @router.get(
     "/products/{product_id}/image/file",
     operation_id="getProductImageFile",
 )
-def get_product_image_file(product_id: UUID, session: SessionDep) -> FileResponse:
+def get_product_image_file(
+    product_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> FileResponse:
     """Stream a locally stored product image."""
-    product = _get_product(session, product_id)
+    product = _get_product(session, current_user.id, product_id)
     try:
         full_path = product_image_store.get_full_path(product.id)
     except product_image_store.ProductImageStorageError as exc:
