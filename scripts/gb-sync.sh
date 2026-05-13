@@ -20,7 +20,8 @@ set -euo pipefail
 
 # --- Config ---
 BACKEND_URL="http://192.168.1.100:8000"  # <-- your glucotracker backend IP
-BACKEND_TOKEN=""                           # <-- your backend token
+BACKEND_USERNAME="${BACKEND_USERNAME:-admin}"
+BACKEND_PASSWORD="${BACKEND_PASSWORD:-}"
 
 # Gadgetbridge DB location (export)
 GB_DB="/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge"
@@ -74,11 +75,26 @@ fi
 
 PAYLOAD="{\"date\": \"$DAY\", \"steps\": $STEPS, \"kcal_burned\": $KCAL_BURNED, \"active_minutes\": 0, \"source\": \"gadgetbridge\"$HR_JSON}"
 
+if [ -z "$BACKEND_PASSWORD" ]; then
+    echo "ERROR: set BACKEND_PASSWORD, or set BACKEND_USERNAME and BACKEND_PASSWORD."
+    exit 1
+fi
+
+AUTH_RESPONSE=$(curl -s -X POST \
+    "$BACKEND_URL/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"$BACKEND_USERNAME\",\"password\":\"$BACKEND_PASSWORD\"}")
+BACKEND_ACCESS_TOKEN=$(printf '%s' "$AUTH_RESPONSE" | sed -n 's/.*"access"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+if [ -z "$BACKEND_ACCESS_TOKEN" ]; then
+    echo "ERROR: login failed: $AUTH_RESPONSE"
+    exit 1
+fi
+
 echo "Syncing to glucotracker..."
 curl -s -X POST \
     "$BACKEND_URL/activity/sync" \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $BACKEND_TOKEN" \
+    -H "Authorization: Bearer $BACKEND_ACCESS_TOKEN" \
     -d "$PAYLOAD"
 
 echo ""

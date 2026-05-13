@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.feature.record
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -46,10 +48,17 @@ import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.design.primitives.GTPhotoProcessingPipeline
+import com.local.glucotracker.ui.design.primitives.GTPhotoProcessingProgressBar
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.design.primitives.GTTag
+import com.local.glucotracker.ui.format.PhotoProcessingStage
+import com.local.glucotracker.ui.format.PhotoProcessingUiState
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.format.formatMmol
+import com.local.glucotracker.ui.format.formatPercent
+import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -70,36 +79,30 @@ fun RecordRoute(
         viewModel.load(id)
     }
 
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     RecordScreen(
         state = state,
         onClose = onClose,
-        onOpenGlucose = onOpenGlucose,
         onSaveTitle = viewModel::updateTitle,
         onSaveTime = viewModel::updateTime,
         onSaveWeight = viewModel::updateWeight,
         onCreatePortion = viewModel::createPortion,
         onDelete = viewModel::deleteRecord,
-        onKeepLocal = viewModel::retryConflict,
-        onKeepServer = viewModel::dropLocalConflict,
-        onKeepBoth = viewModel::keepBothConflict,
+        onRetryStuck = viewModel::retryStuck,
         modifier = modifier,
     )
 }
 
 @Composable
-private fun RecordScreen(
+internal fun RecordScreen(
     state: RecordState,
     onClose: () -> Unit,
-    onOpenGlucose: () -> Unit,
     onSaveTitle: (String) -> Unit,
     onSaveTime: (String) -> Unit,
     onSaveWeight: (String) -> Unit,
     onCreatePortion: (Double) -> Unit,
     onDelete: () -> Unit,
-    onKeepLocal: () -> Unit,
-    onKeepServer: () -> Unit,
-    onKeepBoth: () -> Unit,
+    onRetryStuck: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
@@ -117,15 +120,12 @@ private fun RecordScreen(
                 RecordState.NotFound -> RecordMessage(text = stringResource(R.string.record_not_found))
                 is RecordState.Loaded -> RecordContent(
                     loaded = state,
-                    onOpenGlucose = onOpenGlucose,
                     onSaveTitle = onSaveTitle,
                     onSaveTime = onSaveTime,
                     onSaveWeight = onSaveWeight,
                     onCreatePortion = onCreatePortion,
                     onDeleteRequest = { confirmDelete = true },
-                    onKeepLocal = onKeepLocal,
-                    onKeepServer = onKeepServer,
-                    onKeepBoth = onKeepBoth,
+                    onRetryStuck = onRetryStuck,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -195,15 +195,12 @@ private fun RecordMessage(
 @Composable
 private fun RecordContent(
     loaded: RecordState.Loaded,
-    onOpenGlucose: () -> Unit,
     onSaveTitle: (String) -> Unit,
     onSaveTime: (String) -> Unit,
     onSaveWeight: (String) -> Unit,
     onCreatePortion: (Double) -> Unit,
     onDeleteRequest: () -> Unit,
-    onKeepLocal: () -> Unit,
-    onKeepServer: () -> Unit,
-    onKeepBoth: () -> Unit,
+    onRetryStuck: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val record = loaded.record
@@ -216,13 +213,28 @@ private fun RecordContent(
     ) {
         RecordHero(record = record)
         RecordMacros(record = record)
+        record.photoProcessing?.let { state ->
+            PhotoProcessingPanel(
+                state = state,
+                onRetry = onRetryStuck,
+            )
+        }
+        PostprandialPanel(record = record)
 
-        if (record.status == RecordStatus.Conflict) {
-            ConflictPanel(
+        loaded.outboxItem?.errorMessage
+            ?.takeIf { it.isNotBlank() && record.status != RecordStatus.Stuck && record.photoProcessing == null }
+            ?.let { error ->
+                Text(
+                    text = stringResource(R.string.today_pending_error, error.take(240)),
+                    color = GT.colors.warn,
+                    style = GT.type.sansLabel,
+                )
+            }
+
+        if (record.status == RecordStatus.Stuck && record.photoProcessing == null) {
+            StuckPanel(
                 errorMessage = loaded.outboxItem?.errorMessage,
-                onKeepLocal = onKeepLocal,
-                onKeepServer = onKeepServer,
-                onKeepBoth = onKeepBoth,
+                onRetry = onRetryStuck,
             )
         }
 
@@ -239,16 +251,49 @@ private fun RecordContent(
             modifier = Modifier.fillMaxWidth(),
         ) {
             SourceCard(record = record, modifier = Modifier.weight(1f))
-            NightscoutCard(record = record, modifier = Modifier.weight(1f))
         }
 
-        GlucosePanel(
-            eatenAt = record.eatenAt,
-            onOpenGlucose = onOpenGlucose,
-        )
+        LocalGlucoseSurfaces.current.RecordGlucoseAtMealPanel(eatenAt = record.eatenAt)
 
         RecordFooter(onDeleteRequest = onDeleteRequest)
         Spacer(Modifier.height(GT.space.md))
+    }
+}
+
+@Composable
+private fun PhotoProcessingPanel(
+    state: PhotoProcessingUiState,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(GT.space.md),
+        verticalArrangement = Arrangement.spacedBy(GT.space.sm),
+    ) {
+        GTKicker(text = state.title)
+        Text(
+            text = state.statusText,
+            color = if (state.stage == PhotoProcessingStage.Stuck) GT.colors.warn else GT.colors.muted,
+            style = GT.type.monoLabel,
+        )
+        if (state.stage == PhotoProcessingStage.Uploading) {
+            GTPhotoProcessingProgressBar(progress = state.uploadProgress)
+        }
+        GTPhotoProcessingPipeline(state = state)
+        state.helperText?.let { helper ->
+            Text(
+                text = helper,
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+        if (state.canRetry) {
+            GTOutlineButton(text = stringResource(R.string.outbox_retry), onClick = onRetry)
+        }
     }
 }
 
@@ -273,9 +318,9 @@ private fun RecordHero(record: RecordUi) {
             )
             Text(
                 text = record.kcal?.let { stringResource(R.string.record_kcal_value, formatKcal(it)) }
-                    ?: stringResource(R.string.glucose_value_empty),
+                    ?: pendingKcalText(record.status),
                 modifier = Modifier.padding(top = 3.dp),
-                color = GT.colors.ink,
+                color = if (record.kcal == null && record.isPending) GT.colors.muted else GT.colors.ink,
                 style = GT.type.monoNumber.copy(fontSize = 22.sp),
                 maxLines = 1,
             )
@@ -284,7 +329,6 @@ private fun RecordHero(record: RecordUi) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 GTTag(text = sourceLabel(record.source))
-                GTTag(text = statusLabel(record.status))
                 GTTag(text = weightChip(record.weightGrams))
             }
         }
@@ -321,10 +365,10 @@ private fun RecordMacros(record: RecordUi) {
     Text(
         text = stringResource(
             R.string.record_macros_line,
-            record.carbsG?.let { formatGrams(it) } ?: stringResource(R.string.glucose_value_empty),
-            record.proteinG?.let { formatGrams(it) } ?: stringResource(R.string.glucose_value_empty),
-            record.fatG?.let { formatGrams(it) } ?: stringResource(R.string.glucose_value_empty),
-            record.fiberG?.let { formatGrams(it) } ?: stringResource(R.string.glucose_value_empty),
+            record.carbsG?.let { formatGrams(it) } ?: stringResource(R.string.value_empty),
+            record.proteinG?.let { formatGrams(it) } ?: stringResource(R.string.value_empty),
+            record.fatG?.let { formatGrams(it) } ?: stringResource(R.string.value_empty),
+            record.fiberG?.let { formatGrams(it) } ?: stringResource(R.string.value_empty),
         ),
         color = GT.colors.ink2,
         style = GT.type.monoLabel,
@@ -334,11 +378,69 @@ private fun RecordMacros(record: RecordUi) {
 }
 
 @Composable
-private fun ConflictPanel(
+private fun PostprandialPanel(record: RecordUi) {
+    val response = record.postprandialResponse ?: return
+    if (response.points.size < 2 && response.deltaMaxMmolL == null) return
+    val lineColor = GT.colors.accent
+    val baselineColor = GT.colors.hairline2
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(GT.space.md),
+        verticalArrangement = Arrangement.spacedBy(GT.space.sm),
+    ) {
+        GTSectionLabel(text = stringResource(R.string.record_postprandial_title))
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp),
+        ) {
+            val values = response.points.map { it.valueMmolL }
+            val min = minOf(values.minOrNull() ?: 4.0, 4.0)
+            val max = maxOf(values.maxOrNull() ?: 10.0, 10.0)
+            val range = (max - min).takeIf { it > 0.0 } ?: 1.0
+            fun x(offset: Int): Float = (offset / 300f) * size.width
+            fun y(value: Double): Float =
+                (size.height - ((value - min) / range).toFloat() * size.height)
+            drawLine(
+                color = baselineColor,
+                start = Offset(0f, y(4.0)),
+                end = Offset(size.width, y(4.0)),
+                strokeWidth = 1.dp.toPx(),
+            )
+            response.points.zipWithNext().forEach { (a, b) ->
+                drawLine(
+                    color = lineColor,
+                    start = Offset(x(a.offsetMinutes), y(a.valueMmolL)),
+                    end = Offset(x(b.offsetMinutes), y(b.valueMmolL)),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
+            }
+            response.points.forEach { point ->
+                drawCircle(
+                    color = lineColor,
+                    radius = 2.5.dp.toPx(),
+                    center = Offset(x(point.offsetMinutes), y(point.valueMmolL)),
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(GT.space.sm)) {
+            response.deltaMaxMmolL?.let { delta ->
+                GTTag(text = stringResource(R.string.record_postprandial_delta, formatMmol(delta)))
+            }
+            response.coverage180?.let { coverage ->
+                GTTag(text = stringResource(R.string.record_postprandial_coverage, formatPercent(coverage * 100)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StuckPanel(
     errorMessage: String?,
-    onKeepLocal: () -> Unit,
-    onKeepServer: () -> Unit,
-    onKeepBoth: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -349,17 +451,13 @@ private fun ConflictPanel(
             .padding(GT.space.md),
         verticalArrangement = Arrangement.spacedBy(GT.space.sm),
     ) {
-        GTKicker(text = stringResource(R.string.record_conflict_kicker))
+        GTKicker(text = stringResource(R.string.record_stuck_kicker))
         Text(
-            text = errorMessage ?: stringResource(R.string.record_conflict_body),
+            text = errorMessage ?: stringResource(R.string.record_stuck_body),
             color = GT.colors.warn,
             style = GT.type.sansBody,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(GT.space.sm)) {
-            GTOutlineButton(text = stringResource(R.string.record_conflict_keep_local), onClick = onKeepLocal)
-            GTOutlineButton(text = stringResource(R.string.record_conflict_keep_server), onClick = onKeepServer)
-        }
-        GTOutlineButton(text = stringResource(R.string.record_conflict_keep_both), onClick = onKeepBoth)
+        GTOutlineButton(text = stringResource(R.string.outbox_retry), onClick = onRetry)
     }
 }
 
@@ -512,27 +610,6 @@ private fun SourceCard(
 }
 
 @Composable
-private fun NightscoutCard(
-    record: RecordUi,
-    modifier: Modifier = Modifier,
-) {
-    val status = if (record.isPending) {
-        stringResource(R.string.record_nightscout_pending)
-    } else {
-        record.nightscoutStatus ?: stringResource(R.string.record_nightscout_empty)
-    }
-    val secondary = record.nightscoutSyncedAt?.let {
-        stringResource(R.string.record_nightscout_synced_at, it.dateTimeText())
-    } ?: stringResource(R.string.record_nightscout_context_only)
-    RecordInfoCard(
-        kicker = stringResource(R.string.record_card_nightscout),
-        primary = status,
-        secondary = secondary,
-        modifier = modifier,
-    )
-}
-
-@Composable
 private fun RecordInfoCard(
     kicker: String,
     primary: String,
@@ -561,37 +638,6 @@ private fun RecordInfoCard(
             style = GT.type.monoLabel,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun GlucosePanel(
-    eatenAt: Instant,
-    onOpenGlucose: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(GT.space.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            GTKicker(text = stringResource(R.string.record_glucose_kicker))
-            Text(
-                text = stringResource(R.string.record_glucose_at, eatenAt.timeText()),
-                modifier = Modifier.padding(top = 6.dp),
-                color = GT.colors.ink2,
-                style = GT.type.monoLabel,
-            )
-        }
-        Text(
-            text = stringResource(R.string.record_glucose_open),
-            modifier = Modifier.clickable(onClick = onOpenGlucose),
-            color = GT.colors.info,
-            style = GT.type.sansLabel,
         )
     }
 }
@@ -671,6 +717,9 @@ private fun sourceLabel(source: String): String =
         "photo_estimate",
         "gallery",
         -> stringResource(R.string.today_source_photo)
+        "restaurant",
+        "restaurant_db",
+        -> stringResource(R.string.today_source_restaurant)
         "pattern",
         "template",
         -> stringResource(R.string.today_source_pattern)
@@ -680,14 +729,15 @@ private fun sourceLabel(source: String): String =
     }
 
 @Composable
-private fun statusLabel(status: RecordStatus): String =
+private fun pendingKcalText(status: RecordStatus): String =
     when (status) {
-        RecordStatus.Accepted -> stringResource(R.string.today_status_accepted)
-        RecordStatus.Draft -> stringResource(R.string.today_status_draft)
         RecordStatus.Queued -> stringResource(R.string.today_status_queued)
+        RecordStatus.Uploading -> stringResource(R.string.today_status_uploading)
         RecordStatus.Estimating -> stringResource(R.string.today_status_estimating)
-        RecordStatus.EstimateReady -> stringResource(R.string.today_status_estimate_ready)
-        RecordStatus.Conflict -> stringResource(R.string.today_status_conflict)
+        RecordStatus.Stuck -> stringResource(R.string.today_status_conflict)
+        RecordStatus.Accepted,
+        RecordStatus.Draft,
+        -> stringResource(R.string.value_empty)
     }
 
 @Composable
@@ -703,9 +753,6 @@ private fun Instant.timeText(): String {
     val time = toLocalDateTime(TimeZone.currentSystemDefault()).time
     return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
 }
-
-private fun Instant.dateTimeText(): String =
-    toJavaLocalDateTime().format(DateTimeFormatter.ofPattern("d MMM HH:mm", Locale("ru")))
 
 private fun Instant.dateTimeSecondsText(): String =
     toJavaLocalDateTime().format(DateTimeFormatter.ofPattern("d MMM HH:mm:ss", Locale("ru")))

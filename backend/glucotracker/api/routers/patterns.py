@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -20,8 +22,10 @@ from glucotracker.api.schemas import (
 )
 from glucotracker.domain.nutrients import normalize_nutrients_object
 from glucotracker.infra.db.models import Pattern, PatternAlias, utc_now
+from glucotracker.infra.storage import pattern_image_store
 
 router = APIRouter(tags=["patterns"])
+IMAGE_RESPONSE_HEADERS = {"Cache-Control": "private, max-age=604800"}
 
 
 def _normalize_token(value: str) -> str:
@@ -338,6 +342,61 @@ def patch_pattern(
             detail="Pattern prefix/key already exists.",
         ) from exc
     return _pattern_response(_get_pattern(session, current_user.id, pattern.id))
+
+
+@router.post(
+    "/patterns/{pattern_id}/image",
+    response_model=PatternResponse,
+    operation_id="uploadPatternImage",
+)
+def upload_pattern_image(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    file: Annotated[UploadFile, File(description="JPEG, PNG, or WebP image.")],
+) -> PatternResponse:
+    """Upload and replace a local pattern or restaurant image."""
+    pattern = _get_pattern(session, current_user.id, pattern_id)
+    try:
+        pattern_image_store.save_upload(pattern.id, file)
+    except pattern_image_store.PatternImageStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    pattern.image_url = f"/patterns/{pattern.id}/image/file"
+    pattern.updated_at = utc_now()
+    session.commit()
+    return _pattern_response(_get_pattern(session, current_user.id, pattern.id))
+
+
+@router.get(
+    "/patterns/{pattern_id}/image/file",
+    operation_id="getPatternImageFile",
+)
+def get_pattern_image_file(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> FileResponse:
+    """Stream a locally stored pattern or restaurant image."""
+    pattern = _get_pattern(session, current_user.id, pattern_id)
+    try:
+        full_path = pattern_image_store.get_full_path(pattern.id)
+    except pattern_image_store.PatternImageStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return FileResponse(
+        full_path,
+        media_type=pattern_image_store.content_type_for_path(full_path),
+        filename=f"{pattern.display_name}{full_path.suffix}",
+        headers=IMAGE_RESPONSE_HEADERS,
+        content_disposition_type="inline",
+    )
 
 
 @router.delete(

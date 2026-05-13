@@ -15,6 +15,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if exist ".venv\Scripts\python.exe" if not exist ".venv\pyvenv.cfg" (
+  echo Backend virtual environment is incomplete; recreating...
+  rmdir /s /q ".venv"
+)
+
 if not exist ".venv\Scripts\python.exe" (
   echo Creating backend virtual environment...
   python -m venv .venv
@@ -32,7 +37,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "glucotracker_backend.egg-info" (
+set "NEED_BACKEND_INSTALL=0"
+if not exist "glucotracker_backend.egg-info" set "NEED_BACKEND_INSTALL=1"
+python -c "from google import genai" >nul 2>nul
+if errorlevel 1 set "NEED_BACKEND_INSTALL=1"
+
+if "%NEED_BACKEND_INSTALL%"=="1" (
   echo Installing backend dependencies...
   python -m pip install --upgrade pip
   python -m pip install -e .
@@ -47,6 +57,10 @@ if "%GLUCOTRACKER_TOKEN%"=="" (
   set "GLUCOTRACKER_TOKEN=dev"
 )
 
+if "%GLUCOTRACKER_JWT_SECRET%"=="" (
+  set "GLUCOTRACKER_JWT_SECRET=local-dev-jwt-secret-change-me-32-characters"
+)
+
 echo Applying database migrations...
 alembic upgrade head
 if errorlevel 1 (
@@ -58,7 +72,11 @@ if errorlevel 1 (
 echo Starting glucotracker backend...
 echo API: http://0.0.0.0:8000
 echo Token: %GLUCOTRACKER_TOKEN%
-python -m uvicorn glucotracker.main:app --reload --host 0.0.0.0 --port 8000
+if /I "%GLUCOTRACKER_RELOAD%"=="1" (
+  python -m uvicorn glucotracker.main:app --reload --host 0.0.0.0 --port 8000
+) else (
+  python -m uvicorn glucotracker.main:app --host 0.0.0.0 --port 8000
+)
 
 if errorlevel 1 (
   echo Backend failed to start.

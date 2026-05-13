@@ -26,14 +26,12 @@ import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTMealRow
-import com.local.glucotracker.ui.design.primitives.GTMealRowStatus
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTPhotoPlaceholderTone
 import com.local.glucotracker.ui.design.primitives.GTPhotoSlot
 import com.local.glucotracker.ui.design.primitives.GTPrimaryButton
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.design.primitives.GTSegmented
-import com.local.glucotracker.ui.design.primitives.GTStatusTone
 import com.local.glucotracker.ui.design.primitives.GTTag
 
 @Preview(showBackground = true, backgroundColor = 0xFFF6F4EF)
@@ -143,10 +141,10 @@ fun GTMealRowPreview() {
             time = "20:08",
             photo = null,
             name = "Бисквит-сэндвич ×2",
-            meta = "оценка · принято · 60 г",
+            meta = "20:08 · фото",
             primaryRight = "37 г угл",
             secondaryRight = "246 ккал",
-            status = GTMealRowStatus(icon = "✓", text = "отпр.", tone = GTStatusTone.Good),
+            status = null,
         )
     }
 }
@@ -158,7 +156,7 @@ fun GTBottomBarPreview() {
         GTBottomBar(
             items = listOf(
                 GTBottomBarItem("today", "Сегодня", selected = true) { CalendarIcon() },
-                GTBottomBarItem("glucose", "Глюкоза") { SparkIcon() },
+                GTBottomBarItem("stats", "Стат.") { SparkIcon() },
                 GTBottomBarItem("history", "История") { ClockIcon() },
                 GTBottomBarItem("more", "Ещё") { MoreIcon() },
             ),

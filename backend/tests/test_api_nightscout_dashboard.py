@@ -20,6 +20,8 @@ from glucotracker.infra.nightscout.client import (
     NightscoutConnectError,
     NightscoutHTTPError,
     NightscoutTimeoutError,
+    _created_at_query,
+    _date_query,
     _meal_treatment_payload,
     get_nightscout_client,
 )
@@ -56,6 +58,7 @@ class FakeNightscoutClient:
         self.insulin_error = insulin_error
         self.treatment_rows = treatment_rows or []
         self.posted_meals = []
+        self.updated_meals = []
         self.lookup_meals = []
         self.deleted_ids = []
 
@@ -86,6 +89,15 @@ class FakeNightscoutClient:
             raise self.delete_error
         self.deleted_ids.append(nightscout_id)
         return {"deleted": nightscout_id}
+
+    async def update_meal_treatment(
+        self,
+        nightscout_id: str,
+        meal: object,
+    ) -> dict[str, Any]:
+        """Record and return fake treatment update."""
+        self.updated_meals.append((nightscout_id, meal))
+        return {"_id": nightscout_id, "updated": True}
 
     async def find_meal_treatment(self, meal: object) -> dict[str, Any] | None:
         """Return a matching fake treatment row."""
@@ -249,6 +261,72 @@ def test_nightscout_sync_and_unsync_success(api_client: TestClient) -> None:
     assert fake.deleted_ids == ["abc123"]
 
 
+def test_autosend_new_meal_when_enabled(api_client: TestClient) -> None:
+    """Accepted meals autosend to Nightscout when the server setting is enabled."""
+    fake = FakeNightscoutClient(post_response={"_id": "auto-1"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    settings = api_client.put(
+        "/settings/nightscout",
+        json={
+            "nightscout_enabled": True,
+            "allow_meal_send": True,
+            "autosend_meals": True,
+        },
+    )
+    assert settings.status_code == 200
+
+    meal = _create_meal(api_client)
+
+    assert fake.posted_meals
+    assert meal["nightscout_id"] == "auto-1"
+    assert meal["nightscout_sync_status"] == "synced"
+
+
+def test_synced_meal_edit_updates_nightscout(api_client: TestClient) -> None:
+    """Editing an already-synced meal mirrors the treatment in Nightscout."""
+    fake = FakeNightscoutClient(post_response={"_id": "edit-1"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    api_client.put(
+        "/settings/nightscout",
+        json={
+            "nightscout_enabled": True,
+            "allow_meal_send": True,
+            "autosend_meals": True,
+        },
+    )
+    meal = _create_meal(api_client)
+
+    response = api_client.patch(f"/meals/{meal['id']}", json={"title": "Edited"})
+
+    assert response.status_code == 200
+    assert fake.updated_meals
+    remote_id, updated_meal = fake.updated_meals[-1]
+    assert remote_id == "edit-1"
+    assert updated_meal.title == "Edited"
+    assert response.json()["nightscout_id"] == "edit-1"
+
+
+def test_synced_meal_delete_deletes_nightscout(api_client: TestClient) -> None:
+    """Deleting an already-synced meal removes its Nightscout treatment first."""
+    fake = FakeNightscoutClient(post_response={"_id": "delete-1"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    api_client.put(
+        "/settings/nightscout",
+        json={
+            "nightscout_enabled": True,
+            "allow_meal_send": True,
+            "autosend_meals": True,
+        },
+    )
+    meal = _create_meal(api_client)
+
+    response = api_client.delete(f"/meals/{meal['id']}")
+
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
+    assert fake.deleted_ids == ["delete-1"]
+
+
 def test_nightscout_sync_recovers_id_after_created_response_without_id(
     api_client: TestClient,
 ) -> None:
@@ -321,6 +399,30 @@ def test_nightscout_treatment_payload_converts_aware_local_time_to_utc() -> None
     assert payload["utcOffset"] == 240
 
 
+def test_nightscout_range_queries_use_utc_z_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nightscout dateString filters are string-like, so use its UTC Z shape."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    local_from = datetime(2026, 5, 10, 9, 27, 45)
+    local_to = datetime(2026, 5, 10, 11, 47, 0, tzinfo=timezone(timedelta(hours=4)))
+
+    try:
+        assert _date_query(local_from, local_to) == {
+            "find[dateString][$gte]": "2026-05-10T05:27:45.000Z",
+            "find[dateString][$lte]": "2026-05-10T07:47:00.000Z",
+            "count": "1000",
+        }
+        assert _created_at_query(local_from, local_to) == {
+            "find[created_at][$gte]": "2026-05-10T05:27:45.000Z",
+            "find[created_at][$lte]": "2026-05-10T07:47:00.000Z",
+            "count": "1000",
+        }
+    finally:
+        get_settings.cache_clear()
+
+
 def test_nightscout_import_rolls_back_before_recording_commit_error() -> None:
     """A failed import flush is rolled back before storing last_error."""
     session = FailingCommitSession()
@@ -391,11 +493,12 @@ def test_nightscout_settings_save_get_masks_secret(api_client: TestClient) -> No
     assert body["url"] == "https://nightscout.example"
     assert body["secret_is_set"] is True
     assert "super-secret" not in response.text
-    assert body["autosend_meals"] is False
+    assert body["autosend_meals"] is True
 
     fetched = api_client.get("/settings/nightscout")
     assert fetched.status_code == 200
     assert fetched.json()["secret_is_set"] is True
+    assert fetched.json()["autosend_meals"] is True
     assert "super-secret" not in fetched.text
 
 

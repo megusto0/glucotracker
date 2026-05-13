@@ -98,8 +98,6 @@ class NightscoutSettingsService:
                         )
             if request_field == "nightscout_api_secret" and value == "":
                 value = row.api_secret
-            if request_field == "autosend_meals":
-                value = False
             setattr(row, model_field, value)
         row.updated_at = utc_now()
         self.session.commit()
@@ -129,7 +127,7 @@ class NightscoutSettingsService:
             import_insulin_events=row.import_insulin_events,
             allow_meal_send=row.allow_meal_send,
             confirm_before_send=row.confirm_before_send,
-            autosend_meals=False,
+            autosend_meals=row.autosend_meals,
         )
 
     def effective_credentials(
@@ -254,6 +252,85 @@ class NightscoutSyncService:
 
         response = await self._post_meal(nightscout, meal)
         return self._sync_success(meal, response)
+
+    async def autosync_new_meal(
+        self,
+        meal_id: UUID,
+        *,
+        commit: bool = True,
+    ) -> NightscoutSyncResponse | None:
+        """Best-effort autosend for a newly accepted meal."""
+        meal = self._get_meal(meal_id)
+        settings = self.settings.get_or_create()
+        if not self._can_autosend(settings):
+            return None
+        if self.client is None or not self.client.configured:
+            self._sync_failure(meal, NIGHTSCOUT_NOT_CONFIGURED, commit=commit)
+            return None
+
+        try:
+            if meal.nightscout_id:
+                response = await self._update_meal(self.client, meal)
+            else:
+                response = await self._post_meal(self.client, meal)
+            return self._sync_success(meal, response, commit=commit)
+        except HTTPException as exc:
+            self._sync_failure(meal, _detail_to_text(exc.detail), commit=commit)
+            return None
+
+    async def mirror_meal_update(
+        self,
+        meal: Meal,
+        *,
+        commit: bool = False,
+    ) -> NightscoutSyncResponse | None:
+        """Keep a Nightscout treatment aligned with a local meal edit."""
+        settings = self.settings.get_or_create()
+        if not self._can_send_meals(settings):
+            return None
+        if not meal.nightscout_id:
+            if settings.autosend_meals:
+                return await self.autosync_new_meal(meal.id, commit=commit)
+            return None
+
+        nightscout = self._require_client()
+        response = await self._update_meal(nightscout, meal)
+        return self._sync_success(meal, response, commit=commit)
+
+    async def mirror_meal_delete(
+        self,
+        meal: Meal,
+        *,
+        commit: bool = False,
+    ) -> NightscoutSyncResponse | None:
+        """Delete the remote Nightscout treatment before deleting the local meal."""
+        settings = self.settings.get_or_create()
+        if not self._can_send_meals(settings) or not meal.nightscout_id:
+            return None
+
+        nightscout = self._require_client()
+        remote_id = meal.nightscout_id
+        try:
+            response = await nightscout.delete_treatment(remote_id)
+        except Exception as exc:
+            raise self.map_error(exc) from exc
+
+        meal.nightscout_id = None
+        meal.nightscout_synced_at = None
+        meal.nightscout_sync_status = NightscoutSyncStatus.not_synced
+        meal.nightscout_sync_error = None
+        meal.nightscout_last_attempt_at = utc_now()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+        return NightscoutSyncResponse(
+            synced=False,
+            nightscout_id=None,
+            nightscout_synced_at=None,
+            nightscout_sync_status=meal.nightscout_sync_status.value,
+            response=response,
+        )
 
     async def unsync_meal(self, meal_id: UUID) -> NightscoutSyncResponse:
         """Delete a Nightscout treatment and clear local sync fields."""
@@ -464,6 +541,39 @@ class NightscoutSyncService:
             raise self.map_error(exc) from exc
         return await self._response_with_remote_id(nightscout, meal, response)
 
+    async def _update_meal(
+        self,
+        nightscout: NightscoutClient,
+        meal: Meal,
+    ) -> dict[str, Any]:
+        self._ensure_syncable(meal)
+        if not meal.nightscout_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Meal is not synced to Nightscout.",
+            )
+        meal.nightscout_last_attempt_at = utc_now()
+        meal.nightscout_sync_error = None
+        try:
+            if hasattr(nightscout, "update_meal_treatment"):
+                response = await nightscout.update_meal_treatment(
+                    meal.nightscout_id,
+                    meal,
+                )
+            else:
+                response = await nightscout.update_treatment(
+                    meal.nightscout_id,
+                    meal,
+                )
+        except Exception as exc:
+            meal.nightscout_sync_status = NightscoutSyncStatus.failed
+            meal.nightscout_sync_error = _detail_to_text(self.map_error(exc).detail)
+            self.session.flush()
+            raise self.map_error(exc) from exc
+        response = dict(response or {})
+        response.setdefault("_id", meal.nightscout_id)
+        return response
+
     async def _response_with_remote_id(
         self,
         nightscout: NightscoutClient,
@@ -526,6 +636,29 @@ class NightscoutSyncService:
             nightscout_sync_status=meal.nightscout_sync_status.value,
             response=response,
         )
+
+    def _sync_failure(
+        self,
+        meal: Meal,
+        error: str,
+        *,
+        commit: bool,
+    ) -> None:
+        meal.nightscout_sync_status = NightscoutSyncStatus.failed
+        meal.nightscout_sync_error = error
+        meal.nightscout_last_attempt_at = utc_now()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+
+    @staticmethod
+    def _can_send_meals(settings: NightscoutSettings) -> bool:
+        return bool(settings.enabled and settings.allow_meal_send)
+
+    @classmethod
+    def _can_autosend(cls, settings: NightscoutSettings) -> bool:
+        return cls._can_send_meals(settings) and bool(settings.autosend_meals)
 
     def _accepted_meals_for_day(self, sync_date: date) -> list[Meal]:
         start = datetime.combine(sync_date, time.min, tzinfo=UTC)

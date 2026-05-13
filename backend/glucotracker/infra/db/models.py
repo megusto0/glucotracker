@@ -109,6 +109,27 @@ class User(Base):
         server_default=text("'{}'"),
         nullable=False,
     )
+    day_anchor_weekday_minutes: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    day_anchor_weekend_minutes: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    day_anchor_user_override_minutes: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    day_anchor_last_shift_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    day_anchor_basis: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    kcal_goal_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protein_goal_g_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    carb_goal_g_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fat_goal_g_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    goals_setup_completed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), nullable=False,
+    )
 
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
         back_populates="user",
@@ -164,6 +185,12 @@ class Meal(Base, TimestampMixin):
         ),
         Index("ix_meals_eaten_at", "eaten_at"),
         Index("ix_meals_owner_eaten_at", "owner_id", "eaten_at"),
+        Index(
+            "ux_meals_owner_photo_idempotency_key",
+            "owner_id",
+            "photo_idempotency_key",
+            unique=True,
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -214,6 +241,9 @@ class Meal(Base, TimestampMixin):
         nullable=False,
     )
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estimate_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    estimate_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    photo_idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     nightscout_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -230,6 +260,21 @@ class Meal(Base, TimestampMixin):
     nightscout_last_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+    ai_categories: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    derived_categories: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    categorized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    postprandial_response: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    postprandial_computed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     items: Mapped[list[MealItem]] = relationship(
@@ -264,6 +309,19 @@ class Meal(Base, TimestampMixin):
             if item.source_image_url:
                 return item.source_image_url
         return None
+
+    @property
+    def tags(self) -> list[str]:
+        """Return server-derived display tags for history filters."""
+        tags: list[str] = []
+        if self.eaten_at and 6 <= self.eaten_at.hour < 11:
+            tags.append("breakfast")
+        if any(
+            item.product and item.product.category == "sweet"
+            for item in self.items
+        ):
+            tags.append("sweet")
+        return tags
 
 
 class MealItem(Base, TimestampMixin):
@@ -699,6 +757,7 @@ class Product(Base, TimestampMixin):
     )
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)
     nutrients_json: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         default=dict,
@@ -766,6 +825,7 @@ class DailyTotal(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
         nullable=False,
     )
     date: Mapped[date] = mapped_column(Date, primary_key=True)
@@ -1303,6 +1363,7 @@ class DailyActivity(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
         nullable=False,
     )
     date: Mapped[date] = mapped_column(Date, primary_key=True)
@@ -1369,6 +1430,65 @@ class DailyActivity(Base):
         nullable=False,
     )
     synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    owner: Mapped[User] = relationship()
+
+
+class NonTypicalPeriod(Base):
+    """Date range excluded from day-anchor calculation (vacation, illness)."""
+
+    __tablename__ = "non_typical_periods"
+    __table_args__ = (
+        CheckConstraint("start_date <= end_date", name="start_before_end"),
+        Index("idx_non_typical_periods_user", "user_id", "start_date"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    owner: Mapped[User] = relationship()
+
+
+class DayAnchorHistory(Base):
+    """Append-only history of effective day-anchor regimes per user."""
+
+    __tablename__ = "day_anchor_history"
+    __table_args__ = (
+        CheckConstraint(
+            "effective_to IS NULL OR effective_from <= effective_to",
+            name="ck_day_anchor_history_effective_range",
+        ),
+        Index("ix_day_anchor_history_user_from", "user_id", "effective_from"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    anchor_weekday_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anchor_weekend_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    basis: Mapped[str] = mapped_column(String, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
         server_default=text("CURRENT_TIMESTAMP"),

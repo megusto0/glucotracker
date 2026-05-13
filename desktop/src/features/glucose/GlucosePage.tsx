@@ -7,22 +7,27 @@ import {
   Save,
   RotateCcw,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   startTransition,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   apiErrorMessage,
   type GlucoseDashboardResponse,
   type GlucoseMode,
   type KcalBalanceResponse,
+  type NightscoutLatestReadingResponse,
   type SensorSessionResponse,
 } from "../../api/client";
 import { apiClient } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import RightPanel from "../../components/RightPanel";
 import {
   useNightscoutSettings,
@@ -31,39 +36,85 @@ import { useApiConfig } from "../settings/settingsStore";
 import {
   useCreateFingerstick,
   useGlucoseDashboard,
+  useLatestGlucoseReading,
   useRecalculateSensorCalibration,
   useSaveSensor,
   useSensors,
   useUpdateFingerstick,
   useDeleteFingerstick,
 } from "./useGlucoseDashboard";
-import { useGlucoseSyncTracker } from "./useGlucoseSyncTracker";
+import { useGlucoseSyncTracker, type SyncState } from "./useGlucoseSyncTracker";
 import { SyncStatusIndicator } from "./SyncStatusIndicator";
+import {
+  formatDecimal,
+  formatMmol,
+  formatSafeInt,
+  formatSignedDecimal,
+  formatSignedKcal,
+} from "../../utils/nutritionFormat";
 
-type RangePreset = "3h" | "6h" | "12h" | "24h" | "7d";
+type RangePreset = "3h" | "6h" | "12h" | "24h";
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
 type Fingerstick = GlucoseDashboardResponse["fingersticks"][number];
 type FoodEvent = GlucoseDashboardResponse["food_events"][number];
 type InsulinEvent = GlucoseDashboardResponse["insulin_events"][number];
 type Artifact = GlucoseDashboardResponse["artifacts"][number];
 type ActivityTab = "episodes" | "events";
+type GlucoseClientCache = Pick<
+  GlucoseDashboardResponse,
+  "artifacts" | "fingersticks" | "food_events" | "insulin_events" | "points"
+>;
+
+const TARGET_LOW = 3.9;
+const TARGET_HIGH = 9.3;
+const VERY_HIGH = 13;
+const MAX_CLIENT_CGM_POINTS = 6000;
+const CURRENT_WINDOW_TOLERANCE_MS = 6 * 60 * 1000;
+
+type TirStats = {
+  below: number;
+  high: number;
+  target: number;
+  veryHigh: number;
+};
+
+type FocusMetrics = {
+  average: number | null;
+  carbs: number;
+  cv: number | null;
+  insulin: number;
+  median: number | null;
+  minutesHigh: number;
+  minutesLow: number;
+  nadir: { timestamp: string; value: number } | null;
+  peak: { timestamp: string; value: number } | null;
+};
+
+type DaypartBucket = {
+  count: number;
+  highRisk: boolean;
+  label: string;
+  max: number | null;
+  median: number | null;
+  min: number | null;
+  q1: number | null;
+  q3: number | null;
+  tir: number | null;
+};
 
 const rangeButtons: { label: string; value: RangePreset }[] = [
   { label: "3ч", value: "3h" },
   { label: "6ч", value: "6h" },
   { label: "12ч", value: "12h" },
   { label: "24ч", value: "24h" },
-  { label: "7д", value: "7d" },
 ];
 
-const rangeTitle = (preset: RangePreset | "custom") =>
+const rangeTitle = (preset: RangePreset) =>
   ({
-    "3h": "Последние 3 часа",
-    "6h": "Последние 6 часов",
-    "12h": "Последние 12 часов",
-    "24h": "Последние 24 часа",
-    "7d": "Последние 7 дней",
-    custom: "Выбранный период",
+    "3h": "3 часа",
+    "6h": "6 часов",
+    "12h": "12 часов",
+    "24h": "24 часа",
   })[preset];
 
 const modes: { label: string; value: GlucoseMode }[] = [
@@ -97,9 +148,7 @@ const presetRange = (preset: RangePreset) => {
         ? 6
         : preset === "12h"
           ? 12
-          : preset === "24h"
-            ? 24
-            : 24 * 7;
+          : 24;
   const from = new Date(to.getTime() - hours * 60 * 60 * 1000);
   return {
     from: toDateTimeInput(from),
@@ -107,15 +156,30 @@ const presetRange = (preset: RangePreset) => {
   };
 };
 
+function bufferedDashboardRange(from: string, to: string) {
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  const durationMs = Math.max(toMs - fromMs, 60 * 60 * 1000);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return { from, to };
+  }
+  const bufferedFrom = fromMs - durationMs * 3;
+  const bufferedTo = Math.min(toMs + durationMs, Date.now());
+  return {
+    from: toLocalDateTimeSecond(new Date(bufferedFrom)),
+    to: toLocalDateTimeSecond(new Date(Math.max(bufferedTo, toMs))),
+  };
+}
+
 const formatNumber = (
   value?: number | null,
   digits = 1,
   fallback = "—",
-) => (value === null || value === undefined ? fallback : value.toFixed(digits));
+) => (value === null || value === undefined ? fallback : formatDecimal(value, digits));
 
 const formatSigned = (value?: number | null, digits = 1) => {
   if (value === null || value === undefined) return "—";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+  return formatSignedDecimal(value, digits);
 };
 
 const formatDateTime = (value?: string | null) =>
@@ -235,12 +299,146 @@ const currentCorrection = (point?: DashboardPoint | null) => {
   return null;
 };
 
+const nightscoutTrendSymbol = (trend?: string | null) => {
+  const normalized = trend?.toLowerCase().replace(/[\s_-]+/g, "");
+  switch (normalized) {
+    case "doubleup":
+      return "↑↑";
+    case "singleup":
+      return "↑";
+    case "fortyfiveup":
+      return "↗";
+    case "flat":
+      return "→";
+    case "fortyfivedown":
+      return "↘";
+    case "singledown":
+      return "↓";
+    case "doubledown":
+      return "↓↓";
+    default:
+      return null;
+  }
+};
+
 const foodEventKcal = (event: FoodEvent) => event.kcal ?? 0;
+
+const emptyGlucoseClientCache = (): GlucoseClientCache => ({
+  artifacts: [],
+  fingersticks: [],
+  food_events: [],
+  insulin_events: [],
+  points: [],
+});
+
+function mergeByKey<T>(
+  previous: T[],
+  incoming: T[],
+  keyFor: (item: T) => string,
+  sortBy: (left: T, right: T) => number,
+) {
+  const map = new Map<string, T>();
+  previous.forEach((item) => map.set(keyFor(item), item));
+  incoming.forEach((item) => map.set(keyFor(item), item));
+  return Array.from(map.values()).sort(sortBy);
+}
+
+function mergeGlucoseClientCache(
+  previous: GlucoseClientCache,
+  incoming: GlucoseDashboardResponse,
+): GlucoseClientCache {
+  const points = mergeByKey(
+    previous.points,
+    incoming.points,
+    (point) => point.timestamp,
+    (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp),
+  );
+  const prunedPoints =
+    points.length > MAX_CLIENT_CGM_POINTS
+      ? points.slice(points.length - MAX_CLIENT_CGM_POINTS)
+      : points;
+  const oldestPointMs = prunedPoints.length
+    ? Date.parse(prunedPoints[0].timestamp)
+    : Number.NEGATIVE_INFINITY;
+
+  return {
+    artifacts: mergeByKey(
+      previous.artifacts,
+      incoming.artifacts,
+      (artifact) => `${artifact.start_at}-${artifact.end_at}-${artifact.kind}`,
+      (left, right) => Date.parse(left.start_at) - Date.parse(right.start_at),
+    ).filter((artifact) => Date.parse(artifact.end_at) >= oldestPointMs),
+    fingersticks: mergeByKey(
+      previous.fingersticks,
+      incoming.fingersticks,
+      (row) => row.id,
+      (left, right) => Date.parse(left.measured_at) - Date.parse(right.measured_at),
+    ).filter((row) => Date.parse(row.measured_at) >= oldestPointMs),
+    food_events: mergeByKey(
+      previous.food_events,
+      incoming.food_events,
+      (event) => `${event.timestamp}-${event.title}-${event.carbs_g}`,
+      (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp),
+    ).filter((event) => Date.parse(event.timestamp) >= oldestPointMs),
+    insulin_events: mergeByKey(
+      previous.insulin_events,
+      incoming.insulin_events,
+      (event) =>
+        `${event.timestamp}-${event.event_type ?? ""}-${event.insulin_units ?? ""}-${event.notes ?? ""}`,
+      (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp),
+    ).filter((event) => Date.parse(event.timestamp) >= oldestPointMs),
+    points: prunedPoints,
+  };
+}
+
+function cachedDashboardForRange(
+  cache: GlucoseClientCache,
+  base: GlucoseDashboardResponse | undefined,
+  from: string,
+  to: string,
+): GlucoseDashboardResponse | undefined {
+  if (!base) return undefined;
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return undefined;
+  const inRange = (iso: string) => {
+    const ms = Date.parse(iso);
+    return ms >= fromMs && ms <= toMs;
+  };
+  const overlapsRange = (startIso: string, endIso: string) => {
+    const startMs = Date.parse(startIso);
+    const endMs = Date.parse(endIso);
+    return endMs >= fromMs && startMs <= toMs;
+  };
+
+  const points = cache.points.filter((point) => inRange(point.timestamp));
+  if (!points.length) return undefined;
+
+  const latest = points[points.length - 1];
+  return {
+    ...base,
+    artifacts: cache.artifacts.filter((artifact) =>
+      overlapsRange(artifact.start_at, artifact.end_at),
+    ),
+    fingersticks: cache.fingersticks.filter((row) => inRange(row.measured_at)),
+    food_events: cache.food_events.filter((event) => inRange(event.timestamp)),
+    from_datetime: from,
+    insulin_events: cache.insulin_events.filter((event) => inRange(event.timestamp)),
+    points,
+    summary: {
+      ...base.summary,
+      current_glucose: latest.display_value,
+      current_glucose_at: latest.timestamp,
+    },
+    to_datetime: to,
+  };
+}
 
 export function GlucosePage() {
   const config = useApiConfig();
+  const queryClient = useQueryClient();
   const initialRange = useMemo(() => presetRange("6h"), []);
-  const [preset, setPreset] = useState<RangePreset | "custom">("6h");
+  const [preset, setPreset] = useState<RangePreset>("6h");
   const [fromInput, setFromInput] = useState(initialRange.from);
   const [toInput, setToInput] = useState(initialRange.to);
   const [mode, setMode] = useState<GlucoseMode>("normalized");
@@ -256,6 +454,9 @@ export function GlucosePage() {
   const [showSensorPanel, setShowSensorPanel] = useState(false);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
   const [kcalBalance, setKcalBalance] = useState<KcalBalanceResponse | null>(null);
+  const [glucoseClientCache, setGlucoseClientCache] = useState<GlucoseClientCache>(
+    () => emptyGlucoseClientCache(),
+  );
   const toggleSensorEdit = useCallback(() => setShowSensorEdit((v) => !v), []);
 
   useEffect(() => {
@@ -267,7 +468,21 @@ export function GlucosePage() {
 
   const from = toApiDateTime(fromInput);
   const to = toApiDateTime(toInput);
-  const dashboard = useGlucoseDashboard(from, to, mode);
+  const daypartRange = useMemo(() => {
+    const end = new Date(to);
+    const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return {
+      from: toLocalDateTimeSecond(start),
+      to: toLocalDateTimeSecond(end),
+    };
+  }, [to]);
+  const dashboardRange = useMemo(
+    () => bufferedDashboardRange(from, to),
+    [from, to],
+  );
+  const dashboard = useGlucoseDashboard(dashboardRange.from, dashboardRange.to, mode);
+  const daypartDashboard = useGlucoseDashboard(daypartRange.from, daypartRange.to, mode);
+  const latestReading = useLatestGlucoseReading();
   const sensors = useSensors();
   const nightscoutSettings = useNightscoutSettings();
 
@@ -278,8 +493,6 @@ export function GlucosePage() {
   );
 
   const { syncState, forceRefresh, resetConnection } = useGlucoseSyncTracker(
-    from,
-    to,
     mode,
     canImportNightscout,
     Boolean(nightscoutSettings.data?.configured),
@@ -290,9 +503,48 @@ export function GlucosePage() {
   const deleteFingerstick = useDeleteFingerstick();
   const saveSensor = useSaveSensor();
   const recalculate = useRecalculateSensorCalibration();
-  const isCustomRange = preset === "custom";
 
-  const data = dashboard.data;
+  useEffect(() => {
+    if (!dashboard.data) return;
+    setGlucoseClientCache((current) =>
+      mergeGlucoseClientCache(current, dashboard.data),
+    );
+  }, [dashboard.data]);
+
+  useEffect(() => {
+    if (!daypartDashboard.data) return;
+    setGlucoseClientCache((current) =>
+      mergeGlucoseClientCache(current, daypartDashboard.data),
+    );
+  }, [daypartDashboard.data]);
+
+  const immediateClientCache = useMemo(
+    () =>
+      dashboard.data
+        ? mergeGlucoseClientCache(glucoseClientCache, dashboard.data)
+        : glucoseClientCache,
+    [dashboard.data, glucoseClientCache],
+  );
+  const cachedData = useMemo(
+    () => cachedDashboardForRange(immediateClientCache, dashboard.data, from, to),
+    [dashboard.data, from, immediateClientCache, to],
+  );
+  const data = cachedData ?? dashboard.data;
+  const chartData = useMemo(
+    () =>
+      cachedDashboardForRange(
+        immediateClientCache,
+        dashboard.data,
+        dashboardRange.from,
+        dashboardRange.to,
+      ) ?? data,
+    [dashboard.data, dashboardRange.from, dashboardRange.to, data, immediateClientCache],
+  );
+  const nowReading = latestReading.data;
+  const selectedToMs = Date.parse(to);
+  const isCurrentWindow =
+    Number.isFinite(selectedToMs) &&
+    Date.now() - selectedToMs <= CURRENT_WINDOW_TOLERANCE_MS;
   const currentSensor = data?.current_sensor ?? null;
   const sensorList = sensors.data ?? data?.sensors ?? [];
   const quality = data?.quality;
@@ -307,6 +559,13 @@ export function GlucosePage() {
   const trust = confidenceLabel(summary?.calibration_confidence, validCalibrationPoints);
   const events = useMemo(() => buildEventRows(data), [data]);
   const episodes = useMemo(() => buildGroupedEpisodes(data), [data]);
+  const chartEpisodes = useMemo(() => buildGroupedEpisodes(chartData), [chartData]);
+  const tirStats = useMemo(() => buildTirStats(data, mode), [data, mode]);
+  const focusMetrics = useMemo(() => buildFocusMetrics(data, mode), [data, mode]);
+  const daypartProfile = useMemo(
+    () => buildDaypartProfile(daypartDashboard.data, mode),
+    [daypartDashboard.data, mode],
+  );
   const recentFingersticks = (data?.fingersticks ?? []).slice(-4).reverse();
 
   useEffect(() => {
@@ -337,8 +596,55 @@ export function GlucosePage() {
       setPreset(value);
       setFromInput(next.from);
       setToInput(next.to);
+      setHoveredEpisodeId(null);
+      setSelectedEpisodeId(null);
     });
   };
+
+  const shiftRange = useCallback((offsetMs: number) => {
+    const fromMs = Date.parse(from);
+    const toMs = Date.parse(to);
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return;
+    const clampedOffset = Math.min(offsetMs, Date.now() - toMs);
+    if (Math.abs(clampedOffset) < 60_000) return;
+    setFromInput(toDateTimeInput(new Date(fromMs + clampedOffset)));
+    setToInput(toDateTimeInput(new Date(toMs + clampedOffset)));
+    setHoveredEpisodeId(null);
+    setSelectedEpisodeId(null);
+  }, [from, to]);
+
+  useEffect(() => {
+    if (!config.token.trim()) return;
+    const fromMs = Date.parse(from);
+    const toMs = Date.parse(to);
+    const durationMs = toMs - fromMs;
+    if (
+      !Number.isFinite(fromMs) ||
+      !Number.isFinite(toMs) ||
+      !Number.isFinite(durationMs) ||
+      durationMs <= 0
+    ) {
+      return;
+    }
+
+    const adjacentRanges = [
+      { fromMs: fromMs - durationMs, toMs: fromMs },
+      { fromMs: toMs, toMs: Math.min(toMs + durationMs, Date.now()) },
+    ].filter((range) => range.toMs - range.fromMs >= 60_000);
+
+    adjacentRanges.forEach((range) => {
+      const visibleFrom = toLocalDateTimeSecond(new Date(range.fromMs));
+      const visibleTo = toLocalDateTimeSecond(new Date(range.toMs));
+      const adjacent = bufferedDashboardRange(visibleFrom, visibleTo);
+      void queryClient.prefetchQuery({
+        queryKey: queryKeys.glucoseDashboard(adjacent.from, adjacent.to, mode),
+        queryFn: () =>
+          apiClient.getGlucoseDashboard(config, adjacent.from, adjacent.to, mode),
+        gcTime: 30 * 60 * 1000,
+        staleTime: 5 * 60 * 1000,
+      });
+    });
+  }, [config, from, mode, queryClient, to]);
 
   const resetFingerstickForm = () => {
     setEditingFingerstickId(null);
@@ -416,8 +722,8 @@ export function GlucosePage() {
 
 
   return (
-    <div style={{ display: "flex", height: "100%" }}>
-      <div style={{ flex: 1, overflow: "auto" }}>
+    <div className="gt-glucose-layout">
+      <div className="gt-glucose-main">
         <div className="gt-page">
           {!config.token.trim() ? (
             <div className="card card-pad" style={{ marginBottom: 16, fontSize: 14, color: "var(--ink-3)" }}>
@@ -456,38 +762,45 @@ export function GlucosePage() {
             )}
           </div>
 
-          {canImportNightscout && (
-            <SyncStatusIndicator syncState={syncState} />
-          )}
-
           <HeroCard
             correction={correction}
             latestPoint={latestPoint}
+            latestReading={nowReading}
             previousPoint={previousPoint}
             quality={quality}
             sensor={currentSensor}
-            kcalBalance={kcalBalance}
+            tir={tirStats}
+            onEditSensor={() => setShowSensorEdit(true)}
+            onOpenSensorPanel={() => setShowSensorPanel(true)}
           />
 
-          <section className="card" style={{ marginBottom: 22 }}>
+          <GlucoseStatusStrip
+            canImportNightscout={canImportNightscout}
+            correction={quality?.correction_now_mmol_l ?? correction}
+            data={data}
+            kcalBalance={kcalBalance}
+            syncState={syncState}
+          />
+
+          <div className="glucose-dashboard-grid">
+            <div className="glucose-dashboard-primary">
+          <section className="card glucose-chart-card">
             <div className="card-head">
               <div>
                 <div className="lbl">график глюкозы</div>
-                <h3>{rangeTitle(preset)}</h3>
+                <h3>Окно {rangeTitle(preset)}</h3>
               </div>
               <div className="col gap-8" style={{ alignItems: "flex-end", flex: 1 }}>
                 <div className="row gap-12" style={{ alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  {!isCurrentWindow ? (
+                    <button className="btn" onClick={() => applyPreset(preset)} type="button">
+                      <RefreshCw size={13} /> К текущему
+                    </button>
+                  ) : null}
                   <div className="seg">
                     {rangeButtons.map((item) => (
                       <button key={item.value} className={preset === item.value ? "on" : ""} onClick={() => applyPreset(item.value)} type="button">{item.label}</button>
                     ))}
-                    <button
-                      className={isCustomRange ? "on" : ""}
-                      onClick={() => setPreset("custom")}
-                      type="button"
-                    >
-                      Период
-                    </button>
                   </div>
                   <div className="seg">
                     {modes.map((item) => (
@@ -501,38 +814,20 @@ export function GlucosePage() {
                 </div>
               </div>
             </div>
-            <div
-              style={{
-                borderBottom: isCustomRange ? "1px solid var(--hairline)" : "none",
-                maxHeight: isCustomRange ? 90 : 0,
-                opacity: isCustomRange ? 1 : 0,
-                overflow: "hidden",
-                padding: isCustomRange ? "10px 18px" : "0 18px",
-                transition: "max-height 220ms ease, opacity 180ms ease, padding 220ms ease, border-color 220ms ease",
-              }}
-            >
-              <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <label className="field" style={{ width: "auto" }}>
-                  <span>от</span>
-                  <input type="datetime-local" value={fromInput} onChange={(event) => { setPreset("custom"); setFromInput(event.target.value); }} />
-                </label>
-                <label className="field" style={{ width: "auto" }}>
-                  <span>до</span>
-                  <input type="datetime-local" value={toInput} onChange={(event) => { setPreset("custom"); setToInput(event.target.value); }} />
-                </label>
-              </div>
-            </div>
             <div style={{ padding: "10px 12px 0" }}>
               <GlucoseChart
-                data={data}
-                episodes={episodes}
+                data={chartData}
+                episodes={chartEpisodes}
                 hoveredEpisodeId={hoveredEpisodeId}
                 loading={dashboard.isLoading}
                 mode={mode}
                 onEpisodeHover={setHoveredEpisodeId}
                 onEpisodeSelect={setSelectedEpisodeId}
+                onRangeShift={shiftRange}
                 preset={preset}
                 selectedEpisodeId={selectedEpisodeId}
+                viewFrom={from}
+                viewTo={to}
               />
             </div>
             <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 18, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
@@ -559,7 +854,8 @@ export function GlucosePage() {
             selectedEpisodeId={selectedEpisodeId}
           />
 
-          <section className="card" style={{ marginTop: 22, marginBottom: 28 }}>
+              <div className="glucose-secondary-grid">
+          <section className="card">
             <div className="card-head">
               <div>
                 <div className="lbl">raw CGM сохраняется без изменений</div>
@@ -573,11 +869,21 @@ export function GlucosePage() {
               <BiasOverLifetimeChart data={data?.bias_over_lifetime ?? null} />
             </div>
           </section>
+              <DaypartProfileCard buckets={daypartProfile} />
+              </div>
+            </div>
+
+            <FocusPanel
+              episodes={episodes}
+              metrics={focusMetrics}
+              preset={preset}
+            />
+          </div>
         </div>
       </div>
 
       {showSensorPanel && (
-        <RightPanel onClose={() => setShowSensorPanel(false)}>
+        <RightPanel className="gt-rightpanel-inline" onClose={() => setShowSensorPanel(false)}>
           <SensorPanel
             currentSensor={currentSensor}
             quality={quality}
@@ -645,83 +951,368 @@ export function GlucosePage() {
 function HeroCard({
   correction,
   latestPoint,
+  latestReading,
+  onEditSensor,
+  onOpenSensorPanel,
   previousPoint,
   quality,
   sensor,
-  kcalBalance,
+  tir,
 }: {
   correction: number | null;
   latestPoint: DashboardPoint | null;
+  latestReading?: NightscoutLatestReadingResponse;
+  onEditSensor: () => void;
+  onOpenSensorPanel: () => void;
   previousPoint: DashboardPoint | null;
   quality?: GlucoseDashboardResponse["quality"];
   sensor: SensorSessionResponse | null;
-  kcalBalance: KcalBalanceResponse | null;
+  tir: TirStats;
 }) {
-  const current = latestPoint?.display_value;
+  const hasNowReading =
+    latestReading?.value_mmol_l !== null &&
+    latestReading?.value_mmol_l !== undefined;
+  const current = hasNowReading
+    ? latestReading.value_mmol_l
+    : latestPoint?.display_value;
   const correctionEstimate = quality?.correction_now_mmol_l ?? correction;
-  const delta = latestPoint && previousPoint ? latestPoint.display_value - previousPoint.display_value : 0;
-  const trend = delta > 0.2 ? "↑" : delta < -0.2 ? "↓" : "→";
+  const delta =
+    !hasNowReading && latestPoint && previousPoint
+      ? latestPoint.display_value - previousPoint.display_value
+      : 0;
+  const trend =
+    (hasNowReading ? nightscoutTrendSymbol(latestReading?.trend) : null) ??
+    (delta > 0.2 ? "↑" : delta < -0.2 ? "↓" : "→");
+  const nowTimestamp = hasNowReading ? latestReading?.timestamp : latestPoint?.timestamp;
+  const trendContext =
+    !hasNowReading && delta !== 0 ? `${trend} ${formatSigned(correctionEstimate ?? delta)}` : trend;
+  const sensorLifePercent = clamp(
+    ((quality?.sensor_age_days ?? 0) / Math.max(sensor?.expected_life_days ?? 15, 1)) * 100,
+    0,
+    100,
+  );
 
   return (
-    <div className="card" style={{ marginBottom: 22, overflow: "hidden" }}>
-      <div className="row" style={{ alignItems: "stretch" }}>
-        <div style={{ padding: "20px 22px", borderRight: "1px solid var(--hairline)", minWidth: 200 }}>
+      <div className="card glucose-hero-strip">
+        <div className="glucose-hero-now">
           <div className="lbl">сейчас</div>
-          <div className="row gap-6" style={{ alignItems: "baseline", marginTop: 6 }}>
+          <div className="glucose-hero-value">
             <span className="g-now">{formatNumber(current)}</span>
-            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>ммоль/л</span>
+            <span className="glucose-unit">ммоль/л</span>
           </div>
-          <div className="row gap-6" style={{ alignItems: "center", marginTop: 6 }}>
-            <span className="tag accent">{trend} {delta !== 0 ? `${formatSigned(correctionEstimate ?? delta)}` : ""}</span>
-          </div>
-        </div>
-        <div style={{ padding: "20px 22px", borderRight: "1px solid var(--hairline)", flex: 1 }}>
-          <div className="lbl">время в диапазоне · 24ч</div>
-          <div className="row" style={{ height: 8, marginTop: 12, borderRadius: 1, overflow: "hidden" }}>
-            <div style={{ width: "4%", background: "var(--warn)" }} />
-            <div style={{ width: "68%", background: "var(--good)" }} />
-            <div style={{ width: "26%", background: "var(--accent)" }} />
-            <div style={{ width: "2%", background: "var(--ink)" }} />
-          </div>
-          <div className="row" style={{ marginTop: 8, gap: 14, fontSize: 11, color: "var(--ink-3)" }}>
-            <span><span className="dot-marker" style={{ background: "var(--warn)" }} /> &lt;3.9 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>4%</b></span>
-            <span><span className="dot-marker" style={{ background: "var(--good)" }} /> 3.9–9.3 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>68%</b></span>
-            <span><span className="dot-marker" style={{ background: "var(--accent)" }} /> 9.3–13 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>26%</b></span>
-            <span><span className="dot-marker" style={{ background: "var(--ink)" }} /> &gt;13 <b className="mono" style={{ color: "var(--ink)", fontWeight: 500, marginLeft: 4 }}>2%</b></span>
+          <div className="glucose-hero-context">
+            <span className="tag">{trendContext}</span>
+            <span className="mono">{nowTimestamp ? formatTime(nowTimestamp) : "—"}</span>
           </div>
         </div>
-        <div style={{ padding: "20px 22px", minWidth: 240 }}>
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+
+        <div className="glucose-hero-tir">
+          <div className="lbl">время в диапазоне · окно</div>
+          <div className="glucose-tir-main mono">{tir.target}%</div>
+          <div className="glucose-tir-bar" aria-label="Время в диапазоне">
+            <i style={{ width: `${tir.below}%`, background: "var(--warn)" }} />
+            <i style={{ width: `${tir.target}%`, background: "var(--good)" }} />
+            <i style={{ width: `${tir.high}%`, background: "var(--accent)" }} />
+            <i style={{ width: `${tir.veryHigh}%`, background: "var(--ink)" }} />
+          </div>
+          <div className="glucose-tir-legend">
+            <span>&lt;{TARGET_LOW} <b className="mono">{tir.below}%</b></span>
+            <span>{TARGET_LOW}-{TARGET_HIGH} <b className="mono">{tir.target}%</b></span>
+            <span>&gt;{TARGET_HIGH} <b className="mono">{tir.high + tir.veryHigh}%</b></span>
+          </div>
+        </div>
+
+        <div className="glucose-hero-sensor">
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
             <span className="lbl">сенсор {sensorName(sensor)}</span>
             <span className="tag good">актив.</span>
           </div>
           <div className="row gap-6" style={{ alignItems: "baseline", marginTop: 6 }}>
             <span className="mono" style={{ fontSize: 26, fontWeight: 500 }}>{formatNumber(quality?.sensor_age_days)}</span>
-            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>/ {formatNumber(sensor?.expected_life_days, 0)} дней</span>
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>/ {formatNumber(sensor?.expected_life_days, 0)} дн</span>
           </div>
           <div className="pbar" style={{ marginTop: 8 }}>
-            <i style={{ width: `${((quality?.sensor_age_days ?? 0) / (sensor?.expected_life_days ?? 15) * 100)}%` }} />
+            <i style={{ width: `${sensorLifePercent}%` }} />
           </div>
           <div className="row" style={{ marginTop: 6, fontSize: 11, color: "var(--ink-3)", justifyContent: "space-between" }}>
             <span>{sensorPhaseCompact(quality?.sensor_phase, quality?.sensor_age_days)}</span>
-            <span className="mono">{quality?.quality_score ?? 0}/100</span>
+            <span className="mono">стаб. {quality?.quality_score ?? 0}/100</span>
+          </div>
+          <div className="row gap-6" style={{ marginTop: 10, flexWrap: "wrap" }}>
+            <button className="btn" onClick={onOpenSensorPanel} type="button">подробно</button>
+            <button className="btn" onClick={onEditSensor} type="button">править</button>
           </div>
         </div>
       </div>
-      {kcalBalance?.bmr_available && kcalBalance.net_balance != null ? (
-        <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 24, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
-          <span>смещ. <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? correction)} ммоль/л</b></span>
-          <span>ккал <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{Math.round(kcalBalance.kcal_in)}</b></span>
-          <span>TDEE <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{Math.round(kcalBalance.tdee ?? 0)}</b></span>
-          <span>шаги <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{kcalBalance.steps ?? 0}</b></span>
-          <span>баланс <b className="mono" style={{ color: ((kcalBalance.net_balance) > 0 ? "var(--warn)" : "var(--good)"), fontWeight: 500 }}>{kcalBalance.net_balance > 0 ? "+" : ""}{Math.round(kcalBalance.net_balance)}</b></span>
-        </div>
-      ) : (
-        <div className="row" style={{ borderTop: "1px solid var(--hairline)", padding: "10px 22px", gap: 24, fontSize: 11, color: "var(--ink-3)", alignItems: "center" }}>
-          <span>смещ. <b className="mono" style={{ color: "var(--ink)", fontWeight: 500 }}>{formatSigned(quality?.correction_now_mmol_l ?? correction)} ммоль/л</b></span>
-        </div>
+    );
+}
+
+function GlucoseStatusStrip({
+  canImportNightscout,
+  correction,
+  data,
+  kcalBalance,
+  syncState,
+}: {
+  canImportNightscout: boolean;
+  correction: number | null;
+  data?: GlucoseDashboardResponse;
+  kcalBalance: KcalBalanceResponse | null;
+  syncState: SyncState;
+}) {
+  const nextText = syncState.nextScheduledAt
+    ? formatShortCountdown(syncState.nextScheduledAt)
+    : "—";
+  const status = canImportNightscout
+    ? syncState.phase === "offline"
+      ? "нет связи"
+      : syncState.phase === "importing"
+        ? "обновляется"
+        : "подключён"
+    : "не настроен";
+
+  return (
+    <div className="glucose-status-strip">
+      {canImportNightscout ? <SyncStatusIndicator compact syncState={syncState} /> : (
+        <span className="mono">Nightscout · не настроен</span>
       )}
+      <span>Nightscout · {status}</span>
+      <span>смещение <b className="mono">{formatSigned(correction)} ммоль/л</b></span>
+      <span>обновление <b className="mono">{nextText}</b></span>
+      <span>точек <b className="mono">{data?.points.length ?? 0}</b></span>
+      {kcalBalance?.bmr_available && kcalBalance.net_balance != null ? (
+        <span>баланс <b className="mono">{formatSignedKcal(kcalBalance.net_balance)}</b></span>
+      ) : null}
     </div>
+  );
+}
+
+function FocusPanel({
+  episodes,
+  metrics,
+  preset,
+}: {
+  episodes: GroupedEpisode[];
+  metrics: FocusMetrics;
+  preset: RangePreset;
+}) {
+  const topEpisode = episodes
+    .filter((episode) => episode.areaAboveTarget !== null)
+    .sort((left, right) => (right.areaAboveTarget ?? 0) - (left.areaAboveTarget ?? 0))[0];
+
+  return (
+    <aside className="card glucose-focus-panel">
+      <div className="card-head">
+        <div>
+          <div className="lbl">окно {rangeTitle(preset)}</div>
+          <h3>Сейчас в фокусе</h3>
+        </div>
+      </div>
+      <div className="glucose-focus-grid">
+        <FocusMetric label="медиана" value={`${formatNumber(metrics.median)} ммоль/л`} />
+        <FocusMetric label="среднее" value={`${formatNumber(metrics.average)} ммоль/л`} />
+        <FocusMetric label="CV" value={metrics.cv === null ? "—" : `${formatNumber(metrics.cv, 0)}%`} />
+        <FocusMetric
+          label="пик"
+          value={metrics.peak ? `${formatNumber(metrics.peak.value)} · ${formatTime(metrics.peak.timestamp)}` : "—"}
+        />
+        <FocusMetric
+          label="надир"
+          value={metrics.nadir ? `${formatNumber(metrics.nadir.value)} · ${formatTime(metrics.nadir.timestamp)}` : "—"}
+        />
+        <FocusMetric label={`мин >${TARGET_HIGH}`} value={`${formatNumber(metrics.minutesHigh, 0)} мин`} />
+        <FocusMetric label={`мин <${TARGET_LOW}`} value={`${formatNumber(metrics.minutesLow, 0)} мин`} />
+        <FocusMetric label="углеводы" value={`${formatNumber(metrics.carbs, 0)} г`} />
+        <FocusMetric label="инсулин" value={`${formatNumber(metrics.insulin, 1)} ЕД`} />
+      </div>
+      <div className="glucose-focus-episode">
+        <div className="lbl">эпизод с максимумом над диапазоном</div>
+        {topEpisode ? (
+          <div>
+            <div className="mono">{formatEpisodeRange(topEpisode.startAt, topEpisode.endAt)} · {formatNumber(topEpisode.areaAboveTarget, 1)} ммоль·ч</div>
+            <div>{topEpisode.title}</div>
+          </div>
+        ) : (
+          <div className="mono">—</div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function FocusMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glucose-focus-metric">
+      <span>{label}</span>
+      <b className="mono">{value}</b>
+    </div>
+  );
+}
+
+function DaypartProfileCard({ buckets }: { buckets: DaypartBucket[] }) {
+  const values = buckets.flatMap((bucket) =>
+    [bucket.min, bucket.max].filter((value): value is number => value !== null),
+  );
+  const minValue = values.length
+    ? Math.min(3, Math.floor(Math.min(...values, TARGET_LOW)))
+    : 3;
+  const maxValue = values.length
+    ? Math.max(11, Math.ceil(Math.max(...values, TARGET_HIGH)))
+    : 11;
+  const span = Math.max(maxValue - minValue, 1);
+  const chartLeft = 54;
+  const chartTop = 24;
+  const chartWidth = 386;
+  const chartHeight = 110;
+  const bandTop = chartTop + (1 - (TARGET_HIGH - minValue) / span) * chartHeight;
+  const bandBottom = chartTop + (1 - (TARGET_LOW - minValue) / span) * chartHeight;
+  const bucketWidth = chartWidth / buckets.length;
+  const boxWidth = Math.min(56, bucketWidth - 12);
+  const yFor = (value: number) =>
+    chartTop + (1 - clamp((value - minValue) / span, 0, 1)) * chartHeight;
+
+  return (
+    <section className="card daypart-card">
+      <div className="card-head">
+        <div>
+          <div className="lbl">профиль по времени суток</div>
+          <h3>7 дней</h3>
+        </div>
+      </div>
+      <div className="daypart-profile-chart">
+        <svg
+          aria-label="Профиль глюкозы по времени суток за 7 дней"
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          viewBox="0 0 460 190"
+        >
+          <rect
+            fill="var(--good-soft)"
+            height={Math.max(1, bandBottom - bandTop)}
+            opacity="0.42"
+            width={chartWidth}
+            x={chartLeft}
+            y={bandTop}
+          />
+          {[maxValue, TARGET_HIGH, TARGET_LOW, minValue].map((tick) => (
+            <g key={tick}>
+              <line
+                stroke={tick === TARGET_LOW || tick === TARGET_HIGH ? "var(--good)" : "var(--hairline)"}
+                strokeDasharray={tick === TARGET_LOW || tick === TARGET_HIGH ? "3 3" : undefined}
+                strokeOpacity={tick === TARGET_LOW || tick === TARGET_HIGH ? 0.45 : 1}
+                x1={chartLeft}
+                x2={chartLeft + chartWidth}
+                y1={yFor(tick)}
+                y2={yFor(tick)}
+              />
+              <text
+                fill="var(--ink-4)"
+                fontFamily="var(--mono)"
+                fontSize="10"
+                textAnchor="end"
+                x={chartLeft - 10}
+                y={yFor(tick) + 3}
+              >
+                {formatNumber(tick, Number.isInteger(tick) ? 0 : 1)}
+              </text>
+            </g>
+          ))}
+          {buckets.map((bucket, index) => {
+            const cx = chartLeft + bucketWidth * index + bucketWidth / 2;
+            const hasValues = bucket.median !== null;
+            const medianY = bucket.median !== null ? yFor(bucket.median) : null;
+            const q1Y = bucket.q1 !== null ? yFor(bucket.q1) : null;
+            const q3Y = bucket.q3 !== null ? yFor(bucket.q3) : null;
+            const minY = bucket.min !== null ? yFor(bucket.min) : null;
+            const maxY = bucket.max !== null ? yFor(bucket.max) : null;
+            const iqrY = q3Y !== null && q1Y !== null ? Math.min(q3Y, q1Y) : null;
+            const iqrHeight =
+              q3Y !== null && q1Y !== null
+                ? Math.max(Math.abs(q1Y - q3Y), 5)
+                : 0;
+            const tone = bucket.highRisk ? "var(--warn)" : "var(--good)";
+            const softTone = bucket.highRisk ? "var(--warn-soft)" : "var(--good-soft)";
+            return (
+              <g key={bucket.label}>
+                <title>
+                  {hasValues
+                    ? `${bucket.label}: медиана ${formatNumber(bucket.median)} ммоль/л, TIR ${formatNumber(bucket.tir, 0)}%, точек ${bucket.count}`
+                    : `${bucket.label}: нет данных`}
+                </title>
+                {minY !== null && maxY !== null ? (
+                  <line
+                    stroke="var(--ink-4)"
+                    strokeOpacity="0.55"
+                    x1={cx}
+                    x2={cx}
+                    y1={maxY}
+                    y2={minY}
+                  />
+                ) : null}
+                {iqrY !== null ? (
+                  <rect
+                    fill={softTone}
+                    height={iqrHeight}
+                    stroke={tone}
+                    strokeOpacity="0.24"
+                    width={boxWidth}
+                    x={cx - boxWidth / 2}
+                    y={iqrY}
+                  />
+                ) : null}
+                {medianY !== null ? (
+                  <line
+                    stroke={tone}
+                    strokeWidth="2"
+                    x1={cx - boxWidth / 2}
+                    x2={cx + boxWidth / 2}
+                    y1={medianY}
+                    y2={medianY}
+                  />
+                ) : null}
+                {!hasValues ? (
+                  <text
+                    fill="var(--ink-4)"
+                    fontFamily="var(--mono)"
+                    fontSize="12"
+                    textAnchor="middle"
+                    x={cx}
+                    y={chartTop + chartHeight / 2 + 4}
+                  >
+                    —
+                  </text>
+                ) : null}
+                <text
+                  fill="var(--ink-4)"
+                  fontFamily="var(--mono)"
+                  fontSize="9.5"
+                  textAnchor="middle"
+                  x={cx}
+                  y="158"
+                >
+                  {bucket.label}
+                </text>
+                <text
+                  fill={bucket.highRisk ? "var(--warn)" : "var(--ink)"}
+                  fontFamily="var(--mono)"
+                  fontSize="11"
+                  fontWeight="500"
+                  textAnchor="middle"
+                  x={cx}
+                  y="176"
+                >
+                  {bucket.median === null ? "—" : formatNumber(bucket.median)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <div className="daypart-profile-note">
+          <span>медиана и межквартиль</span>
+          <span>красным — TIR &lt; 50%</span>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -841,7 +1432,7 @@ function SensorPanel({
                 <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{formatNumber(row.glucose_mmol_l)}</span>
                 <span style={{ fontSize: 11, color: "var(--ink-3)" }}>ммоль/л</span>
                 <span className="spacer" />
-                <span className="tag accent">Δ {formatSigned(delta)}</span>
+                <span className="tag">Δ {formatSigned(delta)}</span>
               </div>
             );
           })
@@ -889,6 +1480,7 @@ type GroupedEpisode = {
   cgmMin: number | null;
   cgmPeakAt: string | null;
   cgmStart: number | null;
+  areaAboveTarget: number | null;
   endAt: string;
   fingerstickEvents: Fingerstick[];
   foodEvents: FoodEvent[];
@@ -922,6 +1514,79 @@ function GlucoseActivityPanel({
   rows: EventRow[];
   selectedEpisodeId: string | null;
 }) {
+  if (episodes || rows) {
+    return (
+      <section className="card glucose-episodes-card">
+        <div className="card-head">
+          <div>
+            <div className="lbl">эпизоды</div>
+            <h3>Отклик еды на CGM</h3>
+          </div>
+          <div className="seg">
+            {[
+              { label: "Эпизоды", value: "episodes" as const },
+              { label: "События", value: "events" as const },
+            ].map((item) => (
+              <button
+                className={activeTab === item.value ? "on" : ""}
+                key={item.value}
+                onClick={() => onTabChange(item.value)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {activeTab === "episodes" ? (
+          <div className="episode-response-table">
+            <div className="episode-response-head">
+              <span>время</span>
+              <span>эпизод</span>
+              <span>старт → пик</span>
+              <span>над диапазоном</span>
+              <span>контекст</span>
+            </div>
+            {episodes.length ? (
+              episodes.map((episode) => {
+                const selected = selectedEpisodeId === episode.id;
+                const hovered = hoveredEpisodeId === episode.id;
+                return (
+                  <button
+                    className={selected || hovered ? "episode-response-row active" : "episode-response-row"}
+                    key={episode.id}
+                    onClick={() => onEpisodeSelect(episode.id)}
+                    onMouseEnter={() => onEpisodeHover(episode.id)}
+                    onMouseLeave={() => onEpisodeHover(null)}
+                    type="button"
+                  >
+                    <span className="mono">{formatEpisodeRange(episode.startAt, episode.endAt)}</span>
+                    <span>{episode.title}</span>
+                    <span className="mono">
+                      {episode.cgmStart !== null && episode.cgmMax !== null
+                        ? `${formatNumber(episode.cgmStart)} → ${formatNumber(episode.cgmMax)}${episode.timeToMax !== null ? ` · +${episode.timeToMax} мин` : ""}`
+                        : "—"}
+                    </span>
+                    <span className="mono">
+                      {episode.areaAboveTarget === null ? "—" : `${formatNumber(episode.areaAboveTarget, 1)} ммоль·ч`}
+                    </span>
+                    <span className="mono">
+                      {formatNumber(episode.carbsTotal, 0)} г · {formatNumber(episode.insulinTotal, 1)} ЕД
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="episode-response-empty">Эпизодов за выбранный период нет.</div>
+            )}
+          </div>
+        ) : (
+          <EventsTable rows={rows} />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="border border-[var(--hairline)] bg-[var(--surface)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--hairline)] px-5 py-4">
@@ -1270,6 +1935,7 @@ function buildGroupedEpisodes(data?: GlucoseDashboardResponse): GroupedEpisode[]
       cgmMin: cgm.min,
       cgmPeakAt: cgm.maxAt,
       cgmStart: cgm.start,
+      areaAboveTarget: cgm.areaAboveTarget,
       endAt: toLocalDateTimeSecond(new Date(endMs)),
       fingerstickEvents,
       foodEvents: foodCluster,
@@ -1302,6 +1968,7 @@ function cgmSummaryForEpisode(
   });
   if (!pointsInWindow.length) {
     return {
+      areaAboveTarget: null,
       max: null,
       maxAt: null,
       min: null,
@@ -1324,9 +1991,11 @@ function cgmSummaryForEpisode(
     if (valueFor(point) < valueFor(minPoint)) minPoint = point;
     if (valueFor(point) > valueFor(maxPoint)) maxPoint = point;
   });
+  const areaAboveTarget = glucoseAreaAboveTarget(pointsInWindow, valueFor);
   const minutesFromStart = (point: DashboardPoint) =>
     Math.max(0, Math.round((Date.parse(point.timestamp) - foodStartMs) / 60000));
   return {
+    areaAboveTarget,
     max: valueFor(maxPoint),
     maxAt: maxPoint.timestamp,
     min: valueFor(minPoint),
@@ -1385,6 +2054,153 @@ function nearestPoint(points: DashboardPoint[], iso: string) {
   }, points[0]);
 }
 
+function pointDisplayValues(data: GlucoseDashboardResponse | undefined, mode: GlucoseMode) {
+  return (data?.points ?? [])
+    .map((point) => ({
+      timestamp: point.timestamp,
+      value: glucosePointValue(point, mode),
+    }))
+    .filter(
+      (point): point is { timestamp: string; value: number } =>
+        point.value !== null && point.value !== undefined,
+    );
+}
+
+function buildTirStats(data: GlucoseDashboardResponse | undefined, mode: GlucoseMode): TirStats {
+  const values = pointDisplayValues(data, mode).map((point) => point.value);
+  if (!values.length) {
+    return { below: 0, high: 0, target: 0, veryHigh: 0 };
+  }
+  const counts = values.reduce(
+    (acc, value) => {
+      if (value < TARGET_LOW) acc.below += 1;
+      else if (value <= TARGET_HIGH) acc.target += 1;
+      else if (value < VERY_HIGH) acc.high += 1;
+      else acc.veryHigh += 1;
+      return acc;
+    },
+    { below: 0, high: 0, target: 0, veryHigh: 0 },
+  );
+  const toPercent = (count: number) => Math.round((count / values.length) * 100);
+  const below = toPercent(counts.below);
+  const target = toPercent(counts.target);
+  const veryHigh = toPercent(counts.veryHigh);
+  const high = Math.max(0, 100 - below - target - veryHigh);
+  return { below, high, target, veryHigh };
+}
+
+function buildFocusMetrics(data: GlucoseDashboardResponse | undefined, mode: GlucoseMode): FocusMetrics {
+  const points = pointDisplayValues(data, mode);
+  const values = points.map((point) => point.value).sort((left, right) => left - right);
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const median = percentile(values, 0.5);
+  const sd =
+    average !== null && values.length
+      ? Math.sqrt(values.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) / values.length)
+      : null;
+  const peak = points.length
+    ? points.reduce((best, point) => (point.value > best.value ? point : best), points[0])
+    : null;
+  const nadir = points.length
+    ? points.reduce((best, point) => (point.value < best.value ? point : best), points[0])
+    : null;
+  const { highMs, lowMs } = glucoseTimeOutsideRange(points);
+
+  return {
+    average,
+    carbs: data?.food_events.reduce((sum, event) => sum + event.carbs_g, 0) ?? 0,
+    cv: average && sd !== null ? (sd / average) * 100 : null,
+    insulin: data?.insulin_events.reduce((sum, event) => sum + (event.insulin_units ?? 0), 0) ?? 0,
+    median,
+    minutesHigh: Math.round(highMs / 60000),
+    minutesLow: Math.round(lowMs / 60000),
+    nadir,
+    peak,
+  };
+}
+
+function buildDaypartProfile(data: GlucoseDashboardResponse | undefined, mode: GlucoseMode): DaypartBucket[] {
+  const buckets = [
+    { from: 0, label: "00-04", to: 4 },
+    { from: 4, label: "04-08", to: 8 },
+    { from: 8, label: "08-12", to: 12 },
+    { from: 12, label: "12-16", to: 16 },
+    { from: 16, label: "16-20", to: 20 },
+    { from: 20, label: "20-24", to: 24 },
+  ];
+  const points = pointDisplayValues(data, mode);
+  return buckets.map((bucket) => {
+    const values = points
+      .filter((point) => {
+        const hour = new Date(point.timestamp).getHours();
+        return hour >= bucket.from && hour < bucket.to;
+      })
+      .map((point) => point.value)
+      .sort((left, right) => left - right);
+    const tir =
+      values.length > 0
+        ? (values.filter((value) => value >= TARGET_LOW && value <= TARGET_HIGH).length / values.length) * 100
+        : null;
+    return {
+      count: values.length,
+      highRisk: tir !== null && tir < 50,
+      label: bucket.label,
+      max: values.length ? values[values.length - 1] : null,
+      median: percentile(values, 0.5),
+      min: values.length ? values[0] : null,
+      q1: percentile(values, 0.25),
+      q3: percentile(values, 0.75),
+      tir,
+    };
+  });
+}
+
+function percentile(values: number[], ratio: number) {
+  if (!values.length) return null;
+  const index = clamp((values.length - 1) * ratio, 0, values.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return values[lower];
+  return values[lower] + (values[upper] - values[lower]) * (index - lower);
+}
+
+function glucoseTimeOutsideRange(points: { timestamp: string; value: number }[]) {
+  let highMs = 0;
+  let lowMs = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const dt = Math.max(0, Date.parse(current.timestamp) - Date.parse(previous.timestamp));
+    const value = (previous.value + current.value) / 2;
+    if (value > TARGET_HIGH) highMs += dt;
+    if (value < TARGET_LOW) lowMs += dt;
+  }
+  return { highMs, lowMs };
+}
+
+function glucoseAreaAboveTarget(
+  points: DashboardPoint[],
+  valueFor: (point: DashboardPoint) => number,
+) {
+  let area = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const dtHours = Math.max(0, Date.parse(current.timestamp) - Date.parse(previous.timestamp)) / 3600000;
+    const previousExcess = Math.max(0, valueFor(previous) - TARGET_HIGH);
+    const currentExcess = Math.max(0, valueFor(current) - TARGET_HIGH);
+    area += ((previousExcess + currentExcess) / 2) * dtHours;
+  }
+  return area;
+}
+
+function formatShortCountdown(date: Date) {
+  const diff = date.getTime() - Date.now();
+  if (diff <= 0) return "сейчас";
+  if (diff < 60_000) return `через ${Math.ceil(diff / 1000)}с`;
+  return `через ${Math.ceil(diff / 60_000)}м`;
+}
+
 type ChartDensity = "full" | "compact" | "aggregate";
 
 type DailyAggregate = {
@@ -1402,8 +2218,11 @@ function GlucoseChart({
   mode,
   onEpisodeHover,
   onEpisodeSelect,
+  onRangeShift,
   preset,
   selectedEpisodeId,
+  viewFrom,
+  viewTo,
 }: {
   data?: GlucoseDashboardResponse;
   episodes: GroupedEpisode[];
@@ -1412,43 +2231,69 @@ function GlucoseChart({
   mode: GlucoseMode;
   onEpisodeHover: (episodeId: string | null) => void;
   onEpisodeSelect: (episodeId: string) => void;
-  preset: RangePreset | "custom";
+  onRangeShift: (offsetMs: number) => void;
+  preset: RangePreset;
   selectedEpisodeId: string | null;
+  viewFrom: string;
+  viewTo: string;
 }) {
   const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
+  const [rangeOffsetMs, setRangeOffsetMs] = useState(0);
+  const [isDraggingRange, setIsDraggingRange] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+  } | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
+  const pendingDragOffsetRef = useRef(0);
+  const suppressChartClickRef = useRef(false);
   const points = data?.points ?? [];
   const width = 1180;
   const left = 64;
   const right = 20;
   const chartTop = 24;
-  const chartHeight = 258;
+  const chartHeight = 264;
   const chartBottom = chartTop + chartHeight;
-  const laneGap = 32;
-  const laneHeight = 34;
-  const lanesTop = chartBottom + 34;
-  const lane1Y = lanesTop;
+  const axisLabelY = chartBottom + 20;
+  const laneHeight = 24;
+  const laneGap = 8;
+  const lane1Y = chartBottom + 42;
   const lane2Y = lane1Y + laneHeight + laneGap;
   const lane3Y = lane2Y + laneHeight + laneGap;
+  const eventLaneY = lane1Y + laneHeight / 2;
   const lanesBottom = lane3Y + laneHeight;
-  const height = lanesBottom + 34;
+  const height = lane3Y + laneHeight + 38;
   const chartWidth = width - left - right;
-  const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 6 * 3600000;
-  const toMs = data ? Date.parse(data.to_datetime) : Date.now();
-  const duration = Math.max(toMs - fromMs, 1);
+  const committedFromMs = Date.parse(viewFrom);
+  const committedToMs = Date.parse(viewTo);
+  const duration = Math.max(committedToMs - committedFromMs, 1);
+  const clampedRangeOffsetMs = Math.min(rangeOffsetMs, Date.now() - committedToMs);
+  const fromMs = committedFromMs + clampedRangeOffsetMs;
+  const toMs = committedToMs + clampedRangeOffsetMs;
   const density = chartDensityForRange(preset, duration);
   const chartValues = [
-    ...points.flatMap((point) => [
-      point.raw_value,
-      point.smoothed_value,
-      point.normalized_value,
-      point.display_value,
-    ]),
-    ...(data?.fingersticks.map((row) => row.glucose_mmol_l) ?? []),
+    ...points
+      .filter((point) => {
+        const pointMs = Date.parse(point.timestamp);
+        return pointMs >= fromMs && pointMs <= toMs;
+      })
+      .flatMap((point) => [
+        point.raw_value,
+        point.smoothed_value,
+        point.normalized_value,
+        point.display_value,
+      ]),
+    ...(data?.fingersticks
+      .filter((row) => {
+        const pointMs = Date.parse(row.measured_at);
+        return pointMs >= fromMs && pointMs <= toMs;
+      })
+      .map((row) => row.glucose_mmol_l) ?? []),
   ].filter((value): value is number => typeof value === "number");
   const { max: maxValue, min: minValue } = glucoseChartDomain(chartValues);
   const yRange = Math.max(maxValue - minValue, 1);
   const scaleXMs = (ms: number) =>
-    left + clamp((ms - fromMs) / duration, 0, 1) * chartWidth;
+    left + ((ms - fromMs) / duration) * chartWidth;
   const scaleX = (iso: string) => scaleXMs(Date.parse(iso));
   const scaleY = (value: number) =>
     chartTop + (1 - (value - minValue) / yRange) * chartHeight;
@@ -1487,6 +2332,98 @@ function GlucoseChart({
     (activeEpisode
       ? aggregateIndexForMs(Date.parse(activeEpisode.startAt), fromMs, toMs)
       : null);
+  const constrainRangeOffset = useCallback(
+    (offsetMs: number) => Math.min(offsetMs, Date.now() - committedToMs),
+    [committedToMs],
+  );
+  const msFromPixelDelta = useCallback(
+    (deltaPx: number) => -(deltaPx / Math.max(chartWidth, 1)) * duration,
+    [chartWidth, duration],
+  );
+  const commitRangeOffset = useCallback(
+    (offsetMs: number) => {
+      const nextOffset = constrainRangeOffset(offsetMs);
+      setRangeOffsetMs(0);
+      if (Math.abs(nextOffset) >= 60_000) {
+        onRangeShift(nextOffset);
+      }
+    },
+    [constrainRangeOffset, onRangeShift],
+  );
+  const cancelDragPreviewFrame = useCallback(() => {
+    if (dragFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+  }, []);
+  const scheduleDragPreview = useCallback((offsetMs: number) => {
+    pendingDragOffsetRef.current = offsetMs;
+    if (dragFrameRef.current !== null) return;
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      setRangeOffsetMs(pendingDragOffsetRef.current);
+    });
+  }, []);
+
+  useEffect(() => {
+    cancelDragPreviewFrame();
+    setRangeOffsetMs(0);
+    pendingDragOffsetRef.current = 0;
+  }, [cancelDragPreviewFrame, preset, viewFrom, viewTo]);
+
+  useEffect(() => () => {
+    cancelDragPreviewFrame();
+  }, [cancelDragPreviewFrame]);
+
+  const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+    };
+    setIsDraggingRange(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (Math.abs(event.clientX - drag.startX) > 4) {
+      suppressChartClickRef.current = true;
+    }
+    const nextOffset = constrainRangeOffset(msFromPixelDelta(event.clientX - drag.startX));
+    scheduleDragPreview(nextOffset);
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const nextOffset = constrainRangeOffset(msFromPixelDelta(event.clientX - drag.startX));
+    cancelDragPreviewFrame();
+    dragRef.current = null;
+    setIsDraggingRange(false);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    commitRangeOffset(nextOffset);
+    window.setTimeout(() => {
+      suppressChartClickRef.current = false;
+    }, 80);
+  };
+
+  const handlePointerCancel = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) {
+      cancelDragPreviewFrame();
+      dragRef.current = null;
+      setIsDraggingRange(false);
+      setRangeOffsetMs(0);
+      pendingDragOffsetRef.current = 0;
+      suppressChartClickRef.current = false;
+    }
+  };
+
+  const selectEpisodeFromChart = (episodeId: string) => {
+    if (suppressChartClickRef.current) return;
+    onEpisodeSelect(episodeId);
+  };
 
   if (!points.length) {
     return (
@@ -1502,12 +2439,30 @@ function GlucoseChart({
 
   const targetTop = scaleY(9.3);
   const targetBottom = scaleY(3.9);
+  const visiblePointValues = points
+    .filter((point) => {
+      const pointMs = Date.parse(point.timestamp);
+      return pointMs >= fromMs && pointMs <= toMs;
+    })
+    .map((point) => ({ point, value: glucosePointValue(point, mode) }))
+    .filter((item): item is { point: DashboardPoint; value: number } => item.value !== null && item.value !== undefined);
+  const latestChartPoint = visiblePointValues[visiblePointValues.length - 1] ?? null;
+  const peakChartPoint = visiblePointValues.length
+    ? visiblePointValues.reduce((best, item) => (item.value > best.value ? item : best), visiblePointValues[0])
+    : null;
+  const chartClipId = "glucose-chart-window";
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      className={`glucose-chart-scroll-shell${isDraggingRange ? " dragging" : ""}`}
+    >
       <svg
         aria-label="График глюкозы"
         className="min-w-[940px] text-[var(--ink-3)]"
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         style={{
@@ -1517,6 +2472,16 @@ function GlucoseChart({
         }}
         viewBox={`0 0 ${width} ${height}`}
       >
+        <defs>
+          <clipPath id={chartClipId}>
+            <rect
+              height={lanesBottom - chartTop + 18}
+              width={chartWidth}
+              x={left}
+              y={chartTop - 8}
+            />
+          </clipPath>
+        </defs>
         <rect fill="var(--surface)" height={height} width={width} />
 
         <rect
@@ -1537,21 +2502,23 @@ function GlucoseChart({
           целевой 3.9–9.3
         </text>
 
-        {data?.artifacts.map((artifact) => {
-          const x = scaleX(artifact.start_at);
-          const w = Math.max(5, scaleX(artifact.end_at) - x);
-          return (
-            <rect
-              fill="var(--shade)"
-              height={chartHeight}
-              key={`${artifact.start_at}-${artifact.kind}`}
-              opacity={0.54}
-              width={w}
-              x={x}
-              y={chartTop}
-            />
-          );
-        })}
+        <g clipPath={`url(#${chartClipId})`}>
+          {data?.artifacts.map((artifact) => {
+            const x = scaleX(artifact.start_at);
+            const w = Math.max(5, scaleX(artifact.end_at) - x);
+            return (
+              <rect
+                fill="var(--shade)"
+                height={chartHeight}
+                key={`${artifact.start_at}-${artifact.kind}`}
+                opacity={0.54}
+                width={w}
+                x={x}
+                y={chartTop}
+              />
+            );
+          })}
+        </g>
 
         {density === "aggregate" && activeDayIndex !== null ? (
           <rect
@@ -1565,15 +2532,17 @@ function GlucoseChart({
         ) : null}
 
         {activeEpisode && density !== "aggregate" ? (
-          <EpisodeChartHighlight
-            chartBottom={chartBottom}
-            chartHeight={chartHeight}
-            chartTop={chartTop}
-            episode={activeEpisode}
-            laneY={lane1Y + laneHeight / 2}
-            scaleX={scaleX}
-            scaleY={scaleY}
-          />
+          <g clipPath={`url(#${chartClipId})`}>
+            <EpisodeChartHighlight
+              chartBottom={chartBottom}
+              chartHeight={chartHeight}
+              chartTop={chartTop}
+              episode={activeEpisode}
+              laneY={eventLaneY}
+              scaleX={scaleX}
+              scaleY={scaleY}
+            />
+          </g>
         ) : null}
 
         {yTicks.map((tick) => (
@@ -1594,40 +2563,105 @@ function GlucoseChart({
               x={left - 8}
               y={scaleY(tick) + 3}
             >
-              {tick.toFixed(1)}
+              {formatMmol(tick)}
             </text>
           </g>
         ))}
 
-        {mode !== "raw" ? (
+        <g clipPath={`url(#${chartClipId})`}>
+          {mode !== "raw" ? (
+            <polyline
+              fill="none"
+              opacity="0.7"
+              points={rawLine}
+              stroke="var(--ink-3)"
+              strokeDasharray="2 3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.3"
+            />
+          ) : null}
           <polyline
             fill="none"
-            opacity="0.7"
-            points={rawLine}
-            stroke="var(--ink-3)"
-            strokeDasharray="2 3"
+            points={mainLine}
+            stroke="var(--ink)"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth="1.3"
+            strokeWidth="1.9"
           />
+
+        {peakChartPoint && peakChartPoint !== latestChartPoint ? (
+          <g>
+            <line
+              stroke="var(--accent)"
+              strokeDasharray="2 3"
+              strokeWidth="1"
+              x1={scaleX(peakChartPoint.point.timestamp)}
+              x2={scaleX(peakChartPoint.point.timestamp)}
+              y1={scaleY(peakChartPoint.value)}
+              y2={eventLaneY}
+            />
+            <circle
+              cx={scaleX(peakChartPoint.point.timestamp)}
+              cy={scaleY(peakChartPoint.value)}
+              fill="var(--surface)"
+              r="4"
+              stroke="var(--accent)"
+              strokeWidth="1.5"
+            />
+            <text
+              fill="var(--accent)"
+              fontFamily="var(--mono)"
+              fontSize="10"
+              fontWeight="500"
+              x={Math.min(scaleX(peakChartPoint.point.timestamp) + 8, width - right - 64)}
+              y={scaleY(peakChartPoint.value) - 6}
+            >
+              {formatNumber(peakChartPoint.value)} · пик
+            </text>
+          </g>
         ) : null}
-        <polyline
-          fill="none"
-          points={mainLine}
-          stroke="var(--ink)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.9"
-        />
+
+        {latestChartPoint ? (
+          <g>
+            <circle
+              cx={scaleX(latestChartPoint.point.timestamp)}
+              cy={scaleY(latestChartPoint.value)}
+              fill="var(--ink)"
+              r="4"
+              stroke="var(--surface)"
+              strokeWidth="2"
+            />
+            <rect
+              fill="var(--ink)"
+              height="20"
+              rx="2"
+              width="42"
+              x={Math.min(scaleX(latestChartPoint.point.timestamp) + 8, width - right - 44)}
+              y={scaleY(latestChartPoint.value) - 10}
+            />
+            <text
+              fill="var(--ink-fg)"
+              fontFamily="var(--mono)"
+              fontSize="10"
+              fontWeight="500"
+              textAnchor="middle"
+              x={Math.min(scaleX(latestChartPoint.point.timestamp) + 29, width - right - 23)}
+              y={scaleY(latestChartPoint.value) + 4}
+            >
+              {formatNumber(latestChartPoint.value)}
+            </text>
+          </g>
+        ) : null}
 
         {points.map((point, i) => {
           const mainVal = glucosePointValue(point, mode);
           if (mainVal == null) return null;
           const tooltipText = [
             formatTime(point.timestamp),
-            `Raw: ${point.raw_value.toFixed(1)}`,
+            `Raw: ${formatMmol(point.raw_value)}`,
             point.normalized_value != null
-              ? `Нормализованная: ${point.normalized_value.toFixed(1)}`
+              ? `Нормализованная: ${formatMmol(point.normalized_value)}`
               : null,
             point.correction_mmol_l != null
               ? `Смещение: ${formatSigned(point.correction_mmol_l)}`
@@ -1676,9 +2710,9 @@ function GlucoseChart({
         />
 
         {[
-          { label: "Питание", y: lane1Y },
-          { label: "Инсулин", y: lane2Y },
-          { label: "Калибровка", y: lane3Y },
+          { label: "еда", y: lane1Y },
+          { label: "инсулин", y: lane2Y },
+          { label: "из пальца", y: lane3Y },
         ].map((lane) => (
           <g key={lane.label}>
             <text
@@ -1742,17 +2776,6 @@ function GlucoseChart({
                 >
                   {Math.round(day.carbs)}г
                 </text>
-                <text
-                  fill="var(--ink-4)"
-                  fontFamily="var(--mono)"
-                  fontSize="9"
-                  textAnchor="middle"
-                  x={cx}
-                  y={lane1Y + laneHeight + 10}
-                >
-                  {day.meals} приём.
-                </text>
-
                 {insulinBarHeight > 0 ? (
                   <rect
                     fill={active ? "var(--ink)" : "var(--ink-3)"}
@@ -1780,7 +2803,7 @@ function GlucoseChart({
                   x={cx}
                   y={lane2Y - 3}
                 >
-                  {day.insulin > 0 ? day.insulin.toFixed(1) : "—"}
+                  {day.insulin > 0 ? formatDecimal(day.insulin, 1) : "—"}
                 </text>
 
                 <text
@@ -1810,7 +2833,7 @@ function GlucoseChart({
                 <g
                   cursor="pointer"
                   key={`meal-dot-${episode.id}`}
-                  onClick={() => onEpisodeSelect(episode.id)}
+                  onClick={() => selectEpisodeFromChart(episode.id)}
                   onMouseEnter={() => onEpisodeHover(episode.id)}
                   onMouseLeave={() => onEpisodeHover(null)}
                 >
@@ -1900,7 +2923,7 @@ function GlucoseChart({
                 <g
                   cursor="pointer"
                   key={`meal-pill-${episode.id}`}
-                  onClick={() => onEpisodeSelect(episode.id)}
+                  onClick={() => selectEpisodeFromChart(episode.id)}
                   onMouseEnter={() => onEpisodeHover(episode.id)}
                   onMouseLeave={() => onEpisodeHover(null)}
                 >
@@ -1924,27 +2947,19 @@ function GlucoseChart({
                       r={Math.max(2.2, Math.min(5, (event.carbs_g / totalCarbs) * 16))}
                     />
                   ))}
-                  <text
-                    fill={active ? "var(--accent)" : "var(--ink-2)"}
-                    fontFamily="var(--mono)"
-                    fontSize="10"
-                    fontWeight="500"
-                    textAnchor="middle"
-                    x={pillX + pillWidth / 2}
-                    y={lane1Y - 3}
-                  >
-                    {formatNumber(episode.carbsTotal, 1)} г
-                  </text>
-                  <text
-                    fill="var(--ink-4)"
-                    fontFamily="var(--mono)"
-                    fontSize="9"
-                    textAnchor="middle"
-                    x={pillX + pillWidth / 2}
-                    y={lane1Y + laneHeight + 10}
-                  >
-                    {episode.foodEvents.length} событий · {formatEpisodeRange(episode.startAt, episode.endAt)}
-                  </text>
+                  {pillWidth >= 42 ? (
+                    <text
+                      fill={active ? "var(--surface)" : "var(--ink-2)"}
+                      fontFamily="var(--mono)"
+                      fontSize="10"
+                      fontWeight="500"
+                      textAnchor="middle"
+                      x={pillX + pillWidth / 2}
+                      y={lane1Y + laneHeight / 2 + 4}
+                    >
+                      {formatNumber(episode.carbsTotal, 1)} г
+                    </text>
+                  ) : null}
                 </g>
               );
             })}
@@ -2043,6 +3058,8 @@ function GlucoseChart({
           </>
         )}
 
+        </g>
+
         {xTicks.map((tick, index) => {
           const x = left + (index / (xTicks.length - 1)) * chartWidth;
           return (
@@ -2053,14 +3070,14 @@ function GlucoseChart({
               key={tick}
               textAnchor="middle"
               x={x}
-              y={height - 6}
+              y={axisLabelY}
             >
               {axisLabelForTime(tick, density, duration)}
             </text>
           );
         })}
 
-        <g transform={`translate(${width - 448},${height - 8})`}>
+        <g transform={`translate(${width - 448},${height - 10})`}>
           <LegendItem color="var(--ink-3)" dashed label="raw CGM" x={0} />
           <LegendItem color="var(--ink)" label={modeLabel(mode)} x={98} />
           <LegendItem color="var(--accent)" label="еда" x={244} />
@@ -2128,7 +3145,7 @@ function EpisodeChartHighlight({
           x={peakX + 8}
           y={peakY - 5}
         >
-          пик {formatNumber(episode.cgmMax)}
+          {formatNumber(episode.cgmMax)}{episode.timeToMax !== null ? ` · +${episode.timeToMax} мин` : ""}
         </text>
       ) : null}
     </g>
@@ -2144,10 +3161,10 @@ function glucosePointValue(point: DashboardPoint, mode: GlucoseMode) {
 }
 
 function chartDensityForRange(
-  preset: RangePreset | "custom",
+  preset: RangePreset,
   durationMs: number,
 ): ChartDensity {
-  if (preset === "7d" || durationMs >= 6 * 24 * 60 * 60 * 1000) {
+  if (durationMs >= 6 * 24 * 60 * 60 * 1000) {
     return "aggregate";
   }
   if (
@@ -2432,7 +3449,7 @@ export function LegacyGlucoseChart({
               x={left - 10}
               y={scaleY(tick) + 4}
             >
-              {tick.toFixed(1)}
+              {formatMmol(tick)}
             </text>
           </g>
         ))}
@@ -2477,10 +3494,10 @@ export function LegacyGlucoseChart({
           if (mainVal == null) return null;
           const x = scaleX(point.timestamp);
           const y = scaleY(mainVal);
-          const rawPart = `Raw: ${point.raw_value.toFixed(1)}`;
+          const rawPart = `Raw: ${formatMmol(point.raw_value)}`;
           const normPart =
             point.normalized_value != null
-              ? `Нормализованная: ${point.normalized_value.toFixed(1)}`
+              ? `Нормализованная: ${formatMmol(point.normalized_value)}`
               : null;
           const corrPart =
             point.correction_mmol_l != null
@@ -2495,7 +3512,7 @@ export function LegacyGlucoseChart({
               : null;
           const distPart =
             point.nearest_fingerstick_distance_min != null
-              ? `Ближайшее: ${point.nearest_fingerstick_distance_min.toFixed(0)} мин`
+              ? `Ближайшее: ${formatSafeInt(point.nearest_fingerstick_distance_min)} мин`
               : null;
           const tooltipText = [
             formatTime(point.timestamp),
@@ -3159,7 +4176,7 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
 
   const formatAge = (h: number) => {
     if (h < 48) return `${Math.round(h)}ч`;
-    return `${(h / 24).toFixed(1)}д`;
+    return `${formatDecimal(h / 24, 1)}д`;
   };
 
   const tickCount = 5;
@@ -3191,10 +4208,10 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
           </text>
         ))}
         <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + 4}>
-          {yHi.toFixed(1)}
+          {formatMmol(yHi)}
         </text>
         <text fill="var(--ink-3)" fontSize="6" textAnchor="end" x={padL - 3} y={padT + chartH}>
-          {yLo.toFixed(1)}
+          {formatMmol(yLo)}
         </text>
         <text fill="var(--ink-3)" fontSize="5" textAnchor="end" x={padL - 3} y={padT + chartH / 2 + 2}>
           ммоль/л
@@ -3215,7 +4232,7 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
             points={`${xForAge(r.sensor_age_hours)},${yForVal(r.residual) - 3} ${xForAge(r.sensor_age_hours) + 2.5},${yForVal(r.residual) + 2} ${xForAge(r.sensor_age_hours) - 2.5},${yForVal(r.residual) + 2}`}
           >
             <title>
-              {`${r.sensor_age_hours.toFixed(1)}ч: Δ${r.residual > 0 ? "+" : ""}${r.residual.toFixed(1)} ммоль/л · из пальца ${r.fingerstick_value} / raw ${r.raw_cgm_value}`}
+              {`${formatDecimal(r.sensor_age_hours, 1)}ч: Δ${formatSignedDecimal(r.residual, 1)} ммоль/л · из пальца ${formatMmol(r.fingerstick_value)} / raw ${formatMmol(r.raw_cgm_value)}`}
             </title>
           </polygon>
         ))}
@@ -3230,7 +4247,7 @@ function BiasOverLifetimeChart({ data }: { data: BiasData | null }) {
             strokeWidth="0.5"
           >
             <title>
-              {`${r.sensor_age_hours.toFixed(1)}ч: Δ${r.residual > 0 ? "+" : ""}${r.residual.toFixed(1)} · ${r.exclusion_reason ?? "исключено"}`}
+              {`${formatDecimal(r.sensor_age_hours, 1)}ч: Δ${formatSignedDecimal(r.residual, 1)} · ${r.exclusion_reason ?? "исключено"}`}
             </title>
           </circle>
         ))}

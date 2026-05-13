@@ -10,7 +10,7 @@ class NotificationStringsTest {
     fun syncNotificationStringsArePresentAndAvoidTreatmentLanguage() {
         val strings = File("src/main/res/values/strings.xml").readText()
 
-        assertTrue(strings.contains("notification_estimate_ready_title"))
+        assertFalse(strings.contains("notification_estimate_ready_title"))
         assertTrue(strings.contains("notification_photo_upload_text"))
 
         listOf("доз", "болюс", "коррекц", "целев").forEach { forbidden ->

@@ -9,7 +9,10 @@ set -euo pipefail
 #   ~/bin/gb-sync.sh 2026-05-01          # one day
 #   ~/bin/gb-sync.sh --backfill 7        # last 7 days, including today
 BACKEND_URL="${BACKEND_URL:-http://192.168.3.6:8000}"
-BACKEND_TOKEN="${BACKEND_TOKEN:-dev}"
+BACKEND_ACCESS_TOKEN="${BACKEND_ACCESS_TOKEN:-}"
+BACKEND_USERNAME="${BACKEND_USERNAME:-}"
+BACKEND_PASSWORD="${BACKEND_PASSWORD:-}"
+AUTH_CACHE="${AUTH_CACHE:-$HOME/.cache/glucotracker-gb-sync.auth}"
 GB_DB="${GB_DB:-$HOME/gb-export/database/Gadgetbridge}"
 ACTIVITY_TABLE="${ACTIVITY_TABLE:-}"
 HEART_RATE_TABLE="${HEART_RATE_TABLE:-${TABLE_HR:-}}"
@@ -72,6 +75,96 @@ json_number_or_null() {
     else
         printf 'null'
     fi
+}
+
+json_string_value() {
+    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+}
+
+save_auth_cache() {
+    local access="$1"
+    local refresh="$2"
+    mkdir -p "$(dirname "$AUTH_CACHE")"
+    {
+        printf 'ACCESS_TOKEN=%s\n' "$access"
+        printf 'REFRESH_TOKEN=%s\n' "$refresh"
+    } > "$AUTH_CACHE"
+    chmod 600 "$AUTH_CACHE" 2>/dev/null || true
+}
+
+load_auth_cache() {
+    if [ -f "$AUTH_CACHE" ]; then
+        # shellcheck disable=SC1090
+        . "$AUTH_CACHE"
+    fi
+}
+
+auth_request() {
+    local path="$1"
+    local payload="$2"
+    local tmp_body http_status body
+
+    tmp_body="$(mktemp)"
+    http_status="$(curl -sS -o "$tmp_body" -w "%{http_code}" -X POST \
+        --connect-timeout 5 \
+        --max-time "$CURL_MAX_TIME" \
+        "$BACKEND_URL$path" \
+        -H "Content-Type: application/json" \
+        -d "$payload")" || {
+            rm -f "$tmp_body"
+            return 1
+        }
+    body="$(cat "$tmp_body")"
+    rm -f "$tmp_body"
+
+    case "$http_status" in
+        2*) printf '%s' "$body" ;;
+        *) return 1 ;;
+    esac
+}
+
+login_auth() {
+    local body access refresh
+
+    if [ -z "$BACKEND_USERNAME" ] || [ -z "$BACKEND_PASSWORD" ]; then
+        log "ERROR: set BACKEND_USERNAME and BACKEND_PASSWORD, or set BACKEND_ACCESS_TOKEN to a valid JWT." >&2
+        return 1
+    fi
+
+    body="$(auth_request "/auth/login" "$(printf '{"username":"%s","password":"%s"}' "$BACKEND_USERNAME" "$BACKEND_PASSWORD")")"
+    access="$(printf '%s' "$body" | json_string_value access)"
+    refresh="$(printf '%s' "$body" | json_string_value refresh)"
+    if [ -z "$access" ] || [ -z "$refresh" ]; then
+        log "ERROR: login response did not contain tokens." >&2
+        return 1
+    fi
+    save_auth_cache "$access" "$refresh"
+    BACKEND_ACCESS_TOKEN="$access"
+    REFRESH_TOKEN="$refresh"
+}
+
+refresh_auth() {
+    local body access refresh
+
+    [ -n "${REFRESH_TOKEN:-}" ] || return 1
+    body="$(auth_request "/auth/refresh" "$(printf '{"refresh_token":"%s"}' "$REFRESH_TOKEN")")" || return 1
+    access="$(printf '%s' "$body" | json_string_value access)"
+    refresh="$(printf '%s' "$body" | json_string_value refresh)"
+    [ -n "$access" ] && [ -n "$refresh" ] || return 1
+    save_auth_cache "$access" "$refresh"
+    BACKEND_ACCESS_TOKEN="$access"
+    REFRESH_TOKEN="$refresh"
+}
+
+ensure_auth() {
+    if [ -n "$BACKEND_ACCESS_TOKEN" ]; then
+        return 0
+    fi
+    load_auth_cache
+    if refresh_auth; then
+        return 0
+    fi
+    login_auth
 }
 
 metric_for_table() {
@@ -302,11 +395,7 @@ active_minutes() {
 post_payload() {
     local payload="$1"
     local tmp_body curl_exit http_status response_body
-    local auth_args=()
-
-    if [ -n "$BACKEND_TOKEN" ]; then
-        auth_args=(-H "Authorization: Bearer $BACKEND_TOKEN")
-    fi
+    ensure_auth
 
     tmp_body="$(mktemp)"
     curl_exit=0
@@ -315,7 +404,7 @@ post_payload() {
         --max-time "$CURL_MAX_TIME" \
         "$BACKEND_URL/activity/sync" \
         -H "Content-Type: application/json" \
-        "${auth_args[@]}" \
+        -H "Authorization: Bearer $BACKEND_ACCESS_TOKEN" \
         -d "$payload")" || curl_exit=$?
     response_body="$(cat "$tmp_body")"
     rm -f "$tmp_body"
@@ -473,7 +562,8 @@ Usage:
   gb-sync.sh --backfill [DAYS]
 
 Environment:
-  BACKEND_URL, BACKEND_TOKEN, GB_DB, ACTIVITY_TABLE, HEART_RATE_TABLE,
+  BACKEND_URL, BACKEND_USERNAME, BACKEND_PASSWORD, BACKEND_ACCESS_TOKEN,
+  AUTH_CACHE, GB_DB, ACTIVITY_TABLE, HEART_RATE_TABLE,
   RESTING_HEART_RATE_TABLE,
   CURL_MAX_TIME, EXPORT_MAX_AGE_MIN, TRIGGER_EXPORT=0|1,
   USER_WEIGHT_KG, USER_HEIGHT_CM, USER_AGE, USER_SEX,

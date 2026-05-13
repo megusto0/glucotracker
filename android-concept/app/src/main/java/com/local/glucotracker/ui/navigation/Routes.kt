@@ -1,11 +1,20 @@
 package com.local.glucotracker.ui.navigation
 
 sealed class Route(val route: String) {
-    data object Today : Route("today")
-    data object Glucose : Route("glucose")
+    data object Today : Route("today") {
+        const val PatternWithDate = "today/{date}"
+        const val ArgDate = "date"
+        fun forDate(date: kotlinx.datetime.LocalDate): String = "today/$date"
+    }
     data object History : Route("history")
     data object Base : Route("base")
     data object More : Route("more")
+    data object OutboxInspector : Route("outbox") {
+        const val Pattern = "outbox?focus={id}"
+        const val DeepLinkUri = "glucotracker://outbox"
+        const val ArgId = "id"
+        fun focus(id: String): String = "outbox?focus=$id"
+    }
     data class Record(val id: String) : Route("record/$id") {
         companion object {
             const val Pattern = "record/{id}"
@@ -14,12 +23,4 @@ sealed class Route(val route: String) {
     }
     data object Capture : Route("capture")
     data object PhotoCapture : Route("photo_capture")
-    data class Draft(val outboxId: String) : Route("draft/$outboxId") {
-        companion object {
-            const val Pattern = "draft/{outboxId}"
-            const val ArgOutboxId = "outboxId"
-        }
-    }
-    data object TextInput : Route("text_input")
-    data object TemplatePicker : Route("template_picker")
 }

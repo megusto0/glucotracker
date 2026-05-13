@@ -13,6 +13,8 @@ import com.local.glucotracker.domain.model.Meal
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.hasRestaurantSource
+import com.local.glucotracker.domain.model.matchesCreateMeal
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,13 +41,16 @@ data class HistoryScreenState(
     val days: List<HistoryDayUi>,
     val isRefreshing: Boolean,
     val showNeedsNetworkHint: Boolean,
+    val totalDays: Int = 0,
+    val totalRecords: Int = 0,
 )
 
 data class HistoryDayUi(
     val date: LocalDate,
     val totals: DayTotals?,
     val rows: List<HistoryMealRowUi>,
-    val sparkline: List<Double>,
+    val dailyAverageKcalForPeriod: Double?,
+    val photoCount: Int,
 )
 
 data class HistoryMealRowUi(
@@ -60,6 +65,10 @@ data class HistoryMealRowUi(
     val photo: String?,
     val totalKcal: Double?,
     val totalCarbsG: Double?,
+    val totalProteinG: Double?,
+    val totalFatG: Double?,
+    val isSweet: Boolean,
+    val errorMessage: String?,
 )
 
 enum class HistoryMealRowKind {
@@ -69,6 +78,7 @@ enum class HistoryMealRowKind {
 
 enum class HistoryMealSource {
     Photo,
+    Restaurant,
     Pattern,
     Manual,
     Mixed,
@@ -79,7 +89,8 @@ enum class HistoryMealStatus {
     Accepted,
     Estimating,
     Queued,
-    Conflict,
+    Uploading,
+    Stuck,
 }
 
 @HiltViewModel
@@ -133,6 +144,8 @@ class HistoryViewModel @Inject constructor(
             days = emptyList(),
             isRefreshing = false,
             showNeedsNetworkHint = false,
+            totalDays = 0,
+            totalRecords = 0,
         ),
     )
 
@@ -146,6 +159,10 @@ class HistoryViewModel @Inject constructor(
         } else {
             filters.value + filter
         }
+    }
+
+    fun clearFilters() {
+        filters.value = emptySet()
     }
 
     fun setStatus(next: HistoryStatusFilter) {
@@ -166,8 +183,11 @@ private fun CachedView<HistoryPage>.toScreenState(
     outbox: List<OutboxItem>,
     isOnline: Boolean,
 ): HistoryScreenState {
-    val activeOutbox = outbox.filter { it.state.isActiveQueueState() }
     val pageDays = value?.days.orEmpty()
+    val acceptedMeals = pageDays.flatMap { day -> day.meals.filter { meal -> meal.status.equals("accepted", ignoreCase = true) } }
+    val activeOutbox = outbox.filter { it.state.isActiveQueueState() }
+        .filterNot { item -> item.isAlreadyAccepted(acceptedMeals) }
+        .filterNot { it.isZombie }
     val daysByDate = pageDays.associateBy { it.date }
     val pendingByDate = activeOutbox
         .mapNotNull { item -> item.toPendingRow(query) }
@@ -180,7 +200,8 @@ private fun CachedView<HistoryPage>.toScreenState(
                 date = day.date,
                 totals = day.totals,
                 rows = (acceptedRows + pendingRows).sortedByDescending { it.eatenAt },
-                sparkline = day.meals.sortedBy { it.eatenAt }.map { it.totalCarbsG },
+                dailyAverageKcalForPeriod = day.dailyAverageKcalForPeriod,
+                photoCount = day.photoCount,
             )
         }
         .let { existingDays ->
@@ -191,7 +212,8 @@ private fun CachedView<HistoryPage>.toScreenState(
                         date = date,
                         totals = null,
                         rows = rows.sortedByDescending { it.eatenAt },
-                        sparkline = rows.sortedBy { it.eatenAt }.mapNotNull { it.totalCarbsG },
+                        dailyAverageKcalForPeriod = null,
+                        photoCount = rows.count { row -> row.source == HistoryMealSource.Photo || row.photo != null },
                     )
                 }
             (existingDays + missingPendingDays).sortedByDescending { it.date }
@@ -204,6 +226,8 @@ private fun CachedView<HistoryPage>.toScreenState(
         days = days,
         isRefreshing = isRefreshing,
         showNeedsNetworkHint = !isOnline && query.toDay.daysSince(query.fromDay) + 1 > OfflineCacheDays,
+        totalDays = value?.totalDays ?: days.size,
+        totalRecords = value?.totalRecords ?: days.sumOf { day -> day.rows.size },
     )
 }
 
@@ -218,7 +242,7 @@ private fun List<Meal>.toAcceptedRows(outbox: List<OutboxItem>): List<HistoryMea
         .mapNotNull { item -> (item.kind as? OutboxKind.PatchMealItem)?.mealId?.let { it to item } }
         .toMap()
 
-    return filterNot { meal -> deleteItemsByServerId[meal.id]?.state?.let { it != OutboxState.Conflict } == true }
+    return filterNot { meal -> deleteItemsByServerId[meal.id]?.state?.let { it != OutboxState.Stuck } == true }
         .map { meal ->
             val activeItem = deleteItemsByServerId[meal.id]
                 ?: editItemsByServerId[meal.id]
@@ -231,11 +255,15 @@ private fun List<Meal>.toAcceptedRows(outbox: List<OutboxItem>): List<HistoryMea
                 kind = HistoryMealRowKind.Accepted,
                 eatenAt = editPatch?.eatenAt ?: meal.eatenAt,
                 title = editPatch?.title ?: meal.title,
-                source = meal.source.toMealSource(),
+                source = meal.toMealSource(),
                 status = activeItem?.state.toMealStatus(),
                 photo = meal.thumbnailUrl,
                 totalKcal = meal.totalKcal,
                 totalCarbsG = meal.totalCarbsG,
+                totalProteinG = meal.totalProteinG,
+                totalFatG = meal.totalFatG,
+                isSweet = "sweet" in meal.tags || meal.hasSweetText(),
+                errorMessage = activeItem?.errorMessage,
             )
         }
 }
@@ -253,49 +281,42 @@ private fun OutboxItem.toPendingRow(query: HistoryQuery): HistoryMealRowUi? {
                 kind = HistoryMealRowKind.Pending,
                 eatenAt = outboxKind.eatenAt,
                 title = draft.title,
-                source = outboxKind.source.toMealSource(),
+                source = outboxKind.toMealSource(),
                 status = state.toMealStatus(),
                 photo = draft.localPhotoPath,
                 totalKcal = draft.totalKcal,
                 totalCarbsG = draft.totalCarbsG,
+                totalProteinG = draft.totalProteinG,
+                totalFatG = draft.totalFatG,
+                isSweet = draft.items.any { item -> item.name.hasSweetText() },
+                errorMessage = errorMessage,
             )
         }
-        is OutboxKind.PhotoEstimateRequest -> {
+        is OutboxKind.CapturedMeal -> {
             HistoryMealRowUi(
                 id = id,
                 recordId = null,
                 outboxId = id,
                 kind = HistoryMealRowKind.Pending,
                 eatenAt = outboxKind.capturedAt,
-                title = draft?.title,
+                title = draft?.title ?: outboxKind.optimisticName,
                 source = HistoryMealSource.Photo,
                 status = state.toMealStatus(),
                 photo = outboxKind.localPhotoPath,
-                totalKcal = draft?.totalKcal,
-                totalCarbsG = draft?.totalCarbsG,
-            )
-        }
-        is OutboxKind.AcceptDraft -> {
-            HistoryMealRowUi(
-                id = id,
-                recordId = null,
-                outboxId = id,
-                kind = HistoryMealRowKind.Pending,
-                eatenAt = outboxKind.eatenAt,
-                title = draft?.title,
-                source = HistoryMealSource.Photo,
-                status = state.toMealStatus(),
-                photo = draft?.localPhotoPath,
-                totalKcal = draft?.totalKcal,
-                totalCarbsG = draft?.totalCarbsG,
+                totalKcal = null,
+                totalCarbsG = null,
+                totalProteinG = null,
+                totalFatG = null,
+                isSweet = false,
+                errorMessage = errorMessage,
             )
         }
         is OutboxKind.CopyMealItemWeight,
-        is OutboxKind.CreateFingerstick,
         is OutboxKind.DeleteMeal,
         is OutboxKind.EditMeal,
         is OutboxKind.PatchMealItem,
         -> return null
+        else -> return null
     }
 
     return row.takeIf { it.matches(query) }
@@ -306,7 +327,11 @@ private fun HistoryMealRowUi.matches(query: HistoryQuery): Boolean {
     if (date < query.fromDay || date > query.toDay) return false
     if (HistoryFilter.PhotoOnly in query.filters && source != HistoryMealSource.Photo && photo == null) return false
     if (HistoryFilter.LowConfidence in query.filters) return false
-    if (HistoryFilter.WithCgm in query.filters || HistoryFilter.WithInsulin in query.filters) return false
+    if (HistoryFilter.Sweet in query.filters && !isSweet) return false
+    if (HistoryFilter.Breakfast in query.filters) {
+        val hour = eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).hour
+        if (hour !in 6..10) return false
+    }
     if (query.search.isBlank()) return true
     val haystack = listOfNotNull(title, source.name).joinToString(" ").lowercase()
     return query.search
@@ -318,21 +343,26 @@ private fun HistoryMealRowUi.matches(query: HistoryQuery): Boolean {
 
 private fun OutboxState?.toMealStatus(): HistoryMealStatus =
     when (this) {
-        OutboxState.Conflict -> HistoryMealStatus.Conflict
-        OutboxState.Estimating,
-        OutboxState.EstimateReady,
-        -> HistoryMealStatus.Estimating
-        OutboxState.Queued,
-        OutboxState.Sending,
-        -> HistoryMealStatus.Queued
+        OutboxState.Stuck -> HistoryMealStatus.Stuck
+        OutboxState.Uploading -> HistoryMealStatus.Uploading
+        OutboxState.Queued -> HistoryMealStatus.Queued
         else -> HistoryMealStatus.Accepted
     }
 
 private fun OutboxState.isActiveQueueState(): Boolean =
     this == OutboxState.Queued ||
-        this == OutboxState.Sending ||
-        this == OutboxState.Conflict ||
-        this == OutboxState.Estimating
+        this == OutboxState.Uploading ||
+        this == OutboxState.Stuck
+
+private fun OutboxItem.isAlreadyAccepted(acceptedMeals: List<Meal>): Boolean {
+    val acceptedIds = acceptedMeals.map { it.id }.toSet()
+    return when (val outboxKind = kind) {
+        is OutboxKind.CapturedMeal -> draft?.id in acceptedIds
+        is OutboxKind.CreateMeal -> (serverIdOnSuccess != null && serverIdOnSuccess in acceptedIds) ||
+            (attempts > 0 && acceptedMeals.any { meal -> meal.matchesCreateMeal(outboxKind) })
+        else -> false
+    }
+}
 
 private fun String.toMealSource(): HistoryMealSource =
     when (lowercase()) {
@@ -340,6 +370,9 @@ private fun String.toMealSource(): HistoryMealSource =
         "photo_estimate",
         "gallery",
         -> HistoryMealSource.Photo
+        "restaurant",
+        "restaurant_db",
+        -> HistoryMealSource.Restaurant
         "pattern",
         "template",
         -> HistoryMealSource.Pattern
@@ -347,6 +380,43 @@ private fun String.toMealSource(): HistoryMealSource =
         "text" -> HistoryMealSource.Text
         else -> HistoryMealSource.Mixed
     }
+
+private fun Meal.toMealSource(): HistoryMealSource =
+    if (hasRestaurantSource()) {
+        HistoryMealSource.Restaurant
+    } else {
+        source.toMealSource()
+    }
+
+private fun OutboxKind.CreateMeal.toMealSource(): HistoryMealSource =
+    if (hasRestaurantSource()) {
+        HistoryMealSource.Restaurant
+    } else {
+        source.toMealSource()
+    }
+
+private fun Meal.hasSweetText(): Boolean =
+    (listOfNotNull(title) + items.map { it.name }).any { it.hasSweetText() }
+
+private fun String.hasSweetText(): Boolean {
+    val text = lowercase()
+    return listOf(
+        "шоколад",
+        "печенье",
+        "торт",
+        "конфет",
+        "маффин",
+        "кекс",
+        "десерт",
+        "слад",
+        "cookie",
+        "chocolate",
+        "cake",
+        "candy",
+        "muffin",
+        "dessert",
+    ).any { keyword -> keyword in text }
+}
 
 private fun currentLocalDate(): LocalDate =
     Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date

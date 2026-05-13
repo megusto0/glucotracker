@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from uuid import UUID
 
@@ -21,11 +22,43 @@ router = APIRouter(tags=["autocomplete"])
 PRODUCT_PREFIXES = {"product", "products", "prod", "my"}
 PERSONAL_PATTERN_PREFIXES = {"my", "home"}
 RESTAURANT_PATTERN_PREFIXES = {"bk", "mc", "rostics", "vit"}
+SEARCH_STOP_WORDS = {"с", "со", "и", "в", "во", "на", "из", "к", "ко", "по", "для"}
+TOKEN_RE = re.compile(r"[\w]+", flags=re.UNICODE)
 
 
 def _normalized(value: str | None) -> str:
     """Return a casefolded search value."""
     return (value or "").casefold().strip()
+
+
+def _search_tokens(value: str | None) -> list[str]:
+    """Return significant searchable tokens without short connector words."""
+    return [
+        token
+        for token in TOKEN_RE.findall(_normalized(value))
+        if token and token not in SEARCH_STOP_WORDS
+    ]
+
+
+def _token_match_rank(value: str, query: str) -> int:
+    """Rank order-insensitive token matches for forgiving autocomplete."""
+    query_tokens = _search_tokens(query)
+    if not query_tokens:
+        return 9
+    value_tokens = _search_tokens(value)
+    if not value_tokens:
+        return 9
+    if all(
+        any(candidate == token for candidate in value_tokens)
+        for token in query_tokens
+    ):
+        return 2
+    if all(
+        any(candidate.startswith(token) for candidate in value_tokens)
+        for token in query_tokens
+    ):
+        return 4
+    return 9
 
 
 def _text_match_rank(values: list[str], q: str) -> int:
@@ -38,6 +71,12 @@ def _text_match_rank(values: list[str], q: str) -> int:
         return 0
     if any(value.startswith(query) for value in normalized_values):
         return 1
+    token_rank = min(
+        (_token_match_rank(value, query) for value in normalized_values),
+        default=9,
+    )
+    if token_rank < 9:
+        return token_rank
     if any(query in value for value in normalized_values):
         return 5
     return 9

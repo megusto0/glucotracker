@@ -1,4 +1,4 @@
-export type ReportSlotKey = "breakfast" | "lunch" | "dinner" | "snack";
+export type ReportSlotKey = "start" | "mid" | "late" | "night_cap" | "snack";
 
 export type ReportKpi = {
   label: string;
@@ -34,10 +34,29 @@ export type DailySummaryRow = {
   insulin: string;
   tir: string;
   hypo: string;
+  spikes: string;
+  windows: string;
   breakfast: string;
   lunch: string;
   dinner: string;
   flagged: boolean;
+};
+
+export type AdaptiveScheduleWindow = {
+  key: string;
+  label: string;
+  startMinute: number;
+  endMinute: number;
+  startLabel: string;
+  endLabel: string;
+};
+
+export type AdaptiveSchedule = {
+  title: string;
+  summary: string;
+  basis: string;
+  windows: AdaptiveScheduleWindow[];
+  ribbon: string;
 };
 
 export type ReportBottomMetric = {
@@ -49,12 +68,17 @@ export type ReportBottomMetric = {
 export type EndocrinologistReportData = {
   appName: string;
   title: string;
+  glucoseMode: "raw" | "normalized";
+  glucoseModeLabel: string;
   periodLabel: string;
   generatedLabel: string;
   chips: ReportChip[];
   warning: string | null;
   notes: string[];
   kpis: ReportKpi[];
+  glycemicProfile: ReportKpi[];
+  hypoConcentrationLine: string;
+  adaptiveSchedule: AdaptiveSchedule;
   mealProfileRows: MealProfileRow[];
   dailyRows: DailySummaryRow[];
   shownDailyRows: DailySummaryRow[];

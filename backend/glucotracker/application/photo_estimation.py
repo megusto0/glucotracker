@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -26,6 +27,8 @@ from glucotracker.infra.gemini.client import (
     PhotoInput,
 )
 from glucotracker.infra.gemini.schemas import EstimationResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -104,6 +107,44 @@ class PhotoEstimationService:
                 user_context=context_note,
             )
         except GeminiClientError as exc:
+            ai_summary = deps.ai_run_summary(self.gemini_client)
+            logger.warning(
+                "Photo estimate failed meal_id=%s user_id=%s requested_model=%s used_model=%s error=%s",
+                meal.id,
+                self.user_id,
+                ai_summary["model_requested"],
+                ai_summary["model_used"],
+                exc,
+            )
+            failed_run = AIRun(
+                meal_id=meal.id,
+                model=ai_summary["model_used"],
+                prompt_version=PHOTO_ESTIMATION_PROMPT_VERSION,
+                provider="gemini",
+                model_requested=ai_summary["model_requested"],
+                model_used=ai_summary["model_used"],
+                fallback_used=ai_summary["fallback_used"],
+                status="failed",
+                request_type="initial_estimate" if save_draft else "estimate",
+                source_photo_ids=[str(photo.id) for photo in ordered_photos],
+                error_history_json=ai_summary["error_history"],
+                request_summary={
+                    "photo_ids": [str(photo.id) for photo in ordered_photos],
+                    "use_patterns": [
+                        str(pattern_id) for pattern_id in payload.use_patterns
+                    ],
+                    "use_products": [
+                        str(product_id) for product_id in payload.use_products
+                    ],
+                    "requested_model": payload.model,
+                    "context_note": context_note,
+                    "scenario_hint": payload.scenario_hint,
+                    **ai_summary,
+                },
+                response_raw={"error": str(exc)},
+            )
+            self.session.add(failed_run)
+            self.session.commit()
             raise HTTPException(
                 status_code=getattr(
                     exc,

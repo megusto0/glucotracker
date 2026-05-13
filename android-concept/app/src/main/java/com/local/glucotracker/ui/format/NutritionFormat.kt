@@ -29,6 +29,17 @@ fun formatSignedKcal(value: Long): String =
 fun formatPercent(value: Double): String =
     "${value.roundToInt()}%"
 
+fun truncateToLines(text: String, maxLines: Int, charsPerLine: Int): String {
+    val maxChars = maxLines * charsPerLine
+    if (text.length <= maxChars) return text
+    val cut = text.substring(0, maxChars)
+    val lastSentenceEnd = cut.lastIndexOf(". ")
+    if (lastSentenceEnd > 0) {
+        return cut.substring(0, lastSentenceEnd + 1)
+    }
+    return text
+}
+
 private fun decimal(pattern: String): DecimalFormat =
     DecimalFormat(pattern, DecimalFormatSymbols(RuLocale)).apply {
         isGroupingUsed = pattern.contains("#,")

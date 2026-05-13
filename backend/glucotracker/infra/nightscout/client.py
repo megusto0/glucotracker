@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -120,8 +120,8 @@ def _meal_treatment_payload(meal: Meal) -> dict[str, Any]:
 def _date_query(from_datetime: datetime, to_datetime: datetime) -> dict[str, str]:
     """Return Nightscout range query params using ISO dateString bounds."""
     return {
-        "find[dateString][$gte]": from_datetime.isoformat(),
-        "find[dateString][$lte]": to_datetime.isoformat(),
+        "find[dateString][$gte]": _nightscout_query_timestamp(from_datetime),
+        "find[dateString][$lte]": _nightscout_query_timestamp(to_datetime),
         "count": "1000",
     }
 
@@ -129,10 +129,18 @@ def _date_query(from_datetime: datetime, to_datetime: datetime) -> dict[str, str
 def _created_at_query(from_datetime: datetime, to_datetime: datetime) -> dict[str, str]:
     """Return Nightscout treatment range query params."""
     return {
-        "find[created_at][$gte]": from_datetime.isoformat(),
-        "find[created_at][$lte]": to_datetime.isoformat(),
+        "find[created_at][$gte]": _nightscout_query_timestamp(from_datetime),
+        "find[created_at][$lte]": _nightscout_query_timestamp(to_datetime),
         "count": "1000",
     }
+
+
+def _nightscout_query_timestamp(value: datetime) -> str:
+    """Return a UTC timestamp string matching Nightscout dateString storage."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=get_settings().local_zoneinfo)
+    utc_value = value.astimezone(UTC)
+    return utc_value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 class NightscoutClient:
@@ -220,6 +228,18 @@ class NightscoutClient:
         return await self._request(
             "POST",
             "/api/v1/treatments",
+            json_payload=_meal_treatment_payload(meal),
+        )
+
+    async def update_meal_treatment(
+        self,
+        nightscout_id: str,
+        meal: Meal,
+    ) -> dict[str, Any]:
+        """Update a diary-only carb treatment for an edited accepted meal."""
+        return await self._request(
+            "PUT",
+            f"/api/v1/treatments/{nightscout_id}",
             json_payload=_meal_treatment_payload(meal),
         )
 

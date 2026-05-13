@@ -57,6 +57,13 @@ class Settings(BaseSettings):
             "GLUCOTRACKER_GEMINI_FREE_TEST_MODEL",
         ),
     )
+    gemini_taste_profile_model: str = Field(
+        default="gemini-3.1-flash-lite-preview",
+        validation_alias=AliasChoices(
+            "GEMINI_TASTE_PROFILE_MODEL",
+            "GLUCOTRACKER_GEMINI_TASTE_PROFILE_MODEL",
+        ),
+    )
     gemini_fallback_model: str = Field(
         default="gemini-3-flash-preview",
         validation_alias=AliasChoices(
@@ -99,6 +106,37 @@ class Settings(BaseSettings):
             "NIGHTSCOUT_API_SECRET",
             "GLUCOTRACKER_NIGHTSCOUT_API_SECRET",
             "GLUCOTRACKER_NIGHTSCOUT_TOKEN",
+        ),
+    )
+    nightscout_background_import_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "NIGHTSCOUT_BACKGROUND_IMPORT_ENABLED",
+            "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_ENABLED",
+        ),
+    )
+    nightscout_background_import_interval_seconds: int = Field(
+        default=300,
+        ge=60,
+        validation_alias=AliasChoices(
+            "NIGHTSCOUT_BACKGROUND_IMPORT_INTERVAL_SECONDS",
+            "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_INTERVAL_SECONDS",
+        ),
+    )
+    nightscout_background_import_lookback_hours: int = Field(
+        default=24,
+        ge=1,
+        validation_alias=AliasChoices(
+            "NIGHTSCOUT_BACKGROUND_IMPORT_LOOKBACK_HOURS",
+            "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_LOOKBACK_HOURS",
+        ),
+    )
+    nightscout_background_import_overlap_minutes: int = Field(
+        default=15,
+        ge=0,
+        validation_alias=AliasChoices(
+            "NIGHTSCOUT_BACKGROUND_IMPORT_OVERLAP_MINUTES",
+            "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_OVERLAP_MINUTES",
         ),
     )
     app_timezone: str | None = Field(

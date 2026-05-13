@@ -130,3 +130,30 @@ def test_database_items_can_filter_needs_review(api_client: TestClient) -> None:
     body = response.json()
     assert body["total"] == 1
     assert "нет картинки" in body["items"][0]["quality_warnings"]
+
+
+def test_pattern_image_upload_replaces_database_item_image(
+    api_client: TestClient,
+) -> None:
+    """Pattern and restaurant rows can store protected local replacement images."""
+    pattern = api_client.post("/patterns", json=_pattern_payload(image_url=None)).json()
+
+    upload = api_client.post(
+        f"/patterns/{pattern['id']}/image",
+        files={"file": ("whopper.png", b"pattern-image-bytes", "image/png")},
+    )
+
+    assert upload.status_code == 200
+    assert upload.json()["image_url"] == f"/patterns/{pattern['id']}/image/file"
+
+    file_response = api_client.get(f"/patterns/{pattern['id']}/image/file")
+    assert file_response.status_code == 200
+    assert file_response.content == b"pattern-image-bytes"
+    assert file_response.headers["content-type"] == "image/png"
+
+    database_response = api_client.get("/database/items", params={"q": "whopper"})
+    assert database_response.status_code == 200
+    item = database_response.json()["items"][0]
+    assert item["kind"] == "restaurant"
+    assert item["image_url"] == f"/patterns/{pattern['id']}/image/file"
+    assert "нет картинки" not in item["quality_warnings"]

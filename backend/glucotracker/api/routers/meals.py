@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
@@ -28,8 +28,10 @@ from glucotracker.api.schemas import (
 )
 from glucotracker.application.daily_totals import DailyTotalsService
 from glucotracker.application.meal_drafts import MealDraftService
+from glucotracker.application.nightscout_sync import NightscoutSyncService
 from glucotracker.application.product_memory import ProductMemoryService
 from glucotracker.application.time import local_now, local_wall_time
+from glucotracker.domain.auth import CurrentUser, UserRole
 from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
 from glucotracker.domain.nutrients import (
     DEFAULT_NUTRIENT_DEFINITIONS,
@@ -56,8 +58,14 @@ from glucotracker.infra.db.models import (
     Product,
     utc_now,
 )
+from glucotracker.infra.nightscout.client import (
+    NightscoutClient,
+    get_nightscout_client,
+)
 
 router = APIRouter(tags=["meals"])
+LOW_CONFIDENCE_THRESHOLD = 0.60
+NightscoutDep = Annotated[NightscoutClient | None, Depends(get_nightscout_client)]
 
 
 def _meal_options() -> tuple:
@@ -155,6 +163,47 @@ def _request_audit_metadata(request: Request) -> dict[str, str]:
     if user_agent:
         metadata["user_agent"] = user_agent[:160]
     return metadata
+
+
+def _nightscout_sync_service(
+    session: SessionDep,
+    current_user: CurrentUser,
+    client: NightscoutClient | None,
+) -> NightscoutSyncService | None:
+    """Return a meal sync service for gluco users; food users have no NS surface."""
+    if current_user.role != UserRole.gluco:
+        return None
+    return NightscoutSyncService(session, current_user.id, client)
+
+
+async def _autosync_new_meal(
+    service: NightscoutSyncService | None,
+    meal_id: UUID,
+) -> None:
+    """Best-effort Nightscout autosend after a meal becomes accepted."""
+    if service is None:
+        return
+    await service.autosync_new_meal(meal_id, commit=True)
+
+
+async def _mirror_meal_update(
+    service: NightscoutSyncService | None,
+    meal: Meal,
+) -> None:
+    """Mirror edits for already-synced meals before committing local changes."""
+    if service is None:
+        return
+    await service.mirror_meal_update(meal, commit=False)
+
+
+async def _mirror_meal_delete(
+    service: NightscoutSyncService | None,
+    meal: Meal,
+) -> None:
+    """Mirror deletion for already-synced meals before deleting locally."""
+    if service is None:
+        return
+    await service.mirror_meal_delete(meal, commit=False)
 
 
 def _warning_payload(item: MealItem) -> list[dict[str, str | None]]:
@@ -347,6 +396,47 @@ def _product_default_values(product: Product) -> dict[str, float | None]:
     }
 
 
+def _product_values_for_grams(
+    product: Product,
+    grams: float | None,
+) -> dict[str, float | None] | None:
+    """Return product macro values scaled to a concrete item weight."""
+    if grams is None or grams <= 0:
+        return None
+    if any(
+        value is not None
+        for value in (
+            product.carbs_per_100g,
+            product.protein_per_100g,
+            product.fat_per_100g,
+            product.fiber_per_100g,
+            product.kcal_per_100g,
+        )
+    ):
+        scaled = calculate_item_from_per_100g(
+            product.carbs_per_100g,
+            product.protein_per_100g,
+            product.fat_per_100g,
+            product.fiber_per_100g,
+            product.kcal_per_100g,
+            grams,
+        )
+        return {
+            "carbs_g": float(scaled["carbs_g"]),
+            "protein_g": float(scaled["protein_g"]),
+            "fat_g": float(scaled["fat_g"]),
+            "fiber_g": float(scaled["fiber_g"]),
+            "kcal": float(scaled["kcal"]),
+        }
+    if product.default_grams is None or product.default_grams <= 0:
+        return None
+    scale = grams / product.default_grams
+    return {
+        field: value * scale if value is not None else None
+        for field, value in _product_default_values(product).items()
+    }
+
+
 def _photo_file_url(photo_id: UUID | None) -> str | None:
     """Return the authenticated photo endpoint for stored meal photos."""
     return f"/photos/{photo_id}/file" if photo_id is not None else None
@@ -400,12 +490,17 @@ def _apply_product_database_values(
             detail="Product not found.",
         )
 
+    requested_grams = _as_float(item.grams)
+    values = _product_values_for_grams(product, requested_grams)
     quantity = _quantity_from_evidence(item.evidence)
-    values = _product_default_values(product)
+    if values is None:
+        values = _product_default_values(product)
     for field, value in values.items():
         if value is not None:
             setattr(item, field, round(value * quantity, 1))
-    if product.default_grams is not None:
+    if requested_grams is not None and requested_grams > 0:
+        item.grams = round(requested_grams * quantity, 1)
+    elif product.default_grams is not None:
         item.grams = round(product.default_grams * quantity, 1)
     if item.serving_text is None:
         item.serving_text = f"{quantity:g} шт"
@@ -736,11 +831,12 @@ def _rescale_item_to_grams(item: MealItem, old_grams: float, new_grams: float) -
     item.assumptions = assumptions
 
 
-def _meal_from_item_weight(
+async def _meal_from_item_weight(
     source_item: MealItem,
     payload: MealItemWeightReuseRequest,
     session: SessionDep,
     user_id: UUID,
+    nightscout_sync: NightscoutSyncService | None,
 ) -> Meal:
     """Create an accepted one-item meal by scaling a historical item by weight."""
     if source_item.grams is None or source_item.grams <= 0:
@@ -802,6 +898,7 @@ def _meal_from_item_weight(
     _audit_meal(session, user_id, "created", meal, {"via": "copy_by_weight"})
     DailyTotalsService(session, user_id).schedule_for_meal_times([meal.eaten_at])
     session.commit()
+    await _autosync_new_meal(nightscout_sync, meal.id)
     return _meal_response(session, user_id, meal.id)
 
 
@@ -830,12 +927,14 @@ def _as_float(value: object) -> float | None:
     status_code=status.HTTP_201_CREATED,
     operation_id="createMeal",
 )
-def create_meal(
+async def create_meal(
     payload: MealCreate,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> Meal:
     """Create a meal with optional inline items."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = Meal(
         owner_id=current_user.id,
         eaten_at=local_wall_time(payload.eaten_at),
@@ -860,6 +959,8 @@ def create_meal(
     )
 
     session.commit()
+    if meal.status == MealStatus.accepted:
+        await _autosync_new_meal(nightscout_sync, meal.id)
     return _meal_response(session, current_user.id, meal.id)
 
 
@@ -877,15 +978,55 @@ def list_meals(
     offset: Annotated[int, Query(ge=0)] = 0,
     q: str | None = None,
     status: MealStatus | None = None,
+    tag: Literal["sweet", "breakfast"] | None = None,
+    sweet: bool = False,
+    breakfast: bool = False,
+    photo_only: bool = False,
+    low_confidence: bool = False,
+    idempotency_key: str | None = None,
 ) -> MealPageResponse:
     """List meals with pagination and simple text search."""
     filters = [Meal.owner_id == current_user.id]
+    if idempotency_key is not None:
+        filters.append(Meal.photo_idempotency_key == idempotency_key)
     if from_ is not None:
         filters.append(Meal.eaten_at >= local_wall_time(from_))
     if to is not None:
         filters.append(Meal.eaten_at <= local_wall_time(to))
     if status is not None:
         filters.append(Meal.status == status)
+    if breakfast or tag == "breakfast":
+        breakfast_filter = Meal.derived_categories["meal_window"].as_string() == "start"
+        if tag == "breakfast":
+            breakfast_filter = or_(
+                breakfast_filter,
+                and_(
+                    extract("hour", Meal.eaten_at) >= 6,
+                    extract("hour", Meal.eaten_at) < 11,
+                ),
+            )
+        filters.append(breakfast_filter)
+    if sweet or tag == "sweet":
+        sweet_filter = (
+            Meal.ai_categories["taste_profile"]
+            .as_string()
+            .in_(("sweet", "drink_sweet"))
+        )
+        if tag == "sweet":
+            sweet_filter = or_(
+                sweet_filter,
+                Meal.items.any(MealItem.product.has(Product.category == "sweet")),
+            )
+        filters.append(sweet_filter)
+    if photo_only:
+        filters.append(Meal.source == MealSource.photo)
+    if low_confidence:
+        filters.append(
+            or_(
+                Meal.confidence < LOW_CONFIDENCE_THRESHOLD,
+                Meal.items.any(MealItem.confidence < LOW_CONFIDENCE_THRESHOLD),
+            )
+        )
     if q:
         term = f"%{q}%"
         filters.append(
@@ -933,13 +1074,15 @@ def get_meal(
     response_model=MealResponse,
     operation_id="patchMeal",
 )
-def patch_meal(
+async def patch_meal(
     meal_id: UUID,
     payload: MealPatch,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> Meal:
     """Patch editable meal fields."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     old_eaten_at = meal.eaten_at
     data = payload.model_dump(exclude_unset=True)
@@ -962,6 +1105,7 @@ def patch_meal(
         [old_eaten_at, meal.eaten_at]
     )
 
+    await _mirror_meal_update(nightscout_sync, meal)
     session.commit()
     return _meal_response(session, current_user.id, meal.id)
 
@@ -971,15 +1115,18 @@ def patch_meal(
     response_model=DeleteResponse,
     operation_id="deleteMeal",
 )
-def delete_meal(
+async def delete_meal(
     meal_id: UUID,
     request: Request,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> DeleteResponse:
     """Delete a meal and cascade its items and photos."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     eaten_at = meal.eaten_at
+    await _mirror_meal_delete(nightscout_sync, meal)
     _audit_meal(
         session,
         current_user.id,
@@ -1000,13 +1147,15 @@ def delete_meal(
     status_code=status.HTTP_201_CREATED,
     operation_id="addMealItem",
 )
-def add_meal_item(
+async def add_meal_item(
     meal_id: UUID,
     payload: MealItemCreate,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> MealItem:
     """Add an item to a meal and recalculate meal totals."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     item = _build_item(payload, meal.id, session, current_user.id)
     meal.items.append(item)
@@ -1023,6 +1172,7 @@ def add_meal_item(
         [meal.eaten_at]
     )
 
+    await _mirror_meal_update(nightscout_sync, meal)
     session.commit()
     session.refresh(item)
     return item
@@ -1033,13 +1183,15 @@ def add_meal_item(
     response_model=MealItemResponse,
     operation_id="patchMealItem",
 )
-def patch_meal_item(
+async def patch_meal_item(
     item_id: UUID,
     payload: MealItemPatch,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> MealItem:
     """Patch a meal item and recalculate its meal totals."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     item = _get_item(session, current_user.id, item_id)
     meal = _get_meal(session, current_user.id, item.meal_id)
     changed_fields = payload.model_dump(exclude_unset=True)
@@ -1058,6 +1210,7 @@ def patch_meal_item(
         [meal.eaten_at]
     )
 
+    await _mirror_meal_update(nightscout_sync, meal)
     session.commit()
     session.refresh(item)
     return item
@@ -1088,15 +1241,23 @@ def remember_product_from_meal_item(
     status_code=status.HTTP_201_CREATED,
     operation_id="createMealFromMealItemWeight",
 )
-def create_meal_from_item_weight(
+async def create_meal_from_item_weight(
     item_id: UUID,
     payload: MealItemWeightReuseRequest,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> Meal:
     """Create a new meal from an existing item scaled to a target weight."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     item = _get_item(session, current_user.id, item_id)
-    return _meal_from_item_weight(item, payload, session, current_user.id)
+    return await _meal_from_item_weight(
+        item,
+        payload,
+        session,
+        current_user.id,
+        nightscout_sync,
+    )
 
 
 @router.delete(
@@ -1104,12 +1265,14 @@ def create_meal_from_item_weight(
     response_model=DeleteResponse,
     operation_id="deleteMealItem",
 )
-def delete_meal_item(
+async def delete_meal_item(
     item_id: UUID,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> DeleteResponse:
     """Delete a meal item and recalculate its meal totals."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     item = _get_item(session, current_user.id, item_id)
     meal = _get_meal(session, current_user.id, item.meal_id)
     meal.items = [existing for existing in meal.items if existing.id != item.id]
@@ -1126,6 +1289,7 @@ def delete_meal_item(
         [meal.eaten_at]
     )
 
+    await _mirror_meal_update(nightscout_sync, meal)
     session.commit()
     return DeleteResponse(deleted=True)
 
@@ -1135,13 +1299,15 @@ def delete_meal_item(
     response_model=MealResponse,
     operation_id="replaceMealItems",
 )
-def replace_meal_items(
+async def replace_meal_items(
     meal_id: UUID,
     payload: list[MealItemCreate],
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> Meal:
     """Atomically replace all meal items and recalculate totals."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     meal.items = [
         _build_item(item, meal.id, session, current_user.id) for item in payload
@@ -1161,6 +1327,7 @@ def replace_meal_items(
         [meal.eaten_at]
     )
 
+    await _mirror_meal_update(nightscout_sync, meal)
     session.commit()
     return _meal_response(session, current_user.id, meal.id)
 
@@ -1170,13 +1337,15 @@ def replace_meal_items(
     response_model=MealResponse,
     operation_id="acceptMealDraft",
 )
-def accept_meal(
+async def accept_meal(
     meal_id: UUID,
     payload: MealAcceptRequest,
     session: SessionDep,
     current_user: CurrentUserDep,
+    client: NightscoutDep,
 ) -> Meal:
     """Accept a draft by atomically replacing Gemini-suggested items."""
+    nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     if payload.items:
         final_items = [
@@ -1197,6 +1366,7 @@ def accept_meal(
     _audit_meal(session, current_user.id, "accepted", meal, {"via": "accept_meal"})
 
     session.commit()
+    await _autosync_new_meal(nightscout_sync, meal.id)
     return _meal_response(session, current_user.id, meal.id)
 
 

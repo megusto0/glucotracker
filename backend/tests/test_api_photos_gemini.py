@@ -1135,6 +1135,67 @@ def test_label_partial_uses_assumed_volume_backend_calculation(
     assert "Bottle appears to be a 500 ml size." in item["assumptions"]
 
 
+def test_label_partial_uses_normalized_per_100g_with_assumed_weight(
+    api_client: TestClient,
+) -> None:
+    """LABEL_PARTIAL keeps items when Gemini normalizes label facts separately."""
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"])
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="7 Days Croissant with cocoa cream",
+                    display_name_ru="Круассан 7 Days с кремом какао",
+                    brand="7 Days",
+                    scenario="LABEL_PARTIAL",
+                    item_type="packaged_food",
+                    extracted_facts=ExtractedNutritionFacts(
+                        assumed_weight_g=65,
+                        assumption_reason="Typical single package weight.",
+                    ),
+                    nutrition_per_100g=NutritionPer100g(
+                        kcal=448,
+                        carbs_g=43,
+                        protein_g=6,
+                        fat_g=28,
+                    ),
+                    count_detected=1,
+                    net_weight_per_unit_g=65,
+                    total_weight_g=65,
+                    values_basis="total_visible",
+                    carbs_g_mid=28,
+                    protein_g_mid=3.9,
+                    fat_g_mid=18.2,
+                    kcal_mid=291,
+                    confidence=0.86,
+                    confidence_reason="Package front and product type are visible.",
+                    assumptions=[],
+                    evidence=["Front of the 7 Days package is visible."],
+                )
+            ],
+            overall_notes="Label partially visible.",
+        )
+    )
+
+    response = api_client.post(
+        f"/meals/{meal['id']}/estimate_and_save_draft",
+        json={},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["created_drafts"]
+    item = body["created_drafts"][0]["item"]
+    assert item["source_kind"] == "label_calc"
+    assert item["calculation_method"] == "label_assumed_weight_backend_calc"
+    assert item["grams"] == pytest.approx(65)
+    assert item["carbs_g"] == pytest.approx(27.95)
+    assert item["protein_g"] == pytest.approx(3.9)
+    assert item["fat_g"] == pytest.approx(18.2)
+    assert item["kcal"] == pytest.approx(291.2)
+
+
 def test_plated_uses_gemini_mid_values(api_client: TestClient) -> None:
     """PLATED suggestions use Gemini mid estimates."""
     meal = _create_photo_meal(api_client)
@@ -1265,6 +1326,92 @@ def test_known_component_replaces_full_component_macros(
         "personal_component",
         "product_db",
     }
+
+
+def test_known_component_visual_count_scales_saved_component_values(
+    api_client: TestClient,
+) -> None:
+    """Two visible tortillas apply two saved tortilla servings."""
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"], "wraps.jpg")
+    _create_tortilla_anchor(api_client)
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Chicken wraps",
+                    display_name_ru="Chicken wraps",
+                    scenario="PLATED",
+                    item_type="plated_food",
+                    count_detected=2,
+                    count_confidence=1.0,
+                    values_basis="total_visible",
+                    grams_mid=270,
+                    carbs_g_mid=52,
+                    protein_g_mid=28,
+                    fat_g_mid=20,
+                    fiber_g_mid=3,
+                    kcal_mid=500,
+                    component_estimates=[
+                        EstimatedComponent(
+                            name_ru="Tortilla",
+                            component_type="carb_base",
+                            estimated_grams_mid=100,
+                            carbs_g_mid=48,
+                            protein_g_mid=8,
+                            fat_g_mid=8,
+                            fiber_g_mid=2,
+                            kcal_mid=300,
+                            visual_count=2,
+                            likely_database_match_query="tortilla",
+                            should_use_database_if_available=True,
+                            confidence=0.9,
+                        ),
+                        EstimatedComponent(
+                            name_ru="Chicken",
+                            component_type="protein",
+                            estimated_grams_mid=90,
+                            carbs_g_mid=0,
+                            protein_g_mid=16,
+                            fat_g_mid=6,
+                            fiber_g_mid=0,
+                            kcal_mid=160,
+                            confidence=0.8,
+                        ),
+                    ],
+                    confidence=0.8,
+                    confidence_reason="Two wraps with visible tortillas.",
+                    assumptions=["Two tortillas are visible."],
+                    evidence=["Two tortillas", "Chicken filling"],
+                )
+            ]
+        )
+    )
+
+    response = api_client.post(
+        f"/meals/{meal['id']}/estimate",
+        json={"scenario_hint": "PLATED"},
+    )
+
+    assert response.status_code == 200
+    item = response.json()["suggested_items"][0]
+    assert item["calculation_method"] == (
+        "visual_estimate_with_known_component_visible_count_2"
+    )
+    assert item["carbs_g"] == pytest.approx(48)
+    assert item["protein_g"] == pytest.approx(24)
+    assert item["fat_g"] == pytest.approx(14)
+    assert item["fiber_g"] == pytest.approx(2)
+    assert item["kcal"] == pytest.approx(460)
+    component = item["evidence"]["known_component"]
+    match = component["matches"][0]
+    assert match["known_component_carbs_g"] == pytest.approx(24)
+    assert match["applied_count_multiplier"] == pytest.approx(2)
+    assert match["applied_known_component_carbs_g"] == pytest.approx(48)
+    assert match["applied_known_component_kcal"] == pytest.approx(300)
+    assert component["components"][0]["final_values"]["carbs_g"] == pytest.approx(48)
+    assert component["components"][0]["final_values"]["kcal"] == pytest.approx(300)
+    assert item["nutrients"]["sodium_mg"]["amount"] == pytest.approx(240)
 
 
 def test_known_component_missing_database_keeps_visual_estimate_with_warning(

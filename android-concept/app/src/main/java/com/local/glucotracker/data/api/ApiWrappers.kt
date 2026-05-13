@@ -3,29 +3,28 @@ package com.local.glucotracker.data.api
 import com.local.glucotracker.generated.api.ActivityApi as GeneratedActivityApi
 import com.local.glucotracker.generated.api.DashboardApi as GeneratedDashboardApi
 import com.local.glucotracker.generated.api.DatabaseApi as GeneratedDatabaseApi
-import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.MealsApi as GeneratedMealsApi
-import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.api.PatternsApi as GeneratedPatternsApi
 import com.local.glucotracker.generated.api.ProductsApi as GeneratedProductsApi
+import com.local.glucotracker.generated.api.ScheduleApi as GeneratedScheduleApi
+import com.local.glucotracker.generated.api.StatsApi as GeneratedStatsApi
+import com.local.glucotracker.generated.api.UsersApi as GeneratedUsersApi
 import com.local.glucotracker.generated.model.ActivitySyncRequest
 import com.local.glucotracker.generated.model.ActivitySyncResponse
 import com.local.glucotracker.generated.model.DashboardDayResponse
 import com.local.glucotracker.generated.model.DashboardRangeResponse
 import com.local.glucotracker.generated.model.DashboardTodayResponse
 import com.local.glucotracker.generated.model.DatabaseItemResponse
-import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.KcalBalanceRangeResponse
 import com.local.glucotracker.generated.model.KcalBalanceResponse
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.MealStatus
-import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
-import com.local.glucotracker.generated.model.NightscoutStatusResponse
-import com.local.glucotracker.generated.model.NightscoutSyncTodayRequest
-import com.local.glucotracker.generated.model.NightscoutSyncTodayResponse
 import com.local.glucotracker.generated.model.PatternResponse
 import com.local.glucotracker.generated.model.ProductResponse
-import com.local.glucotracker.generated.model.TimelineResponse
+import com.local.glucotracker.generated.model.ScheduleOverrideRequest
+import com.local.glucotracker.generated.model.ScheduleResponse
+import com.local.glucotracker.generated.model.StatsInsightResponse
+import com.local.glucotracker.generated.model.UserGoalsUpdate as GeneratedUserGoalsUpdate
 import javax.inject.Inject
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
@@ -89,6 +88,11 @@ class MealApi @Inject constructor(
         offset: Int = 0,
         q: String? = null,
         status: MealStatus? = null,
+        tag: String? = null,
+        sweet: Boolean? = null,
+        breakfast: Boolean? = null,
+        photoOnly: Boolean? = null,
+        lowConfidence: Boolean? = null,
     ): List<MealResponse> =
         fetchPaged(
             requestedLimit = limit,
@@ -101,6 +105,12 @@ class MealApi @Inject constructor(
                     offset = pageOffset,
                     q = q,
                     status = status,
+                    tag = tag,
+                    sweet = sweet,
+                    breakfast = breakfast,
+                    photoOnly = photoOnly,
+                    lowConfidence = lowConfidence,
+                    idempotencyKey = null,
                 ).body()
             },
             pageItems = { it.items },
@@ -113,6 +123,11 @@ class MealApi @Inject constructor(
         limit: Int = 500,
         q: String? = null,
         status: MealStatus? = null,
+        tag: String? = null,
+        sweet: Boolean? = null,
+        breakfast: Boolean? = null,
+        photoOnly: Boolean? = null,
+        lowConfidence: Boolean? = null,
     ): List<MealResponse> {
         val networkLimit = (limit + ApiPageLimit * 2).coerceAtMost(1_000)
         return listMeals(
@@ -121,6 +136,11 @@ class MealApi @Inject constructor(
             limit = networkLimit,
             q = q,
             status = status,
+            tag = tag,
+            sweet = sweet,
+            breakfast = breakfast,
+            photoOnly = photoOnly,
+            lowConfidence = lowConfidence,
         ).filter { meal ->
             val day = meal.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
             day >= fromDay && day <= toDay
@@ -129,29 +149,58 @@ class MealApi @Inject constructor(
 
     suspend fun getMeal(id: java.util.UUID): MealResponse =
         mealsApi.getMeal(id).body()
+
+    suspend fun getByIdempotencyKey(key: String): MealResponse? {
+        val page = mealsApi.listMeals(
+            from = null,
+            to = null,
+            limit = 1,
+            offset = 0,
+            q = null,
+            status = null,
+            tag = null,
+            sweet = null,
+            breakfast = null,
+            photoOnly = null,
+            lowConfidence = null,
+            idempotencyKey = key,
+        ).body()
+        return page.items.firstOrNull()
+    }
 }
 
 private fun LocalDate.startOfDay(): Instant =
     atStartOfDayIn(TimeZone.currentSystemDefault())
 
-class GlucoseApi @Inject constructor(
-    private val glucoseApi: GeneratedGlucoseApi,
-) {
-    suspend fun dashboard(from: Instant, to: Instant, mode: String? = null): GlucoseDashboardResponse =
-        glucoseApi.getGlucoseDashboard(from = from, to = to, mode = mode).body()
-}
-
 class StatsApi @Inject constructor(
     private val activityApi: GeneratedActivityApi,
+    private val statsApi: GeneratedStatsApi,
 ) {
     suspend fun kcalBalance(day: LocalDate): KcalBalanceResponse =
         activityApi.getKcalBalance(day).body()
+
+    suspend fun insights(period: String, slot: String): List<StatsInsightResponse> =
+        statsApi.getStatsInsights(period = period, slot = slot).body().insights
+}
+
+class ScheduleApi @Inject constructor(
+    private val scheduleApi: GeneratedScheduleApi,
+) {
+    suspend fun getSchedule(): ScheduleResponse =
+        scheduleApi.getMySchedule().body()
+
+    suspend fun setOverride(anchorMinutes: Int): ScheduleResponse =
+        scheduleApi.putMyScheduleOverride(
+            ScheduleOverrideRequest(anchorMinutes = anchorMinutes),
+        ).body()
+
+    suspend fun clearOverride(): ScheduleResponse =
+        scheduleApi.deleteMyScheduleOverride().body()
 }
 
 class HistoryApi @Inject constructor(
     private val dashboardApi: GeneratedDashboardApi,
     private val activityApi: GeneratedActivityApi,
-    private val nightscoutApi: GeneratedNightscoutApi,
     private val mealApi: MealApi,
 ) {
     suspend fun dashboardRange(from: LocalDate, to: LocalDate): DashboardRangeResponse =
@@ -159,9 +208,6 @@ class HistoryApi @Inject constructor(
 
     suspend fun balanceRange(from: LocalDate, to: LocalDate): KcalBalanceRangeResponse =
         activityApi.getKcalBalanceRange(fromDate = from, toDate = to).body()
-
-    suspend fun timeline(from: Instant, to: Instant): TimelineResponse =
-        nightscoutApi.getTimeline(from = from, to = to).body()
 
     suspend fun meals(from: Instant, to: Instant): List<MealResponse> =
         mealApi.listMeals(from = from, to = to)
@@ -180,6 +226,7 @@ class HistoryApi @Inject constructor(
             offset = 0,
             q = query,
             status = status,
+            tag = null,
         )
 }
 
@@ -226,24 +273,33 @@ class ProductsApi @Inject constructor(
         )
 }
 
-class NightscoutApi @Inject constructor(
-    private val nightscoutApi: GeneratedNightscoutApi,
-) {
-    suspend fun status(): NightscoutStatusResponse =
-        nightscoutApi.getNightscoutStatus().body()
-
-    suspend fun dayStatus(date: LocalDate): NightscoutDayStatusResponse =
-        nightscoutApi.getNightscoutDayStatus(date).body()
-
-    suspend fun syncToday(date: LocalDate): NightscoutSyncTodayResponse =
-        nightscoutApi.syncTodayToNightscout(
-            NightscoutSyncTodayRequest(date = date, confirm = true),
-        ).body()
-}
-
 class SyncApi @Inject constructor(
     private val activityApi: GeneratedActivityApi,
 ) {
     suspend fun syncActivity(request: ActivitySyncRequest): ActivitySyncResponse =
         activityApi.syncActivity(request).body()
+}
+
+class GoalsApi @Inject constructor(
+    private val usersApi: GeneratedUsersApi,
+) {
+    suspend fun getGoals(): com.local.glucotracker.generated.model.UserGoalsResponse =
+        usersApi.getMyGoals().body()
+
+    suspend fun updateGoals(
+        kcalGoalPerDay: Int?,
+        proteinGoalGPerDay: Int?,
+        carbGoalGPerDay: Int?,
+        fatGoalGPerDay: Int?,
+        goalsSetupCompleted: Boolean?,
+    ): com.local.glucotracker.generated.model.UserGoalsResponse =
+        usersApi.updateMyGoals(
+            GeneratedUserGoalsUpdate(
+                kcalGoalPerDay = kcalGoalPerDay,
+                proteinGoalGPerDay = proteinGoalGPerDay,
+                carbGoalGPerDay = carbGoalGPerDay,
+                fatGoalGPerDay = fatGoalGPerDay,
+                goalsSetupCompleted = goalsSetupCompleted,
+            ),
+        ).body()
 }

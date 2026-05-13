@@ -23,8 +23,6 @@ data class DayState(
     val totals: DayTotals,
     val kpis: KpiSnapshot,
     val meals: List<Meal>,
-    val glucoseRange: GlucoseRange?,
-    val dayparts: List<DaypartCard>,
 )
 
 data class DayTotals(
@@ -38,6 +36,35 @@ data class DayTotals(
     val fetchedAt: Instant? = null,
     val netBalanceKcal: Double? = null,
     val tdeeKcal: Double? = null,
+    val photoCount: Int = 0,
+    val dailyAverageKcalForPeriod: Double? = null,
+)
+
+enum class StatsPeriod(val days: Int, val apiValue: String) {
+    Week(days = 7, apiValue = "7d"),
+    Fortnight(days = 14, apiValue = "14d"),
+    Month(days = 30, apiValue = "30d"),
+}
+
+data class StatsInsight(
+    val id: String,
+    val kind: String,
+    val text: String,
+    val weight: String = "secondary",
+    val supportingNumbers: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class PostprandialPoint(
+    val offsetMinutes: Int,
+    val valueMmolL: Double,
+)
+
+@Serializable
+data class PostprandialResponse(
+    val deltaMaxMmolL: Double? = null,
+    val coverage180: Double? = null,
+    val points: List<PostprandialPoint> = emptyList(),
 )
 
 data class KpiSnapshot(
@@ -74,6 +101,10 @@ data class Meal(
     val nightscoutSyncedAt: Instant? = null,
     val nightscoutLastAttemptAt: Instant? = null,
     val nightscoutSyncError: String? = null,
+    val tags: Set<String> = emptySet(),
+    val postprandialResponse: PostprandialResponse? = null,
+    val estimateStatus: String? = null,
+    val estimateError: String? = null,
 )
 
 @Serializable
@@ -88,6 +119,8 @@ data class MealItem(
     val fatG: Double? = null,
     val fiberG: Double? = null,
     val sourceKind: String? = null,
+    val patternId: String? = null,
+    val productId: String? = null,
 )
 
 data class HistoryQuery(
@@ -99,8 +132,8 @@ data class HistoryQuery(
 )
 
 enum class HistoryFilter {
-    WithCgm,
-    WithInsulin,
+    Sweet,
+    Breakfast,
     LowConfidence,
     PhotoOnly,
 }
@@ -114,12 +147,16 @@ enum class HistoryStatusFilter {
 
 data class HistoryPage(
     val days: List<HistoryDay>,
+    val totalDays: Int = days.size,
+    val totalRecords: Int = days.sumOf { day -> day.meals.size },
 )
 
 data class HistoryDay(
     val date: LocalDate,
     val totals: DayTotals?,
     val meals: List<Meal>,
+    val dailyAverageKcalForPeriod: Double? = null,
+    val photoCount: Int = meals.count { meal -> meal.source == "photo" || meal.thumbnailUrl != null },
 )
 
 @Serializable
@@ -136,35 +173,6 @@ data class MealDraft(
     val totalFiberG: Double,
     val weightGrams: Double? = null,
     val items: List<MealItemPayload> = emptyList(),
-)
-
-data class GlucoseReading(
-    val readingAt: Instant,
-    val rawValueMmolL: Double,
-    val displayValueMmolL: Double,
-    val normalizedValueMmolL: Double?,
-    val smoothedValueMmolL: Double?,
-    val flags: List<String>,
-)
-
-data class GlucoseRange(
-    val from: Instant,
-    val to: Instant,
-    val readings: List<GlucoseReading>,
-    val tirSegments: List<TirSegment>,
-)
-
-data class TirSegment(
-    val label: String,
-    val percent: Int,
-)
-
-data class DaypartCard(
-    val id: String,
-    val label: String,
-    val kcal: Double,
-    val carbsG: Double,
-    val mealCount: Int,
 )
 
 data class Product(
@@ -187,6 +195,7 @@ data class Product(
 
 data class Template(
     val id: String,
+    val prefix: String = "",
     val name: String,
     val aliases: List<String>,
     val imageUrl: String?,
@@ -282,39 +291,23 @@ sealed interface OutboxKind {
     ) : OutboxKind
 
     @Serializable
-    @SerialName("photo_estimate_request")
-    data class PhotoEstimateRequest(
-        val localPhotoPath: String,
+    @SerialName("captured_meal")
+    data class CapturedMeal(
+        val localPhotoPath: String?,
         val capturedAt: Instant,
         val source: String,
+        val optimisticName: String? = null,
+        val optimisticWeightG: Int? = null,
+        val idempotencyKey: String? = null,
     ) : OutboxKind
 
-    @Serializable
-    @SerialName("accept_draft")
-    data class AcceptDraft(
-        val estimateId: String,
-        val eatenAt: Instant,
-        val weightOverride: Double? = null,
-        val items: List<MealItemPayload> = emptyList(),
-    ) : OutboxKind
-
-    @Serializable
-    @SerialName("create_fingerstick")
-    data class CreateFingerstick(
-        val measuredAt: Instant,
-        val glucoseMmolL: Double,
-        val meterName: String? = null,
-        val notes: String? = null,
-    ) : OutboxKind
 }
 
 enum class OutboxState {
     Queued,
-    Sending,
-    Sent,
-    Conflict,
-    Estimating,
-    EstimateReady,
+    Uploading,
+    Confirmed,
+    Stuck,
 }
 
 data class OutboxItem(
@@ -323,11 +316,23 @@ data class OutboxItem(
     val state: OutboxState,
     val createdAt: Instant,
     val lastAttemptAt: Instant?,
+    val nextAttemptAt: Instant? = null,
     val attempts: Int,
     val serverIdOnSuccess: String?,
     val errorMessage: String?,
+    val enteredCurrentStateAt: Instant = createdAt,
+    val lastErrorCode: String? = null,
+    val lastErrorMessage: String? = errorMessage,
     val draft: MealDraft? = null,
-)
+    val linkedMealId: String? = null,
+    val reconciledAt: Instant? = null,
+) {
+    val isZombie: Boolean
+        get() = linkedMealId != null
+
+    val idempotencyKey: String?
+        get() = (kind as? OutboxKind.CapturedMeal)?.idempotencyKey
+}
 
 data class SyncStatus(
     val queueDepth: Int,
@@ -335,36 +340,29 @@ data class SyncStatus(
     val isSyncing: Boolean,
 )
 
+data class UserError(
+    val code: String,
+    val message: String,
+    val severity: Severity,
+    val retryable: Boolean,
+) {
+    enum class Severity {
+        Info,
+        Warn,
+        Error,
+    }
+}
+
 data class UserGoals(
     val dailyKcal: Int?,
+    val dailyProteinG: Int?,
     val dailyCarbsG: Int?,
+    val dailyFatG: Int?,
     val weightKg: Double?,
+    val goalsSetupCompleted: Boolean = false,
 )
 
 data class UiPrefs(
     val glucoseMode: String,
     val useCompactRows: Boolean,
-)
-
-enum class NightscoutConnectionState {
-    Unknown,
-    Connected,
-    Disconnected,
-}
-
-data class NightscoutStatus(
-    val lastSyncAt: Instant?,
-    val queueDepth: Int,
-    val connectionState: NightscoutConnectionState,
-)
-
-data class NightscoutDayStatus(
-    val date: LocalDate,
-    val configured: Boolean,
-    val connected: Boolean,
-    val acceptedMealsCount: Int,
-    val unsyncedMealsCount: Int,
-    val syncedMealsCount: Int,
-    val failedMealsCount: Int,
-    val lastSyncAt: Instant?,
 )

@@ -1,31 +1,29 @@
 package com.local.glucotracker.data.mapper
 
 import com.local.glucotracker.data.api.OpenApiJson
+import com.local.glucotracker.data.api.ApiConnection
 import com.local.glucotracker.data.local.CachedDayTotalsEntity
-import com.local.glucotracker.data.local.CachedGlucoseEntity
 import com.local.glucotracker.data.local.CachedMealEntity
 import com.local.glucotracker.data.local.CachedProductEntity
 import com.local.glucotracker.data.local.CachedTemplateEntity
 import com.local.glucotracker.data.local.OutboxEntity
 import com.local.glucotracker.domain.model.DayState
 import com.local.glucotracker.domain.model.DayTotals
-import com.local.glucotracker.domain.model.DaypartCard
-import com.local.glucotracker.domain.model.GlucoseRange
-import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.KpiSnapshot
 import com.local.glucotracker.domain.model.Meal
 import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.MealItem
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
+import com.local.glucotracker.domain.model.PostprandialPoint
+import com.local.glucotracker.domain.model.PostprandialResponse
 import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.Template
 import com.local.glucotracker.generated.model.DashboardDayResponse
 import com.local.glucotracker.generated.model.DashboardTodayResponse
 import com.local.glucotracker.generated.model.DatabaseItemResponse
-import com.local.glucotracker.generated.model.GlucoseDashboardPoint
-import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.KcalBalanceDay
+import com.local.glucotracker.generated.model.KcalBalanceResponse
 import com.local.glucotracker.generated.model.MealItemResponse
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.PatternResponse
@@ -36,6 +34,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 private const val PackedListSeparator = "\u001F"
 
@@ -44,7 +45,10 @@ private fun BigDecimal.asDouble(): Double = toDouble()
 private fun List<String>?.pack(): String = orEmpty().joinToString(PackedListSeparator)
 private fun String.unpack(): List<String> = if (isBlank()) emptyList() else split(PackedListSeparator)
 
-fun DashboardTodayResponse.toTotalsEntity(fetchedAt: Instant): CachedDayTotalsEntity =
+fun DashboardTodayResponse.toTotalsEntity(
+    fetchedAt: Instant,
+    balance: KcalBalanceResponse? = null,
+): CachedDayTotalsEntity =
     CachedDayTotalsEntity(
         date = date,
         kcal = kcal.asDouble(),
@@ -59,11 +63,16 @@ fun DashboardTodayResponse.toTotalsEntity(fetchedAt: Instant): CachedDayTotalsEn
         prevWeekAvgCarbsG = prevWeekAvgCarbs.asDouble(),
         hoursSinceLastMeal = hoursSinceLastMeal.asDouble(),
         fetchedAt = fetchedAt,
+        netBalanceKcal = balance?.netBalance.asDouble(),
+        tdeeKcal = balance?.tdee.asDouble(),
+        photoCount = 0,
+        dailyAverageKcalForPeriod = null,
     )
 
 fun DashboardDayResponse.toTotalsEntity(
     fetchedAt: Instant,
     balance: KcalBalanceDay? = null,
+    balanceResponse: KcalBalanceResponse? = null,
 ): CachedDayTotalsEntity =
     CachedDayTotalsEntity(
         date = date,
@@ -79,8 +88,10 @@ fun DashboardDayResponse.toTotalsEntity(
         prevWeekAvgCarbsG = null,
         hoursSinceLastMeal = null,
         fetchedAt = fetchedAt,
-        netBalanceKcal = balance?.netBalance.asDouble(),
-        tdeeKcal = balance?.tdee.asDouble(),
+        netBalanceKcal = balance?.netBalance.asDouble() ?: balanceResponse?.netBalance.asDouble(),
+        tdeeKcal = balance?.tdee.asDouble() ?: balanceResponse?.tdee.asDouble(),
+        photoCount = photoCount ?: 0,
+        dailyAverageKcalForPeriod = dailyAverageKcalForPeriod.asDouble(),
     )
 
 fun CachedDayTotalsEntity.toDayTotals(): DayTotals =
@@ -95,6 +106,8 @@ fun CachedDayTotalsEntity.toDayTotals(): DayTotals =
         fetchedAt = fetchedAt,
         netBalanceKcal = netBalanceKcal,
         tdeeKcal = tdeeKcal,
+        photoCount = photoCount,
+        dailyAverageKcalForPeriod = dailyAverageKcalForPeriod,
     )
 
 fun CachedDayTotalsEntity.toKpiSnapshot(): KpiSnapshot =
@@ -112,15 +125,12 @@ fun CachedDayTotalsEntity.toKpiSnapshot(): KpiSnapshot =
 fun buildDayState(
     total: CachedDayTotalsEntity,
     meals: List<CachedMealEntity>,
-    glucoseRange: GlucoseRange? = null,
 ): DayState =
     DayState(
         date = total.date,
         totals = total.toDayTotals(),
         kpis = total.toKpiSnapshot(),
         meals = meals.map { it.toDomain() },
-        glucoseRange = glucoseRange,
-        dayparts = emptyList<DaypartCard>(),
     )
 
 fun MealResponse.toCachedEntity(
@@ -134,10 +144,10 @@ fun MealResponse.toCachedEntity(
         eatenAt = eatenAt,
         eatenAtDay = eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).date,
         title = title,
-        status = status.value,
+        status = status?.value ?: "accepted",
         source = source.value,
         note = note,
-        thumbnailUrl = thumbnailUrl?.let { "$baseUrl$it" },
+        thumbnailUrl = thumbnailUrl?.let { ApiConnection.resolveUrl(it, baseUrl = baseUrl) },
         totalKcal = totalKcal.asDouble(),
         totalCarbsG = totalCarbsG.asDouble(),
         totalProteinG = totalProteinG.asDouble(),
@@ -153,6 +163,11 @@ fun MealResponse.toCachedEntity(
         nightscoutSyncedAt = nightscoutSyncedAt,
         nightscoutLastAttemptAt = nightscoutLastAttemptAt,
         nightscoutSyncError = nightscoutSyncError,
+        postprandialJson = postprandialResponse?.let { OpenApiJson.json.encodeToString(it) },
+        tagsCsv = tags.pack(),
+        photoIdempotencyKey = photoIdempotencyKey,
+        estimateStatus = estimateStatus,
+        estimateError = estimateError,
     )
 
 fun CachedMealEntity.toDomain(): Meal =
@@ -179,7 +194,30 @@ fun CachedMealEntity.toDomain(): Meal =
         nightscoutSyncedAt = nightscoutSyncedAt,
         nightscoutLastAttemptAt = nightscoutLastAttemptAt,
         nightscoutSyncError = nightscoutSyncError,
+        tags = tagsCsv.unpack().toSet(),
+        postprandialResponse = postprandialJson.toPostprandialResponse(),
+        estimateStatus = estimateStatus,
+        estimateError = estimateError,
     )
+
+private fun String?.toPostprandialResponse(): PostprandialResponse? {
+    if (isNullOrBlank()) return null
+    val root = runCatching { OpenApiJson.json.parseToJsonElement(this).jsonObject }.getOrNull() ?: return null
+    val anchors = root["anchors"]?.jsonObject.orEmpty()
+    val points = listOf(0, 30, 60, 90, 180, 240, 300).mapNotNull { offset ->
+        val value = anchors[offset.toString()]
+            ?.jsonObject
+            ?.get("value")
+            ?.jsonPrimitive
+            ?.doubleOrNull
+        value?.let { PostprandialPoint(offsetMinutes = offset, valueMmolL = it) }
+    }
+    return PostprandialResponse(
+        deltaMaxMmolL = root["delta_max"]?.jsonPrimitive?.doubleOrNull,
+        coverage180 = root["coverage_180min"]?.jsonPrimitive?.doubleOrNull,
+        points = points,
+    )
+}
 
 fun MealItemResponse.toDomain(): MealItem =
     MealItem(
@@ -193,41 +231,9 @@ fun MealItemResponse.toDomain(): MealItem =
         fatG = fatG.asDouble(),
         fiberG = fiberG.asDouble(),
         sourceKind = sourceKind?.value,
+        patternId = patternId?.toString(),
+        productId = productId?.toString(),
     )
-
-fun GlucoseDashboardResponse.toCachedEntities(fetchedAt: Instant): List<CachedGlucoseEntity> =
-    points.map { it.toCachedEntity(fetchedAt) }
-
-fun GlucoseDashboardPoint.toCachedEntity(fetchedAt: Instant): CachedGlucoseEntity =
-    CachedGlucoseEntity(
-        readingAt = timestamp,
-        rawValueMmolL = rawValue.asDouble(),
-        displayValueMmolL = displayValue.asDouble(),
-        normalizedValueMmolL = normalizedValue.asDouble(),
-        smoothedValueMmolL = smoothedValue.asDouble(),
-        flagsCsv = flags.pack(),
-        fetchedAt = fetchedAt,
-    )
-
-fun CachedGlucoseEntity.toDomain(): GlucoseReading =
-    GlucoseReading(
-        readingAt = readingAt,
-        rawValueMmolL = rawValueMmolL,
-        displayValueMmolL = displayValueMmolL,
-        normalizedValueMmolL = normalizedValueMmolL,
-        smoothedValueMmolL = smoothedValueMmolL,
-        flags = flagsCsv.unpack(),
-    )
-
-fun List<CachedGlucoseEntity>.toRange(): GlucoseRange? {
-    if (isEmpty()) return null
-    return GlucoseRange(
-        from = first().readingAt,
-        to = last().readingAt,
-        readings = map { it.toDomain() },
-        tirSegments = emptyList(),
-    )
-}
 
 fun ProductResponse.toCachedEntity(fetchedAt: Instant): CachedProductEntity =
     CachedProductEntity(
@@ -291,6 +297,7 @@ fun CachedProductEntity.toDomain(): Product =
 fun PatternResponse.toCachedTemplateEntity(fetchedAt: Instant): CachedTemplateEntity =
     CachedTemplateEntity(
         id = id.toString(),
+        prefix = prefix,
         name = displayName,
         aliasesCsv = aliases.pack(),
         imageUrl = imageUrl,
@@ -308,6 +315,7 @@ fun PatternResponse.toCachedTemplateEntity(fetchedAt: Instant): CachedTemplateEn
 fun CachedTemplateEntity.toDomain(): Template =
     Template(
         id = id,
+        prefix = prefix,
         name = name,
         aliases = aliasesCsv.unpack(),
         imageUrl = imageUrl,
@@ -328,10 +336,16 @@ fun OutboxEntity.toDomain(): OutboxItem =
         state = state,
         createdAt = createdAt,
         lastAttemptAt = lastAttemptAt,
+        nextAttemptAt = nextAttemptAt,
         attempts = attempts,
         serverIdOnSuccess = serverIdOnSuccess,
-        errorMessage = errorMessage,
+        errorMessage = errorMessage.userSafePersistedError(),
+        enteredCurrentStateAt = enteredCurrentStateAt,
+        lastErrorCode = lastErrorCode,
+        lastErrorMessage = lastErrorMessage.userSafePersistedError(),
         draft = draftJson?.let { OpenApiJson.json.decodeFromString<MealDraft>(it) },
+        linkedMealId = linkedMealId,
+        reconciledAt = reconciledAt,
     )
 
 fun OutboxItem.toEntity(): OutboxEntity =
@@ -342,33 +356,51 @@ fun OutboxItem.toEntity(): OutboxEntity =
         state = state,
         createdAt = createdAt,
         lastAttemptAt = lastAttemptAt,
+        nextAttemptAt = nextAttemptAt,
         attempts = attempts,
         serverIdOnSuccess = serverIdOnSuccess,
         errorMessage = errorMessage,
+        enteredCurrentStateAt = enteredCurrentStateAt,
+        lastErrorCode = lastErrorCode,
+        lastErrorMessage = lastErrorMessage,
         draftJson = draft?.let { OpenApiJson.json.encodeToString(it) },
         localPhotoPath = when (val itemKind = kind) {
-            is OutboxKind.PhotoEstimateRequest -> itemKind.localPhotoPath
+            is OutboxKind.CapturedMeal -> itemKind.localPhotoPath
             is OutboxKind.CreateMeal -> itemKind.payload.localPhotoPath
-            is OutboxKind.AcceptDraft -> draft?.localPhotoPath
             is OutboxKind.CopyMealItemWeight,
-            is OutboxKind.CreateFingerstick,
             is OutboxKind.DeleteMeal,
             is OutboxKind.EditMeal,
             is OutboxKind.PatchMealItem,
             -> null
+            else -> null
         },
+        linkedMealId = linkedMealId,
+        reconciledAt = reconciledAt,
     )
 
 fun MealDraft.toJson(): String = OpenApiJson.json.encodeToString(this)
 
 private val OutboxKind.typeName: String
     get() = when (this) {
-        is OutboxKind.AcceptDraft -> "accept_draft"
+        is OutboxKind.CapturedMeal -> "captured_meal"
         is OutboxKind.CreateMeal -> "create_meal"
         is OutboxKind.CopyMealItemWeight -> "copy_meal_item_weight"
         is OutboxKind.DeleteMeal -> "delete_meal"
         is OutboxKind.EditMeal -> "edit_meal"
-        is OutboxKind.CreateFingerstick -> "create_fingerstick"
         is OutboxKind.PatchMealItem -> "patch_meal_item"
-        is OutboxKind.PhotoEstimateRequest -> "photo_estimate_request"
+        else -> this::class.simpleName ?: "flavor_kind"
     }
+
+private fun String?.userSafePersistedError(): String? {
+    val value = this?.takeIf { it.isNotBlank() } ?: return null
+    return if (ForbiddenUserErrorPattern.containsMatchIn(value)) {
+        "что-то пошло не так · повторить"
+    } else {
+        value
+    }
+}
+
+private val ForbiddenUserErrorPattern = Regex(
+    pattern = """https?://|\b\d{1,3}(?:\.\d{1,3}){3}\b|timeout|cancellation|cancelled|exception|null|connect_timeout|\w+(?:Exception|Error)\b""",
+    options = setOf(RegexOption.IGNORE_CASE),
+)

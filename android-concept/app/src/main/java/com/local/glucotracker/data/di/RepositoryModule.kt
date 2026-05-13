@@ -1,28 +1,22 @@
 package com.local.glucotracker.data.di
 
-import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
 import com.local.glucotracker.data.repository.HistoryRepositoryImpl
 import com.local.glucotracker.data.repository.MealRepositoryImpl
-import com.local.glucotracker.data.repository.NightscoutRepositoryImpl
 import com.local.glucotracker.data.repository.OutboxRepositoryImpl
 import com.local.glucotracker.data.repository.ProductsRepositoryImpl
 import com.local.glucotracker.data.repository.StatsRepositoryImpl
 import com.local.glucotracker.data.repository.SyncRepositoryImpl
 import com.local.glucotracker.data.repository.TodayRepositoryImpl
 import com.local.glucotracker.data.sync.AndroidSyncNotifier
-import com.local.glucotracker.data.sync.KtorOutboxRemote
 import com.local.glucotracker.data.sync.OutboxFlushScheduler
 import com.local.glucotracker.data.sync.OutboxProcessorImpl
 import com.local.glucotracker.data.sync.OutboxQueueStore
 import com.local.glucotracker.data.sync.OutboxProcessor
-import com.local.glucotracker.data.sync.OutboxRemote
 import com.local.glucotracker.data.sync.RoomOutboxQueueStore
 import com.local.glucotracker.data.sync.SyncNotifier
 import com.local.glucotracker.data.sync.WorkManagerOutboxFlushScheduler
-import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.MealRepository
-import com.local.glucotracker.domain.repository.NightscoutRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.domain.repository.ProductsRepository
 import com.local.glucotracker.domain.repository.StatsRepository
@@ -43,10 +37,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindGlucoseRepository(impl: GlucoseRepositoryImpl): GlucoseRepository
-
-    @Binds
-    @Singleton
     abstract fun bindStatsRepository(impl: StatsRepositoryImpl): StatsRepository
 
     @Binds
@@ -63,10 +53,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindNightscoutRepository(impl: NightscoutRepositoryImpl): NightscoutRepository
-
-    @Binds
-    @Singleton
     abstract fun bindOutboxRepository(impl: OutboxRepositoryImpl): OutboxRepository
 
     @Binds
@@ -76,10 +62,6 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindOutboxProcessor(impl: OutboxProcessorImpl): OutboxProcessor
-
-    @Binds
-    @Singleton
-    abstract fun bindOutboxRemote(impl: KtorOutboxRemote): OutboxRemote
 
     @Binds
     @Singleton

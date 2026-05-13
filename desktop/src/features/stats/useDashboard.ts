@@ -82,6 +82,19 @@ export function useDashboardDataQuality(days = 7) {
   });
 }
 
+export function useStatsInsights(
+  period: "7d" | "14d" | "30d" = "14d",
+  slot: "stats" | "today" = "stats",
+) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.statsInsights(period, slot),
+    queryFn: () => apiClient.getStatsInsights(config, period, slot),
+    enabled: Boolean(config.token.trim()),
+  });
+}
+
 export function useKcalBalanceRange(from: string, to: string) {
   const config = useApiConfig();
 

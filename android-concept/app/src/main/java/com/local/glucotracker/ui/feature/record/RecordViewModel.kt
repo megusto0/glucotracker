@@ -11,11 +11,12 @@ import com.local.glucotracker.domain.model.MealPatchPayload
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.PostprandialResponse
+import com.local.glucotracker.domain.model.hasRestaurantSource
 import com.local.glucotracker.domain.repository.MealRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
-import com.local.glucotracker.data.sync.ConflictResolution
-import com.local.glucotracker.data.sync.ConflictResolver
-import com.local.glucotracker.data.sync.ConflictStrategy
+import com.local.glucotracker.ui.format.PhotoProcessingUiState
+import com.local.glucotracker.ui.format.mapOutboxAndMealToPhotoProcessingUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,16 +67,18 @@ data class RecordUi(
     val nightscoutSyncedAt: Instant?,
     val nightscoutLastAttemptAt: Instant?,
     val nightscoutError: String?,
+    val postprandialResponse: PostprandialResponse?,
     val canCreatePortion: Boolean,
+    val photoProcessing: PhotoProcessingUiState? = null,
 )
 
 enum class RecordStatus {
     Accepted,
     Draft,
     Queued,
+    Uploading,
     Estimating,
-    EstimateReady,
-    Conflict,
+    Stuck,
 }
 
 @HiltViewModel
@@ -83,7 +86,6 @@ enum class RecordStatus {
 class RecordViewModel @Inject constructor(
     private val mealRepository: MealRepository,
     private val outboxRepository: OutboxRepository,
-    private val conflictResolver: ConflictResolver,
 ) : ViewModel() {
     private val recordId = MutableStateFlow<String?>(null)
 
@@ -205,36 +207,9 @@ class RecordViewModel @Inject constructor(
         }
     }
 
-    fun retryConflict() {
-        resolveConflict(ConflictStrategy.KeepLocal)
-    }
-
-    fun dropLocalConflict() {
-        resolveConflict(ConflictStrategy.KeepServer)
-    }
-
-    fun keepBothConflict() {
-        resolveConflict(ConflictStrategy.KeepBoth)
-    }
-
-    private fun resolveConflict(strategy: ConflictStrategy) {
+    fun retryStuck() {
         val item = (state.value as? RecordState.Loaded)?.outboxItem ?: return
-        viewModelScope.launch {
-            when (val resolution = conflictResolver.resolve(item, strategy)) {
-                is ConflictResolution.RetryLocal -> outboxRepository.enqueue(
-                    item.copy(
-                        kind = resolution.kind,
-                        state = OutboxState.Queued,
-                        errorMessage = null,
-                    ),
-                )
-                is ConflictResolution.UseServer -> outboxRepository.remove(item.id)
-                is ConflictResolution.CreateBoth -> {
-                    outboxRepository.enqueue(resolution.kind)
-                    outboxRepository.remove(item.id)
-                }
-            }
-        }
+        viewModelScope.launch { outboxRepository.retry(item.id) }
     }
 }
 
@@ -246,11 +221,10 @@ private fun CachedView<Meal>.toRecordState(id: String, outbox: List<OutboxItem>)
             is OutboxKind.EditMeal -> kind.serverId == id
             is OutboxKind.PatchMealItem -> kind.mealId == id
             is OutboxKind.CopyMealItemWeight -> false
-            is OutboxKind.AcceptDraft,
-            is OutboxKind.CreateFingerstick,
             is OutboxKind.CreateMeal,
-            is OutboxKind.PhotoEstimateRequest,
+            is OutboxKind.CapturedMeal,
             -> false
+            else -> false
         }
     }
     return RecordState.Loaded(
@@ -278,7 +252,7 @@ private fun Meal.toRecordUi(activeOutboxItem: OutboxItem?): RecordUi {
         eatenAt = editPatch?.eatenAt ?: eatenAt,
         capturedAt = null,
         photo = thumbnailUrl,
-        source = source,
+        source = displaySource(),
         status = activeOutboxItem?.state.toRecordStatus(defaultStatus = defaultStatus),
         kcal = totalKcal,
         carbsG = totalCarbsG,
@@ -291,7 +265,9 @@ private fun Meal.toRecordUi(activeOutboxItem: OutboxItem?): RecordUi {
         nightscoutSyncedAt = nightscoutSyncedAt,
         nightscoutLastAttemptAt = nightscoutLastAttemptAt,
         nightscoutError = nightscoutSyncError,
+        postprandialResponse = postprandialResponse,
         canCreatePortion = defaultStatus == RecordStatus.Accepted && primaryItem != null,
+        photoProcessing = mapOutboxAndMealToPhotoProcessingUiState(this),
     )
 }
 
@@ -303,19 +279,17 @@ private fun OutboxItem.toRecordState(): RecordState =
 
 private fun OutboxItem.toRecordUi(): RecordUi {
     val draft = draftForDisplay()
-    val photoRequest = kind as? OutboxKind.PhotoEstimateRequest
+    val capturedMeal = kind as? OutboxKind.CapturedMeal
     val createMeal = kind as? OutboxKind.CreateMeal
-    val acceptDraft = kind as? OutboxKind.AcceptDraft
     val eatenAt = when (kind) {
         is OutboxKind.CreateMeal -> createMeal?.eatenAt
-        is OutboxKind.PhotoEstimateRequest -> photoRequest?.capturedAt
-        is OutboxKind.AcceptDraft -> acceptDraft?.eatenAt
+        is OutboxKind.CapturedMeal -> capturedMeal?.capturedAt
         is OutboxKind.CopyMealItemWeight,
-        is OutboxKind.CreateFingerstick,
         is OutboxKind.DeleteMeal,
         is OutboxKind.EditMeal,
         is OutboxKind.PatchMealItem,
         -> null
+        else -> null
     } ?: draft?.eatenAt ?: createdAt
     return RecordUi(
         id = id,
@@ -323,20 +297,19 @@ private fun OutboxItem.toRecordUi(): RecordUi {
         outboxId = id,
         primaryItemId = null,
         isPending = true,
-        title = draft?.title,
+        title = draft?.title ?: capturedMeal?.optimisticName,
         eatenAt = eatenAt,
-        capturedAt = photoRequest?.capturedAt,
-        photo = draft?.localPhotoPath ?: photoRequest?.localPhotoPath,
+        capturedAt = capturedMeal?.capturedAt,
+        photo = draft?.localPhotoPath ?: capturedMeal?.localPhotoPath,
         source = when (kind) {
-            is OutboxKind.PhotoEstimateRequest -> photoRequest?.source ?: "photo"
-            is OutboxKind.CreateMeal -> createMeal?.source ?: "manual"
-            is OutboxKind.AcceptDraft -> "photo"
+            is OutboxKind.CapturedMeal -> capturedMeal?.source ?: "photo"
+            is OutboxKind.CreateMeal -> createMeal?.displaySource() ?: "manual"
             is OutboxKind.CopyMealItemWeight,
-            is OutboxKind.CreateFingerstick,
             is OutboxKind.DeleteMeal,
             is OutboxKind.EditMeal,
             is OutboxKind.PatchMealItem,
             -> "manual"
+            else -> "manual"
         },
         status = state.toRecordStatus(defaultStatus = RecordStatus.Queued),
         kcal = draft?.totalKcal,
@@ -350,26 +323,38 @@ private fun OutboxItem.toRecordUi(): RecordUi {
         nightscoutSyncedAt = null,
         nightscoutLastAttemptAt = null,
         nightscoutError = null,
+        postprandialResponse = null,
         canCreatePortion = false,
+        photoProcessing = mapOutboxAndMealToPhotoProcessingUiState(this),
     )
 }
 
 private fun OutboxItem.isStandaloneRecord(): Boolean =
     kind is OutboxKind.CreateMeal ||
-        kind is OutboxKind.PhotoEstimateRequest ||
-        kind is OutboxKind.AcceptDraft
+        kind is OutboxKind.CapturedMeal
 
 private fun OutboxItem.draftForDisplay(): MealDraft? =
     draft ?: (kind as? OutboxKind.CreateMeal)?.payload
 
+private fun Meal.displaySource(): String =
+    if (hasRestaurantSource()) {
+        "restaurant"
+    } else {
+        source
+    }
+
+private fun OutboxKind.CreateMeal.displaySource(): String =
+    if (hasRestaurantSource()) {
+        "restaurant"
+    } else {
+        source
+    }
+
 private fun OutboxState?.toRecordStatus(defaultStatus: RecordStatus): RecordStatus =
     when (this) {
-        OutboxState.Conflict -> RecordStatus.Conflict
-        OutboxState.Estimating -> RecordStatus.Estimating
-        OutboxState.EstimateReady -> RecordStatus.EstimateReady
-        OutboxState.Queued,
-        OutboxState.Sending,
-        -> RecordStatus.Queued
+        OutboxState.Stuck -> RecordStatus.Stuck
+        OutboxState.Uploading -> RecordStatus.Uploading
+        OutboxState.Queued -> RecordStatus.Queued
         else -> defaultStatus
     }
 
@@ -383,42 +368,42 @@ private fun OutboxItem.updatePendingDraft(transform: (MealDraft) -> MealDraft): 
     return copy(kind = nextKind, draft = nextDraft)
 }
 
+@Suppress("REDUNDANT_ELSE_IN_WHEN")
 private fun OutboxItem.updatePendingTime(eatenAt: Instant): OutboxItem {
     val nextKind = when (val itemKind = kind) {
-        is OutboxKind.AcceptDraft -> itemKind.copy(eatenAt = eatenAt)
         is OutboxKind.CreateMeal -> itemKind.copy(
             eatenAt = eatenAt,
             payload = itemKind.payload.copy(eatenAt = eatenAt),
         )
-        is OutboxKind.PhotoEstimateRequest -> itemKind.copy(capturedAt = eatenAt)
+        is OutboxKind.CapturedMeal -> itemKind.copy(capturedAt = eatenAt)
         is OutboxKind.CopyMealItemWeight,
-        is OutboxKind.CreateFingerstick,
         is OutboxKind.DeleteMeal,
         is OutboxKind.EditMeal,
         is OutboxKind.PatchMealItem,
         -> itemKind
+        else -> itemKind
     }
     val nextDraft = draft?.copy(eatenAt = eatenAt)
     return copy(kind = nextKind, draft = nextDraft)
 }
 
+@Suppress("REDUNDANT_ELSE_IN_WHEN")
 private fun OutboxItem.updatePendingWeight(grams: Double): OutboxItem =
     updatePendingDraft { draft ->
         draft.copy(weightGrams = grams)
     }.let { item ->
         val nextKind = when (val itemKind = item.kind) {
-            is OutboxKind.AcceptDraft -> itemKind.copy(weightOverride = grams)
             is OutboxKind.CreateMeal -> itemKind.copy(
                 payload = itemKind.payload.copy(weightGrams = grams),
                 items = itemKind.items.mapFirst { mealItem -> mealItem.copy(grams = grams) },
             )
             is OutboxKind.CopyMealItemWeight,
-            is OutboxKind.CreateFingerstick,
             is OutboxKind.DeleteMeal,
             is OutboxKind.EditMeal,
             is OutboxKind.PatchMealItem,
-            is OutboxKind.PhotoEstimateRequest,
+            is OutboxKind.CapturedMeal,
             -> itemKind
+            else -> itemKind
         }
         item.copy(kind = nextKind)
     }

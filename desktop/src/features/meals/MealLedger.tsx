@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, FileText, Image, MoreVertical, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  FileText,
+  Image,
+  MoreVertical,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiClient,
@@ -11,7 +21,9 @@ import {
 import { FoodImage } from "../../components/FoodImage";
 import { useBlobObjectUrl } from "../../components/useBlobObjectUrl";
 import { Button } from "../../design/primitives/Button";
-import { formatKcalValue, formatMacroValue, formatPercent } from "../../utils/nutritionFormat";
+import { SectionLabel } from "../../design/primitives/SectionLabel";
+import { Tag } from "../../design/primitives/Tag";
+import { formatKcalValue, formatMacroValue, formatMmol, formatPercent } from "../../utils/nutritionFormat";
 import { useApiConfig } from "../settings/settingsStore";
 
 export const formatMealTime = (iso: string) =>
@@ -66,6 +78,20 @@ const isoFromLocalDateTimeInput = (value: string) => {
 };
 
 export const numberLabel = (value: number) => Math.round(value).toString();
+
+const dailyMacroNorms = {
+  carbs: 225,
+  fat: 80,
+  fiber: 30,
+  protein: 120,
+};
+
+export const macroPercentsOfDailyNorm = (meal: MealResponse) => ({
+  carbs: Math.round((meal.total_carbs_g / dailyMacroNorms.carbs) * 100),
+  fat: Math.round((meal.total_fat_g / dailyMacroNorms.fat) * 100),
+  fiber: Math.round((meal.total_fiber_g / dailyMacroNorms.fiber) * 100),
+  protein: Math.round((meal.total_protein_g / dailyMacroNorms.protein) * 100),
+});
 
 type MealItem = NonNullable<MealResponse["items"]>[number];
 type ReestimateModel =
@@ -218,6 +244,18 @@ const asNumber = (value: unknown): number | null => {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+};
+
+const postprandialChartPoints = (meal: MealResponse) => {
+  const response = asRecord(meal.postprandial_response);
+  const anchors = asRecord(response.anchors);
+  return [0, 30, 60, 90, 180, 240, 300]
+    .map((offset) => {
+      const row = asRecord(anchors[String(offset)]);
+      const value = asNumber(row.value ?? row.value_mmol_l);
+      return value === null ? null : { offset, value };
+    })
+    .filter((point): point is { offset: number; value: number } => point !== null);
 };
 
 const parseQuantityFromServingText = (value?: string | null) => {
@@ -458,13 +496,17 @@ export function EmptyLog({ message }: { message: string }) {
 }
 
 export function MealRow({
+  groupPosition = "single",
   meal,
   onToggle,
   selected,
+  showTime = true,
 }: {
+  groupPosition?: "end" | "middle" | "single" | "start";
   meal: MealResponse;
   onToggle: () => void;
   selected: boolean;
+  showTime?: boolean;
 }) {
   const quantity = mealQuantityInfo(meal);
   const weightLabel = mealWeightLabel(meal);
@@ -475,50 +517,91 @@ export function MealRow({
   const cPct = (cKcal / macroTotal) * 100;
   const pPct = (pKcal / macroTotal) * 100;
   const fPct = (fKcal / macroTotal) * 100;
-  const topMacro = cKcal >= pKcal && cKcal >= fKcal ? "У" : pKcal >= fKcal ? "Б" : "Ж";
-  const topPct = Math.round(Math.max(cPct, pPct, fPct));
+  const metaParts = [
+    readableSource(meal.source),
+    readableStatus(meal.status),
+    quantity?.rowSubtitle ?? weightLabel,
+  ].filter(Boolean);
+  const isGrouped = groupPosition !== "single";
+
   return (
     <div
-      className={`meal clickable-row${selected ? " selected" : ""}`}
+      className={`meal clickable-row meal-card${selected ? " selected" : ""}${
+        isGrouped ? ` meal-group-${groupPosition}` : ""
+      }`}
+      data-testid={`meal-row-${meal.id}`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
     >
-      <span className="time">{formatMealTime(meal.eaten_at)}</span>
+      <span className={`time ${showTime ? "" : "time-muted"}`}>
+        {showTime ? formatMealTime(meal.eaten_at) : "↳"}
+      </span>
       <MealThumbnail meal={meal} />
-      <div>
+      <div className="meal-content">
         <div className="title">{mealTitle(meal)}</div>
-        <div className="sub">
-          {mealSourceText(meal)}
-          {quantity ? ` · ${quantity.rowSubtitle}` : weightLabel ? ` · ${weightLabel}` : ""}
-          {quantity ? <span className="tag" style={{ marginLeft: 4 }}>{quantity.badge}</span> : null}
-          {meal.status === "draft" ? <span className="tag" style={{ marginLeft: 4 }}>черновик</span> : null}
-          {meal.nightscout_id || meal.nightscout_synced_at ? <span className="tag" style={{ marginLeft: 4 }}>ns</span> : null}
-          {hasLowConfidence(meal) ? <span className="tag warn" style={{ marginLeft: 4 }}>проверить</span> : null}
+        <div className="sub meal-meta-line">
+          {metaParts.join(" / ")}
+          {meal.nightscout_id || meal.nightscout_synced_at ? (
+            <span className="tag" style={{ marginLeft: 4 }}>
+              ns
+            </span>
+          ) : null}
+          {hasLowConfidence(meal) ? (
+            <span className="tag warn" style={{ marginLeft: 4 }}>
+              проверить
+            </span>
+          ) : null}
         </div>
       </div>
-      <div className="primary-nutrients">
-        <span className="carbs">{formatMacroValue(meal.total_carbs_g)}<span> г У</span></span>
-        <span className="kcal">{formatKcalValue(meal.total_kcal)} ккал</span>
-      </div>
-      <div className="secondary-nutrients">
-        <div className="secondary-line">
-          <span>Б {formatMacroValue(meal.total_protein_g)} г</span>
-          <span>Ж {formatMacroValue(meal.total_fat_g)} г</span>
-          <span>К {formatMacroValue(meal.total_fiber_g)} г</span>
+      <div className="meal-macro-compact">
+        <div className="meal-macro-main">
+          {formatMacroValue(meal.total_carbs_g)} г угл ·{" "}
+          {formatKcalValue(meal.total_kcal)} ккал
         </div>
-        <div className="mp" title={`углеводы ${formatMacroValue(meal.total_carbs_g)}г · белки ${formatMacroValue(meal.total_protein_g)}г · жиры ${formatMacroValue(meal.total_fat_g)}г · клетчатка ${formatMacroValue(meal.total_fiber_g)}г`}>
+        <div className="meal-macro-sub">
+          <span>B {formatMacroValue(meal.total_protein_g)}</span>
+          <span>F {formatMacroValue(meal.total_fat_g)}</span>
+          <span>C {formatMacroValue(meal.total_carbs_g)}</span>
+        </div>
+        <div
+          className="mp"
+          title={`углеводы ${formatMacroValue(meal.total_carbs_g)}г · белки ${formatMacroValue(meal.total_protein_g)}г · жиры ${formatMacroValue(meal.total_fat_g)}г`}
+        >
           <div className="mp-bar">
-            <div style={{ width: `${cPct}%`, height: "100%", background: "var(--accent)", float: "left" }} />
-            <div style={{ width: `${pPct}%`, height: "100%", background: "var(--ink)", float: "left" }} />
-            <div style={{ width: `${fPct}%`, height: "100%", background: "var(--ink-3)", float: "left" }} />
-          </div>
-          <div className="mono" style={{ fontSize: 9, color: "var(--ink-4)", marginTop: 4, textAlign: "right" }}>
-            {topMacro}-доминир. · {topPct}%
+            <div
+              style={{
+                width: `${cPct}%`,
+                height: "100%",
+                background: "var(--accent)",
+                float: "left",
+              }}
+            />
+            <div
+              style={{
+                width: `${pPct}%`,
+                height: "100%",
+                background: "var(--ink)",
+                float: "left",
+              }}
+            />
+            <div
+              style={{
+                width: `${fPct}%`,
+                height: "100%",
+                background: "var(--ink-3)",
+                float: "left",
+              }}
+            />
           </div>
         </div>
       </div>
-      <button className="btn icon" style={{ border: "none", background: "transparent" }} onClick={(e) => e.stopPropagation()} type="button">
+      <button
+        className="btn icon"
+        style={{ border: "none", background: "transparent" }}
+        onClick={(e) => e.stopPropagation()}
+        type="button"
+      >
         <MoreVertical size={14} strokeWidth={1.8} />
       </button>
     </div>
@@ -554,6 +637,64 @@ function MealThumbnail({ meal }: { meal: MealResponse }) {
       fit="contain"
       src={null}
     />
+  );
+}
+
+function PostprandialMiniChart({ meal }: { meal: MealResponse }) {
+  const points = postprandialChartPoints(meal);
+  const response = asRecord(meal.postprandial_response);
+  if (points.length < 2 && Object.keys(response).length === 0) {
+    return null;
+  }
+  const width = 236;
+  const height = 70;
+  const values = points.map((point) => point.value);
+  const min = Math.min(...values, 4);
+  const max = Math.max(...values, 10);
+  const range = max - min || 1;
+  const xFor = (offset: number) => (offset / 300) * width;
+  const yFor = (value: number) => height - ((value - min) / range) * height;
+  const path = points
+    .map((point, index) => {
+      const x = xFor(point.offset).toFixed(1);
+      const y = yFor(point.value).toFixed(1);
+      return `${index === 0 ? "M" : "L"}${x},${y}`;
+    })
+    .join(" ");
+  const delta = asNumber(response.delta_max);
+  const coverage = asNumber(response.coverage_180min);
+
+  return (
+    <section className="panel-section" data-testid="panel-postprandial">
+      <div className="lbl">глюкоза после еды</div>
+      <div className="row gap-8" style={{ alignItems: "center", marginTop: 8 }}>
+        <svg
+          aria-label="Мини-график глюкозы после еды"
+          height={height}
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+        >
+          <line x1="0" x2={width} y1={yFor(4)} y2={yFor(4)} stroke="var(--hairline-2)" strokeDasharray="3 3" />
+          {path ? <path d={path} fill="none" stroke="var(--accent)" strokeWidth="1.5" /> : null}
+          {points.map((point) => (
+            <circle
+              cx={xFor(point.offset)}
+              cy={yFor(point.value)}
+              fill="var(--surface)"
+              key={point.offset}
+              r="2.5"
+              stroke="var(--accent)"
+              strokeWidth="1.2"
+            />
+          ))}
+        </svg>
+        <div className="col gap-4" style={{ minWidth: 86 }}>
+          <Tag>{delta !== null ? `+${formatMmol(delta)}` : "—"} ммоль/л</Tag>
+          {coverage !== null ? <Tag>{formatPercent(coverage * 100)}% CGM</Tag> : null}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -604,13 +745,9 @@ function aliasesFromInput(value: string) {
 
 export function SelectedMealPanel({
   applyingReestimate = false,
-  discardPending = false,
-  duplicatePending = false,
   deletePending = false,
   meal,
-  onDiscard,
   onDelete,
-  onDuplicate,
   onReestimate,
   onReestimateApply,
   onReestimateCancel,
@@ -619,7 +756,6 @@ export function SelectedMealPanel({
   onCreateFromWeight,
   onUpdateItemWeight,
   onResyncNightscout,
-  onSave,
   onSyncNightscout,
   onUpdateName,
   onUpdateTime,
@@ -630,7 +766,6 @@ export function SelectedMealPanel({
   reestimateError = null,
   reestimateModel = "gemini-3-flash-preview",
   reestimatePending = false,
-  saveLabel = "Сохранить",
   syncNightscoutPending = false,
   updateNamePending = false,
   updateTimePending = false,
@@ -679,20 +814,10 @@ export function SelectedMealPanel({
   const primaryItem = meal.items?.[0];
   const savedNameValue = meal.title?.trim() || primaryItem?.name?.trim() || "";
   const quantity = mealQuantityInfo(meal);
-  const macros = [
-    ["углеводы", meal.total_carbs_g, "г"],
-    ["белки", meal.total_protein_g, "г"],
-    ["жиры", meal.total_fat_g, "г"],
-    ["клетчатка", meal.total_fiber_g, "г"],
-  ] as const;
   const confidence =
     meal.confidence ??
     meal.items?.find((item) => item.confidence !== null)?.confidence ??
     null;
-  const confidenceLabel =
-    confidence === null || confidence === undefined
-      ? "—"
-      : `${formatPercent(confidence * 100)}%`;
   const assumptions =
     meal.items?.flatMap((item) =>
       (item.assumptions ?? []).map((assumption) => String(assumption)),
@@ -772,38 +897,49 @@ export function SelectedMealPanel({
         : confidence >= 0.6
           ? "средняя"
           : "проверить";
+  const ConfidenceIcon =
+    confidence === null || confidence === undefined
+      ? ShieldQuestion
+      : confidence >= 0.8
+        ? ShieldCheck
+        : ShieldAlert;
   const confidenceSummary =
     confidence === null || confidence === undefined
       ? confidenceKind
       : `${confidenceKind} · ${formatPercent(confidence * 100)}%`;
-  const macroSummary = `У ${formatMacroValue(meal.total_carbs_g)} г · Б ${formatMacroValue(
+  const macroSummary = `У ${formatMacroValue(meal.total_carbs_g)} г / Б ${formatMacroValue(
     meal.total_protein_g,
-  )} г · Ж ${formatMacroValue(meal.total_fat_g)} г · К ${formatMacroValue(meal.total_fiber_g)} г`;
-  const canEditWeight = Boolean(
-    onUpdateItemWeight &&
-      primaryItem &&
-      primaryItem.grams !== null &&
-      primaryItem.grams !== undefined &&
-      primaryItem.grams > 0,
-  );
-  const editWeightChanged = Boolean(
-    primaryItem &&
-      parsedEditGrams !== null &&
-      primaryItem.grams !== null &&
-      primaryItem.grams !== undefined &&
-      Math.abs(parsedEditGrams - primaryItem.grams) > 0.001,
-  );
-  const canRepeatByWeight = Boolean(
-    onCreateFromWeight &&
-      primaryItem &&
-      primaryItem.grams !== null &&
-      primaryItem.grams !== undefined &&
-      primaryItem.grams > 0,
-  );
-  const unitRepeatWeight =
-    quantity?.perUnitWeightG && quantity.perUnitWeightG > 0
-      ? quantity.perUnitWeightG
-      : null;
+  )} г / Ж ${formatMacroValue(meal.total_fat_g)} г / К ${formatKcalValue(meal.total_kcal)} ккал`;
+  const canEditWeight = Boolean(onUpdateItemWeight && primaryItem);
+  const canRepeatByWeight = Boolean(onCreateFromWeight && primaryItem);
+  const currentWeightChipValue =
+    primaryItem?.grams && primaryItem.grams > 0 ? primaryItem.grams : null;
+  const [favorite, setFavorite] = useState(false);
+  const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
+  const [componentsOpen, setComponentsOpen] = useState(false);
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [rawDataOpen, setRawDataOpen] = useState(false);
+  const [nightscoutOpen, setNightscoutOpen] = useState(false);
+  const latestGlucose = useQuery({
+    queryKey: ["panel-latest-glucose", config.baseUrl, config.token],
+    queryFn: () => apiClient.getNightscoutLatestReading(config),
+    enabled: Boolean(config.token.trim()),
+    refetchInterval: 2 * 60 * 1000,
+  });
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("favorite-meal-ids");
+      const ids = stored ? (JSON.parse(stored) as string[]) : [];
+      setFavorite(ids.includes(meal.id));
+    } catch {
+      setFavorite(false);
+    }
+    setModelDetailsOpen(false);
+    setComponentsOpen(false);
+    setAssumptionsOpen(false);
+    setRawDataOpen(false);
+    setNightscoutOpen(false);
+  }, [meal.id]);
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = nameValue.trim();
@@ -850,397 +986,354 @@ export function SelectedMealPanel({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
-      <div className="row" style={{ alignItems: "flex-start", gap: 12 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 3, overflow: "hidden", flexShrink: 0, border: "1px solid var(--hairline)", background: "var(--surface)" }}>
-          {imageUrl ? (
-            <FoodImage alt={`${mealTitle(meal)} фото`} fit="contain" src={imageUrl} />
-          ) : firstPhoto ? (
-            <MealPhoto photo={firstPhoto} />
-          ) : (
-            <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "var(--ink-3)" }}>
-              <Image size={20} strokeWidth={1.6} />
-            </div>
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2>{mealTitle(meal)}</h2>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{primaryItem?.brand ?? ""}</div>
-          <div className="row gap-4" style={{ marginTop: 8, flexWrap: "wrap" }}>
-            <span className="tag">{readableSource(meal.source)}</span>
-            <span className="tag good">{readableStatus(meal.status)}</span>
-            {currentWeightLabel ? <span className="tag">{currentWeightLabel}</span> : null}
-            {quantity ? <span className="tag">{quantity.badge}</span> : null}
+    <div className="selected-panel">
+      <div className="selected-panel-scroll">
+        <section className="panel-headline panel-order-headline" data-testid="panel-headline">
+          <div style={{ width: 56, height: 56, borderRadius: 3, overflow: "hidden", flexShrink: 0, border: "1px solid var(--hairline)", background: "var(--surface)" }}>
+            {imageUrl ? (
+              <FoodImage alt={`${mealTitle(meal)} фото`} fit="contain" src={imageUrl} />
+            ) : firstPhoto ? (
+              <MealPhoto photo={firstPhoto} />
+            ) : (
+              <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "var(--ink-3)" }}>
+                <Image size={20} strokeWidth={1.6} />
+              </div>
+            )}
           </div>
-        </div>
-        <div className="mono" style={{ fontSize: 22, fontWeight: 500, lineHeight: 1 }}>
-          {formatKcalValue(meal.total_kcal)}
-          <span style={{ fontSize: 10, color: "var(--ink-3)", display: "block", textAlign: "right", marginTop: 2 }}>ккал</span>
-        </div>
-      </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2>{mealTitle(meal)}</h2>
+            <div className="panel-kcal-big">{formatKcalValue(meal.total_kcal)} ккал</div>
+            <div className="row gap-4" style={{ marginTop: 8, flexWrap: "wrap" }}>
+              <Tag>{readableSource(meal.source)}</Tag>
+              <Tag>{readableStatus(meal.status)}</Tag>
+              {currentWeightLabel ? <Tag>{currentWeightLabel}</Tag> : null}
+              {quantity ? <Tag>{quantity.badge}</Tag> : null}
+            </div>
+          </div>
+        </section>
 
-      <section className="panel-summary">
-        <div className="panel-summary-title">{mealTitle(meal)}</div>
-        <div className="panel-summary-main">
-          <span>{formatKcalValue(meal.total_kcal)} ккал</span>
-          <span>{macroSummary}</span>
-        </div>
-        <div className="panel-summary-grid">
-          <span><b>вес</b>{currentWeightLabel ?? "нет данных"}</span>
-          <span><b>источник</b>{sourceSummary}</span>
-          <span><b>уверенность</b>{confidenceSummary}</span>
-        </div>
-      </section>
+        <section className="panel-summary panel-order-summary" data-testid="panel-summary">
+          <div className="panel-summary-title">Сводка макросов</div>
+          <div className="panel-summary-main panel-summary-one-line">
+            <span>{macroSummary}</span>
+          </div>
+        </section>
 
-      {onUpdateName ? (
-        <form className="panel-section" onSubmit={handleNameSubmit}>
-          <div className="lbl">Название</div>
-          <div className="row gap-8" style={{ alignItems: "center", marginTop: 4 }}>
+        <PostprandialMiniChart meal={meal} />
+
+        <section className="panel-section panel-order-edit" data-testid="panel-quick-edit">
+          <div className="lbl">Быстрое редактирование</div>
+          <form className="panel-quick-row" onSubmit={handleNameSubmit}>
+            <label className="panel-input-label" htmlFor="meal-edit-name">Название</label>
             <input
-              aria-label="Название записи"
+              id="meal-edit-name"
+              aria-label="Название"
               className="panel-input"
+              disabled={!onUpdateName}
               onChange={(event) => setNameValue(event.target.value)}
               placeholder="Название еды"
               value={nameValue}
             />
-            <button className="btn dark" disabled={!nameChanged || updateNamePending} type="submit">
-              {updateNamePending ? "Сохраняю..." : "Сохранить"}
+            <button className="btn" disabled={!onUpdateName || !nameChanged || updateNamePending} type="submit">
+              Сохранить
             </button>
-          </div>
+          </form>
           {nameError ? <p style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>{nameError}</p> : null}
-        </form>
-      ) : null}
-
-      {onUpdateTime ? (
-        <form className="panel-section" onSubmit={handleTimeSubmit}>
-          <div className="lbl">Дата и время записи</div>
-          <div className="row gap-8" style={{ alignItems: "center", marginTop: 4 }}>
+          <form className="panel-quick-row" onSubmit={handleTimeSubmit}>
+            <label className="panel-input-label" htmlFor="meal-edit-time">Время</label>
             <input
-              aria-label="Дата и время записи"
+              id="meal-edit-time"
+              aria-label="Время"
               className="panel-input"
+              disabled={!onUpdateTime}
               onChange={(event) => setDateTimeValue(event.target.value)}
               type="datetime-local"
               value={dateTimeValue}
             />
-            <button className="btn" disabled={!dateTimeChanged || updateTimePending} type="submit">
-              {updateTimePending ? "Сохраняю..." : "Сохранить"}
+            <button className="btn" disabled={!onUpdateTime || !dateTimeChanged || updateTimePending} type="submit">
+              Сохранить
             </button>
-          </div>
+          </form>
           {dateTimeError ? <p style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>{dateTimeError}</p> : null}
-        </form>
-      ) : null}
-
-      {quantity ? (
-        <section className="mt-6 border-y border-[var(--hairline)] py-5">
-          <h3 className="text-[12px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
-            Количество
-          </h3>
-          <div className="mt-3 font-mono text-[34px] leading-none text-[var(--ink)]">
-            {quantity.countLabel}
-          </div>
-          <p className="mt-3 text-[13px] text-[var(--ink-3)]">
-            {quantity.perUnitWeightG
-              ? `${formatMacroValue(quantity.quantity)} × ${formatMacroValue(
-                  quantity.perUnitWeightG,
-                )} г`
-              : quantity.countLabel}
-            {quantity.totalWeightG
-              ? ` · ${formatMacroValue(quantity.totalWeightG)} г всего`
-              : ""}
-          </p>
-        </section>
-      ) : null}
-
-      {canEditWeight ? (
-        <form className="panel-section" onSubmit={handleEditWeight}>
-          <div className="lbl">Вес текущей записи</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", margin: "4px 0 8px" }}>
-            Изменит эту запись. Backend пересчитает углеводы, ккал и макросы пропорционально весу.
-          </div>
-          <div className="row gap-8" style={{ alignItems: "center" }}>
+          <form className="panel-quick-row" onSubmit={handleEditWeight}>
+            <label className="panel-input-label" htmlFor="meal-edit-weight">Вес записи</label>
             <input
-              aria-label="Вес текущей записи, г"
+              id="meal-edit-weight"
+              aria-label="Вес записи"
               className="panel-input"
+              disabled={!canEditWeight}
               inputMode="decimal"
               onChange={(event) => setEditGrams(event.target.value)}
+              placeholder="г"
               value={editGrams}
             />
             <button
-              className="btn dark"
-              disabled={updateWeightPending || !editWeightChanged || !parsedEditGrams || parsedEditGrams <= 0}
+              className="btn"
+              disabled={updateWeightPending || !canEditWeight || !parsedEditGrams || parsedEditGrams <= 0}
               type="submit"
             >
-              {updateWeightPending ? "Сохраняю..." : "Сохранить вес"}
+              Сохранить
             </button>
-          </div>
+          </form>
           {editGramsError ? <p style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>{editGramsError}</p> : null}
-        </form>
-      ) : null}
+        </section>
 
-      {canRepeatByWeight ? (
-        <form className="panel-section" onSubmit={handleRepeatByWeight}>
-          <div className="lbl">Повтор по весу</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", margin: "4px 0 8px" }}>
-            Создаст новую запись с указанным весом.
-          </div>
-          <div className="row gap-8" style={{ alignItems: "center" }}>
+        <section className="panel-section panel-order-edit panel-secondary-block panel-repeat-create" data-testid="panel-repeat-create">
+          <div className="lbl">Создать ещё порцию</div>
+          <p className="panel-helper-text">
+            Создаст новую запись. Текущая не изменится.
+          </p>
+          <form className="panel-quick-row" onSubmit={handleRepeatByWeight}>
+            <label className="panel-input-label" htmlFor="meal-repeat-weight">Граммы</label>
             <input
-              aria-label="Вес новой записи, г"
+              id="meal-repeat-weight"
+              aria-label="Граммы"
               className="panel-input"
+              disabled={!canRepeatByWeight}
               inputMode="decimal"
               onChange={(event) => setRepeatGrams(event.target.value)}
               value={repeatGrams}
             />
             <button
-              className="btn dark"
-              disabled={createFromWeightPending || !parsedRepeatGrams || parsedRepeatGrams <= 0}
+              className="btn"
+              disabled={createFromWeightPending || !canRepeatByWeight || !parsedRepeatGrams || parsedRepeatGrams <= 0}
               type="submit"
             >
-              {createFromWeightPending ? "Добавляю..." : `Добавить ${formatMacroValue(parsedRepeatGrams ?? 100)} г`}
+              Создать
             </button>
-          </div>
-          <div className="row gap-4" style={{ marginTop: 8, flexWrap: "wrap" }}>
-            {[unitRepeatWeight, 100, 127, primaryItem?.grams]
-              .filter((g): g is number => typeof g === "number" && g > 0)
-              .filter((g, i, arr) => arr.indexOf(g) === i)
-              .map((grams) => (
-                <button className="btn" style={{ height: 26, fontSize: 11 }} key={grams} onClick={() => setRepeatGrams(String(grams))} type="button">
-                  {formatMacroValue(grams)} г
-                </button>
-              ))}
+          </form>
+          <div className="panel-repeat-chips">
+            {[
+              { disabled: !canRepeatByWeight, label: "100 г", value: 100 },
+              { disabled: !canRepeatByWeight, label: "127 г", value: 127 },
+              {
+                disabled: !canRepeatByWeight || currentWeightChipValue === null,
+                label: "текущий вес",
+                value: currentWeightChipValue ?? 100,
+              },
+            ].map((chip) => (
+              <button
+                className="btn"
+                disabled={chip.disabled}
+                key={chip.label}
+                onClick={() => setRepeatGrams(String(chip.value))}
+                type="button"
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
           {repeatError ? <p style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>{repeatError}</p> : null}
-        </form>
-      ) : null}
-
-      <div className="mt-8 grid grid-cols-4 border-b border-[var(--hairline)] pb-6">
-        {macros.map(([label, value, unit]) => (
-          <div className="text-center" key={label}>
-            <div className="font-mono text-[24px] leading-none">
-              {formatMacroValue(value)}
-            </div>
-            <div className="mt-2 text-[11px] uppercase tracking-[0.02em]">
-              {label}{" "}
-              <span className="lowercase text-[var(--ink-3)]">{unit}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <section className="mt-6 grid grid-cols-2 gap-3 border-b border-[var(--hairline)] pb-6">
-        <InfoBlock title="Источник">
-          <div className="text-[15px] text-[var(--ink)]">
-            {readableItemSourceKind(primaryItem?.source_kind ?? meal.source)}
-          </div>
-          <div className="mt-2 text-[12px] text-[var(--ink-3)]">
-            {primaryItem?.serving_text ??
-              primaryItem?.brand ??
-              (readableCalculationMethod(primaryItem?.calculation_method) ||
-                readableSource(meal.source))}
-          </div>
-        </InfoBlock>
-        <InfoBlock title="Уверенность">
-          <div className="font-mono text-[28px] leading-none text-[var(--ink)]">
-            {confidenceLabel}
-          </div>
-          <div className="mt-2 text-[12px] text-[var(--ink-3)]">
-            {confidence !== null &&
-            confidence !== undefined &&
-            confidence >= 0.8
-              ? "высокая"
-              : confidence !== null &&
-                  confidence !== undefined &&
-                  confidence >= 0.6
-                ? "средняя"
-                : confidence === null || confidence === undefined
-                  ? "нет данных"
-                  : "проверить"}
-          </div>
-        </InfoBlock>
-      </section>
-
-      <section className="mt-6 border-b border-[var(--hairline)] pb-6">
-        <h3 className="text-[13px] uppercase tracking-[0.02em]">Nightscout</h3>
-        <div className="mt-3 grid gap-3 text-[13px] text-[var(--ink)]">
-          {meal.nightscout_id || meal.nightscout_synced_at ? (
-            <div className="grid gap-1">
-              <span>Отправлено в Nightscout</span>
-              <span className="font-mono text-[12px] text-[var(--ink-3)]">
-                {meal.nightscout_synced_at
-                  ? new Intl.DateTimeFormat("ru-RU", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(new Date(meal.nightscout_synced_at))
-                  : meal.nightscout_id}
-              </span>
-            </div>
-          ) : meal.nightscout_sync_status === "failed" ? (
-            <p className="text-[var(--warn)]">
-              ошибка NS: {meal.nightscout_sync_error ?? "не удалось отправить"}
-            </p>
-          ) : (
-            <p className="text-[var(--ink-3)]">Запись ещё не отправлена.</p>
-          )}
-          {onSyncNightscout &&
-          meal.status === "accepted" &&
-          !meal.nightscout_id ? (
-            <Button
-              disabled={syncNightscoutPending}
-              onClick={() => onSyncNightscout(meal)}
-            >
-              {syncNightscoutPending ? "Отправляю..." : "Отправить в Nightscout"}
-            </Button>
-          ) : null}
-          {onResyncNightscout &&
-          meal.status === "accepted" &&
-          meal.nightscout_id ? (
-            <Button
-              disabled={syncNightscoutPending}
-              onClick={() => onResyncNightscout(meal)}
-            >
-              {syncNightscoutPending
-                ? "Переотправляю..."
-                : "Переотправить в Nightscout"}
-            </Button>
-          ) : null}
-          <p className="text-[12px] text-[var(--ink-3)]">
-            Это запись дневника. Инсулин не отправляется и не рассчитывается.
-          </p>
-        </div>
-      </section>
-
-      {primaryItem ? <KnownComponentSection item={primaryItem} /> : null}
-
-      <section className="mt-6 border-b border-[var(--hairline)] pb-6">
-        <h3 className="text-[13px] uppercase tracking-[0.02em]">Допущения</h3>
-        {assumptions.length ? (
-          <ul className="mt-3 grid gap-2 pl-5 text-[13px] text-[var(--ink)]">
-            {assumptions.slice(0, 4).map((assumption, index) => (
-              <li className="list-disc" key={`${assumption}-${index}`}>
-                {assumption}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 text-[13px] text-[var(--ink-3)]">Допущений нет.</p>
-        )}
-      </section>
-
-      <section className="mt-6 border-b border-[var(--hairline)] pb-6">
-        <h3 className="text-[13px] uppercase tracking-[0.02em]">Данные</h3>
-        <div className="mt-4 grid gap-2">
-          {evidenceRows.length ? (
-            evidenceRows
-              .slice(0, 6)
-              .map((label) => <EvidenceRow key={label} label={label} />)
-          ) : (
-            <>
-              <EvidenceRow label="Значения позиции" />
-              <EvidenceRow label="Источник и уверенность" />
-            </>
-          )}
-        </div>
-      </section>
-
-      {quantity ? (
-        <section className="mt-5 grid gap-4 border-b border-[var(--hairline)] pb-6">
-          <NutritionBreakdownBlock
-            rows={[
-              ["углеводов", quantity.item.carbs_g / quantity.quantity, "г"],
-              ["белков", quantity.item.protein_g / quantity.quantity, "г"],
-              ["жиров", quantity.item.fat_g / quantity.quantity, "г"],
-              ["клетчатки", quantity.item.fiber_g / quantity.quantity, "г"],
-              ["ккал", quantity.item.kcal / quantity.quantity, "ккал"],
-            ]}
-            title={quantity.perUnitTitle}
-          />
-          <NutritionBreakdownBlock
-            rows={[
-              ["углеводов", meal.total_carbs_g, "г"],
-              ["белков", meal.total_protein_g, "г"],
-              ["жиров", meal.total_fat_g, "г"],
-              ["клетчатки", meal.total_fiber_g, "г"],
-              ["ккал", meal.total_kcal, "ккал"],
-            ]}
-            title="Итого"
-          />
         </section>
-      ) : (
-        <section className="mt-5 grid gap-3">
-          <h3 className="text-[13px] uppercase tracking-[0.02em]">Итого</h3>
-          <div className="grid grid-cols-4 gap-4 py-4 text-center">
-            <TotalMetric label="ккал" value={meal.total_kcal} />
-            <TotalMetric label="углеводы г" value={meal.total_carbs_g} />
-            <TotalMetric label="белки г" value={meal.total_protein_g} />
-            <TotalMetric label="жиры г" value={meal.total_fat_g} />
+
+        <section className="panel-section panel-source-block" data-testid="panel-source-confidence">
+          <div className="lbl">Источник / достоверность</div>
+          <div className="panel-source-confidence">
+            <div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>{sourceSummary}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+                {primaryItem?.serving_text ??
+                  primaryItem?.brand ??
+                  (readableCalculationMethod(primaryItem?.calculation_method) ||
+                    readableSource(meal.source))}
+              </div>
+            </div>
+            <div className="row gap-4" style={{ alignItems: "center" }}>
+              <ConfidenceIcon size={14} />
+              <Tag>{confidenceSummary}</Tag>
+            </div>
           </div>
         </section>
-      )}
 
-      {onReestimate ? (
-        <section className="mt-6 border-t border-[var(--hairline)] pt-6">
-          <h3 className="text-[13px] uppercase tracking-[0.02em]">
-            Модель оценки
-          </h3>
-          <div className="mt-4 grid gap-3 border-b border-[var(--hairline)] pb-4">
-            <div className="grid grid-cols-[1fr_auto] gap-3 text-[13px]">
-              <span className="text-[var(--ink-3)]">Текущая оценка</span>
-              <span className="text-right">{modelLabel(currentModel)}</span>
+        <section className="panel-section">
+          <button aria-expanded={modelDetailsOpen} className="panel-accordion-btn" onClick={() => setModelDetailsOpen((prev) => !prev)} type="button">
+            Оценка модели
+            <ChevronDown className={modelDetailsOpen ? "rot-180" : ""} size={14} />
+          </button>
+          {modelDetailsOpen ? (
+            <div className="panel-accordion-body">
+              <div className="grid grid-cols-[1fr_auto] gap-3 text-[13px]">
+                <span className="text-[var(--ink-3)]">Текущая оценка</span>
+                <span className="text-right">{modelLabel(currentModel)}</span>
+              </div>
+              {onReestimate ? (
+                <>
+                  <label className="grid gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
+                      Модель
+                    </span>
+                    <select
+                      className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] outline-none"
+                      onChange={(event) =>
+                        onReestimateModelChange?.(event.target.value as ReestimateModel)
+                      }
+                      value={reestimateModel}
+                    >
+                      <option value="default">По умолчанию</option>
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-3.1-flash-lite-preview">
+                        Gemini 3.1 Flash Lite
+                      </option>
+                    </select>
+                  </label>
+                  <Button
+                    disabled={reestimatePending || !meal.photos?.length}
+                    onClick={onReestimate}
+                    variant="primary"
+                  >
+                    {reestimatePending ? "Переоцениваю фото..." : "Переоценить"}
+                  </Button>
+                  {reestimateComparison ? (
+                    <ReestimateComparisonPanel
+                      applying={applyingReestimate}
+                      comparison={reestimateComparison}
+                      onApply={onReestimateApply}
+                      onCancel={onReestimateCancel}
+                    />
+                  ) : null}
+                  {reestimateError ? (
+                    <p className="text-[13px] text-[var(--warn)]">{reestimateError}</p>
+                  ) : null}
+                </>
+              ) : null}
             </div>
-            <div className="font-mono text-[15px] text-[var(--ink)]">
-              {formatMacroValue(meal.total_carbs_g)}У ·{" "}
-              {formatMacroValue(meal.total_protein_g)}Б ·{" "}
-              {formatMacroValue(meal.total_fat_g)}Ж ·{" "}
-              {formatKcalValue(meal.total_kcal)} ккал
+          ) : null}
+        </section>
+
+        <section className="panel-section">
+          <button aria-expanded={componentsOpen} className="panel-accordion-btn" onClick={() => setComponentsOpen((prev) => !prev)} type="button">
+            Компоненты
+            <ChevronDown className={componentsOpen ? "rot-180" : ""} size={14} />
+          </button>
+          {componentsOpen && primaryItem ? (
+            <div className="panel-accordion-body">
+              <KnownComponentSection item={primaryItem} />
             </div>
-            <label className="grid gap-2">
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
-                Модель
-              </span>
-              <select
-                className="border border-[var(--hairline)] bg-[var(--surface)] px-3 py-2 text-[13px] outline-none"
-                onChange={(event) =>
-                  onReestimateModelChange?.(event.target.value as ReestimateModel)
-                }
-                value={reestimateModel}
-              >
-                <option value="default">По умолчанию</option>
-                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-3.1-flash-lite-preview">
-                  Gemini 3.1 Flash Lite
-                </option>
-              </select>
-            </label>
-            <Button
-              disabled={reestimatePending || !meal.photos?.length}
-              onClick={onReestimate}
-              variant="primary"
-            >
-              {reestimatePending ? "Переоцениваю фото..." : "Переоценить"}
-            </Button>
-            {!meal.photos?.length ? (
+          ) : null}
+        </section>
+
+        <section className="panel-section">
+          <button aria-expanded={assumptionsOpen} className="panel-accordion-btn" onClick={() => setAssumptionsOpen((prev) => !prev)} type="button">
+            Допущения
+            <ChevronDown className={assumptionsOpen ? "rot-180" : ""} size={14} />
+          </button>
+          {assumptionsOpen ? (
+            <div className="panel-accordion-body">
+              {assumptions.length ? (
+                <ul className="grid gap-2 pl-5 text-[13px] text-[var(--ink)]">
+                  {assumptions.slice(0, 4).map((assumption, index) => (
+                    <li className="list-disc" key={`${assumption}-${index}`}>
+                      {assumption}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[13px] text-[var(--ink-3)]">Допущений нет.</p>
+              )}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="panel-section">
+          <button aria-expanded={rawDataOpen} className="panel-accordion-btn" onClick={() => setRawDataOpen((prev) => !prev)} type="button">
+            Исходные данные
+            <ChevronDown className={rawDataOpen ? "rot-180" : ""} size={14} />
+          </button>
+          {rawDataOpen ? (
+            <div className="panel-accordion-body">
+              {evidenceRows.length ? (
+                evidenceRows
+                  .slice(0, 6)
+                  .map((label) => <EvidenceRow key={label} label={label} />)
+              ) : (
+                <>
+                  <EvidenceRow label="Значения позиции" />
+                  <EvidenceRow label="Источник и уверенность" />
+                </>
+              )}
+              {quantity ? (
+                <div className="grid gap-4" style={{ marginTop: 8 }}>
+                  <NutritionBreakdownBlock
+                    rows={[
+                      ["углеводов", quantity.item.carbs_g / quantity.quantity, "г"],
+                      ["белков", quantity.item.protein_g / quantity.quantity, "г"],
+                      ["жиров", quantity.item.fat_g / quantity.quantity, "г"],
+                      ["клетчатки", quantity.item.fiber_g / quantity.quantity, "г"],
+                      ["ккал", quantity.item.kcal / quantity.quantity, "ккал"],
+                    ]}
+                    title={quantity.perUnitTitle}
+                  />
+                  <NutritionBreakdownBlock
+                    rows={[
+                      ["углеводов", meal.total_carbs_g, "г"],
+                      ["белков", meal.total_protein_g, "г"],
+                      ["жиров", meal.total_fat_g, "г"],
+                      ["клетчатки", meal.total_fiber_g, "г"],
+                      ["ккал", meal.total_kcal, "ккал"],
+                    ]}
+                    title="Итого"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="panel-section">
+          <button aria-expanded={nightscoutOpen} className="panel-accordion-btn" onClick={() => setNightscoutOpen((prev) => !prev)} type="button">
+            Синхронизация Nightscout
+            <ChevronDown className={nightscoutOpen ? "rot-180" : ""} size={14} />
+          </button>
+          {nightscoutOpen ? (
+            <div className="panel-accordion-body">
+              {meal.nightscout_id || meal.nightscout_synced_at ? (
+                <div className="grid gap-1">
+                  <span>Отправлено в Nightscout</span>
+                  <span className="font-mono text-[12px] text-[var(--ink-3)]">
+                    {meal.nightscout_synced_at
+                      ? new Intl.DateTimeFormat("ru-RU", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }).format(new Date(meal.nightscout_synced_at))
+                      : meal.nightscout_id}
+                  </span>
+                </div>
+              ) : meal.nightscout_sync_status === "failed" ? (
+                <p className="text-[var(--warn)]">
+                  ошибка NS: {meal.nightscout_sync_error ?? "не удалось отправить"}
+                </p>
+              ) : (
+                <p className="text-[var(--ink-3)]">Запись ещё не отправлена.</p>
+              )}
+              {onSyncNightscout &&
+              meal.status === "accepted" &&
+              !meal.nightscout_id ? (
+                <Button
+                  disabled={syncNightscoutPending}
+                  onClick={() => onSyncNightscout(meal)}
+                >
+                  {syncNightscoutPending ? "Отправляю..." : "Отправить в Nightscout"}
+                </Button>
+              ) : null}
+              {onResyncNightscout &&
+              meal.status === "accepted" &&
+              meal.nightscout_id ? (
+                <Button
+                  disabled={syncNightscoutPending}
+                  onClick={() => onResyncNightscout(meal)}
+                >
+                  {syncNightscoutPending
+                    ? "Переотправляю..."
+                    : "Переотправить в Nightscout"}
+                </Button>
+              ) : null}
               <p className="text-[12px] text-[var(--ink-3)]">
-                У этой записи нет фото для переоценки
+                Это запись дневника. Инсулин не отправляется и не рассчитывается.
               </p>
-            ) : null}
-            {reestimateError ? (
-              <p className="text-[13px] text-[var(--warn)]">
-                {reestimateError}
-              </p>
-            ) : null}
-          </div>
-
-          {reestimateComparison ? (
-            <ReestimateComparisonPanel
-              applying={applyingReestimate}
-              comparison={reestimateComparison}
-              onApply={onReestimateApply}
-              onCancel={onReestimateCancel}
-            />
+            </div>
           ) : null}
         </section>
-      ) : null}
 
       {rememberableItem && onRememberProduct ? (
         <section className="mt-6 border-t border-[var(--hairline)] pt-6">
@@ -1272,44 +1365,53 @@ export function SelectedMealPanel({
           </Button>
         </section>
       ) : null}
+      </div>
 
-      <div className="sticky bottom-0 mt-auto grid gap-3 border-t border-[var(--hairline)] bg-[var(--bg)] py-4">
-        {onSave ? (
-          <Button onClick={() => onSave(meal)} variant="primary">
-            {saveLabel}
-          </Button>
-        ) : null}
-        {onDiscard ? (
+      <div className="selected-panel-actions" data-testid="panel-actions">
+        <div className="row gap-8" style={{ flexWrap: "wrap" }}>
           <Button
-            disabled={discardPending}
-            onClick={() => onDiscard(meal)}
-            variant="danger"
+            icon={<Star size={15} />}
+            onClick={() => {
+              const nextFavorite = !favorite;
+              setFavorite(nextFavorite);
+              const stored = localStorage.getItem("favorite-meal-ids");
+              const ids = stored ? (JSON.parse(stored) as string[]) : [];
+              const nextIds = nextFavorite
+                ? Array.from(new Set([...ids, meal.id]))
+                : ids.filter((id) => id !== meal.id);
+              localStorage.setItem("favorite-meal-ids", JSON.stringify(nextIds));
+            }}
+            variant={favorite ? "primary" : "quiet"}
           >
-            Отменить
+            {favorite ? "В избранном" : "В избранное"}
           </Button>
-        ) : null}
-        {onDuplicate ? (
-          <Button
-            disabled={duplicatePending}
-            icon={<Copy size={15} />}
-            onClick={() => onDuplicate(meal)}
-          >
-            Повторить
-          </Button>
-        ) : null}
-        {onDelete ? (
-          <Button
-            disabled={deletePending}
-            icon={<Trash2 size={15} />}
-            onClick={() => onDelete(meal)}
-            variant="danger"
-          >
-            Удалить
-          </Button>
-        ) : null}
-        <p className="pt-5 text-[11px] text-[var(--ink-3)]">
-          Это оценка, не медицинская рекомендация.
-        </p>
+          {onDelete ? (
+            <Button
+              disabled={deletePending}
+              icon={<Trash2 size={15} />}
+              onClick={() => onDelete(meal)}
+              variant="danger"
+            >
+              Удалить
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="selected-panel-glucose" data-testid="panel-sticky-glucose">
+        <SectionLabel className="mb-2">Глюкоза</SectionLabel>
+        <div className="row" style={{ alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>последнее значение</span>
+          <a className="btn-link" href="/glucose">Открыть</a>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13, color: "var(--ink)" }}>
+          {latestGlucose.isLoading
+            ? "Обновляю…"
+            : latestGlucose.data?.value_mmol_l !== null &&
+                latestGlucose.data?.value_mmol_l !== undefined
+              ? `${formatMmol(latestGlucose.data.value_mmol_l)} ммоль/л`
+              : "нет данных"}
+        </div>
       </div>
     </div>
   );
@@ -1728,38 +1830,11 @@ function ItemList({
   );
 }
 
-function InfoBlock({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <div>
-      <h3 className="mb-3 text-[12px] uppercase tracking-[0.02em]">{title}</h3>
-      <div className="min-h-16 bg-[rgba(255,255,255,0.42)] p-4">{children}</div>
-    </div>
-  );
-}
-
 function EvidenceRow({ label }: { label: string }) {
   return (
     <div className="grid grid-cols-[24px_1fr] items-center gap-3 py-1">
       <FileText size={16} strokeWidth={1.7} />
       <span className="text-[13px] text-[var(--ink)]">{label}</span>
-    </div>
-  );
-}
-
-function TotalMetric({ label, value }: { label: string; value: number }) {
-  const displayValue = label === "ккал" ? formatKcalValue(value) : formatMacroValue(value);
-  return (
-    <div>
-      <div className="font-mono text-[28px] leading-none">
-        {displayValue}
-      </div>
-      <div className="mt-2 text-[11px] text-[var(--ink-3)]">{label}</div>
     </div>
   );
 }

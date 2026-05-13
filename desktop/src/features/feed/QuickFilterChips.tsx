@@ -1,5 +1,6 @@
-import { Activity, Droplets, ShieldAlert, Syringe } from "lucide-react";
+import { Activity, Camera, Coffee, Cookie, Droplets, ShieldAlert, Syringe } from "lucide-react";
 import { useMemo, useState } from "react";
+import { FilterChip } from "../../design/primitives/FilterChip";
 
 export type QuickFilter = {
   key: string;
@@ -8,9 +9,12 @@ export type QuickFilter = {
 };
 
 const DEFAULT_CHIPS: QuickFilter[] = [
+  { key: "sweet", label: "Сладкое", icon: Cookie },
+  { key: "breakfast", label: "Завтраки", icon: Coffee },
+  { key: "photoOnly", label: "Только фото", icon: Camera },
+  { key: "lowConfidence", label: "Низкая увер.", icon: ShieldAlert },
   { key: "hasCGM", label: "С CGM", icon: Activity },
   { key: "hasInsulin", label: "С инсулином", icon: Syringe },
-  { key: "lowConfidence", label: "Низкая уверенность", icon: ShieldAlert },
 ];
 
 export function QuickFilterChips({
@@ -31,28 +35,21 @@ export function QuickFilterChips({
         const Icon = chip.icon;
         const isActive = active.has(chip.key);
         return (
-          <button
-            className={`flex items-center gap-1.5 border px-3 py-1.5 text-[12px] uppercase tracking-[0.04em] transition ${
-              isActive
-                ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--surface)]"
-                : "border-[var(--hairline)] text-[var(--muted)] hover:border-[var(--fg)] hover:text-[var(--fg)]"
-            }`}
+          <FilterChip
+            active={isActive}
+            icon={Icon ? <Icon size={13} strokeWidth={1.6} /> : null}
             key={chip.key}
             onClick={() => onToggle(chip.key)}
-            type="button"
           >
-            {Icon ? <Icon size={13} strokeWidth={1.6} /> : null}
             {chip.label}
-          </button>
+          </FilterChip>
         );
       })}
-      <button
-        className="border border-[var(--hairline)] px-3 py-1.5 text-[12px] uppercase tracking-[0.04em] text-[var(--muted)] transition hover:text-[var(--fg)]"
+      <FilterChip
         onClick={() => setShowMore((v) => !v)}
-        type="button"
       >
         {showMore ? "Меньше" : "Доп. фильтры"}
-      </button>
+      </FilterChip>
     </div>
   );
 }

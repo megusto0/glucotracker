@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from glucotracker.api.dependencies import get_read_session, get_session
+from glucotracker.application.time import local_now
 from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import (
@@ -368,7 +369,7 @@ def _populate(env: dict) -> dict:
     sf = env["session_factory"]
     alice = env["alice_id"]
     bob = env["bob_id"]
-    now = datetime(2026, 5, 7, 12, 0, tzinfo=UTC)
+    now = local_now().replace(hour=12, minute=0, second=0, microsecond=0)
     today = now.date()
 
     alice_day = today
@@ -989,6 +990,21 @@ class TestMutationIsolation:
         )
         assert r.status_code == 404
 
+    def test_upload_pattern_image_as_bob(self):
+        r = self.client.post(
+            f"/patterns/{self.ids['alice_pattern']}/image",
+            headers=self.bob_headers,
+            files={"file": ("test.jpg", b"fake", "image/jpeg")},
+        )
+        assert r.status_code == 404
+
+    def test_get_pattern_image_file_as_bob(self):
+        r = self.client.get(
+            f"/patterns/{self.ids['alice_pattern']}/image/file",
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 404
+
     def test_patch_fingerstick_as_bob(self):
         r = self.client.patch(
             f"/fingersticks/{self.ids['alice_fingerstick']}",
@@ -1312,6 +1328,61 @@ class TestMutationIsolation:
             headers=self.alice_headers,
         )
         assert r.status_code in {200, 503} or r.status_code >= 500
+
+    def test_admin_postprandial_recompute_scoped(self):
+        params = {
+            "from": self.ids["today"].isoformat(),
+            "to": self.ids["today"].isoformat(),
+        }
+
+        r = self.client.post(
+            "/admin/postprandial/recompute",
+            params=params,
+            headers=self.alice_headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["meals_total"] == 1
+
+        r = self.client.post(
+            "/admin/postprandial/recompute",
+            params=params,
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["meals_total"] == 1
+
+    def test_create_meal_from_photo_idempotency_is_scoped(self, monkeypatch):
+        from glucotracker.api.routers import photos as photos_router
+
+        monkeypatch.setattr(
+            photos_router,
+            "_run_single_call_photo_estimate",
+            lambda *_args, **_kwargs: None,
+        )
+
+        key = "11111111-2222-3333-4444-555555555555"
+        data = {
+            "captured_at": "2026-05-10T03:17:13Z",
+            "source": "camera",
+            "idempotency_key": key,
+        }
+
+        alice = self.client.post(
+            "/meals/from-photo",
+            data=data,
+            files={"photo": ("meal.jpg", b"alice jpeg", "image/jpeg")},
+            headers=self.alice_headers,
+        )
+        assert alice.status_code == 202
+
+        bob = self.client.post(
+            "/meals/from-photo",
+            data=data,
+            files={"photo": ("meal.jpg", b"bob jpeg", "image/jpeg")},
+            headers=self.bob_headers,
+        )
+        assert bob.status_code == 202
+        assert bob.json()["meal_id"] != alice.json()["meal_id"]
 
     def test_meal_estimate_not_configured(self):
         r = self.client.post(

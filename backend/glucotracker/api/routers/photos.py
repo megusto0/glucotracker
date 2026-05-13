@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -32,14 +43,17 @@ from glucotracker.api.schemas import (
     EstimateSourcePhotoResponse,
     MealItemCreate,
     MealTotalsResponse,
+    PhotoCaptureResponse,
     PhotoResponse,
     ReestimateMealRequest,
     ReestimateMealResponse,
 )
+from glucotracker.application.categorization.worker import categorize_one
 from glucotracker.application.photo_estimation import (
     PhotoEstimationDependencies,
     PhotoEstimationService,
 )
+from glucotracker.application.time import local_wall_time
 from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
@@ -62,6 +76,7 @@ from glucotracker.infra.db.models import (
     Product,
     utc_now,
 )
+from glucotracker.infra.db.session import get_session_factory
 from glucotracker.infra.gemini.client import (
     PHOTO_ESTIMATION_PROMPT_VERSION,
     GeminiClient,
@@ -74,9 +89,12 @@ from glucotracker.infra.storage import photo_store
 from glucotracker.workers.daily_totals import schedule_and_recalculate
 
 router = APIRouter(tags=["photos"])
+IMAGE_RESPONSE_HEADERS = {"Cache-Control": "private, max-age=604800"}
+logger = logging.getLogger(__name__)
 
 GeminiClientDep = Annotated[GeminiClient, Depends(get_gemini_client)]
 UploadFileDep = Annotated[UploadFile, File(description="JPEG, PNG, or WebP photo.")]
+PhotoFileDep = Annotated[UploadFile, File(description="JPEG, PNG, or WebP photo.")]
 
 
 def _photo_estimation_service(
@@ -1319,6 +1337,197 @@ def list_meal_ai_runs(
     )
 
 
+def _photo_capture_response(meal: Meal) -> PhotoCaptureResponse:
+    """Return the canonical accepted response for a photo capture meal."""
+    photo = _ordered_photos(meal.photos)[0]
+    status_value = meal.estimate_status or "estimating"
+    if status_value not in {"estimating", "succeeded", "failed", "timeout", "error"}:
+        status_value = "error"
+    return PhotoCaptureResponse(
+        meal_id=meal.id,
+        estimate_status=status_value,
+        captured_at=meal.eaten_at,
+        photo_url=f"/photos/{photo.id}/file",
+    )
+
+
+def _set_single_call_estimate_status(
+    *,
+    meal_id: UUID,
+    user_id: UUID,
+    estimate_status: str,
+    error: str | None = None,
+) -> None:
+    """Update persisted server-side estimate status after background work."""
+    session = get_session_factory()()
+    try:
+        meal = session.scalar(
+            select(Meal).where(Meal.id == meal_id, Meal.owner_id == user_id)
+        )
+        if meal is None:
+            return
+        meal.estimate_status = estimate_status
+        meal.estimate_error = error
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.warning(
+            "Failed to persist photo estimate status meal_id=%s user_id=%s",
+            meal_id,
+            user_id,
+            exc_info=True,
+        )
+    finally:
+        session.close()
+
+
+def _trigger_categorization(meal_id: UUID) -> None:
+    """Trigger taste profile classification for a freshly accepted meal."""
+    try:
+        categorize_one(meal_id)
+    except Exception:
+        logger.exception(
+            "Categorization failed for meal %s, will retry next nightly batch",
+            meal_id,
+        )
+
+
+def _run_single_call_photo_estimate(
+    meal_id: UUID,
+    user_id: UUID,
+    context_note: str | None,
+) -> None:
+    """Run the photo estimate after the capture request has returned 202."""
+    session = get_session_factory()()
+    try:
+        service = _photo_estimation_service(
+            session,
+            user_id,
+            get_gemini_client(),
+        )
+        response = service.estimate(
+            meal_id=meal_id,
+            payload=EstimateMealRequest(context_note=context_note),
+            save_draft=True,
+        )
+        if response.created_drafts:
+            _set_single_call_estimate_status(
+                meal_id=meal_id,
+                user_id=user_id,
+                estimate_status="succeeded",
+            )
+            _trigger_categorization(meal_id)
+        else:
+            _set_single_call_estimate_status(
+                meal_id=meal_id,
+                user_id=user_id,
+                estimate_status="failed",
+                error="Photo estimate did not return an accepted meal.",
+            )
+    except HTTPException as exc:
+        _set_single_call_estimate_status(
+            meal_id=meal_id,
+            user_id=user_id,
+            estimate_status="failed",
+            error=str(exc.detail),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Single-call photo estimate failed meal_id=%s user_id=%s",
+            meal_id,
+            user_id,
+            exc_info=True,
+        )
+        _set_single_call_estimate_status(
+            meal_id=meal_id,
+            user_id=user_id,
+            estimate_status="error",
+            error=str(exc),
+        )
+    finally:
+        session.close()
+
+
+@router.post(
+    "/meals/from-photo",
+    response_model=PhotoCaptureResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    operation_id="createMealFromPhoto",
+)
+def create_meal_from_photo(
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    photo: PhotoFileDep,
+    captured_at: Annotated[datetime, Form()],
+    idempotency_key: Annotated[UUID, Form()],
+    source: Annotated[Literal["camera", "gallery"], Form()] = "camera",
+    context: Annotated[str | None, Form()] = None,
+) -> PhotoCaptureResponse:
+    """Create one photo meal and let the backend own photo estimation."""
+    existing = session.scalar(
+        select(Meal)
+        .where(
+            Meal.owner_id == current_user.id,
+            Meal.photo_idempotency_key == str(idempotency_key),
+        )
+        .options(selectinload(Meal.photos))
+    )
+    if existing is not None and existing.photos:
+        return _photo_capture_response(existing)
+
+    try:
+        content_type, _ = photo_store.supported_upload_type(photo)
+        rel_path = photo_store.save_upload(photo)
+    except photo_store.PhotoStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    meal = Meal(
+        owner_id=current_user.id,
+        eaten_at=local_wall_time(captured_at),
+        title=None,
+        note=context,
+        status=MealStatus.draft,
+        source=MealSource.photo,
+        estimate_status="estimating",
+        estimate_error=None,
+        photo_idempotency_key=str(idempotency_key),
+    )
+    session.add(meal)
+    session.flush()
+    photo_row = Photo(
+        id=UUID(Path(rel_path).stem),
+        owner_id=current_user.id,
+        meal_id=meal.id,
+        path=rel_path,
+        original_filename=photo.filename,
+        content_type=content_type,
+        taken_at=local_wall_time(captured_at),
+    )
+    session.add(photo_row)
+    try:
+        session.commit()
+    except Exception:
+        photo_store.delete(rel_path)
+        raise
+
+    background_tasks.add_task(
+        _run_single_call_photo_estimate,
+        meal.id,
+        current_user.id,
+        context,
+    )
+    return PhotoCaptureResponse(
+        meal_id=meal.id,
+        estimate_status="estimating",
+        captured_at=meal.eaten_at,
+        photo_url=f"/photos/{photo_row.id}/file",
+    )
+
+
 @router.post(
     "/meals/{meal_id}/photos",
     response_model=PhotoResponse,
@@ -1334,6 +1543,7 @@ def upload_meal_photo(
     """Upload a JPEG, PNG, or WebP photo for a meal."""
     _get_meal(session, current_user.id, meal_id)
     try:
+        content_type, _ = photo_store.supported_upload_type(file)
         rel_path = photo_store.save_upload(file)
     except photo_store.PhotoStorageError as exc:
         raise HTTPException(
@@ -1347,7 +1557,7 @@ def upload_meal_photo(
         meal_id=meal_id,
         path=rel_path,
         original_filename=file.filename,
-        content_type=file.content_type,
+        content_type=content_type,
     )
     session.add(photo)
     try:
@@ -1379,6 +1589,8 @@ def get_photo_file(
         full_path,
         media_type=photo.content_type,
         filename=photo.original_filename,
+        headers=IMAGE_RESPONSE_HEADERS,
+        content_disposition_type="inline",
     )
 
 

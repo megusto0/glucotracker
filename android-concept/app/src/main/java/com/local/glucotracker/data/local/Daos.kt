@@ -17,32 +17,75 @@ interface OutboxDao {
     @Query("SELECT * FROM outbox ORDER BY createdAt ASC")
     fun observeAll(): Flow<List<OutboxEntity>>
 
-    @Query("SELECT COUNT(*) FROM outbox WHERE state IN ('Queued', 'Sending', 'Conflict', 'Estimating')")
+    @Query("SELECT COUNT(*) FROM outbox WHERE state IN ('Queued', 'Uploading')")
     fun observeQueueDepth(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: OutboxEntity)
 
-    @Query("SELECT * FROM outbox WHERE state = 'Queued' ORDER BY createdAt ASC")
-    suspend fun queuedItems(): List<OutboxEntity>
+    @Query(
+        """
+        SELECT * FROM outbox
+        WHERE (state = 'Queued' AND (nextAttemptAt IS NULL OR nextAttemptAt <= :now))
+           OR (
+                state = 'Uploading'
+                AND (lastAttemptAt IS NULL OR lastAttemptAt <= :staleBefore)
+              )
+        ORDER BY createdAt ASC
+        """,
+    )
+    suspend fun retryableItems(
+        now: Instant,
+        staleBefore: Instant,
+    ): List<OutboxEntity>
 
-    @Query("UPDATE outbox SET state = :state, lastAttemptAt = :lastAttemptAt, attempts = attempts + :attemptDelta, errorMessage = :errorMessage WHERE id = :id")
+    @Query(
+        """
+        UPDATE outbox
+        SET state = :state,
+            lastAttemptAt = :lastAttemptAt,
+            nextAttemptAt = :nextAttemptAt,
+            attempts = attempts + :attemptDelta,
+            errorMessage = :errorMessage,
+            enteredCurrentStateAt = CASE WHEN state != :state THEN :stateChangedAt ELSE enteredCurrentStateAt END,
+            lastErrorCode = :lastErrorCode,
+            lastErrorMessage = :lastErrorMessage
+        WHERE id = :id
+        """,
+    )
     suspend fun updateState(
         id: String,
         state: com.local.glucotracker.domain.model.OutboxState,
         lastAttemptAt: Instant?,
+        nextAttemptAt: Instant?,
         attemptDelta: Int,
         errorMessage: String?,
+        stateChangedAt: Instant,
+        lastErrorCode: String?,
+        lastErrorMessage: String?,
     )
 
-    @Query("UPDATE outbox SET state = 'Sent', serverIdOnSuccess = :serverIdOnSuccess, lastAttemptAt = :sentAt, errorMessage = NULL WHERE id = :id")
-    suspend fun markSent(id: String, serverIdOnSuccess: String?, sentAt: Instant)
+    @Query("UPDATE outbox SET state = 'Confirmed', serverIdOnSuccess = :serverIdOnSuccess, lastAttemptAt = :confirmedAt, nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :confirmedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE id = :id")
+    suspend fun markConfirmed(id: String, serverIdOnSuccess: String?, confirmedAt: Instant)
 
-    @Query("UPDATE outbox SET state = 'EstimateReady', draftJson = :draftJson, serverIdOnSuccess = :serverIdOnSuccess, lastAttemptAt = :readyAt, errorMessage = NULL WHERE id = :id")
-    suspend fun markEstimateReady(id: String, draftJson: String, serverIdOnSuccess: String?, readyAt: Instant)
+    @Query("UPDATE outbox SET state = 'Queued', nextAttemptAt = :nextAttemptAt, errorMessage = :errorMessage, enteredCurrentStateAt = :queuedAt, lastErrorCode = :lastErrorCode, lastErrorMessage = :lastErrorMessage WHERE id = :id")
+    suspend fun markQueuedForRetry(
+        id: String,
+        nextAttemptAt: Instant?,
+        errorMessage: String?,
+        queuedAt: Instant,
+        lastErrorCode: String?,
+        lastErrorMessage: String?,
+    )
 
-    @Query("UPDATE outbox SET state = 'Queued', errorMessage = :errorMessage WHERE id = :id")
-    suspend fun markQueuedForRetry(id: String, errorMessage: String?)
+    @Query("UPDATE outbox SET state = 'Queued', attempts = 0, lastAttemptAt = NULL, nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :queuedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE id = :id")
+    suspend fun resetForManualRetry(id: String, queuedAt: Instant)
+
+    @Query("UPDATE outbox SET nextAttemptAt = NULL WHERE state = 'Queued'")
+    suspend fun clearQueuedBackoff(): Int
+
+    @Query("UPDATE outbox SET state = 'Queued', nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :queuedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE state = 'Uploading' AND (lastAttemptAt IS NULL OR lastAttemptAt <= :staleBefore)")
+    suspend fun revertStaleUploadingToQueued(staleBefore: Instant, queuedAt: Instant): Int
 
     @Query("SELECT localPhotoPath FROM outbox WHERE localPhotoPath IS NOT NULL")
     suspend fun referencedPhotoPaths(): List<String>
@@ -50,8 +93,45 @@ interface OutboxDao {
     @Query("DELETE FROM outbox WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query(
+        """
+        UPDATE outbox
+        SET state = 'Queued',
+            attempts = 0,
+            lastAttemptAt = NULL,
+            lastErrorCode = NULL,
+            lastErrorMessage = NULL,
+            nextAttemptAt = NULL,
+            enteredCurrentStateAt = :now
+        WHERE state = 'Stuck'
+          AND lastErrorCode IN (:errorCodes)
+          AND linkedMealId IS NULL
+        """,
+    )
+    suspend fun revertNetworkStuck(errorCodes: List<String>, now: Instant): Int
+
     @Query("SELECT COUNT(*) FROM outbox")
     suspend fun countAll(): Int
+
+    @Query("SELECT * FROM outbox WHERE state IN (:states)")
+    suspend fun findInStates(states: List<com.local.glucotracker.domain.model.OutboxState>): List<OutboxEntity>
+
+    @Query(
+        """
+        UPDATE outbox
+        SET state = 'Confirmed',
+            serverIdOnSuccess = :linkedMealId,
+            linkedMealId = :linkedMealId,
+            reconciledAt = :reconciledAt,
+            nextAttemptAt = NULL,
+            errorMessage = NULL,
+            enteredCurrentStateAt = :reconciledAt,
+            lastErrorCode = NULL,
+            lastErrorMessage = NULL
+        WHERE id = :id
+        """,
+    )
+    suspend fun markReconciled(id: String, linkedMealId: String, reconciledAt: Instant)
 }
 
 @Dao
@@ -155,6 +235,12 @@ abstract class CachedMealDao {
     @Query("SELECT COUNT(*) FROM cached_meals")
     abstract suspend fun countAll(): Int
 
+    @Query("SELECT * FROM cached_meals WHERE photoIdempotencyKey IS NOT NULL")
+    abstract suspend fun allWithIdempotencyKey(): List<CachedMealEntity>
+
+    @Query("SELECT * FROM cached_meals WHERE status = 'accepted'")
+    abstract suspend fun allAccepted(): List<CachedMealEntity>
+
     private fun CachedMealEntity.toFtsEntity(): CachedMealFtsEntity =
         CachedMealFtsEntity(
             rowId = id.hashCode(),
@@ -181,21 +267,12 @@ interface CachedDayTotalsDao {
 }
 
 @Dao
-interface CachedGlucoseDao {
-    @Query("SELECT * FROM cached_glucose WHERE readingAt BETWEEN :from AND :to ORDER BY readingAt ASC")
-    fun observeRange(from: Instant, to: Instant): Flow<List<CachedGlucoseEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(readings: List<CachedGlucoseEntity>)
-
-    @Query("DELETE FROM cached_glucose WHERE readingAt < :oldestReadingToKeep")
-    suspend fun pruneOlderThan(oldestReadingToKeep: Instant): Int
-}
-
-@Dao
 abstract class CachedProductDao {
     @Query("SELECT * FROM cached_products ORDER BY usageCount DESC, name ASC")
     abstract fun observeAll(): Flow<List<CachedProductEntity>>
+
+    @Query("SELECT * FROM cached_products ORDER BY usageCount DESC, name ASC LIMIT :limit")
+    abstract suspend fun top(limit: Int): List<CachedProductEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun upsertProductsInternal(products: List<CachedProductEntity>)
@@ -259,6 +336,9 @@ abstract class CachedTemplateDao {
     @Query("SELECT * FROM cached_templates ORDER BY usageCount DESC, name ASC")
     abstract fun observeAll(): Flow<List<CachedTemplateEntity>>
 
+    @Query("SELECT * FROM cached_templates ORDER BY usageCount DESC, name ASC LIMIT :limit")
+    abstract suspend fun top(limit: Int): List<CachedTemplateEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun upsertTemplatesInternal(templates: List<CachedTemplateEntity>)
 
@@ -317,14 +397,13 @@ abstract class CachedTemplateDao {
         CachedMealEntity::class,
         CachedMealFtsEntity::class,
         CachedDayTotalsEntity::class,
-        CachedGlucoseEntity::class,
         CachedProductEntity::class,
         CachedProductFtsEntity::class,
         CachedTemplateEntity::class,
         CachedTemplateFtsEntity::class,
         OutboxEntity::class,
     ],
-    version = 4,
+    version = 11,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)
@@ -332,7 +411,6 @@ abstract class GlucotrackerDatabase : RoomDatabase() {
     abstract fun outboxDao(): OutboxDao
     abstract fun cachedMealDao(): CachedMealDao
     abstract fun cachedDayTotalsDao(): CachedDayTotalsDao
-    abstract fun cachedGlucoseDao(): CachedGlucoseDao
     abstract fun cachedProductDao(): CachedProductDao
     abstract fun cachedTemplateDao(): CachedTemplateDao
 }

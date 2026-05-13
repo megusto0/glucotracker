@@ -31,6 +31,115 @@ class HealthResponse(BaseModel):
     db: str = Field(examples=["ok"])
 
 
+class StatsInsightResponse(BaseModel):
+    """Server-rendered stats observation."""
+
+    id: str
+    kind: Literal[
+        "consistent",
+        "weekday_pattern_sweet",
+        "time_of_day_eating",
+        "top_repeat_products",
+        "late_meal_share",
+        "today_morning",
+        "meal_predictability",
+        "evening_lows",
+        "hypo_recovery_pattern",
+        "late_meal_glucose_footprint",
+    ]
+    text: str
+    weight: Literal["primary", "secondary"]
+    computed_at: datetime
+    supporting_numbers: dict[str, str] | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsInsightsResponse(BaseModel):
+    """Stats observation list."""
+
+    insights: list[StatsInsightResponse]
+
+
+class UserGoalsResponse(BaseModel):
+    kcal_goal_per_day: int | None = None
+    protein_goal_g_per_day: int | None = None
+    carb_goal_g_per_day: int | None = None
+    fat_goal_g_per_day: int | None = None
+    goals_setup_completed: bool = False
+
+
+class UserGoalsUpdate(BaseModel):
+    kcal_goal_per_day: int | None = None
+    protein_goal_g_per_day: int | None = None
+    carb_goal_g_per_day: int | None = None
+    fat_goal_g_per_day: int | None = None
+    goals_setup_completed: bool | None = None
+
+
+class ScheduleWindowResponse(BaseModel):
+    """Rendered meal-window boundary for the current day rhythm."""
+
+    key: Literal["start", "mid", "late", "night_cap"]
+    label: str
+    start_minute: int
+    end_minute: int
+
+
+class DayAnchorHistoryResponse(BaseModel):
+    """One effective day-anchor history row."""
+
+    id: UUID
+    effective_from: date_type
+    effective_to: date_type | None = None
+    anchor_weekday_minutes: int | None = None
+    anchor_weekend_minutes: int | None = None
+    basis: str
+    recorded_at: datetime
+    duration_days: int | None = None
+    shift_from_previous_minutes: int | None = None
+
+
+class NonTypicalPeriodResponse(BaseModel):
+    """Date range excluded from automatic day-anchor learning."""
+
+    id: UUID
+    start_date: date_type
+    end_date: date_type
+    note: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ScheduleResponse(BaseModel):
+    """Current adaptive day rhythm and override state."""
+
+    anchor_weekday_minutes: int | None = None
+    anchor_weekend_minutes: int | None = None
+    effective_anchor_minutes: int | None = None
+    basis: str | None = None
+    user_override_minutes: int | None = None
+    last_shift_at: datetime | None = None
+    windows: list[ScheduleWindowResponse]
+    history: list[DayAnchorHistoryResponse] = Field(default_factory=list)
+    non_typical_periods: list[NonTypicalPeriodResponse] = Field(default_factory=list)
+
+
+class ScheduleOverrideRequest(BaseModel):
+    """Manual day-anchor override in minutes from midnight."""
+
+    anchor_minutes: int = Field(ge=0, le=1439)
+
+
+class NonTypicalPeriodCreate(BaseModel):
+    """Create a period excluded from day-anchor learning."""
+
+    start_date: date_type
+    end_date: date_type
+    note: str | None = None
+
+
 class DeleteResponse(BaseModel):
     """Generic delete response."""
 
@@ -528,6 +637,18 @@ class ApplyEstimationRunResponse(BaseModel):
     ai_run_id: UUID
 
 
+PhotoEstimateStatus = Literal["estimating", "succeeded", "failed", "timeout", "error"]
+
+
+class PhotoCaptureResponse(BaseModel):
+    """Accepted single-call photo capture response."""
+
+    meal_id: UUID
+    estimate_status: PhotoEstimateStatus
+    captured_at: datetime
+    photo_url: str
+
+
 class AIRunResponse(BaseModel):
     """AI estimation run audit row."""
 
@@ -567,16 +688,21 @@ class MealResponse(BaseModel):
     total_fiber_g: float
     total_kcal: float
     confidence: float | None = None
+    estimate_status: str | None = None
+    estimate_error: str | None = None
     nightscout_synced_at: datetime | None = None
     nightscout_id: str | None = None
     nightscout_sync_status: str = "not_synced"
     nightscout_sync_error: str | None = None
     nightscout_last_attempt_at: datetime | None = None
     thumbnail_url: str | None = None
+    postprandial_response: dict[str, Any] | None = None
+    photo_idempotency_key: str | None = None
     created_at: datetime
     updated_at: datetime
     items: list[MealItemResponse] = Field(default_factory=list)
     photos: list[PhotoResponse] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1408,10 +1534,33 @@ class EndocrinologistDailySummaryRow(BaseModel):
     insulin: str
     tir: str
     hypo: str
+    spikes: str
+    windows: str
     breakfast: str
     lunch: str
     dinner: str
     flagged: bool
+
+
+class EndocrinologistScheduleWindowResponse(BaseModel):
+    """Adaptive report window with rendered wall-clock range."""
+
+    key: str
+    label: str
+    start_minute: int
+    end_minute: int
+    start_label: str
+    end_label: str
+
+
+class EndocrinologistAdaptiveScheduleResponse(BaseModel):
+    """Adaptive rhythm banner for the report."""
+
+    title: str
+    summary: str
+    basis: str
+    windows: list[EndocrinologistScheduleWindowResponse]
+    ribbon: str
 
 
 class EndocrinologistBottomMetric(BaseModel):
@@ -1427,12 +1576,17 @@ class EndocrinologistReportResponse(BaseModel):
 
     app_name: str
     title: str
+    glucose_mode: Literal["raw", "normalized"] = "raw"
+    glucose_mode_label: str = "исходная CGM"
     period_label: str
     generated_label: str
     chips: list[ReportChipResponse]
     warning: str | None = None
     notes: list[str] = Field(default_factory=list)
     kpis: list[EndocrinologistReportKpi]
+    glycemic_profile: list[EndocrinologistReportKpi]
+    hypo_concentration_line: str
+    adaptive_schedule: EndocrinologistAdaptiveScheduleResponse
     meal_profile_rows: list[EndocrinologistMealProfileRow]
     daily_rows: list[EndocrinologistDailySummaryRow]
     shown_daily_rows: list[EndocrinologistDailySummaryRow]
@@ -1448,6 +1602,13 @@ class AdminRecalculateResponse(BaseModel):
     from_date: date_type
     to_date: date_type
     days_recalculated: int
+
+
+class AdminPostprandialResponse(BaseModel):
+    """Postprandial recompute response."""
+
+    meals_total: int
+    meals_analyzed: int
 
 
 class DashboardNutrientTotal(BaseModel):
@@ -1498,6 +1659,8 @@ class DashboardDayResponse(BaseModel):
     fat_g: float
     fiber_g: float
     meal_count: int
+    photo_count: int = 0
+    daily_average_kcal_for_period: float | None = None
     nutrients: list[DashboardNutrientTotal] = Field(default_factory=list)
 
 

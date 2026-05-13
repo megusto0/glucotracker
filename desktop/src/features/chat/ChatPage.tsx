@@ -348,6 +348,17 @@ const confirmDiscardDraft = () => {
   }
 };
 
+const confirmDeleteMeal = () => {
+  try {
+    const confirmed = window.confirm(
+      "Удалить запись? Это действие нельзя отменить.",
+    );
+    return confirmed !== false;
+  } catch {
+    return true;
+  }
+};
+
 export function ChatPage() {
   const config = useApiConfig();
   const queryClient = useQueryClient();
@@ -1227,7 +1238,11 @@ export function ChatPage() {
                     { onSuccess: (meal) => setSelectedMealId(meal.id) },
                   )
                 }
-                onDelete={(meal) => deleteMeal.mutate(meal.id)}
+                onDelete={(meal) => {
+                  if (confirmDeleteMeal()) {
+                    deleteMeal.mutate(meal.id);
+                  }
+                }}
                 onUpdateItemWeight={(item, grams) =>
                   updateItemWeight.mutate({ grams, itemId: item.id })
                 }

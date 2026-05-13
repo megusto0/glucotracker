@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Журнал</string>
+    <string name="app_name">Tarelka</string>
+    <string name="more_about_body">Tarelka — спокойный дневник еды: фиксирует блюда, показывает ритм дня и говорит наблюдениями без оценок, тревоги и медицинских обещаний.</string>
 </resources>

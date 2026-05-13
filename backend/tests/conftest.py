@@ -47,6 +47,7 @@ def api_client(
     monkeypatch.setenv("GLUCOTRACKER_TOKEN", "dev")
     monkeypatch.setenv("GLUCOTRACKER_JWT_SECRET", TEST_JWT_SECRET)
     monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "UTC")
+    monkeypatch.setenv("GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_ENABLED", "false")
     monkeypatch.setenv("PHOTO_STORAGE_DIR", str(tmp_path / "photos"))
     monkeypatch.setenv("ACTIVITY_LOG_DIR", str(tmp_path / "activity_logs"))
     get_settings.cache_clear()

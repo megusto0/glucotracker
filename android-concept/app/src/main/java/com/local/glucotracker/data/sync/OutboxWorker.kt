@@ -2,22 +2,29 @@ package com.local.glucotracker.data.sync
 
 import android.content.Context
 import android.net.ConnectivityManager
-import androidx.room.Room
+import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.local.glucotracker.data.api.MealApi
 import com.local.glucotracker.data.api.OpenApiJson
 import com.local.glucotracker.data.api.PhotoUploadClient
+import com.local.glucotracker.data.auth.AuthRepository
+import com.local.glucotracker.data.auth.TokenStore
+import com.local.glucotracker.data.auth.installAuthPlugin
+import com.local.glucotracker.data.di.DatabaseModule
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.repository.OutboxRepositoryImpl
-import com.local.glucotracker.generated.api.GlucoseApi
+import com.local.glucotracker.generated.api.AuthApi
 import com.local.glucotracker.generated.api.MealsApi
 import com.local.glucotracker.generated.api.PhotosApi
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,12 +32,14 @@ import javax.inject.Inject
 import javax.inject.Named
 import java.util.concurrent.TimeUnit
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.android.Android
-import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 interface OutboxFlushScheduler {
     fun enqueueImmediate(foregroundPhotoUpload: Boolean = false)
@@ -62,43 +71,61 @@ class OutboxWorker(
         notifier.ensureChannel()
 
         if (inputData.getBoolean(InputForegroundPhotoUpload, false) && isActiveNetworkMetered()) {
-            setForeground(notifier.photoUploadForegroundInfo())
+            runCatching {
+                setForeground(notifier.photoUploadForegroundInfo())
+            }.onFailure { throwable ->
+                Log.w(Tag, "Photo upload foreground mode unavailable; continuing in background.", throwable)
+            }
         }
 
-        val database = Room.databaseBuilder(
-            applicationContext,
-            GlucotrackerDatabase::class.java,
-            "glucotracker.db",
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        val database = DatabaseModule.createDatabase(applicationContext)
+        val baseUrl = inputData.getString(InputApiBaseUrl) ?: DefaultApiBaseUrl
+        val authRepository = AuthRepository(
+            tokenStore = TokenStore(applicationContext),
+            authApi = AuthApi(baseUrl = baseUrl),
+        )
+        val authenticatedConfig: (HttpClientConfig<*>) -> Unit = { config ->
+            config.install(HttpTimeout) {
+                requestTimeoutMillis = 30_000
+                connectTimeoutMillis = 10_000
+            }
+            config.installAuthPlugin(authRepository, clientName = "android-outbox")
+        }
         val httpClient = HttpClient(Android) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 30_000
+                connectTimeoutMillis = 10_000
+            }
             install(ContentNegotiation) {
                 json(OpenApiJson.json)
             }
-            install(DefaultRequest) {
-                header("Authorization", "Bearer dev")
-            }
+            installAuthPlugin(authRepository, clientName = "android-outbox")
         }
 
         return try {
-            val baseUrl = inputData.getString(InputApiBaseUrl) ?: DefaultApiBaseUrl
             val outboxDao = database.outboxDao()
             val repository = OutboxRepositoryImpl(database, outboxDao, NoOpOutboxFlushScheduler)
+            val reconciler = MealReconciler(outboxDao)
             val processor = OutboxProcessorImpl(
                 queueStore = RoomOutboxQueueStore(database, outboxDao),
                 outboxRepository = repository,
                 remote = KtorOutboxRemote(
-                    mealsApi = MealsApi(baseUrl = baseUrl),
-                    photosApi = PhotosApi(baseUrl = baseUrl),
-                    glucoseApi = GlucoseApi(baseUrl = baseUrl),
+                    mealsApi = MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
+                    photosApi = PhotosApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
                     photoUploadClient = PhotoUploadClient(baseUrl, httpClient),
                 ),
                 notifier = notifier,
+                reconciler = reconciler,
+                mealApi = MealApi(MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig)),
             )
-            processor.processOnce()
-            Result.success()
+            val result = OutboxWorkerProcessLock.mutex.withLock {
+                processor.processOnce()
+            }
+            if (result.shouldRetry) Result.retry() else Result.success()
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {
+            Log.w(Tag, "Outbox worker failed before the queue was fully processed.", throwable)
             Result.retry()
         } finally {
             httpClient.close()
@@ -113,12 +140,18 @@ class OutboxWorker(
         const val InputForegroundPhotoUpload = "foreground_photo_upload"
         const val InputApiBaseUrl = "api_base_url"
         const val DefaultApiBaseUrl = "http://192.168.3.6:8000"
+        private const val Tag = "OutboxWorker"
     }
+}
+
+private object OutboxWorkerProcessLock {
+    val mutex = Mutex()
 }
 
 object OutboxWorkScheduler {
     private const val ImmediateWorkName = "outbox-immediate-flush"
     private const val PeriodicWorkName = "outbox-periodic-flush"
+    private const val ActiveRecoveryWorkName = "outbox-active-recovery"
 
     private val ConnectedConstraint = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -129,31 +162,80 @@ object OutboxWorkScheduler {
         foregroundPhotoUpload: Boolean = false,
         apiBaseUrl: String = OutboxWorker.DefaultApiBaseUrl,
     ) {
-        val request = OneTimeWorkRequestBuilder<OutboxWorker>()
+        val builder = OneTimeWorkRequestBuilder<OutboxWorker>()
             .setConstraints(ConnectedConstraint)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .setInputData(
                 workDataOf(
                     OutboxWorker.InputForegroundPhotoUpload to foregroundPhotoUpload,
                     OutboxWorker.InputApiBaseUrl to apiBaseUrl,
                 ),
             )
-            .build()
+        if (foregroundPhotoUpload) {
+            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+        val request = builder.build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             ImmediateWorkName,
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            ExistingWorkPolicy.REPLACE,
             request,
         )
     }
 
     fun schedulePeriodic(context: Context) {
+        schedulePeriodic(context, OutboxWorker.DefaultApiBaseUrl)
+    }
+
+    fun schedulePeriodic(context: Context, apiBaseUrl: String) {
         val request = PeriodicWorkRequestBuilder<OutboxWorker>(15, TimeUnit.MINUTES)
             .setConstraints(ConnectedConstraint)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setInputData(workDataOf(OutboxWorker.InputApiBaseUrl to apiBaseUrl))
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             PeriodicWorkName,
             ExistingPeriodicWorkPolicy.UPDATE,
+            request,
+        )
+    }
+
+    fun scheduleActiveRecovery(context: Context) {
+        scheduleActiveRecovery(context, OutboxWorker.DefaultApiBaseUrl)
+    }
+
+    fun scheduleActiveRecovery(context: Context, apiBaseUrl: String) {
+        val request = PeriodicWorkRequestBuilder<OutboxWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(ConnectedConstraint)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setInputData(workDataOf(OutboxWorker.InputApiBaseUrl to apiBaseUrl))
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            ActiveRecoveryWorkName,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request,
+        )
+    }
+
+    fun cancelActiveRecovery(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(ActiveRecoveryWorkName)
+    }
+
+    fun enqueueSweep(context: Context) {
+        enqueueSweep(context, OutboxWorker.DefaultApiBaseUrl)
+    }
+
+    fun enqueueSweep(context: Context, apiBaseUrl: String) {
+        val request = OneTimeWorkRequestBuilder<OutboxWorker>()
+            .setConstraints(ConnectedConstraint)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setInputData(workDataOf(OutboxWorker.InputApiBaseUrl to apiBaseUrl))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "outbox-connectivity-sweep",
+            ExistingWorkPolicy.REPLACE,
             request,
         )
     }

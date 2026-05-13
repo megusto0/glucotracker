@@ -1,4 +1,4 @@
-package com.local.glucotracker.ui.feature.base
+﻿package com.local.glucotracker.ui.feature.base
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,7 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,7 +54,7 @@ fun BaseRoute(
     onOutboxQueued: (String) -> Unit,
     viewModel: BaseViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     BaseScreen(
         state = state,
         onQueryChange = viewModel::setQuery,

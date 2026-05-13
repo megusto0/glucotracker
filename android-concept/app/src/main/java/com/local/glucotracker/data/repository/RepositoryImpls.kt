@@ -1,39 +1,34 @@
 package com.local.glucotracker.data.repository
 
 import androidx.room.withTransaction
-import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.data.api.HistoryApi
 import com.local.glucotracker.data.api.MealApi
-import com.local.glucotracker.data.api.NightscoutApi
 import com.local.glucotracker.data.api.ProductsApi
 import com.local.glucotracker.data.api.StatsApi
 import com.local.glucotracker.data.api.TodayApi
 import com.local.glucotracker.data.local.CachedDayTotalsDao
 import com.local.glucotracker.data.local.CachedDayTotalsEntity
 import com.local.glucotracker.data.local.CachedMealEntity
-import com.local.glucotracker.data.local.CachedGlucoseDao
 import com.local.glucotracker.data.local.CachedMealDao
 import com.local.glucotracker.data.local.CachedProductDao
 import com.local.glucotracker.data.local.CachedTemplateDao
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.local.OutboxDao
 import com.local.glucotracker.data.mapper.buildDayState
-import com.local.glucotracker.data.mapper.toCachedEntities
 import com.local.glucotracker.data.mapper.toCachedEntity
 import com.local.glucotracker.data.mapper.toCachedTemplateEntity
 import com.local.glucotracker.data.mapper.toDayTotals
 import com.local.glucotracker.data.mapper.toDomain
 import com.local.glucotracker.data.mapper.toEntity
 import com.local.glucotracker.data.mapper.toJson
-import com.local.glucotracker.data.mapper.toRange
 import com.local.glucotracker.data.mapper.toTotalsEntity
 import com.local.glucotracker.data.sync.ConnectivityObserver
+import com.local.glucotracker.data.sync.MealReconciler
 import com.local.glucotracker.data.sync.OutboxFlushScheduler
 import com.local.glucotracker.data.sync.OutboxProcessor
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayState
 import com.local.glucotracker.domain.model.DayTotals
-import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.HistoryDay
 import com.local.glucotracker.domain.model.HistoryFilter
 import com.local.glucotracker.domain.model.HistoryPage
@@ -41,26 +36,22 @@ import com.local.glucotracker.domain.model.HistoryQuery
 import com.local.glucotracker.domain.model.HistoryStatusFilter
 import com.local.glucotracker.domain.model.Meal
 import com.local.glucotracker.domain.model.MealDraft
-import com.local.glucotracker.domain.model.NightscoutConnectionState
-import com.local.glucotracker.domain.model.NightscoutDayStatus
-import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.Source
+import com.local.glucotracker.domain.model.StatsInsight
+import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.domain.model.SyncStatus
 import com.local.glucotracker.domain.model.Template
-import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.MealRepository
-import com.local.glucotracker.domain.repository.NightscoutRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.domain.repository.ProductsRepository
 import com.local.glucotracker.domain.repository.StatsRepository
 import com.local.glucotracker.domain.repository.SyncRepository
 import com.local.glucotracker.domain.repository.TodayRepository
-import com.local.glucotracker.generated.model.FoodEpisodeResponse
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.MealStatus
 import java.util.UUID
@@ -88,6 +79,7 @@ class TodayRepositoryImpl @Inject constructor(
     private val mealDao: CachedMealDao,
     private val todayApi: TodayApi,
     private val mealApi: MealApi,
+    private val reconciler: MealReconciler,
     @Named("apiBaseUrl") private val baseUrl: String,
 ) : TodayRepository {
     override fun observeDay(date: LocalDate): Flow<CachedView<DayState>> =
@@ -103,10 +95,12 @@ class TodayRepositoryImpl @Inject constructor(
             refresh = {
                 val fetchedAt = Clock.System.now()
                 val total = fetchTotalsForDate(date, fetchedAt)
-                val meals = mealApi.listMealsForLocalDays(
+                val rawMeals = mealApi.listMealsForLocalDays(
                     fromDay = date,
                     toDay = date,
-                ).map { it.toCachedEntity(fetchedAt, baseUrl = baseUrl) }
+                )
+                reconciler.reconcileBatch(rawMeals)
+                val meals = rawMeals.map { it.toCachedEntity(fetchedAt, baseUrl = baseUrl) }
 
                 database.withTransaction {
                     if (total != null) totalsDao.upsert(total)
@@ -133,35 +127,9 @@ class TodayRepositoryImpl @Inject constructor(
 }
 
 @Singleton
-class GlucoseRepositoryImpl @Inject constructor(
-    private val glucoseDao: CachedGlucoseDao,
-    private val glucoseApi: GlucoseApi,
-) : GlucoseRepository {
-    override fun observeRange(from: Instant, to: Instant): Flow<CachedView<GlucoseRange>> =
-        localFirst(
-            cache = { glucoseDao.observeRange(from, to).map { it.toRange() } },
-            refresh = {
-                val fetchedAt = Clock.System.now()
-                val readings = glucoseApi.dashboard(from = from, to = to).toCachedEntities(fetchedAt)
-                glucoseDao.upsertAll(readings)
-            },
-        )
-
-    override fun observeCachedRange(from: Instant, to: Instant): Flow<CachedView<GlucoseRange>> =
-        glucoseDao.observeRange(from, to).map { readings ->
-            val range = readings.toRange()
-            CachedView(
-                value = range,
-                fetchedAt = readings.maxOfOrNull { it.fetchedAt },
-                isRefreshing = false,
-                source = if (range == null) Source.Empty else Source.Cache,
-            )
-        }
-}
-
-@Singleton
 class StatsRepositoryImpl @Inject constructor(
     private val totalsDao: CachedDayTotalsDao,
+    private val statsApi: StatsApi,
     private val todayApi: TodayApi,
 ) : StatsRepository {
     override fun observeDayTotals(day: LocalDate): Flow<CachedView<DayTotals>> =
@@ -174,19 +142,37 @@ class StatsRepositoryImpl @Inject constructor(
             },
         )
 
+    override suspend fun getInsights(period: StatsPeriod, slot: String): List<StatsInsight> =
+        statsApi.insights(period = period.apiValue, slot = slot).map { insight ->
+            StatsInsight(
+                id = insight.id,
+                kind = insight.kind.value,
+                text = insight.text,
+                weight = insight.weight.value,
+                supportingNumbers = insight.supportingNumbers.orEmpty(),
+            )
+        }
+
     private suspend fun fetchTotalsForDate(
         day: LocalDate,
         fetchedAt: Instant,
     ): CachedDayTotalsEntity? {
+        val balance = runCatching { statsApi.kcalBalance(day) }.getOrNull()
         if (day != currentLocalDate()) {
-            return todayApi.getDay(day)?.toTotalsEntity(fetchedAt)
+            return todayApi.getDay(day)?.toTotalsEntity(
+                fetchedAt = fetchedAt,
+                balanceResponse = balance,
+            )
         }
 
         val today = todayApi.getToday()
         return if (today.date == day) {
-            today.toTotalsEntity(fetchedAt)
+            today.toTotalsEntity(fetchedAt, balance)
         } else {
-            todayApi.getDay(day)?.toTotalsEntity(fetchedAt)
+            todayApi.getDay(day)?.toTotalsEntity(
+                fetchedAt = fetchedAt,
+                balanceResponse = balance,
+            )
         }
     }
 }
@@ -199,6 +185,8 @@ class HistoryRepositoryImpl @Inject constructor(
     private val mealApi: MealApi,
     private val historyApi: HistoryApi,
     private val connectivityObserver: ConnectivityObserver,
+    private val mealContextProvider: MealContextProvider,
+    private val reconciler: MealReconciler,
     @Named("apiBaseUrl") private val baseUrl: String,
 ) : HistoryRepository {
     override fun observeMeals(from: Instant, to: Instant): Flow<CachedView<List<Meal>>> =
@@ -206,7 +194,9 @@ class HistoryRepositoryImpl @Inject constructor(
             cache = { mealDao.observeBetween(from, to).map { meals -> meals.map { it.toDomain() } } },
             refresh = {
                 val fetchedAt = Clock.System.now()
-                mealDao.upsertAll(mealApi.listMeals(from, to).map { it.toCachedEntity(fetchedAt, baseUrl = baseUrl) })
+                val rawMeals = mealApi.listMeals(from, to)
+                reconciler.reconcileBatch(rawMeals)
+                mealDao.upsertAll(rawMeals.map { it.toCachedEntity(fetchedAt, baseUrl = baseUrl) })
             },
         )
 
@@ -218,10 +208,12 @@ class HistoryRepositoryImpl @Inject constructor(
         val to = query.toDay.nextDay().startOfDay()
         val ftsQuery = query.search.toFtsQuery()
         val status = query.status.localStatus()
-        val withCgm = HistoryFilter.WithCgm in query.filters
-        val withInsulin = HistoryFilter.WithInsulin in query.filters
+        val withCgm = false
+        val withInsulin = false
         val lowConfidence = HistoryFilter.LowConfidence in query.filters
         val photoOnly = HistoryFilter.PhotoOnly in query.filters
+        val sweetOnly = HistoryFilter.Sweet in query.filters
+        val breakfastOnly = HistoryFilter.Breakfast in query.filters
 
         return localFirst(
             cache = {
@@ -253,9 +245,12 @@ class HistoryRepositoryImpl @Inject constructor(
                     meals,
                     totalsDao.observeBetween(query.fromDay, query.toDay),
                 ) { cachedMeals, totals ->
+                    val domainMeals = cachedMeals
+                        .map { it.toDomain() }
+                        .filter { it.matchesHistoryFilters(query) }
                     buildHistoryPage(
                         query = query,
-                        meals = cachedMeals.map { it.toDomain() },
+                        meals = domainMeals,
                         totals = totals.map { it.toDayTotals() },
                     )
                 }
@@ -271,6 +266,10 @@ class HistoryRepositoryImpl @Inject constructor(
                             toDay = query.toDay,
                             limit = HistoryNetworkLimit,
                             status = query.status.remoteStatus(),
+                            sweet = sweetOnly.takeIf { it },
+                            breakfast = breakfastOnly.takeIf { it },
+                            photoOnly = photoOnly.takeIf { it },
+                            lowConfidence = lowConfidence.takeIf { it },
                         )
                     } else {
                         mealApi.listMealsForLocalDays(
@@ -279,8 +278,13 @@ class HistoryRepositoryImpl @Inject constructor(
                             q = query.search,
                             limit = HistoryNetworkLimit,
                             status = query.status.remoteStatus(),
+                            sweet = sweetOnly.takeIf { it },
+                            breakfast = breakfastOnly.takeIf { it },
+                            photoOnly = photoOnly.takeIf { it },
+                            lowConfidence = lowConfidence.takeIf { it },
                         )
                     }
+                    reconciler.reconcileBatch(mealResponses)
                     val balances = runCatching {
                         historyApi.balanceRange(query.fromDay, query.toDay)
                     }.getOrNull()
@@ -294,13 +298,10 @@ class HistoryRepositoryImpl @Inject constructor(
                         .orEmpty()
                         .map { day -> day.toTotalsEntity(fetchedAt, balances[day.date]) }
                     val contextByMealId = runCatching {
-                        historyApi.timeline(from, to)
-                    }.getOrNull()
-                        ?.episodes
-                        .orEmpty()
-                        .toMealContext()
+                        mealContextProvider.contextByMealId(from, to)
+                    }.getOrDefault(emptyMap())
                     val remoteMeals = mealResponses.map { meal ->
-                        val context = contextByMealId[meal.id.toString()] ?: MealContext()
+                        val context = contextByMealId[meal.id.toString()] ?: MealContextFlags()
                         meal.toCachedEntity(
                             fetchedAt = fetchedAt,
                             hasCgm = context.hasCgm,
@@ -313,7 +314,7 @@ class HistoryRepositoryImpl @Inject constructor(
                             withInsulin = withInsulin,
                             lowConfidence = lowConfidence,
                             photoOnly = photoOnly,
-                        )
+                        ) && meal.toDomain().matchesHistoryFilters(query)
                     }
 
                     database.withTransaction {
@@ -345,42 +346,44 @@ class ProductsRepositoryImpl @Inject constructor(
     override fun observeTemplatesLocal(): Flow<List<Template>> =
         templateDao.observeAll().map { templates -> templates.map { it.toDomain() } }
 
-    override suspend fun searchLocal(query: String, limit: Int): List<Product> {
-        val fts = query.toFtsQuery() ?: return emptyList()
-        return productDao.searchFts(fts, limit).map { it.toDomain() }
+    override suspend fun searchLocal(query: String, limit: Int, prefix: BrandPrefix?): List<Product> {
+        val rows = query.toFtsQuery()
+            ?.let { productDao.searchFts(it, limit * 3) }
+            ?: productDao.top(limit * 3)
+        return rows
+            .map { it.toDomain() }
+            .filter { product -> product.matches(prefix) }
+            .take(limit)
     }
 
     override suspend fun searchTemplatesLocal(query: String, limit: Int): List<Template> {
-        val fts = query.toFtsQuery() ?: return emptyList()
-        return templateDao.searchFts(fts, limit).map { it.toDomain() }
+        val fts = query.toFtsQuery()
+        return (fts?.let { templateDao.searchFts(it, limit) } ?: templateDao.top(limit))
+            .map { it.toDomain() }
+    }
+
+    override suspend fun refreshProducts() {
+        val fetchedAt = Clock.System.now()
+        productDao.replaceAll(productsApi.products().map { it.toCachedEntity(fetchedAt) })
+        templateDao.replaceAll(productsApi.templates().map { it.toCachedTemplateEntity(fetchedAt) })
     }
 }
 
-@Singleton
-class NightscoutRepositoryImpl @Inject constructor(
-    private val nightscoutApi: NightscoutApi,
-) : NightscoutRepository {
-    override suspend fun status(): NightscoutStatus {
-        val response = nightscoutApi.status()
-        return NightscoutStatus(
-            lastSyncAt = null,
-            queueDepth = 0,
-            connectionState = when {
-                !response.configured -> NightscoutConnectionState.Unknown
-                response.status != null -> NightscoutConnectionState.Connected
-                else -> NightscoutConnectionState.Disconnected
-            },
-        )
+private fun Product.matches(prefix: BrandPrefix?): Boolean =
+    when (prefix) {
+        null -> true
+        BrandPrefix.Bk -> brandSlug == "bk" || brandSlug == "burgerking"
+        BrandPrefix.Mc -> brandSlug == "mc" || brandSlug == "mcdonalds" || brandSlug == "macdonalds"
+        BrandPrefix.Kfc -> brandSlug == "kfc"
+        BrandPrefix.Restaurant -> kind.equals("restaurant", ignoreCase = true)
+        BrandPrefix.Product -> !kind.equals("restaurant", ignoreCase = true)
+        BrandPrefix.Template -> false
     }
 
-    override suspend fun dayStatus(date: LocalDate): NightscoutDayStatus =
-        nightscoutApi.dayStatus(date).toDomain()
-
-    override suspend fun syncToday(date: LocalDate): NightscoutDayStatus {
-        nightscoutApi.syncToday(date)
-        return dayStatus(date)
-    }
-}
+private val Product.brandSlug: String
+    get() = brand.orEmpty()
+        .lowercase()
+        .filter { it.isLetterOrDigit() }
 
 @Singleton
 class MealRepositoryImpl @Inject constructor(
@@ -407,6 +410,9 @@ class OutboxRepositoryImpl @Inject constructor(
     override fun observe(): Flow<List<OutboxItem>> =
         outboxDao.observeAll().map { items -> items.map { it.toDomain() } }
 
+    override fun observeActiveCount(): Flow<Int> =
+        outboxDao.observeQueueDepth()
+
     override suspend fun enqueue(kind: OutboxKind): OutboxItem {
         val now = Clock.System.now()
         val item = OutboxItem(
@@ -415,9 +421,13 @@ class OutboxRepositoryImpl @Inject constructor(
             state = OutboxState.Queued,
             createdAt = now,
             lastAttemptAt = null,
+            nextAttemptAt = null,
             attempts = 0,
             serverIdOnSuccess = null,
             errorMessage = null,
+            enteredCurrentStateAt = now,
+            lastErrorCode = null,
+            lastErrorMessage = null,
         )
         enqueue(item)
         return item
@@ -429,7 +439,7 @@ class OutboxRepositoryImpl @Inject constructor(
         }
         if (item.state == OutboxState.Queued) {
             flushScheduler.enqueueImmediate(
-                foregroundPhotoUpload = item.kind is OutboxKind.PhotoEstimateRequest,
+                foregroundPhotoUpload = item.kind is OutboxKind.CapturedMeal,
             )
         }
     }
@@ -440,56 +450,81 @@ class OutboxRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun markSending(id: String) {
+    override suspend fun markUploading(id: String) {
+        val now = Clock.System.now()
         database.withTransaction {
             outboxDao.updateState(
                 id = id,
-                state = OutboxState.Sending,
-                lastAttemptAt = Clock.System.now(),
+                state = OutboxState.Uploading,
+                lastAttemptAt = now,
+                nextAttemptAt = null,
                 attemptDelta = 1,
                 errorMessage = null,
+                stateChangedAt = now,
+                lastErrorCode = null,
+                lastErrorMessage = null,
             )
         }
     }
 
-    override suspend fun markSent(id: String, serverIdOnSuccess: String?) {
+    override suspend fun markConfirmed(id: String, serverIdOnSuccess: String?) {
         database.withTransaction {
-            outboxDao.markSent(id, serverIdOnSuccess, Clock.System.now())
+            outboxDao.markConfirmed(id, serverIdOnSuccess, Clock.System.now())
         }
     }
 
-    override suspend fun markConflict(id: String, errorMessage: String?) {
+    override suspend fun markStuck(id: String, errorCode: String, errorMessage: String?) {
+        val now = Clock.System.now()
         database.withTransaction {
             outboxDao.updateState(
                 id = id,
-                state = OutboxState.Conflict,
-                lastAttemptAt = Clock.System.now(),
+                state = OutboxState.Stuck,
+                lastAttemptAt = now,
+                nextAttemptAt = null,
                 attemptDelta = 0,
                 errorMessage = errorMessage,
+                stateChangedAt = now,
+                lastErrorCode = errorCode,
+                lastErrorMessage = errorMessage,
             )
         }
     }
 
-    override suspend fun markEstimating(id: String) {
+    override suspend fun requeue(
+        id: String,
+        nextAttemptAt: Instant?,
+        errorCode: String?,
+        errorMessage: String?,
+    ) {
         database.withTransaction {
-            outboxDao.updateState(
+            outboxDao.markQueuedForRetry(
                 id = id,
-                state = OutboxState.Estimating,
-                lastAttemptAt = Clock.System.now(),
-                attemptDelta = 1,
-                errorMessage = null,
+                nextAttemptAt = nextAttemptAt,
+                errorMessage = errorMessage,
+                queuedAt = Clock.System.now(),
+                lastErrorCode = errorCode,
+                lastErrorMessage = errorMessage,
             )
         }
     }
 
-    override suspend fun markEstimateReady(id: String, draft: MealDraft) {
+    override suspend fun retry(id: String) {
         database.withTransaction {
-            outboxDao.markEstimateReady(
-                id = id,
-                draftJson = draft.toJson(),
-                serverIdOnSuccess = draft.id,
-                readyAt = Clock.System.now(),
-            )
+            outboxDao.resetForManualRetry(id, Clock.System.now())
+        }
+        flushScheduler.enqueueImmediate()
+    }
+
+    override suspend fun revertNetworkStuckItems(): Int {
+        val recoverableErrorCodes = listOf(
+            "server_unreachable",
+            "no_network",
+            "connect_timeout",
+            "server_error",
+            "unknown",
+        )
+        return database.withTransaction {
+            outboxDao.revertNetworkStuck(recoverableErrorCodes, Clock.System.now())
         }
     }
 }
@@ -497,24 +532,7 @@ class OutboxRepositoryImpl @Inject constructor(
 private const val HistoryNetworkLimit = 100
 private const val LowConfidenceThreshold = 0.8
 
-private fun com.local.glucotracker.generated.model.NightscoutDayStatusResponse.toDomain(): NightscoutDayStatus =
-    NightscoutDayStatus(
-        date = date,
-        configured = configured,
-        connected = connected,
-        acceptedMealsCount = acceptedMealsCount,
-        unsyncedMealsCount = unsyncedMealsCount,
-        syncedMealsCount = syncedMealsCount,
-        failedMealsCount = failedMealsCount,
-        lastSyncAt = lastSyncAt,
-    )
-
-private data class MealContext(
-    val hasCgm: Boolean = false,
-    val hasInsulin: Boolean = false,
-)
-
-private fun buildHistoryPage(
+internal fun buildHistoryPage(
     query: HistoryQuery,
     meals: List<Meal>,
     totals: List<DayTotals>,
@@ -526,32 +544,52 @@ private fun buildHistoryPage(
     }.mapNotNull { date ->
         val dayMeals = mealsByDate[date].orEmpty()
         val dayTotals = totalsByDate[date]
-        if (dayMeals.isEmpty() && dayTotals == null) {
+        if (dayMeals.isEmpty() && (dayTotals == null || dayTotals.mealCount <= 0)) {
             null
         } else {
             HistoryDay(
                 date = date,
                 totals = dayTotals,
                 meals = dayMeals,
+                dailyAverageKcalForPeriod = dayTotals?.dailyAverageKcalForPeriod,
+                photoCount = dayTotals?.photoCount
+                    ?: dayMeals.count { meal -> meal.source == "photo" || meal.thumbnailUrl != null },
             )
         }
     }.toList()
-    return HistoryPage(days = days)
+    return HistoryPage(
+        days = days,
+        totalDays = totals.count { it.mealCount > 0 }.coerceAtLeast(days.size),
+        totalRecords = totals.sumOf { it.mealCount }.coerceAtLeast(meals.size),
+    )
 }
 
-private fun List<FoodEpisodeResponse>.toMealContext(): Map<String, MealContext> =
-    flatMap { episode ->
-        val context = MealContext(
-            hasCgm = episode.glucose.orEmpty().isNotEmpty() ||
-                episode.glucoseSummary.beforeValue != null ||
-                episode.glucoseSummary.latestValue != null ||
-                episode.glucoseSummary.minValue != null ||
-                episode.glucoseSummary.maxValue != null ||
-                episode.glucoseSummary.peakValue != null,
-            hasInsulin = episode.insulin.orEmpty().isNotEmpty(),
-        )
-        episode.meals.map { meal -> meal.id.toString() to context }
-    }.toMap()
+private fun Meal.matchesHistoryFilters(query: HistoryQuery): Boolean =
+    (!query.filters.contains(HistoryFilter.Sweet) || "sweet" in tags || hasSweetText()) &&
+        (!query.filters.contains(HistoryFilter.Breakfast) || eatenAt.hourInLocalTime() in 6..10)
+
+private fun Meal.hasSweetText(): Boolean {
+    val haystack = (listOfNotNull(title) + items.map { it.name }).joinToString(" ").lowercase()
+    return listOf(
+        "шоколад",
+        "печенье",
+        "торт",
+        "конфет",
+        "маффин",
+        "кекс",
+        "десерт",
+        "слад",
+        "cookie",
+        "chocolate",
+        "cake",
+        "candy",
+        "muffin",
+        "dessert",
+    ).any { keyword -> keyword in haystack }
+}
+
+private fun Instant.hourInLocalTime(): Int =
+    toLocalDateTime(TimeZone.currentSystemDefault()).hour
 
 private fun CachedMealEntity.matchesFilters(
     withCgm: Boolean,
@@ -585,6 +623,7 @@ private fun HistoryStatusFilter.remoteStatus(): MealStatus? =
 @Singleton
 class SyncRepositoryImpl @Inject constructor(
     private val outboxDao: OutboxDao,
+    private val flushScheduler: OutboxFlushScheduler,
     private val outboxProcessor: OutboxProcessor,
 ) : SyncRepository {
     override fun observeStatus(): Flow<SyncStatus> =
@@ -597,7 +636,11 @@ class SyncRepositoryImpl @Inject constructor(
         }
 
     override suspend fun requestSync() {
-        outboxProcessor.processOnce()
+        outboxDao.clearQueuedBackoff()
+        val result = outboxProcessor.processOnce()
+        if (result.shouldRetry) {
+            flushScheduler.enqueueImmediate()
+        }
     }
 }
 
@@ -609,11 +652,26 @@ private fun LocalDate.nextDay(): LocalDate = plus(DatePeriod(days = 1))
 private fun LocalDate.startOfDay(): Instant =
     atStartOfDayIn(TimeZone.currentSystemDefault())
 
-private fun String.toFtsQuery(): String? {
+internal fun String.toFtsQuery(): String? {
     val tokens = trim()
         .split(Regex("\\s+"))
         .map { token -> token.filter { it.isLetterOrDigit() || it == '_' } }
-        .filter { it.isNotBlank() }
+        .map { it.lowercase() }
+        .filter { it.isNotBlank() && it !in SearchStopWords }
     if (tokens.isEmpty()) return null
     return tokens.joinToString(separator = " ") { "$it*" }
 }
+
+private val SearchStopWords = setOf(
+    "с",
+    "со",
+    "и",
+    "в",
+    "во",
+    "на",
+    "из",
+    "к",
+    "ко",
+    "по",
+    "для",
+)

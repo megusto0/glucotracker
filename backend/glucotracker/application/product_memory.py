@@ -155,6 +155,8 @@ class ProductMemoryService:
         return {}
 
     def _default_label_serving_size(self, item: MealItem) -> float | None:
+        if item.grams is not None and item.grams > 0:
+            return item.grams
         evidence = self._item_evidence(item)
         for key in ("net_weight_per_unit_g", "total_weight_g"):
             value = self._as_float(evidence.get(key))
@@ -335,10 +337,8 @@ class ProductMemoryService:
             "brand": item.brand,
             "name": item.name,
             "default_grams": default_grams,
-            "default_serving_text": (
-                "1 упаковка"
-                if evidence.get("net_weight_per_unit_g") is not None
-                else item.serving_text
+            "default_serving_text": item.serving_text or (
+                f"{default_grams:g} г" if default_grams else None
             ),
             **nutrition_per_100g,
             **serving_values,

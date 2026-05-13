@@ -1,4 +1,9 @@
 import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
   ExternalLink,
   FileJson,
   Moon,
@@ -15,6 +20,7 @@ import {
   apiErrorMessage,
   type UserProfileUpdate,
 } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { useApiConfig } from "./settingsStore";
 import {
   useNightscoutSettings,
@@ -37,6 +43,8 @@ const openApiHref = (baseUrl: string) =>
 type SyncFlags = {
   sync_glucose: boolean;
   import_insulin_events: boolean;
+  allow_meal_send: boolean;
+  autosend_meals: boolean;
 };
 
 export function SettingsPage() {
@@ -58,6 +66,8 @@ export function SettingsPage() {
   const [flags, setFlags] = useState<SyncFlags>({
     sync_glucose: true,
     import_insulin_events: true,
+    allow_meal_send: true,
+    autosend_meals: false,
   });
 
   useEffect(() => {
@@ -66,6 +76,8 @@ export function SettingsPage() {
     setFlags({
       sync_glucose: nightscout.data.sync_glucose,
       import_insulin_events: nightscout.data.import_insulin_events,
+      allow_meal_send: nightscout.data.allow_meal_send,
+      autosend_meals: nightscout.data.autosend_meals,
     });
   }, [nightscout.data]);
 
@@ -75,7 +87,9 @@ export function SettingsPage() {
     nightscoutSecret.trim().length > 0 ||
     flags.sync_glucose !== (nightscout.data?.sync_glucose ?? true) ||
     flags.import_insulin_events !==
-      (nightscout.data?.import_insulin_events ?? true);
+      (nightscout.data?.import_insulin_events ?? true) ||
+    flags.allow_meal_send !== (nightscout.data?.allow_meal_send ?? true) ||
+    flags.autosend_meals !== (nightscout.data?.autosend_meals ?? false);
 
   const hasNightscoutCredentials = Boolean(
     nightscoutUrl.trim() &&
@@ -89,9 +103,9 @@ export function SettingsPage() {
     sync_glucose: flags.sync_glucose,
     show_glucose_in_journal: flags.sync_glucose,
     import_insulin_events: flags.import_insulin_events,
-    allow_meal_send: nightscout.data?.allow_meal_send ?? true,
+    allow_meal_send: flags.allow_meal_send,
     confirm_before_send: nightscout.data?.confirm_before_send ?? true,
-    autosend_meals: false,
+    autosend_meals: flags.autosend_meals,
   });
 
   const resetNightscoutForm = () => {
@@ -100,6 +114,8 @@ export function SettingsPage() {
     setFlags({
       sync_glucose: nightscout.data?.sync_glucose ?? true,
       import_insulin_events: nightscout.data?.import_insulin_events ?? true,
+      allow_meal_send: nightscout.data?.allow_meal_send ?? true,
+      autosend_meals: nightscout.data?.autosend_meals ?? false,
     });
   };
 
@@ -203,6 +219,19 @@ export function SettingsPage() {
               label="Показывать записи инсулина из Nightscout"
               onChange={(v) => setFlags((c) => ({ ...c, import_insulin_events: v }))}
             />
+            <ToggleRow
+              checked={flags.allow_meal_send}
+              description="Разрешает backend отправлять дневниковые записи еды в Nightscout. Инсулин не отправляется."
+              label="Отправлять записи еды в Nightscout"
+              onChange={(v) => setFlags((c) => ({ ...c, allow_meal_send: v, autosend_meals: v ? c.autosend_meals : false }))}
+            />
+            <ToggleRow
+              checked={flags.allow_meal_send && flags.autosend_meals}
+              description="Новые принятые записи отправляются автоматически; правки и удаления уже отправленных записей зеркалятся в Nightscout."
+              disabled={!flags.allow_meal_send}
+              label="Автосинхронизировать записи еды"
+              onChange={(v) => setFlags((c) => ({ ...c, autosend_meals: v }))}
+            />
           </div>
           {hasNightscoutChanges ? (
             <div className="row gap-8" style={{ marginTop: 12 }}>
@@ -277,6 +306,8 @@ export function SettingsPage() {
             ) : null}
           </div>
 
+          <RhythmSection />
+
           <div className="card card-pad">
             <div className="lbl">оформление</div>
             <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 14px" }}>Тема</h3>
@@ -304,6 +335,98 @@ export function SettingsPage() {
           </a>
         </div>
       </div>
+    </div>
+  );
+}
+
+const scheduleMinuteLabel = (minute?: number | null) => {
+  if (minute === null || minute === undefined) return "—";
+  const normalized = ((minute % 1440) + 1440) % 1440;
+  const hour = Math.floor(normalized / 60).toString().padStart(2, "0");
+  const min = (normalized % 60).toString().padStart(2, "0");
+  return `${hour}:${min}`;
+};
+
+function RhythmSection() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+  const [overrideValue, setOverrideValue] = useState("");
+  const schedule = useQuery({
+    queryKey: queryKeys.schedule,
+    queryFn: () => apiClient.getSchedule(config),
+    enabled: Boolean(config.token.trim()),
+  });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.schedule });
+  const putOverride = useMutation({
+    mutationFn: (anchor_minutes: number) =>
+      apiClient.putScheduleOverride(config, { anchor_minutes }),
+    onSuccess: () => {
+      setOverrideValue("");
+      void invalidate();
+    },
+  });
+  const clearOverride = useMutation({
+    mutationFn: () => apiClient.deleteScheduleOverride(config),
+    onSuccess: () => void invalidate(),
+  });
+
+  const data = schedule.data;
+  const currentAnchor = data?.effective_anchor_minutes ?? null;
+  const saveOverride = () => {
+    const [hoursRaw, minutesRaw] = overrideValue.split(":");
+    const hours = Number(hoursRaw);
+    const minutes = Number(minutesRaw);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return;
+    putOverride.mutate(hours * 60 + minutes);
+  };
+
+  return (
+    <div className="card card-pad">
+      <div className="lbl">мой ритм</div>
+      <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 10px" }}>
+        День с {scheduleMinuteLabel(currentAnchor)}
+      </h3>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12 }}>
+        Основа: {data?.basis ?? "absolute_fallback"}
+      </div>
+      <div className="col gap-6">
+        {(data?.windows ?? []).map((window) => (
+          <div className="t-row" key={window.key} style={{ justifyContent: "space-between" }}>
+            <span>{window.label}</span>
+            <span className="mono">
+              {scheduleMinuteLabel(window.start_minute)}-{scheduleMinuteLabel(window.end_minute)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="row gap-8" style={{ marginTop: 12, alignItems: "center" }}>
+        <input
+          aria-label="Начало дня"
+          onChange={(event) => setOverrideValue(event.target.value)}
+          style={{ height: 30, width: 96 }}
+          type="time"
+          value={overrideValue}
+        />
+        <button className="btn" disabled={!overrideValue || putOverride.isPending} onClick={saveOverride} type="button">
+          Сохранить
+        </button>
+      </div>
+      {data?.user_override_minutes !== null && data?.user_override_minutes !== undefined ? (
+        <button className="btn" disabled={clearOverride.isPending} onClick={() => clearOverride.mutate()} style={{ marginTop: 8 }} type="button">
+          Снять ручной ритм
+        </button>
+      ) : null}
+      {data?.history?.length ? (
+        <div style={{ marginTop: 12, fontSize: 11, color: "var(--ink-3)" }}>
+          Последнее изменение: {scheduleMinuteLabel(data.history[0].anchor_weekday_minutes)}
+        </div>
+      ) : null}
+      {schedule.error || putOverride.error || clearOverride.error ? (
+        <p style={{ fontSize: 12, color: "var(--warn)", marginTop: 8 }}>
+          {apiErrorMessage(schedule.error ?? putOverride.error ?? clearOverride.error)}
+        </p>
+      ) : null}
     </div>
   );
 }

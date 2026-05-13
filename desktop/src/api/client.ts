@@ -20,6 +20,7 @@ export type MealItemWeightReuseRequest =
 export type MealPageResponse = components["schemas"]["MealPageResponse"];
 export type MealResponse = components["schemas"]["MealResponse"];
 export type PhotoResponse = components["schemas"]["PhotoResponse"];
+export type PatternResponse = components["schemas"]["PatternResponse"];
 export type ProductResponse = components["schemas"]["ProductResponse"];
 export type ProductCreate = components["schemas"]["ProductCreate"];
 export type ProductPatch = components["schemas"]["ProductPatch"];
@@ -37,6 +38,13 @@ export type DashboardSourceBreakdownResponse =
   components["schemas"]["DashboardSourceBreakdownResponse"];
 export type DashboardDataQualityResponse =
   components["schemas"]["DashboardDataQualityResponse"];
+export type StatsInsightResponse =
+  components["schemas"]["StatsInsightResponse"];
+export type ScheduleResponse = components["schemas"]["ScheduleResponse"];
+export type ScheduleOverrideRequest =
+  components["schemas"]["ScheduleOverrideRequest"];
+export type NonTypicalPeriodCreate =
+  components["schemas"]["NonTypicalPeriodCreate"];
 export type NightscoutStatusResponse =
   components["schemas"]["NightscoutStatusResponse"];
 export type NightscoutSettingsPatch =
@@ -57,6 +65,8 @@ export type NightscoutImportRequest =
   components["schemas"]["NightscoutImportRequest"];
 export type NightscoutImportResponse =
   components["schemas"]["NightscoutImportResponse"];
+export type NightscoutLatestReadingResponse =
+  components["schemas"]["NightscoutLatestReadingResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
 export type FoodEpisodeResponse =
   components["schemas"]["FoodEpisodeResponse"];
@@ -77,6 +87,8 @@ export type ApplyEstimationRunResponse =
   components["schemas"]["ApplyEstimationRunResponse"];
 export type EndocrinologistReportResponse =
   components["schemas"]["EndocrinologistReportResponse"];
+export type ReportGlucoseMode =
+  NonNullable<EndocrinologistReportResponse["glucose_mode"]>;
 export type GlucoseDashboardResponse =
   components["schemas"]["GlucoseDashboardResponse"];
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
@@ -107,6 +119,34 @@ export type KcalBalanceRangeResponse = components["schemas"]["KcalBalanceRangeRe
 export type ApiConfig = {
   baseUrl: string;
   token: string;
+};
+
+export type LoginRequest = {
+  username: string;
+  password: string;
+};
+
+export type RefreshRequest = {
+  refresh_token: string;
+};
+
+export type LogoutRequest = RefreshRequest;
+
+export type IssuedTokensResponse = {
+  access: string;
+  refresh: string;
+  access_expires_at: string;
+  refresh_expires_at: string;
+};
+
+export type CurrentUserDetailResponse = {
+  id: string;
+  username: string;
+  role: "gluco" | "food";
+  created_at: string;
+  last_login_at?: string | null;
+  features: string[];
+  feature_flags: Record<string, unknown>;
 };
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -183,6 +223,8 @@ const runtimeFetch = (url: string, init: RequestInit) => {
   return fetch(url, init);
 };
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 const isAbortError = (error: unknown) =>
   error instanceof Error && error.name === "AbortError";
 
@@ -251,74 +293,211 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
   return payload as T;
 };
 
-export async function apiRequest<T>(
+let _connectionManagerNotify: {
+  onSuccess: () => void;
+  onFailure: (error: string) => void;
+} | null = null;
+
+let _authSessionManager: {
+  refreshAccessToken: () => Promise<string | null>;
+  clearAuthSession: () => void;
+} | null = null;
+
+export function setConnectionNotifier(notifier: {
+  onSuccess: () => void;
+  onFailure: (error: string) => void;
+} | null) {
+  _connectionManagerNotify = notifier;
+}
+
+export function setAuthSessionManager(manager: {
+  refreshAccessToken: () => Promise<string | null>;
+  clearAuthSession: () => void;
+} | null) {
+  _authSessionManager = manager;
+}
+
+async function apiRequestOnce<T>(
   path: string,
   config: ApiConfig,
   options: RequestOptions = {},
+  tokenOverride?: string,
 ): Promise<T> {
-  const controller = options.timeoutMs ? new AbortController() : undefined;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
   const headers = new Headers();
+  headers.set("X-Glucotracker-Client", "desktop");
   if (options.body !== undefined && !options.formData) {
     headers.set("Content-Type", "application/json");
   }
-  if (options.auth !== false && config.token.trim()) {
-    headers.set("Authorization", `Bearer ${config.token.trim()}`);
+  const token = tokenOverride ?? config.token;
+  if (options.auth !== false && token.trim()) {
+    headers.set("Authorization", `Bearer ${token.trim()}`);
   }
 
   const response = await withRequestTimeout(
     runtimeFetch(buildUrl(config.baseUrl, path, options.query), {
       method: options.method ?? "GET",
       headers,
-      signal: controller?.signal,
+      signal: controller.signal,
       body: options.formData
         ? options.formData
         : options.body === undefined
           ? undefined
           : JSON.stringify(options.body),
     }),
-    options.timeoutMs,
+    timeoutMs,
     controller,
   );
 
   return parseResponse<T>(response);
 }
 
+export async function apiRequest<T>(
+  path: string,
+  config: ApiConfig,
+  options: RequestOptions = {},
+): Promise<T> {
+  try {
+    const result = await apiRequestOnce<T>(path, config, options);
+    if (_connectionManagerNotify && path !== "/health") {
+      _connectionManagerNotify.onSuccess();
+    }
+    return result;
+  } catch (error: unknown) {
+    if (
+      options.auth !== false &&
+      error instanceof ApiError &&
+      error.status === 401 &&
+      _authSessionManager
+    ) {
+      const refreshedToken = await _authSessionManager.refreshAccessToken();
+      if (refreshedToken) {
+        const result = await apiRequestOnce<T>(
+          path,
+          config,
+          options,
+          refreshedToken,
+        );
+        if (_connectionManagerNotify && path !== "/health") {
+          _connectionManagerNotify.onSuccess();
+        }
+        return result;
+      }
+      _authSessionManager.clearAuthSession();
+    }
+
+    if (_connectionManagerNotify && path !== "/health") {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 403 || error.status === 404)
+      ) {
+        // do not report auth/not-found as connection failures
+      } else {
+        _connectionManagerNotify.onFailure(message);
+      }
+    }
+    throw error;
+  }
+}
+
 async function apiBlobRequest(
   path: string,
   config: ApiConfig,
   options: RequestOptions = {},
+  tokenOverride?: string,
 ): Promise<Blob> {
-  const controller = options.timeoutMs ? new AbortController() : undefined;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
   const headers = new Headers();
-  if (options.auth !== false && config.token.trim()) {
-    headers.set("Authorization", `Bearer ${config.token.trim()}`);
+  headers.set("X-Glucotracker-Client", "desktop");
+  const token = tokenOverride ?? config.token;
+  if (options.auth !== false && token.trim()) {
+    headers.set("Authorization", `Bearer ${token.trim()}`);
   }
 
-  const response = await withRequestTimeout(
-    runtimeFetch(buildUrl(config.baseUrl, path, options.query), {
-      method: options.method ?? "GET",
-      headers,
-      signal: controller?.signal,
-    }),
-    options.timeoutMs,
-    controller,
-  );
+  try {
+    let response = await withRequestTimeout(
+      runtimeFetch(buildUrl(config.baseUrl, path, options.query), {
+        method: options.method ?? "GET",
+        headers,
+        signal: controller.signal,
+      }),
+      timeoutMs,
+      controller,
+    );
 
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    const detail = contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
-    throw new ApiError(response.status, detail);
+    if (
+      options.auth !== false &&
+      response.status === 401 &&
+      _authSessionManager
+    ) {
+      const refreshedToken = await _authSessionManager.refreshAccessToken();
+      if (refreshedToken) {
+        return apiBlobRequest(path, config, options, refreshedToken);
+      }
+      _authSessionManager.clearAuthSession();
+    }
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+      const detail = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+      throw new ApiError(response.status, detail);
+    }
+
+    const bytes = await response.arrayBuffer();
+    const blob = new Blob([bytes], {
+      type: response.headers.get("content-type") ?? "application/octet-stream",
+    });
+
+    if (_connectionManagerNotify) {
+      _connectionManagerNotify.onSuccess();
+    }
+    return blob;
+  } catch (error: unknown) {
+    if (_connectionManagerNotify) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 403 || error.status === 404)
+      ) {
+        // auth errors are not connection failures
+      } else {
+        _connectionManagerNotify.onFailure(message);
+      }
+    }
+    throw error;
   }
-
-  const bytes = await response.arrayBuffer();
-  return new Blob([bytes], {
-    type: response.headers.get("content-type") ?? "application/octet-stream",
-  });
 }
 
 export const apiClient = {
+  login: (config: ApiConfig, body: LoginRequest) =>
+    apiRequest<IssuedTokensResponse>("/auth/login", config, {
+      auth: false,
+      method: "POST",
+      body,
+    }),
+
+  refreshAuthToken: (config: ApiConfig, body: RefreshRequest) =>
+    apiRequest<IssuedTokensResponse>("/auth/refresh", config, {
+      auth: false,
+      method: "POST",
+      body,
+    }),
+
+  logout: (config: ApiConfig, body: LogoutRequest) =>
+    apiRequest<void>("/auth/logout", config, {
+      auth: false,
+      method: "POST",
+      body,
+    }),
+
+  me: (config: ApiConfig) =>
+    apiRequest<CurrentUserDetailResponse>("/auth/me", config),
+
   health: (config: ApiConfig) =>
     apiRequest<HealthResponse>("/health", config, { auth: false }),
 
@@ -336,6 +515,10 @@ export const apiClient = {
       status?: string;
       from?: string;
       to?: string;
+      sweet?: boolean;
+      breakfast?: boolean;
+      photo_only?: boolean;
+      low_confidence?: boolean;
     } = {},
   ) => apiRequest<MealPageResponse>("/meals", config, { query }),
 
@@ -434,6 +617,15 @@ export const apiClient = {
     const formData = new FormData();
     formData.append("file", file);
     return apiRequest<ProductResponse>(`/products/${productId}/image`, config, {
+      method: "POST",
+      formData,
+    });
+  },
+
+  uploadPatternImage: (config: ApiConfig, patternId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiRequest<PatternResponse>(`/patterns/${patternId}/image`, config, {
       method: "POST",
       formData,
     });
@@ -547,6 +739,48 @@ export const apiClient = {
       },
     ),
 
+  getStatsInsights: (
+    config: ApiConfig,
+    period: "7d" | "14d" | "30d" = "14d",
+    slot: "stats" | "today" = "stats",
+  ) =>
+    apiRequest<{ insights: StatsInsightResponse[] }>("/stats/insights", config, {
+      query: { period, slot },
+    }),
+
+  getSchedule: (config: ApiConfig) =>
+    apiRequest<ScheduleResponse>("/me/schedule", config),
+
+  putScheduleOverride: (config: ApiConfig, body: ScheduleOverrideRequest) =>
+    apiRequest<ScheduleResponse>("/me/schedule/override", config, {
+      method: "PUT",
+      body,
+    }),
+
+  deleteScheduleOverride: (config: ApiConfig) =>
+    apiRequest<ScheduleResponse>("/me/schedule/override", config, {
+      method: "DELETE",
+    }),
+
+  createNonTypicalPeriod: (config: ApiConfig, body: NonTypicalPeriodCreate) =>
+    apiRequest<NonNullable<ScheduleResponse["non_typical_periods"]>[number]>(
+      "/me/schedule/non-typical-periods",
+      config,
+      {
+        method: "POST",
+        body,
+      },
+    ),
+
+  deleteNonTypicalPeriod: (config: ApiConfig, periodId: string) =>
+    apiRequest<{ deleted: boolean }>(
+      `/me/schedule/non-typical-periods/${periodId}`,
+      config,
+      {
+        method: "DELETE",
+      },
+    ),
+
   getNightscoutStatus: (config: ApiConfig) =>
     apiRequest<NightscoutStatusResponse>("/nightscout/status", config),
 
@@ -606,6 +840,12 @@ export const apiClient = {
       body,
       timeoutMs: 60_000,
     }),
+
+  getNightscoutLatestReading: (config: ApiConfig) =>
+    apiRequest<NightscoutLatestReadingResponse>(
+      "/nightscout/latest-reading",
+      config,
+    ),
 
   getTimeline: (config: ApiConfig, from: string, to: string) =>
     apiRequest<TimelineResponse>("/timeline", config, {
@@ -677,11 +917,16 @@ export const apiClient = {
       { method: "POST" },
     ),
 
-  getEndocrinologistReport: (config: ApiConfig, from: string, to: string) =>
+  getEndocrinologistReport: (
+    config: ApiConfig,
+    from: string,
+    to: string,
+    glucoseMode: ReportGlucoseMode = "raw",
+  ) =>
     apiRequest<EndocrinologistReportResponse>(
       "/reports/endocrinologist",
       config,
-      { query: { from, to } },
+      { query: { from, to, glucose_mode: glucoseMode } },
     ),
 
   adminRecalculate: (config: ApiConfig, from: string, to: string) =>

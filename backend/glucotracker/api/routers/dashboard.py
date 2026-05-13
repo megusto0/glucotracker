@@ -154,9 +154,16 @@ def _day_response(
     session: Session,
     user_id: UUID,
     row: DailyTotal,
+    daily_average_kcal_for_period: float | None = None,
 ) -> DashboardDayResponse:
     """Convert DailyTotal to dashboard response row."""
-    items = _accepted_items_between(session, user_id, row.date, row.date)
+    meals = _accepted_meals_between(session, user_id, row.date, row.date)
+    items = [item for meal in meals for item in meal.items]
+    photo_count = sum(
+        1
+        for meal in meals
+        if meal.photos or any(item.photo_id for item in meal.items)
+    )
     return DashboardDayResponse(
         date=row.date,
         kcal=row.kcal,
@@ -165,6 +172,8 @@ def _day_response(
         fat_g=row.fat_g,
         fiber_g=row.fiber_g,
         meal_count=row.meal_count,
+        photo_count=photo_count,
+        daily_average_kcal_for_period=daily_average_kcal_for_period,
         nutrients=_nutrient_totals_for_items(session, items),
     )
 
@@ -187,6 +196,7 @@ def _accepted_meals_between(
                 Meal.eaten_at < end,
             )
             .options(selectinload(Meal.items).selectinload(MealItem.nutrients))
+            .options(selectinload(Meal.photos))
             .order_by(Meal.eaten_at.asc())
         )
     )
@@ -338,6 +348,9 @@ def dashboard_range(
         total_fiber_g=sum(day.fiber_g for day in days),
         nutrients=_nutrient_totals_for_items(session, range_items),
     )
+    daily_average = summary.avg_kcal if summary.total_meals else None
+    for day in days:
+        day.daily_average_kcal_for_period = daily_average
     return DashboardRangeResponse(days=days, summary=summary)
 
 

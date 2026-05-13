@@ -23,10 +23,26 @@ jobs:
         working-directory: android-concept
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Require food snapshot justification
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: |
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- android-concept/app/src/test/snapshots/images | grep 'FoodFeatureSnapshotTest' || true)"
+          if [ -n "$changed" ]; then
+            body="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")"
+            if ! printf '%s\n' "$body" | grep -Eq '^Food snapshot: .+'; then
+              echo "Food snapshot PNGs changed. Add a PR body line starting with 'Food snapshot: ' explaining why."
+              echo "$changed"
+              exit 1
+            fi
+          fi
       - run: ./gradlew assembleGlucoDebug assembleFoodDebug
       - run: ./gradlew lint testGlucoDebug testFoodDebug
+      - run: ./gradlew verifyPaparazziGlucoDebug verifyPaparazziFoodDebug

@@ -94,6 +94,55 @@ def test_full_crud_lifecycle_for_meals(api_client: TestClient) -> None:
     assert api_client.get(f"/meals/{meal_id}").status_code == 404
 
 
+def test_product_database_item_recalculates_macros_for_client_weight(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Accepted product_db items use backend product math for submitted grams."""
+    with Session(db_engine) as session:
+        product = Product(
+            name="Protein brownie",
+            default_grams=60,
+            carbs_per_100g=40,
+            protein_per_100g=20,
+            fat_per_100g=10,
+            fiber_per_100g=5,
+            kcal_per_100g=330,
+        )
+        session.add(product)
+        session.commit()
+        product_id = product.id
+
+    response = api_client.post(
+        "/meals",
+        json=meal_payload(
+            title="Protein brownie",
+            items=[
+                {
+                    "name": "Protein brownie",
+                    "grams": 60,
+                    "source_kind": "product_db",
+                    "product_id": str(product_id),
+                }
+            ],
+        ),
+    )
+
+    assert response.status_code == 201
+    meal = response.json()
+    item = meal["items"][0]
+    assert item["grams"] == 60
+    assert item["carbs_g"] == 24
+    assert item["protein_g"] == 12
+    assert item["fat_g"] == 6
+    assert item["fiber_g"] == 3
+    assert item["kcal"] == 198
+    assert meal["total_carbs_g"] == 24
+    assert meal["total_protein_g"] == 12
+    assert meal["total_fat_g"] == 6
+    assert meal["total_kcal"] == 198
+
+
 def test_cascade_delete_removes_items(
     api_client: TestClient,
     db_engine: Engine,
@@ -213,6 +262,83 @@ def test_q_search_finds_note_and_item_name(api_client: TestClient) -> None:
     assert note_results["items"][0]["note"] == "contains kiwi"
     assert item_results["total"] == 1
     assert item_results["items"][0]["items"][0]["name"] == "Buckwheat"
+
+
+def test_list_meals_filters_server_side_history_tags(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """History filters use server-derived meal tags."""
+    with Session(db_engine) as session:
+        product = Product(name="Chocolate cookie", category="sweet")
+        session.add(product)
+        session.commit()
+        product_id = str(product.id)
+
+    api_client.post(
+        "/meals",
+        json=meal_payload(
+            eaten_at="2026-04-28T07:30:00Z",
+            title="Cookie breakfast",
+            items=[
+                {
+                    "name": "Cookie",
+                    "product_id": product_id,
+                    "carbs_g": 24,
+                    "protein_g": 3,
+                    "fat_g": 9,
+                    "fiber_g": 1,
+                    "kcal": 190,
+                    "source_kind": "manual",
+                }
+            ],
+        ),
+    )
+    api_client.post(
+        "/meals",
+        json=meal_payload(eaten_at="2026-04-28T13:00:00Z", title="Lunch"),
+    )
+
+    sweet = api_client.get("/meals", params={"tag": "sweet"}).json()
+    breakfast = api_client.get("/meals", params={"tag": "breakfast"}).json()
+
+    assert sweet["total"] == 1
+    assert sweet["items"][0]["tags"] == ["breakfast", "sweet"]
+    assert breakfast["total"] == 1
+    assert breakfast["items"][0]["title"] == "Cookie breakfast"
+
+
+def test_dashboard_range_includes_history_average(api_client: TestClient) -> None:
+    """History cards receive the server average for the displayed period."""
+    api_client.post("/meals", json=meal_payload(eaten_at="2026-04-28T08:00:00Z"))
+    api_client.post(
+        "/meals",
+        json=meal_payload(
+            eaten_at="2026-04-29T08:00:00Z",
+            items=[
+                {
+                    "name": "Toast",
+                    "carbs_g": 20,
+                    "protein_g": 4,
+                    "fat_g": 2,
+                    "fiber_g": 3,
+                    "kcal": 200,
+                    "source_kind": "manual",
+                }
+            ],
+        ),
+    )
+
+    response = api_client.get(
+        "/dashboard/range",
+        params={"from": "2026-04-28", "to": "2026-04-29"},
+    )
+
+    assert response.status_code == 200
+    days = response.json()["days"]
+    assert days[0]["daily_average_kcal_for_period"] == pytest.approx(164.0)
+    assert days[1]["daily_average_kcal_for_period"] == pytest.approx(164.0)
+    assert days[0]["photo_count"] == 0
 
 
 def test_replace_meal_items_recalculates_totals(api_client: TestClient) -> None:
@@ -483,16 +609,16 @@ def test_accept_label_calc_item_remembers_product(
         assert product is not None
         assert product.name == "Бисквит-сэндвич"
         assert product.brand == "Крокотыш"
-        assert product.default_grams == 30
-        assert product.default_serving_text == "1 упаковка"
+        assert product.default_grams == 60
+        assert product.default_serving_text == "×2 упаковки · 30 г каждая"
         assert product.carbs_per_100g == 62
         assert product.protein_per_100g == 4.5
         assert product.fat_per_100g == 16
         assert product.kcal_per_100g == 410
-        assert product.carbs_per_serving == 18.6
-        assert product.protein_per_serving == 1.3
-        assert product.fat_per_serving == 4.8
-        assert product.kcal_per_serving == 123
+        assert product.carbs_per_serving == 37.2
+        assert product.protein_per_serving == 2.7
+        assert product.fat_per_serving == 9.6
+        assert product.kcal_per_serving == 246
         assert product.image_url == f"/photos/{photo['id']}/file"
         assert product.usage_count == 1
 

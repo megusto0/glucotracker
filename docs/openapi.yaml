@@ -191,6 +191,20 @@ components:
       - synced_at
       title: ActivitySyncResponse
       type: object
+    AdminPostprandialResponse:
+      description: Postprandial recompute response.
+      properties:
+        meals_analyzed:
+          title: Meals Analyzed
+          type: integer
+        meals_total:
+          title: Meals Total
+          type: integer
+      required:
+      - meals_total
+      - meals_analyzed
+      title: AdminPostprandialResponse
+      type: object
     AdminRecalculateResponse:
       description: Daily total backfill response.
       properties:
@@ -423,6 +437,39 @@ components:
       - included
       title: BiasResidualPoint
       type: object
+    Body_createMealFromPhoto:
+      properties:
+        captured_at:
+          format: date-time
+          title: Captured At
+          type: string
+        context:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Context
+        idempotency_key:
+          format: uuid
+          title: Idempotency Key
+          type: string
+        photo:
+          contentMediaType: application/octet-stream
+          description: JPEG, PNG, or WebP photo.
+          title: Photo
+          type: string
+        source:
+          default: camera
+          enum:
+          - camera
+          - gallery
+          title: Source
+          type: string
+      required:
+      - photo
+      - captured_at
+      - idempotency_key
+      title: Body_createMealFromPhoto
+      type: object
     Body_uploadMealPhoto:
       properties:
         file:
@@ -433,6 +480,17 @@ components:
       required:
       - file
       title: Body_uploadMealPhoto
+      type: object
+    Body_uploadPatternImage:
+      properties:
+        file:
+          contentMediaType: application/octet-stream
+          description: JPEG, PNG, or WebP image.
+          title: File
+          type: string
+      required:
+      - file
+      title: Body_uploadPatternImage
       type: object
     Body_uploadProductImage:
       properties:
@@ -584,6 +642,11 @@ components:
         carbs_g:
           title: Carbs G
           type: number
+        daily_average_kcal_for_period:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Daily Average Kcal For Period
         date:
           format: date
           title: Date
@@ -605,6 +668,10 @@ components:
             $ref: '#/components/schemas/DashboardNutrientTotal'
           title: Nutrients
           type: array
+        photo_count:
+          default: 0
+          title: Photo Count
+          type: integer
         protein_g:
           title: Protein G
           type: number
@@ -1116,6 +1183,57 @@ components:
       - display_name
       title: DatabaseItemResponse
       type: object
+    DayAnchorHistoryResponse:
+      description: One effective day-anchor history row.
+      properties:
+        anchor_weekday_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Anchor Weekday Minutes
+        anchor_weekend_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Anchor Weekend Minutes
+        basis:
+          title: Basis
+          type: string
+        duration_days:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Duration Days
+        effective_from:
+          format: date
+          title: Effective From
+          type: string
+        effective_to:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Effective To
+        id:
+          format: uuid
+          title: Id
+          type: string
+        recorded_at:
+          format: date-time
+          title: Recorded At
+          type: string
+        shift_from_previous_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Shift From Previous Minutes
+      required:
+      - id
+      - effective_from
+      - basis
+      - recorded_at
+      title: DayAnchorHistoryResponse
+      type: object
     DeleteResponse:
       description: Generic delete response.
       properties:
@@ -1127,6 +1245,34 @@ components:
       required:
       - deleted
       title: DeleteResponse
+      type: object
+    EndocrinologistAdaptiveScheduleResponse:
+      description: Adaptive rhythm banner for the report.
+      properties:
+        basis:
+          title: Basis
+          type: string
+        ribbon:
+          title: Ribbon
+          type: string
+        summary:
+          title: Summary
+          type: string
+        title:
+          title: Title
+          type: string
+        windows:
+          items:
+            $ref: '#/components/schemas/EndocrinologistScheduleWindowResponse'
+          title: Windows
+          type: array
+      required:
+      - title
+      - summary
+      - basis
+      - windows
+      - ribbon
+      title: EndocrinologistAdaptiveScheduleResponse
       type: object
     EndocrinologistBottomMetric:
       description: Bottom strip report metric.
@@ -1177,8 +1323,14 @@ components:
         lunch:
           title: Lunch
           type: string
+        spikes:
+          title: Spikes
+          type: string
         tir:
           title: Tir
+          type: string
+        windows:
+          title: Windows
           type: string
       required:
       - date
@@ -1187,6 +1339,8 @@ components:
       - insulin
       - tir
       - hypo
+      - spikes
+      - windows
       - breakfast
       - lunch
       - dinner
@@ -1256,6 +1410,8 @@ components:
     EndocrinologistReportResponse:
       description: Presentation-ready endocrinologist report data.
       properties:
+        adaptive_schedule:
+          $ref: '#/components/schemas/EndocrinologistAdaptiveScheduleResponse'
         app_name:
           title: App Name
           type: string
@@ -1286,6 +1442,25 @@ components:
           type: string
         generated_label:
           title: Generated Label
+          type: string
+        glucose_mode:
+          default: raw
+          enum:
+          - raw
+          - normalized
+          title: Glucose Mode
+          type: string
+        glucose_mode_label:
+          default: исходная CGM
+          title: Glucose Mode Label
+          type: string
+        glycemic_profile:
+          items:
+            $ref: '#/components/schemas/EndocrinologistReportKpi'
+          title: Glycemic Profile
+          type: array
+        hypo_concentration_line:
+          title: Hypo Concentration Line
           type: string
         kpis:
           items:
@@ -1325,6 +1500,9 @@ components:
       - generated_label
       - chips
       - kpis
+      - glycemic_profile
+      - hypo_concentration_line
+      - adaptive_schedule
       - meal_profile_rows
       - daily_rows
       - shown_daily_rows
@@ -1332,6 +1510,36 @@ components:
       - bottom_metrics
       - footer
       title: EndocrinologistReportResponse
+      type: object
+    EndocrinologistScheduleWindowResponse:
+      description: Adaptive report window with rendered wall-clock range.
+      properties:
+        end_label:
+          title: End Label
+          type: string
+        end_minute:
+          title: End Minute
+          type: integer
+        key:
+          title: Key
+          type: string
+        label:
+          title: Label
+          type: string
+        start_label:
+          title: Start Label
+          type: string
+        start_minute:
+          title: Start Minute
+          type: integer
+      required:
+      - key
+      - label
+      - start_minute
+      - end_minute
+      - start_label
+      - end_label
+      title: EndocrinologistScheduleWindowResponse
       type: object
     EstimateCalculationBreakdown:
       description: Readable backend-prepared calculation evidence for one suggested
@@ -3028,6 +3236,16 @@ components:
           format: date-time
           title: Eaten At
           type: string
+        estimate_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Estimate Error
+        estimate_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Estimate Status
         id:
           format: uuid
           title: Id
@@ -3068,15 +3286,31 @@ components:
           - type: string
           - type: 'null'
           title: Note
+        photo_idempotency_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Idempotency Key
         photos:
           items:
             $ref: '#/components/schemas/PhotoResponse'
           title: Photos
           type: array
+        postprandial_response:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Postprandial Response
         source:
           $ref: '#/components/schemas/MealSource'
         status:
           $ref: '#/components/schemas/MealStatus'
+        tags:
+          items:
+            type: string
+          title: Tags
+          type: array
         thumbnail_url:
           anyOf:
           - type: string
@@ -3670,6 +3904,58 @@ components:
       required:
       - ok
       title: NightscoutTestResponse
+      type: object
+    NonTypicalPeriodCreate:
+      description: Create a period excluded from day-anchor learning.
+      properties:
+        end_date:
+          format: date
+          title: End Date
+          type: string
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        start_date:
+          format: date
+          title: Start Date
+          type: string
+      required:
+      - start_date
+      - end_date
+      title: NonTypicalPeriodCreate
+      type: object
+    NonTypicalPeriodResponse:
+      description: Date range excluded from automatic day-anchor learning.
+      properties:
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        end_date:
+          format: date
+          title: End Date
+          type: string
+        id:
+          format: uuid
+          title: Id
+          type: string
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        start_date:
+          format: date
+          title: Start Date
+          type: string
+      required:
+      - id
+      - start_date
+      - end_date
+      - created_at
+      title: NonTypicalPeriodResponse
       type: object
     NutrientDefinitionResponse:
       description: Nutrient catalog entry response.
@@ -4280,6 +4566,36 @@ components:
       - created_at
       - updated_at
       title: PatternResponse
+      type: object
+    PhotoCaptureResponse:
+      description: Accepted single-call photo capture response.
+      properties:
+        captured_at:
+          format: date-time
+          title: Captured At
+          type: string
+        estimate_status:
+          enum:
+          - estimating
+          - succeeded
+          - failed
+          - timeout
+          - error
+          title: Estimate Status
+          type: string
+        meal_id:
+          format: uuid
+          title: Meal Id
+          type: string
+        photo_url:
+          title: Photo Url
+          type: string
+      required:
+      - meal_id
+      - estimate_status
+      - captured_at
+      - photo_url
+      title: PhotoCaptureResponse
       type: object
     PhotoReferenceKind:
       description: Reference object detected or supplied for photo scale estimation.
@@ -5144,6 +5460,98 @@ components:
       - label
       title: ReportChipResponse
       type: object
+    ScheduleOverrideRequest:
+      description: Manual day-anchor override in minutes from midnight.
+      properties:
+        anchor_minutes:
+          maximum: 1439.0
+          minimum: 0.0
+          title: Anchor Minutes
+          type: integer
+      required:
+      - anchor_minutes
+      title: ScheduleOverrideRequest
+      type: object
+    ScheduleResponse:
+      description: Current adaptive day rhythm and override state.
+      properties:
+        anchor_weekday_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Anchor Weekday Minutes
+        anchor_weekend_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Anchor Weekend Minutes
+        basis:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Basis
+        effective_anchor_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Effective Anchor Minutes
+        history:
+          items:
+            $ref: '#/components/schemas/DayAnchorHistoryResponse'
+          title: History
+          type: array
+        last_shift_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Shift At
+        non_typical_periods:
+          items:
+            $ref: '#/components/schemas/NonTypicalPeriodResponse'
+          title: Non Typical Periods
+          type: array
+        user_override_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: User Override Minutes
+        windows:
+          items:
+            $ref: '#/components/schemas/ScheduleWindowResponse'
+          title: Windows
+          type: array
+      required:
+      - windows
+      title: ScheduleResponse
+      type: object
+    ScheduleWindowResponse:
+      description: Rendered meal-window boundary for the current day rhythm.
+      properties:
+        end_minute:
+          title: End Minute
+          type: integer
+        key:
+          enum:
+          - start
+          - mid
+          - late
+          - night_cap
+          title: Key
+          type: string
+        label:
+          title: Label
+          type: string
+        start_minute:
+          title: Start Minute
+          type: integer
+      required:
+      - key
+      - label
+      - start_minute
+      - end_minute
+      title: ScheduleWindowResponse
+      type: object
     SensorQualityResponse:
       description: Computed sensor quality and calibration metrics.
       properties:
@@ -5512,6 +5920,66 @@ components:
           title: Warmup Instability Score
       title: SensorWarmupMetricsResponse
       type: object
+    StatsInsightResponse:
+      description: Server-rendered stats observation.
+      properties:
+        computed_at:
+          format: date-time
+          title: Computed At
+          type: string
+        id:
+          title: Id
+          type: string
+        kind:
+          enum:
+          - consistent
+          - weekday_pattern_sweet
+          - time_of_day_eating
+          - top_repeat_products
+          - late_meal_share
+          - today_morning
+          - meal_predictability
+          - evening_lows
+          - hypo_recovery_pattern
+          - late_meal_glucose_footprint
+          title: Kind
+          type: string
+        supporting_numbers:
+          anyOf:
+          - additionalProperties:
+              type: string
+            type: object
+          - type: 'null'
+          title: Supporting Numbers
+        text:
+          title: Text
+          type: string
+        weight:
+          enum:
+          - primary
+          - secondary
+          title: Weight
+          type: string
+      required:
+      - id
+      - kind
+      - text
+      - weight
+      - computed_at
+      title: StatsInsightResponse
+      type: object
+    StatsInsightsResponse:
+      description: Stats observation list.
+      properties:
+        insights:
+          items:
+            $ref: '#/components/schemas/StatsInsightResponse'
+          title: Insights
+          type: array
+      required:
+      - insights
+      title: StatsInsightsResponse
+      type: object
     TimelineFoodResponse:
       description: Food-only history timeline response.
       properties:
@@ -5640,6 +6108,63 @@ components:
       - to_datetime
       - episodes
       title: TimelineResponse
+      type: object
+    UserGoalsResponse:
+      properties:
+        carb_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Carb Goal G Per Day
+        fat_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Fat Goal G Per Day
+        goals_setup_completed:
+          default: false
+          title: Goals Setup Completed
+          type: boolean
+        kcal_goal_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Kcal Goal Per Day
+        protein_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Protein Goal G Per Day
+      title: UserGoalsResponse
+      type: object
+    UserGoalsUpdate:
+      properties:
+        carb_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Carb Goal G Per Day
+        fat_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Fat Goal G Per Day
+        goals_setup_completed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Goals Setup Completed
+        kcal_goal_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Kcal Goal Per Day
+        protein_goal_g_per_day:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Protein Goal G Per Day
+      title: UserGoalsUpdate
       type: object
     UserProfileResponse:
       properties:
@@ -5861,6 +6386,56 @@ paths:
       summary: Sync Activity
       tags:
       - activity
+      x-glucotracker-scoped: true
+  /admin/postprandial/recompute:
+    post:
+      description: Recompute postprandial analysis for meals in a date range.
+      operationId: adminRecomputePostprandial
+      parameters:
+      - in: query
+        name: from
+        required: false
+        schema:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: From
+      - in: query
+        name: to
+        required: false
+        schema:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: To
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPostprandialResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Admin Recompute Postprandial
+      tags:
+      - admin
       x-glucotracker-scoped: true
   /admin/recalculate:
     post:
@@ -6658,6 +7233,245 @@ paths:
       summary: Health
       tags:
       - system
+  /me/goals:
+    get:
+      operationId: getMyGoals
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGoalsResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get My Goals
+      tags:
+      - users
+    put:
+      operationId: updateMyGoals
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserGoalsUpdate'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGoalsResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Update My Goals
+      tags:
+      - users
+  /me/schedule:
+    get:
+      description: Return the user's current adaptive day rhythm.
+      operationId: getMySchedule
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get My Schedule
+      tags:
+      - schedule
+  /me/schedule/non-typical-periods:
+    post:
+      description: Add a date range excluded from automatic day-anchor learning.
+      operationId: createMyNonTypicalPeriod
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NonTypicalPeriodCreate'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NonTypicalPeriodResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Create My Non Typical Period
+      tags:
+      - schedule
+  /me/schedule/non-typical-periods/{period_id}:
+    delete:
+      description: Remove one excluded schedule-learning period.
+      operationId: deleteMyNonTypicalPeriod
+      parameters:
+      - in: path
+        name: period_id
+        required: true
+        schema:
+          format: uuid
+          title: Period Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Delete My Non Typical Period
+      tags:
+      - schedule
+  /me/schedule/override:
+    delete:
+      description: Clear the manual day-anchor override and recompute the learned
+        anchor.
+      operationId: deleteMyScheduleOverride
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Delete My Schedule Override
+      tags:
+      - schedule
+    put:
+      description: Set a manual day-anchor override.
+      operationId: putMyScheduleOverride
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleOverrideRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Put My Schedule Override
+      tags:
+      - schedule
   /meal_items/{item_id}:
     delete:
       description: Delete a meal item and recalculate its meal totals.
@@ -6887,6 +7701,53 @@ paths:
           - $ref: '#/components/schemas/MealStatus'
           - type: 'null'
           title: Status
+      - in: query
+        name: tag
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - sweet
+            - breakfast
+            type: string
+          - type: 'null'
+          title: Tag
+      - in: query
+        name: sweet
+        required: false
+        schema:
+          default: false
+          title: Sweet
+          type: boolean
+      - in: query
+        name: breakfast
+        required: false
+        schema:
+          default: false
+          title: Breakfast
+          type: boolean
+      - in: query
+        name: photo_only
+        required: false
+        schema:
+          default: false
+          title: Photo Only
+          type: boolean
+      - in: query
+        name: low_confidence
+        required: false
+        schema:
+          default: false
+          title: Low Confidence
+          type: boolean
+      - in: query
+        name: idempotency_key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency Key
       - in: header
         name: authorization
         required: false
@@ -6950,6 +7811,44 @@ paths:
       summary: Create Meal
       tags:
       - meals
+      x-glucotracker-scoped: true
+  /meals/from-photo:
+    post:
+      description: Create one photo meal and let the backend own photo estimation.
+      operationId: createMealFromPhoto
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_createMealFromPhoto'
+        required: true
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoCaptureResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Create Meal From Photo
+      tags:
+      - photos
       x-glucotracker-scoped: true
   /meals/{meal_id}:
     delete:
@@ -8238,6 +9137,89 @@ paths:
       tags:
       - patterns
       x-glucotracker-scoped: true
+  /patterns/{pattern_id}/image:
+    post:
+      description: Upload and replace a local pattern or restaurant image.
+      operationId: uploadPatternImage
+      parameters:
+      - in: path
+        name: pattern_id
+        required: true
+        schema:
+          format: uuid
+          title: Pattern Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_uploadPatternImage'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatternResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Upload Pattern Image
+      tags:
+      - patterns
+      x-glucotracker-scoped: true
+  /patterns/{pattern_id}/image/file:
+    get:
+      description: Stream a locally stored pattern or restaurant image.
+      operationId: getPatternImageFile
+      parameters:
+      - in: path
+        name: pattern_id
+        required: true
+        schema:
+          format: uuid
+          title: Pattern Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Pattern Image File
+      tags:
+      - patterns
+      x-glucotracker-scoped: true
   /photos/{photo_id}:
     delete:
       description: Delete a photo row and its stored file.
@@ -8749,6 +9731,18 @@ paths:
           format: date
           title: To
           type: string
+      - description: Glucose series used for report metrics.
+        in: query
+        name: glucose_mode
+        required: false
+        schema:
+          default: raw
+          description: Glucose series used for report metrics.
+          enum:
+          - raw
+          - normalized
+          title: Glucose Mode
+          type: string
       - in: header
         name: authorization
         required: false
@@ -9090,6 +10084,58 @@ paths:
       x-glucotracker-required-feature: nightscout
       x-glucotracker-required-role: gluco
       x-glucotracker-scoped: true
+  /stats/insights:
+    get:
+      description: Return deterministic, server-rendered food pattern observations.
+      operationId: getStatsInsights
+      parameters:
+      - in: query
+        name: period
+        required: false
+        schema:
+          default: 14d
+          enum:
+          - 7d
+          - 14d
+          - 30d
+          title: Period
+          type: string
+      - in: query
+        name: slot
+        required: false
+        schema:
+          default: stats
+          enum:
+          - today
+          - stats
+          title: Slot
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsInsightsResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Stats Insights
+      tags:
+      - stats
   /timeline:
     get:
       description: Return backend-owned food episodes with local Nightscout context.

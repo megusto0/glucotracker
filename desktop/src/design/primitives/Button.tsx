@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ReactNode;
-  variant?: "primary" | "quiet" | "danger";
+  variant?: "primary" | "quiet" | "danger" | "dark";
 };
 
 export function Button({
@@ -13,6 +13,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variants = {
+    dark: "border-[var(--ink-3)] bg-[var(--ink)] text-[var(--ink-fg)] hover:border-[var(--ink)] hover:bg-[var(--ink-2)]",
     primary: "border-[var(--ink-3)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--ink-2)] hover:bg-[var(--surface-2)]",
     quiet: "border-[var(--hairline-2)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--ink-3)] hover:bg-[var(--surface-2)]",
     danger: "border-[var(--warn-soft)] bg-[var(--surface)] text-[var(--warn)] hover:border-[var(--warn)]",

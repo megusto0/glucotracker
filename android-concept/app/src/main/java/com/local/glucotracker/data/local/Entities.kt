@@ -28,7 +28,15 @@ class GlucotrackerTypeConverters {
 
     @TypeConverter
     fun stringToOutboxState(value: String?): OutboxState? =
-        value?.let { OutboxState.valueOf(it) }
+        value?.let {
+            when (it) {
+                "Sending" -> OutboxState.Uploading
+                "Sent" -> OutboxState.Confirmed
+                "EstimateReady", "Estimating" -> OutboxState.Queued
+                "Conflict" -> OutboxState.Stuck
+                else -> OutboxState.valueOf(it)
+            }
+        }
 }
 
 @Entity(
@@ -55,10 +63,15 @@ data class CachedMealEntity(
     val hasCgm: Boolean = false,
     val hasInsulin: Boolean = false,
     val itemsJson: String? = null,
+    val tagsCsv: String = "",
     val nightscoutSyncStatus: String? = null,
     val nightscoutSyncedAt: Instant? = null,
     val nightscoutLastAttemptAt: Instant? = null,
     val nightscoutSyncError: String? = null,
+    val postprandialJson: String? = null,
+    val photoIdempotencyKey: String? = null,
+    val estimateStatus: String? = null,
+    val estimateError: String? = null,
 )
 
 @Fts4(tokenizer = "unicode61")
@@ -90,20 +103,8 @@ data class CachedDayTotalsEntity(
     val fetchedAt: Instant,
     val netBalanceKcal: Double? = null,
     val tdeeKcal: Double? = null,
-)
-
-@Entity(
-    tableName = "cached_glucose",
-    indices = [Index(value = ["readingAt"])],
-)
-data class CachedGlucoseEntity(
-    @PrimaryKey val readingAt: Instant,
-    val rawValueMmolL: Double,
-    val displayValueMmolL: Double,
-    val normalizedValueMmolL: Double?,
-    val smoothedValueMmolL: Double?,
-    val flagsCsv: String,
-    val fetchedAt: Instant,
+    val photoCount: Int = 0,
+    val dailyAverageKcalForPeriod: Double? = null,
 )
 
 @Entity(tableName = "cached_products")
@@ -141,6 +142,7 @@ data class CachedProductFtsEntity(
 @Entity(tableName = "cached_templates")
 data class CachedTemplateEntity(
     @PrimaryKey val id: String,
+    val prefix: String = "",
     val name: String,
     val aliasesCsv: String,
     val imageUrl: String?,
@@ -174,9 +176,15 @@ data class OutboxEntity(
     val state: OutboxState,
     val createdAt: Instant,
     val lastAttemptAt: Instant?,
+    val nextAttemptAt: Instant?,
     val attempts: Int,
     val serverIdOnSuccess: String?,
     val errorMessage: String?,
+    val enteredCurrentStateAt: Instant,
+    val lastErrorCode: String?,
+    val lastErrorMessage: String?,
     val draftJson: String?,
     val localPhotoPath: String?,
+    val linkedMealId: String? = null,
+    val reconciledAt: Instant? = null,
 )

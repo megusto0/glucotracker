@@ -4,9 +4,11 @@ import {
   apiClient,
   apiErrorMessage,
   type EndocrinologistReportResponse,
+  type ReportGlucoseMode,
 } from "../../api/client";
 import { Button } from "../../design/primitives/Button";
 import type {
+  AdaptiveSchedule,
   DailySummaryRow,
   EndocrinologistReportData,
   MealProfileRow,
@@ -50,8 +52,10 @@ export function EndocrinologistReportSection() {
   const defaults = useMemo(initialRange, []);
   const [fromDate, setFromDate] = useState(defaults.from);
   const [toDate, setToDate] = useState(defaults.to);
+  const [glucoseMode, setGlucoseMode] = useState<ReportGlucoseMode>("raw");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const canGenerate =
@@ -63,6 +67,7 @@ export function EndocrinologistReportSection() {
 
   const generate = async () => {
     setError(null);
+    setWarning(null);
     setStatus(null);
     setIsGenerating(true);
     try {
@@ -74,12 +79,21 @@ export function EndocrinologistReportSection() {
         (settings.sync_glucose || settings.import_insulin_events)
       ) {
         setStatus("Обновляю контекст Nightscout...");
-        await apiClient.importNightscoutContext(config, {
-          from_datetime: fromDatetime,
-          to_datetime: toDatetime,
-          sync_glucose: settings.sync_glucose,
-          import_insulin_events: settings.import_insulin_events,
-        });
+        try {
+          await apiClient.importNightscoutContext(config, {
+            from_datetime: fromDatetime,
+            to_datetime: toDatetime,
+            sync_glucose: settings.sync_glucose,
+            import_insulin_events: settings.import_insulin_events,
+          });
+        } catch (err) {
+          setWarning(
+            `Nightscout не обновился: ${apiErrorMessage(
+              err,
+              "проверьте URL и сеть.",
+            )} Отчёт будет собран по локальному кэшу.`,
+          );
+        }
       }
 
       setStatus("Собираю PDF...");
@@ -87,6 +101,7 @@ export function EndocrinologistReportSection() {
         config,
         fromDate,
         toDate,
+        glucoseMode,
       );
       const reportData = mapReportData(apiReport);
       const [{ pdf }, { EndocrinologistReportPdf }] = await Promise.all([
@@ -99,7 +114,7 @@ export function EndocrinologistReportSection() {
       setStatus("Выберите место сохранения...");
       const savedPath = await savePdfFile({
         bytes,
-        defaultPath: `glucotracker-endocrinologist-${fromDate}_${toDate}.pdf`,
+        defaultPath: `glucotracker-endocrinologist-${glucoseMode}-${fromDate}_${toDate}.pdf`,
       });
       setStatus(savedPath ? "PDF сохранён." : "Сохранение отменено.");
     } catch (err) {
@@ -120,7 +135,7 @@ export function EndocrinologistReportSection() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-[160px_160px_auto] sm:items-end">
+      <div className="grid gap-4 sm:grid-cols-[160px_160px_minmax(220px,auto)_auto] sm:items-end">
         <label className="grid gap-2">
           <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
             От
@@ -143,6 +158,29 @@ export function EndocrinologistReportSection() {
             value={toDate}
           />
         </label>
+        <fieldset className="grid gap-2">
+          <legend className="text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
+            Глюкоза
+          </legend>
+          <div className="flex min-h-11 items-center gap-2">
+            <label className="inline-flex min-h-11 items-center gap-2 text-[13px] text-[var(--ink-2)]">
+              <input
+                checked={glucoseMode === "raw"}
+                onChange={() => setGlucoseMode("raw")}
+                type="radio"
+              />
+              Исходная CGM
+            </label>
+            <label className="inline-flex min-h-11 items-center gap-2 text-[13px] text-[var(--ink-2)]">
+              <input
+                checked={glucoseMode === "normalized"}
+                onChange={() => setGlucoseMode("normalized")}
+                type="radio"
+              />
+              Нормализованная
+            </label>
+          </div>
+        </fieldset>
         <Button
           disabled={!canGenerate}
           icon={<FileText size={18} />}
@@ -164,6 +202,9 @@ export function EndocrinologistReportSection() {
         </p>
       ) : null}
       {status ? <p className="text-[13px] text-[var(--muted)]">{status}</p> : null}
+      {warning ? (
+        <p className="text-[13px] text-[var(--warn)]">{warning}</p>
+      ) : null}
       {error ? <p className="text-[13px] text-[var(--danger)]">{error}</p> : null}
       <p className="text-[11px] leading-5 text-[var(--muted)]">
         Отчёт информационный: он не предлагает дозы, коррекции, болюсы или
@@ -179,12 +220,17 @@ function mapReportData(
   return {
     appName: data.app_name,
     title: data.title,
+    glucoseMode: data.glucose_mode ?? "raw",
+    glucoseModeLabel: data.glucose_mode_label ?? "исходная CGM",
     periodLabel: data.period_label,
     generatedLabel: data.generated_label,
     chips: data.chips,
     warning: data.warning ?? null,
     notes: data.notes ?? [],
     kpis: data.kpis,
+    glycemicProfile: data.glycemic_profile,
+    hypoConcentrationLine: data.hypo_concentration_line,
+    adaptiveSchedule: mapAdaptiveSchedule(data.adaptive_schedule),
     mealProfileRows: data.meal_profile_rows.map(mapMealProfileRow),
     dailyRows: data.daily_rows.map(mapDailyRow),
     shownDailyRows: data.shown_daily_rows.map(mapDailyRow),
@@ -216,10 +262,31 @@ function mapDailyRow(row: ApiDailyRow): DailySummaryRow {
     insulin: row.insulin,
     tir: row.tir,
     hypo: row.hypo,
+    spikes: row.spikes,
+    windows: row.windows,
     breakfast: row.breakfast,
     lunch: row.lunch,
     dinner: row.dinner,
     flagged: row.flagged,
+  };
+}
+
+function mapAdaptiveSchedule(
+  row: EndocrinologistReportResponse["adaptive_schedule"],
+): AdaptiveSchedule {
+  return {
+    title: row.title,
+    summary: row.summary,
+    basis: row.basis,
+    ribbon: row.ribbon,
+    windows: row.windows.map((window) => ({
+      key: window.key,
+      label: window.label,
+      startMinute: window.start_minute,
+      endMinute: window.end_minute,
+      startLabel: window.start_label,
+      endLabel: window.end_label,
+    })),
   };
 }
 

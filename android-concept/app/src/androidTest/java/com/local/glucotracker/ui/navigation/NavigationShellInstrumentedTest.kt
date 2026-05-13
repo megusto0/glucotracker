@@ -7,8 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +25,36 @@ import org.junit.Test
 class NavigationShellInstrumentedTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @Test
+    fun foodNavConfigRendersFourTabs() {
+        compose.setContent {
+            GTTheme {
+                MainScaffold(
+                    offlineBannerState = OfflineBannerUiState.Hidden,
+                    navConfig = DefaultNavConfig,
+                    navHost = { modifier, _ -> Box(modifier.testTag("main-content")) },
+                )
+            }
+        }
+
+        compose.onAllNodesWithTag("bottom-tab").assertCountEquals(4)
+    }
+
+    @Test
+    fun fiveTabNavConfigRendersFiveTabs() {
+        compose.setContent {
+            GTTheme {
+                MainScaffold(
+                    offlineBannerState = OfflineBannerUiState.Hidden,
+                    navConfig = FiveTabNavConfig,
+                    navHost = { modifier, _ -> Box(modifier.testTag("main-content")) },
+                )
+            }
+        }
+
+        compose.onAllNodesWithTag("bottom-tab").assertCountEquals(5)
+    }
 
     @Test
     fun pressingFabShowsCaptureSheet() {
@@ -40,8 +72,8 @@ class NavigationShellInstrumentedTest {
             .onNodeWithContentDescription(context.getString(R.string.nav_capture_content_description))
             .performClick()
 
-        compose.onNodeWithTag("capture-sheet").assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.capture_sheet_title)).assertIsDisplayed()
+        compose.onNodeWithTag("gt-compose-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("gt-compose-input").assertIsFocused()
     }
 
     @Test
@@ -79,4 +111,16 @@ class NavigationShellInstrumentedTest {
         }
         compose.onAllNodesWithText("Нет сети · 3 в очереди · ждут отправки").assertCountEquals(0)
     }
+}
+
+private object FiveTabNavConfig : NavConfig {
+    override val tabs = listOf(
+        TabSpec(Route.Today.route, R.string.nav_today, NavIcon.Today),
+        TabSpec("trend", R.string.stats_page_label, NavIcon.Trend),
+        TabSpec(Route.History.route, R.string.nav_history, NavIcon.History),
+        TabSpec(Route.Base.route, R.string.nav_base, NavIcon.Base),
+        TabSpec(Route.More.route, R.string.nav_more, NavIcon.More),
+    )
+    override val captureSheetEntries = DefaultCaptureSheetEntries
+    override val brand: BrandSpec? = null
 }

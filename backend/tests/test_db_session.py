@@ -3,9 +3,22 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import inspect
 from sqlalchemy import text
 
-from glucotracker.infra.db.models import DailyTotal
+from glucotracker.infra.db.models import DailyActivity, DailyTotal
+
+
+def test_owner_date_models_use_composite_primary_keys() -> None:
+    """ORM primary keys must match the forward-only owner scoping migration."""
+    assert [column.name for column in inspect(DailyTotal).primary_key] == [
+        "owner_id",
+        "date",
+    ]
+    assert [column.name for column in inspect(DailyActivity).primary_key] == [
+        "owner_id",
+        "date",
+    ]
 
 
 def test_read_only_session_rejects_orm_writes(api_client) -> None:

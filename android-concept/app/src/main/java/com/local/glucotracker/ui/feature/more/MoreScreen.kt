@@ -1,4 +1,4 @@
-package com.local.glucotracker.ui.feature.more
+﻿package com.local.glucotracker.ui.feature.more
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,7 +25,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,44 +38,49 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.glucotracker.R
-import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTPrimaryButton
-import kotlinx.datetime.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 
 @Composable
 fun MoreRoute(
     onOpenBase: () -> Unit,
+    onOpenOutbox: () -> Unit,
     viewModel: MoreViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     MoreScreen(
         state = state,
-        onSyncNightscoutNow = viewModel::syncNightscoutNow,
         onOpenBase = onOpenBase,
+        onOpenOutbox = onOpenOutbox,
         onClearCache = viewModel::clearCache,
         onUpdateGoal = viewModel::updateGoal,
         onToggleNotification = viewModel::toggleNotification,
+        onSetRhythmOverride = viewModel::setRhythmOverride,
+        onClearRhythmOverride = viewModel::clearRhythmOverride,
+        onLogout = viewModel::logout,
     )
 }
 
 @Composable
 fun MoreScreen(
     state: MoreState,
-    onSyncNightscoutNow: () -> Unit,
     onOpenBase: () -> Unit,
+    onOpenOutbox: () -> Unit,
     onClearCache: () -> Unit,
     onUpdateGoal: (field: String, value: String) -> Unit,
     onToggleNotification: (key: String) -> Unit,
+    onSetRhythmOverride: (String) -> Unit,
+    onClearRhythmOverride: () -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showCacheConfirm by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     if (showCacheConfirm) {
         CacheConfirmSheet(
@@ -85,6 +89,15 @@ fun MoreScreen(
                 showCacheConfirm = false
             },
             onDismiss = { showCacheConfirm = false },
+        )
+    }
+    if (showLogoutConfirm) {
+        LogoutConfirmSheet(
+            onConfirm = {
+                showLogoutConfirm = false
+                onLogout()
+            },
+            onDismiss = { showLogoutConfirm = false },
         )
     }
 
@@ -96,13 +109,19 @@ fun MoreScreen(
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        NightscoutSection(
-            state = state,
-            onSyncNow = onSyncNightscoutNow,
+        LocalGlucoseSurfaces.current.MoreNightscoutSection()
+
+        BaseSection(onOpenBase = onOpenBase)
+        GTHairlineDivider()
+
+        RhythmSection(
+            rhythm = state.rhythm,
+            onSetOverride = onSetRhythmOverride,
+            onClearOverride = onClearRhythmOverride,
         )
         GTHairlineDivider()
 
-        BaseSection(onOpenBase = onOpenBase)
+        SyncQueueSection(onOpenOutbox = onOpenOutbox)
         GTHairlineDivider()
 
         CacheSection(
@@ -129,75 +148,13 @@ fun MoreScreen(
         GTHairlineDivider()
 
         OtherSection()
+        GTHairlineDivider()
+
+        LogoutSection(onLogout = { showLogoutConfirm = true })
 
         Spacer(Modifier.height(10.dp))
     }
 }
-
-@Composable
-private fun NightscoutSection(
-    state: MoreState,
-    onSyncNow: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        GTKicker(text = stringResource(R.string.more_section_nightscout))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val connected = state.nightscoutStatus.connectionState == NightscoutConnectionState.Connected
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(
-                        if (connected) GT.colors.good else GT.colors.muted,
-                        CircleShape,
-                    ),
-            )
-            Text(
-                text = nightscoutStatusLabel(state, connected),
-                color = GT.colors.ink2,
-                style = GT.type.sansBody,
-            )
-            Spacer(Modifier.weight(1f))
-            state.nightscoutStatus.lastSyncAt?.let { syncAt ->
-                Text(
-                    text = formatTimestamp(syncAt),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel,
-                )
-            }
-        }
-        if (state.nightscoutStatus.queueDepth > 0) {
-            Text(
-                text = stringResource(R.string.more_ns_unsynced, state.nightscoutStatus.queueDepth),
-                color = GT.colors.warn,
-                style = GT.type.monoLabel,
-            )
-        }
-        GTOutlineButton(
-            text = if (state.isNightscoutRefreshing) {
-                stringResource(R.string.more_ns_checking)
-            } else {
-                stringResource(R.string.more_ns_sync_now)
-            },
-            onClick = onSyncNow,
-            enabled = !state.isNightscoutRefreshing,
-        )
-        GTHintBox(text = stringResource(R.string.more_ns_hint))
-    }
-}
-
-@Composable
-private fun nightscoutStatusLabel(
-    state: MoreState,
-    connected: Boolean,
-): String =
-    when {
-        state.isNightscoutRefreshing -> stringResource(R.string.more_ns_checking)
-        connected -> stringResource(R.string.more_ns_connected)
-        else -> stringResource(R.string.more_ns_disconnected)
-    }
 
 @Composable
 private fun BaseSection(onOpenBase: () -> Unit) {
@@ -214,6 +171,102 @@ private fun BaseSection(onOpenBase: () -> Unit) {
             )
         }
         GTHintBox(text = stringResource(R.string.base_desktop_hint))
+    }
+}
+
+@Composable
+private fun RhythmSection(
+    rhythm: RhythmUi?,
+    onSetOverride: (String) -> Unit,
+    onClearOverride: () -> Unit,
+) {
+    var overrideValue by remember(rhythm?.anchorMinutes) {
+        mutableStateOf(rhythm?.anchorMinutes?.minuteLabel().orEmpty())
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GTKicker(text = stringResource(R.string.more_rhythm_title))
+            Spacer(Modifier.weight(1f))
+            if (rhythm?.hasOverride == true) {
+                GTOutlineButton(
+                    text = stringResource(R.string.more_rhythm_clear),
+                    onClick = onClearOverride,
+                )
+            }
+        }
+        Text(
+            text = stringResource(
+                R.string.more_rhythm_anchor,
+                rhythm?.anchorMinutes?.minuteLabel() ?: "—",
+                rhythm?.basis ?: "absolute_fallback",
+            ),
+            color = GT.colors.ink2,
+            style = GT.type.sansBody,
+        )
+        rhythm?.windows.orEmpty().forEach { window ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = window.label,
+                    color = GT.colors.ink,
+                    style = GT.type.sansLabel,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "${window.startMinute.minuteLabel()}-${window.endMinute.minuteLabel()}",
+                    color = GT.colors.ink2,
+                    style = GT.type.monoLabel,
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(GT.space.sm)) {
+            OutlinedTextField(
+                value = overrideValue,
+                onValueChange = { overrideValue = it.take(5) },
+                label = { Text(stringResource(R.string.more_rhythm_override_label)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GT.colors.ink,
+                    unfocusedBorderColor = GT.colors.hairline2,
+                    cursorColor = GT.colors.ink,
+                ),
+                shape = GT.shapes.tag,
+            )
+            GTOutlineButton(
+                text = stringResource(R.string.record_save),
+                onClick = { onSetOverride(overrideValue) },
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
+    }
+}
+
+private fun Int.minuteLabel(): String {
+    val normalized = ((this % 1440) + 1440) % 1440
+    val hours = (normalized / 60).toString().padStart(2, '0')
+    val minutes = (normalized % 60).toString().padStart(2, '0')
+    return "$hours:$minutes"
+}
+
+@Composable
+private fun SyncQueueSection(onOpenOutbox: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GTKicker(text = stringResource(R.string.more_sync_queue_title))
+            Spacer(Modifier.weight(1f))
+            GTOutlineButton(
+                text = stringResource(R.string.more_sync_queue_open),
+                onClick = onOpenOutbox,
+            )
+        }
+        GTHintBox(text = stringResource(R.string.more_sync_queue_hint))
     }
 }
 
@@ -256,10 +309,22 @@ private fun GoalsSection(
             onValueChange = { onUpdateGoal("dailyKcal", it) },
         )
         GoalField(
+            label = stringResource(R.string.more_goals_protein),
+            value = goals.dailyProteinG?.toString().orEmpty(),
+            keyboardType = KeyboardType.Number,
+            onValueChange = { onUpdateGoal("dailyProteinG", it) },
+        )
+        GoalField(
             label = stringResource(R.string.more_goals_carbs),
             value = goals.dailyCarbsG?.toString().orEmpty(),
             keyboardType = KeyboardType.Number,
             onValueChange = { onUpdateGoal("dailyCarbsG", it) },
+        )
+        GoalField(
+            label = stringResource(R.string.more_goals_fat),
+            value = goals.dailyFatG?.toString().orEmpty(),
+            keyboardType = KeyboardType.Number,
+            onValueChange = { onUpdateGoal("dailyFatG", it) },
         )
         GoalField(
             label = stringResource(R.string.more_goals_weight),
@@ -341,7 +406,7 @@ private fun NotificationsSection(
             onCheckedChange = { onToggle("meal_reminder") },
         )
         NotificationRow(
-            label = stringResource(R.string.more_notif_ns_fail),
+            label = stringResource(R.string.more_notif_sync_fail),
             checked = notifications.nsFail,
             onCheckedChange = { onToggle("ns_fail") },
         )
@@ -351,9 +416,9 @@ private fun NotificationsSection(
             onCheckedChange = { onToggle("low_confidence") },
         )
         NotificationRow(
-            label = stringResource(R.string.more_notif_estimate_ready),
-            checked = notifications.estimateReady,
-            onCheckedChange = { onToggle("estimate_ready") },
+            label = stringResource(R.string.more_notif_outbox_stuck),
+            checked = notifications.outboxStuck,
+            onCheckedChange = { onToggle("outbox_stuck") },
         )
     }
 }
@@ -391,16 +456,42 @@ private fun NotificationRow(
 
 @Composable
 private fun OtherSection() {
+    val appName = stringResource(R.string.app_name)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         GTKicker(text = stringResource(R.string.more_section_other))
-        GTHintBox(
-            text = "${stringResource(R.string.more_other_pdf)} · ${stringResource(R.string.desktop_only_hint)}",
-        )
-        GTHintBox(
-            text = "${stringResource(R.string.more_other_txt)} · ${stringResource(R.string.desktop_only_hint)}",
-        )
-        GTHintBox(
-            text = "${stringResource(R.string.more_other_openapi)} · ${stringResource(R.string.desktop_only_hint)}",
+        OtherHint(text = stringResource(R.string.more_other_pdf))
+        OtherHint(text = stringResource(R.string.more_other_txt))
+        OtherHint(text = stringResource(R.string.more_other_openapi))
+        if (appName == "Tarelka") {
+            Text(
+                text = stringResource(R.string.more_about_title_tarelka),
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+            )
+        }
+        GTHintBox(text = stringResource(R.string.more_about_body))
+    }
+}
+
+@Composable
+private fun OtherHint(text: String) {
+    GTHintBox(text = stringResource(R.string.more_desktop_only_format, text))
+}
+@Composable
+private fun LogoutSection(onLogout: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = GT.space.touch)
+            .clickable(role = Role.Button, onClick = onLogout)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.auth_logout_row),
+            color = GT.colors.warn,
+            style = GT.type.sansBody,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -446,7 +537,43 @@ private fun CacheConfirmSheet(
     }
 }
 
-private fun formatTimestamp(instant: Instant): String {
-    val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-    return "${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}"
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogoutConfirmSheet(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = GT.colors.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.auth_logout_confirm_title),
+                color = GT.colors.ink,
+                style = GT.type.serifSection,
+            )
+            Text(
+                text = stringResource(R.string.auth_logout_confirm_body),
+                color = GT.colors.ink2,
+                style = GT.type.sansBody,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GTOutlineButton(
+                    text = stringResource(R.string.auth_logout_cancel),
+                    onClick = onDismiss,
+                )
+                GTPrimaryButton(
+                    text = stringResource(R.string.auth_logout_confirm),
+                    onClick = onConfirm,
+                )
+            }
+        }
+    }
 }

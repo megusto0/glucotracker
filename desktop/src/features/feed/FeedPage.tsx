@@ -95,15 +95,21 @@ const uniqueSortedMeals = (pages: MealResponse[][]) => {
 
 const applyQuickFilters = (items: FeedItem[], active: Set<string>) => {
   if (active.size === 0) return items;
+  const mealBackendFilters = ["sweet", "breakfast", "photoOnly", "lowConfidence"];
   return items.filter((item) => {
-    if (active.has("hasCGM")) {
-      if (item.kind === "episode" && filterValidCGM(item.episode.glucose ?? []).length > 0) return true;
+    if (mealBackendFilters.some((key) => active.has(key)) && item.kind !== "meal") {
       return false;
+    }
+    if (active.has("hasCGM")) {
+      if (item.kind !== "episode" || filterValidCGM(item.episode.glucose ?? []).length === 0) {
+        return false;
+      }
     }
     if (active.has("hasInsulin")) {
       if (item.kind === "insulin") return true;
-      if (item.kind === "episode" && (item.episode.insulin ?? []).length > 0) return true;
-      return false;
+      if (item.kind !== "episode" || (item.episode.insulin ?? []).length === 0) {
+        return false;
+      }
     }
     return true;
   });
@@ -120,6 +126,14 @@ export function FeedPage() {
     to: "",
   });
   const { active: activeChips, toggle: toggleChip } = useQuickFilterChips();
+  const activeChipKey = useMemo(
+    () => Array.from(activeChips).sort().join("|"),
+    [activeChips],
+  );
+  const hasMealBackendFilters = useMemo(
+    () => ["sweet", "breakfast", "photoOnly", "lowConfidence"].some((key) => activeChips.has(key)),
+    [activeChips],
+  );
   const range = useMemo(() => eventRange(filters), [filters.from, filters.to]);
   const nightscoutSettings = useNightscoutSettings();
   const timelineEnabled = Boolean(config.token.trim());
@@ -129,9 +143,12 @@ export function FeedPage() {
   const resyncMealNightscout = useResyncMealToNightscout();
 
   const feed = useInfiniteQuery({
-    queryKey: queryKeys.feedMeals(filters),
+    queryKey: queryKeys.feedMeals({ ...filters, quick: activeChipKey }),
     queryFn: ({ pageParam }) =>
-      apiClient.listMeals(config, buildFeedMealQuery(filters, pageParam as string | undefined)),
+      apiClient.listMeals(
+        config,
+        buildFeedMealQuery(filters, pageParam as string | undefined, activeChips),
+      ),
     enabled: Boolean(config.token.trim()),
     getNextPageParam: (lastPage) => {
       if (lastPage.items.length < FEED_PAGE_SIZE) return undefined;
@@ -149,9 +166,9 @@ export function FeedPage() {
 
   const feedItems = useMemo(() => {
     const episodes = timeline.data?.episodes ?? [];
-    const episodeMealIds = new Set(
-      episodes.flatMap((ep) => ep.meals.map((m) => m.id)),
-    );
+    const episodeMealIds = hasMealBackendFilters
+      ? new Set<string>()
+      : new Set(episodes.flatMap((ep) => ep.meals.map((m) => m.id)));
     const episodeItems: FeedItem[] = episodes.map((ep) => ({
       kind: "episode",
       id: ep.id,
@@ -170,7 +187,7 @@ export function FeedPage() {
     return [...episodeItems, ...mealItems, ...insulinItems].sort(
       (a, b) => Date.parse(b.startAt) - Date.parse(a.startAt),
     );
-  }, [meals, timeline.data]);
+  }, [hasMealBackendFilters, meals, timeline.data]);
 
   const filteredItems = useMemo(
     () => applyQuickFilters(feedItems, activeChips),

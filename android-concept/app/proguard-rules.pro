@@ -9,3 +9,4 @@
 -keep class com.local.glucotracker.data.remote.dto.** { *; }
 
 -dontwarn kotlinx.serialization.**
+-dontwarn com.google.errorprone.annotations.**

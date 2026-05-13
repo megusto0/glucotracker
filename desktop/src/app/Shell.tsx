@@ -1,12 +1,15 @@
 import { useEffect } from "react";
-import { useRoutes } from "react-router-dom";
+import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import { useSettingsStore } from "../features/settings/settingsStore";
 import { routes } from "./routes";
 import Sidebar from "../components/Sidebar";
+import { ConnectionBanner } from "../components/ConnectionBanner";
 
 export function Shell() {
   const element = useRoutes(routes);
+  const location = useLocation();
   const theme = useSettingsStore((s) => s.theme);
+  const token = useSettingsStore((s) => s.token);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -22,10 +25,31 @@ export function Shell() {
     return () => apply(false);
   }, [theme]);
 
-  return (
+  const isLoginRoute = location.pathname === "/login";
+
+  if (!token.trim() && !isLoginRoute) {
+    return (
+      <Navigate
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+        to="/login"
+      />
+    );
+  }
+
+  if (token.trim() && isLoginRoute) {
+    return <Navigate replace to="/" />;
+  }
+
+  return isLoginRoute ? (
+    <div className="gt-app">
+      <main className="gt-main">{element}</main>
+    </div>
+  ) : (
     <div className="gt-app">
       <Sidebar />
       <main className="gt-main">{element}</main>
+      <ConnectionBanner />
     </div>
   );
 }

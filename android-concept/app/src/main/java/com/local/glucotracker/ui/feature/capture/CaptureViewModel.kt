@@ -5,28 +5,23 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.data.local.PhotoStorage
-import com.local.glucotracker.domain.model.OutboxKind
-import com.local.glucotracker.domain.model.OutboxState
-import com.local.glucotracker.domain.model.OutboxItem
+import com.local.glucotracker.data.repository.BrandPrefix
+import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.MealItemPayload
+import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.Template
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.domain.repository.ProductsRepository
-import com.local.glucotracker.domain.repository.SyncRepository
+import com.local.glucotracker.ui.feature.mealentry.toProductMealKind
+import com.local.glucotracker.ui.feature.mealentry.toTemplateMealKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -36,10 +31,11 @@ import kotlinx.datetime.Instant
 class CaptureViewModel @Inject constructor(
     private val outboxRepository: OutboxRepository,
     private val productsRepository: ProductsRepository,
-    private val syncRepository: SyncRepository,
     private val photoStorage: PhotoStorage,
+    private val settingsStore: SettingsStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+    val composeSheetOpenCount = settingsStore.composeSheetOpenCount
 
     fun enqueueCameraPhoto(tempFile: File, capturedAt: Instant, onQueued: (String) -> Unit) {
         viewModelScope.launch {
@@ -49,10 +45,11 @@ class CaptureViewModel @Inject constructor(
                 }
             }
             val item = outboxRepository.enqueue(
-                OutboxKind.PhotoEstimateRequest(
+                OutboxKind.CapturedMeal(
                     localPhotoPath = storedFile.absolutePath,
                     capturedAt = capturedAt,
                     source = "photo",
+                    idempotencyKey = UUID.randomUUID().toString(),
                 ),
             )
             onQueued(item.id)
@@ -69,119 +66,62 @@ class CaptureViewModel @Inject constructor(
                 }
             }
             val item = outboxRepository.enqueue(
-                OutboxKind.PhotoEstimateRequest(
+                OutboxKind.CapturedMeal(
                     localPhotoPath = storedFile.absolutePath,
                     capturedAt = capturedAt,
                     source = "gallery",
+                    idempotencyKey = UUID.randomUUID().toString(),
                 ),
             )
             onQueued(item.id)
         }
     }
 
-    fun enqueueTextMeal(query: String, weightGrams: Double?) {
+    fun onComposeSheetOpened() {
+        viewModelScope.launch {
+            settingsStore.incrementComposeSheetOpenCount()
+        }
+    }
+
+    fun enqueueTextMeal(query: String, weightGrams: Double? = null, onQueued: (String) -> Unit = {}) {
         viewModelScope.launch {
             val now = Clock.System.now()
-            val kcal = weightGrams?.let { w -> estimateKcalForText(query, w) }
-            outboxRepository.enqueue(
-                OutboxKind.CreateMeal(
-                    payload = MealDraft(
-                        id = java.util.UUID.randomUUID().toString(),
-                        eatenAt = now,
-                        title = query.trim(),
-                        note = null,
-                        localPhotoPath = null,
-                        totalKcal = kcal ?: 0.0,
-                        totalCarbsG = 0.0,
-                        totalProteinG = 0.0,
-                        totalFatG = 0.0,
-                        totalFiberG = 0.0,
-                    ),
-                    eatenAt = now,
+            val item = outboxRepository.enqueue(
+                OutboxKind.CapturedMeal(
+                    localPhotoPath = null,
+                    capturedAt = now,
                     source = "text",
-                    items = listOf(
-                        MealItemPayload(
-                            name = query.trim(),
-                            grams = weightGrams,
-                            sourceKind = "text",
-                        ),
-                    ),
+                    optimisticName = query.trim(),
+                    optimisticWeightG = weightGrams?.toInt(),
                 ),
             )
+            onQueued(item.id)
         }
     }
 
-    fun enqueueFromTemplate(template: Template, weightGrams: Double?) {
+    fun enqueueProductMeal(product: Product, weightGrams: Double?, onQueued: (String) -> Unit = {}) {
         viewModelScope.launch {
-            val now = Clock.System.now()
-            val grams = weightGrams ?: template.defaultGrams ?: 100.0
-            val ratio = grams / (template.defaultGrams ?: 100.0)
-            outboxRepository.enqueue(
-                OutboxKind.CreateMeal(
-                    payload = MealDraft(
-                        id = java.util.UUID.randomUUID().toString(),
-                        eatenAt = now,
-                        title = template.name,
-                        note = null,
-                        localPhotoPath = null,
-                        totalKcal = (template.defaultKcal ?: 0.0) * ratio,
-                        totalCarbsG = (template.defaultCarbsG ?: 0.0) * ratio,
-                        totalProteinG = (template.defaultProteinG ?: 0.0) * ratio,
-                        totalFatG = (template.defaultFatG ?: 0.0) * ratio,
-                        totalFiberG = (template.defaultFiberG ?: 0.0) * ratio,
-                    ),
-                    eatenAt = now,
-                    source = "template",
-                    items = listOf(
-                        MealItemPayload(
-                            name = template.name,
-                            grams = grams,
-                            sourceKind = "template",
-                        ),
-                    ),
-                ),
-            )
+            val item = outboxRepository.enqueue(product.toProductMealKind(weightGrams = weightGrams))
+            onQueued(item.id)
         }
     }
 
-    fun acceptDraft(outboxId: String, estimateId: String, eatenAt: Instant, weightOverride: Double?) {
+    fun enqueueFromTemplate(template: Template, weightGrams: Double?, onQueued: (String) -> Unit = {}) {
         viewModelScope.launch {
-            val sourceItem = outboxRepository.observe().first().firstOrNull { item -> item.id == outboxId }
-            val acceptedDraft = sourceItem?.draft?.let { draft ->
-                draft.withAcceptedOverrides(eatenAt = eatenAt, weightOverride = weightOverride)
-            }
-            outboxRepository.enqueue(
-                OutboxItem(
-                    id = UUID.randomUUID().toString(),
-                    kind = OutboxKind.AcceptDraft(
-                        estimateId = estimateId,
-                        eatenAt = eatenAt,
-                        weightOverride = weightOverride,
-                        items = acceptedDraft?.items.orEmpty(),
-                    ),
-                    state = OutboxState.Queued,
-                    createdAt = Clock.System.now(),
-                    lastAttemptAt = null,
-                    attempts = 0,
-                    serverIdOnSuccess = null,
-                    errorMessage = null,
-                    draft = acceptedDraft,
-                ),
-            )
-            outboxRepository.remove(outboxId)
-            syncRepository.requestSync()
+            val item = outboxRepository.enqueue(template.toTemplateMealKind(weightGrams = weightGrams))
+            onQueued(item.id)
         }
     }
 
-    fun rejectDraft(outboxId: String) {
+    fun deletePendingCapture(outboxId: String) {
         viewModelScope.launch {
             outboxRepository.remove(outboxId)
         }
     }
 
-    fun searchProducts(query: String, callback: (List<Product>) -> Unit) {
+    fun searchProducts(query: String, prefix: BrandPrefix? = null, callback: (List<Product>) -> Unit) {
         viewModelScope.launch {
-            val results = productsRepository.searchLocal(query)
+            val results = productsRepository.searchLocal(query, prefix = prefix)
             callback(results)
         }
     }
@@ -246,89 +186,4 @@ class CaptureViewModel @Inject constructor(
         }
         return tempFile
     }
-}
-
-private fun MealDraft.withAcceptedOverrides(eatenAt: Instant, weightOverride: Double?): MealDraft {
-    val currentWeight = weightGrams ?: items.singleOrNull()?.grams
-    val scale = if (weightOverride != null && currentWeight != null && currentWeight > 0.0) {
-        weightOverride / currentWeight
-    } else {
-        null
-    }
-    return copy(
-        eatenAt = eatenAt,
-        weightGrams = weightOverride ?: weightGrams,
-        totalKcal = totalKcal.scaleBy(scale),
-        totalCarbsG = totalCarbsG.scaleBy(scale),
-        totalProteinG = totalProteinG.scaleBy(scale),
-        totalFatG = totalFatG.scaleBy(scale),
-        totalFiberG = totalFiberG.scaleBy(scale),
-        items = items.map { item -> item.scaleBy(scale, weightOverride) },
-    )
-}
-
-private fun MealItemPayload.scaleBy(scale: Double?, weightOverride: Double?): MealItemPayload =
-    if (scale == null) {
-        this
-    } else {
-        copy(
-            grams = weightOverride ?: grams?.scaleBy(scale),
-            kcal = kcal?.scaleBy(scale),
-            carbsG = carbsG?.scaleBy(scale),
-            proteinG = proteinG?.scaleBy(scale),
-            fatG = fatG?.scaleBy(scale),
-            fiberG = fiberG?.scaleBy(scale),
-        )
-    }
-
-private fun Double.scaleBy(scale: Double?): Double =
-    if (scale == null) this else kotlin.math.round(this * scale * 10.0) / 10.0
-
-@HiltViewModel
-class DraftViewModel @Inject constructor(
-    private val outboxRepository: OutboxRepository,
-) : ViewModel() {
-
-    private val _draftState = MutableStateFlow<DraftUiState>(DraftUiState.Loading)
-    val draftState: StateFlow<DraftUiState> = _draftState
-
-    fun loadDraft(outboxId: String) {
-        viewModelScope.launch {
-            outboxRepository.observe()
-                .map { items -> items.find { it.id == outboxId } }
-                .collect { item ->
-                    if (item == null) {
-                        _draftState.value = DraftUiState.NotFound
-                    } else {
-                        _draftState.value = DraftUiState.Loaded(
-                            outboxItem = item,
-                            isEstimateReady = item.state == OutboxState.EstimateReady,
-                            draft = item.draft,
-                        )
-                    }
-                }
-        }
-    }
-
-    fun retryCurrent() {
-        val loaded = _draftState.value as? DraftUiState.Loaded ?: return
-        viewModelScope.launch {
-            outboxRepository.enqueue(
-                loaded.outboxItem.copy(
-                    state = OutboxState.Queued,
-                    errorMessage = null,
-                ),
-            )
-        }
-    }
-}
-
-sealed interface DraftUiState {
-    data object Loading : DraftUiState
-    data object NotFound : DraftUiState
-    data class Loaded(
-        val outboxItem: OutboxItem,
-        val isEstimateReady: Boolean,
-        val draft: MealDraft?,
-    ) : DraftUiState
 }

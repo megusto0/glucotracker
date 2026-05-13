@@ -67,7 +67,7 @@ export const server = setupServer(
       import_insulin_events: body.import_insulin_events ?? true,
       allow_meal_send: body.allow_meal_send ?? true,
       confirm_before_send: body.confirm_before_send ?? true,
-      autosend_meals: false,
+      autosend_meals: body.autosend_meals ?? false,
     });
   }),
   http.post("http://api.test/settings/nightscout/test", () =>
@@ -124,6 +124,8 @@ export const server = setupServer(
     HttpResponse.json({
       app_name: "glucotracker",
       title: "Отчёт для эндокринолога",
+      glucose_mode: "raw",
+      glucose_mode_label: "исходная CGM",
       period_label: "Период: 28 апреля 2026",
       generated_label: "Сгенерировано: 29 апреля 2026",
       chips: [

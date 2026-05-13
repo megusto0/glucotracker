@@ -12,6 +12,7 @@ from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import EndocrinologistReportResponse
 from glucotracker.application.endocrinologist_report import (
     EndocrinologistReportService,
+    ReportGlucoseMode,
 )
 
 router = APIRouter(tags=["reports"])
@@ -28,6 +29,10 @@ def get_endocrinologist_report(
     current_user: CurrentUserDep,
     from_date: Annotated[date_type, Query(alias="from")],
     to_date: Annotated[date_type, Query(alias="to")],
+    glucose_mode: Annotated[
+        ReportGlucoseMode,
+        Query(description="Glucose series used for report metrics."),
+    ] = "raw",
 ) -> EndocrinologistReportResponse:
     """Return one-page endocrinologist report data."""
     if from_date > to_date:
@@ -39,5 +44,6 @@ def get_endocrinologist_report(
         EndocrinologistReportService(session, current_user.id).build(
             from_date,
             to_date,
+            glucose_mode,
         )
     )

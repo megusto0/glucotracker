@@ -5,9 +5,16 @@ import { useNavigate } from "react-router-dom";
 import { apiClient, type DatabaseItemResponse } from "../../api/client";
 import { FoodImage } from "../../components/FoodImage";
 import { Button } from "../../design/primitives/Button";
+import { FilterChip } from "../../design/primitives/FilterChip";
+import { Tag } from "../../design/primitives/Tag";
+import { formatKcalValue, formatMacroValue, formatSafeInt } from "../../utils/nutritionFormat";
 import { useApiConfig } from "../settings/settingsStore";
 
 type PanelMode = "detail" | "import" | "manual" | null;
+type DatabaseImageUpload = {
+  file: File;
+  item: Pick<DatabaseItemResponse, "id" | "kind">;
+};
 
 const sourceOptions = [
   { label: "Все источники", value: "all" },
@@ -56,10 +63,10 @@ const kindLabels: Record<string, string> = {
 };
 
 const numberLabel = (value?: number | null) =>
-  value === null || value === undefined ? "неизвестно" : Math.round(value);
+  value === null || value === undefined ? "неизвестно" : formatSafeInt(value);
 
 const macroLabel = (value?: number | null, suffix = "") =>
-  value === null || value === undefined ? "—" : `${Math.round(value)}${suffix}`;
+  value === null || value === undefined ? "—" : `${formatMacroValue(value)}${suffix}`;
 
 const dateLabel = (iso?: string | null) =>
   iso
@@ -131,9 +138,13 @@ export function DatabasePage() {
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
   );
-  const uploadProductImage = useMutation({
-    mutationFn: ({ file, productId }: { file: File; productId: string }) =>
-      apiClient.uploadProductImage(config, productId, file),
+  const uploadDatabaseImage = useMutation<unknown, Error, DatabaseImageUpload>({
+    mutationFn: ({ file, item }) => {
+      if (item.kind === "product") {
+        return apiClient.uploadProductImage(config, item.id, file);
+      }
+      return apiClient.uploadPatternImage(config, item.id, file);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["database-items"] });
       queryClient.invalidateQueries({ queryKey: ["autocomplete"] });
@@ -172,27 +183,26 @@ export function DatabasePage() {
             <FilterSelect label="источник" onChange={setSource} options={sourceOptions} value={source} />
             <FilterSelect label="тип" onChange={setType} options={typeOptions} value={type} />
             <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button className="btn" onClick={() => setPanelMode("import")} type="button">
-                <FileUp size={14} />Импорт
-              </button>
+              <Button icon={<FileUp size={14} />} onClick={() => setPanelMode("import")}>
+                Импорт
+              </Button>
             </div>
             <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button className="btn dark" onClick={() => setPanelMode("manual")} type="button">
-                <Plus size={14} />Добавить
-              </button>
+              <Button icon={<Plus size={14} />} onClick={() => setPanelMode("manual")} variant="primary">
+                Добавить
+              </Button>
             </div>
           </section>
 
           <nav style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 4, flexShrink: 0 }}>
             {sections.map((section) => (
-              <button
-                className={`btn ${type === section.type ? "dark" : ""}`}
+              <FilterChip
+                active={type === section.type}
                 key={section.type}
                 onClick={() => setType(section.type)}
-                type="button"
               >
                 {section.label}
-              </button>
+              </FilterChip>
             ))}
           </nav>
 
@@ -201,6 +211,7 @@ export function DatabasePage() {
             {database.isLoading ? <EmptyDatabaseState text="Загружаю базу." /> : null}
             {database.isError ? <EmptyDatabaseState text="Не удалось загрузить базу." /> : null}
             {database.isSuccess && !items.length ? <EmptyDatabaseState text="В базе ничего не найдено." /> : null}
+            {items.length ? <DatabaseHeader /> : null}
             {items.map((item) => (
               <DatabaseRow item={item} key={`${item.kind}-${item.id}`} onClick={() => openDetail(item)} selected={selectedId === item.id && panelMode === "detail"} />
             ))}
@@ -211,10 +222,10 @@ export function DatabasePage() {
           <div className="gt-rightpanel" style={{ position: "fixed", right: 0, top: 0, bottom: 0, zIndex: 10 }}>
             <button onClick={() => setPanelMode(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>×</button>
             <DatabaseDetailPanel
-              imageUploadError={uploadProductImage.error instanceof Error ? uploadProductImage.error.message : null}
-              imageUploadPending={uploadProductImage.isPending}
+              imageUploadError={uploadDatabaseImage.error instanceof Error ? uploadDatabaseImage.error.message : null}
+              imageUploadPending={uploadDatabaseImage.isPending}
               item={selectedItem}
-              onImageDrop={(file) => uploadProductImage.mutate({ file, productId: selectedItem.id })}
+              onImageDrop={(file) => uploadDatabaseImage.mutate({ file, item: selectedItem })}
               onUse={() => navigate("/")}
             />
           </div>
@@ -276,6 +287,7 @@ function DatabaseRow({
   onClick: () => void;
   selected: boolean;
 }) {
+  const metadata = databaseMetadataLabels(item);
   return (
     <button
       className={`grid w-full grid-cols-[48px_minmax(260px,1fr)_80px_80px_80px_116px_80px] items-center gap-4 border-b border-[var(--hairline)] py-4 text-left ${
@@ -294,24 +306,61 @@ function DatabaseRow({
         <span className="truncate text-[16px] text-[var(--ink)]">
           {item.display_name}
         </span>
-        <span className="truncate text-[11px] uppercase tracking-[0.06em] text-[var(--ink-3)]">
-          {item.token ?? item.subtitle ?? kindLabels[item.kind]} ·{" "}
-          {item.source_name ?? "локально"} ·{" "}
-          {item.is_verified ? "проверено" : "не проверено"}
+        <span className="flex min-w-0 flex-wrap gap-1.5">
+          {metadata.map((label) => (
+            <Tag key={label}>{label}</Tag>
+          ))}
         </span>
       </span>
       <MacroCell value={item.carbs_g} unit="У" />
       <MacroCell value={item.protein_g} unit="Б" />
       <MacroCell value={item.fat_g} unit="Ж" />
       <span className="text-right font-mono text-[18px] text-[var(--ink)]">
-        {macroLabel(item.kcal)}
+        {formatKcalValue(item.kcal)}
         <span className="ml-1 text-[11px] text-[var(--ink-3)]">ккал</span>
       </span>
       <span className="text-right font-mono text-[13px] text-[var(--ink-3)]">
-        {item.usage_count}
+        {formatSafeInt(item.usage_count)}
       </span>
     </button>
   );
+}
+
+function DatabaseHeader() {
+  return (
+    <div className="grid grid-cols-[48px_minmax(260px,1fr)_80px_80px_80px_116px_80px] items-center gap-4 border-b border-[var(--hairline)] py-2 text-[10px] uppercase tracking-[0.08em] text-[var(--ink-4)]">
+      <span />
+      <span>название</span>
+      <span className="text-right">У</span>
+      <span className="text-right">Б</span>
+      <span className="text-right">Ж</span>
+      <span className="text-right">ккал</span>
+      <span className="text-right">использ.</span>
+    </div>
+  );
+}
+
+function databaseMetadataLabels(item: DatabaseItemResponse) {
+  const rawLabels = [
+    item.token ?? item.subtitle ?? kindLabels[item.kind],
+    item.source_name ?? "локально",
+    item.is_verified ? "проверено" : "не проверено",
+  ];
+  const seen = new Set<string>();
+  return rawLabels
+    .flatMap((value) => String(value).split("·"))
+    .map((value) => value.trim())
+    .filter((value) => {
+      if (!value) {
+        return false;
+      }
+      const key = value.toLocaleLowerCase("ru-RU");
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
 }
 
 function MacroCell({ unit, value }: { unit: string; value?: number | null }) {
@@ -344,7 +393,7 @@ function DatabaseDetailPanel({
     source_file?: string | null;
     source_page?: number | null;
   };
-  const canReplaceImage = item.kind === "product" && Boolean(onImageDrop);
+  const canReplaceImage = Boolean(onImageDrop);
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!canReplaceImage) {
       return;
@@ -396,7 +445,7 @@ function DatabaseDetailPanel({
 
   return (
     <div
-      aria-label="Карточка продукта"
+      aria-label="Карточка базы"
       className={`relative flex h-full flex-col overflow-y-auto px-7 py-8 ${
         dragActive ? "bg-[var(--surface)]" : ""
       }`}
@@ -436,25 +485,19 @@ function DatabaseDetailPanel({
             <Tag>{item.is_verified ? "проверено" : "не проверено"}</Tag>
           </div>
           <div className="mt-4 border-t border-[var(--hairline)] pt-3 text-[12px] leading-relaxed text-[var(--ink-3)]">
-            {item.kind === "product" ? (
-              <>
-                <p>Перетащите jpg, png или webp на эту правую карточку.</p>
-                <p>Картинка заменится в Базе, Журнале и Истории.</p>
-                <label className="mt-3 inline-flex cursor-pointer border border-[var(--hairline)] px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--ink)]">
-                  <input
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label="Заменить картинку продукта"
-                    className="sr-only"
-                    disabled={imageUploadPending}
-                    onChange={(event) => handleFileSelect(event.target.files)}
-                    type="file"
-                  />
-                  Выбрать картинку
-                </label>
-              </>
-            ) : (
-              <p>Замена картинки сейчас доступна только для продуктов.</p>
-            )}
+            <p>Перетащите jpg, png или webp на эту правую карточку.</p>
+            <p>Картинка заменится в Базе, Журнале и Истории.</p>
+            <label className="mt-3 inline-flex cursor-pointer border border-[var(--hairline)] px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--ink)]">
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                aria-label="Заменить картинку"
+                className="sr-only"
+                disabled={imageUploadPending}
+                onChange={(event) => handleFileSelect(event.target.files)}
+                type="file"
+              />
+              Выбрать картинку
+            </label>
             {imageUploadPending ? (
               <p className="mt-2 uppercase tracking-[0.06em] text-[var(--ink)]">
                 Загружаю картинку...
@@ -655,14 +698,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-[var(--ink-3)]">{label}</span>
       <span className="break-words text-[var(--ink)]">{value}</span>
     </div>
-  );
-}
-
-function Tag({ children }: { children: string }) {
-  return (
-    <span className="border border-[var(--hairline)] px-2 py-1 text-[11px] uppercase tracking-[0.04em] text-[var(--ink)]">
-      {children}
-    </span>
   );
 }
 

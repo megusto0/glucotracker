@@ -11,6 +11,11 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
+from glucotracker.api.routers.autocomplete import (
+    _product_search_values,
+    _search_tokens,
+    _text_match_rank,
+)
 from glucotracker.api.schemas import (
     ProductCreate,
     ProductFromLabelRequest,
@@ -27,6 +32,7 @@ from glucotracker.infra.db.product_merge import (
 from glucotracker.infra.storage import product_image_store
 
 router = APIRouter(tags=["products"])
+IMAGE_RESPONSE_HEADERS = {"Cache-Control": "private, max-age=604800"}
 
 
 def _product_options() -> tuple:
@@ -239,10 +245,13 @@ def search_products(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[ProductResponse]:
     """Search products by name, brand, barcode, and aliases."""
-    term = f"%{q}%"
-    products = session.scalars(
-        select(Product)
-        .where(
+    tokens = _search_tokens(q)
+    if not tokens:
+        return []
+    token_conditions = []
+    for token in tokens:
+        term = f"%{token}%"
+        token_conditions.append(
             or_(
                 Product.name.ilike(term),
                 Product.brand.ilike(term),
@@ -250,20 +259,28 @@ def search_products(
                 Product.aliases.any(ProductAlias.alias.ilike(term)),
             )
         )
+    products = session.scalars(
+        select(Product)
+        .where(or_(*token_conditions))
         .where(_visible_product_filter(current_user.id))
         .options(*_product_options())
-        .limit(limit)
     ).all()
+    products = [
+        product
+        for product in products
+        if _text_match_rank(_product_search_values(product), q) < 9
+    ]
 
     products = sorted(
         products,
         key=lambda product: (
+            _text_match_rank(_product_search_values(product), q),
             -(product.usage_count or 0),
             1 if product.last_used_at is None else 0,
             -product.last_used_at.timestamp() if product.last_used_at else 0,
             product.name.casefold(),
         ),
-    )
+    )[:limit]
     return [_product_response(product) for product in products]
 
 
@@ -359,4 +376,6 @@ def get_product_image_file(
         full_path,
         media_type=product_image_store.content_type_for_path(full_path),
         filename=f"{product.name}{full_path.suffix}",
+        headers=IMAGE_RESPONSE_HEADERS,
+        content_disposition_type="inline",
     )

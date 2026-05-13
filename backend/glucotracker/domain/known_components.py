@@ -270,9 +270,34 @@ def _component_raw_value(component: EstimatedComponent, field: str) -> float | N
     return _round_or_none(getattr(component, COMPONENT_FIELDS[field], None))
 
 
-def _known_value(component: KnownComponent, field: str) -> float | None:
-    """Return a known component macro value."""
-    return _round_or_none(getattr(component, field))
+def _component_count_multiplier(component: EstimatedComponent) -> float:
+    """Return the visible unit count for a component replacement."""
+    if component.visual_count is None:
+        return 1.0
+    count = float(component.visual_count)
+    return count if count > 0 else 1.0
+
+
+def _known_value(
+    component: KnownComponent,
+    field: str,
+    *,
+    multiplier: float = 1.0,
+) -> float | None:
+    """Return a known component macro value scaled to visible count."""
+    value = _round_or_none(getattr(component, field))
+    if value is None:
+        return None
+    return round(value * multiplier, 1)
+
+
+def _matched_known_value(match: MatchedKnownComponent, field: str) -> float | None:
+    """Return a matched known value scaled to the Gemini component count."""
+    return _known_value(
+        match.known_component,
+        field,
+        multiplier=_component_count_multiplier(match.component),
+    )
 
 
 def _round_or_none(value: float | None) -> float | None:
@@ -365,7 +390,7 @@ def adjust_item_with_known_components(
         known_sources = [
             match
             for match in matches
-            if _known_value(match.known_component, macro_field) is not None
+            if _matched_known_value(match, macro_field) is not None
         ]
         if component_level_available:
             adjusted_totals[macro_field] = _sum_component_field(
@@ -435,7 +460,7 @@ def _sum_component_field(
     for component in components:
         match = match_by_id.get(id(component))
         value = (
-            _known_value(match.known_component, field)
+            _matched_known_value(match, field)
             if match is not None
             else None
         )
@@ -460,7 +485,7 @@ def _replacement_total_from_raw(
     adjusted = raw_total
     changed = False
     for match in matches:
-        known_value = _known_value(match.known_component, field)
+        known_value = _matched_known_value(match, field)
         component_raw = _component_raw_value(match.component, field)
         if known_value is None or component_raw is None:
             continue
@@ -492,7 +517,7 @@ def _component_rows(
         field_sources: dict[str, str] = {}
         for macro_field, raw_value in raw_values.items():
             known_value = (
-                _known_value(match.known_component, macro_field)
+                _matched_known_value(match, macro_field)
                 if match is not None
                 else None
             )
@@ -564,6 +589,31 @@ def known_component_evidence_payload(
                 "known_component_fat_g": match.known_component.fat_g,
                 "known_component_fiber_g": match.known_component.fiber_g,
                 "known_component_kcal": match.known_component.kcal,
+                "applied_count_multiplier": _component_count_multiplier(
+                    match.component
+                ),
+                "applied_known_component_grams": _known_value(
+                    match.known_component,
+                    "grams",
+                    multiplier=_component_count_multiplier(match.component),
+                ),
+                "applied_known_component_carbs_g": _matched_known_value(
+                    match,
+                    "carbs_g",
+                ),
+                "applied_known_component_protein_g": _matched_known_value(
+                    match,
+                    "protein_g",
+                ),
+                "applied_known_component_fat_g": _matched_known_value(
+                    match,
+                    "fat_g",
+                ),
+                "applied_known_component_fiber_g": _matched_known_value(
+                    match,
+                    "fiber_g",
+                ),
+                "applied_known_component_kcal": _matched_known_value(match, "kcal"),
             }
             for match in adjustment.matches
         ],

@@ -17,6 +17,12 @@ SUPPORTED_CONTENT_TYPES = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+SUPPORTED_EXTENSIONS = {
+    ".jpg": ("image/jpeg", ".jpg"),
+    ".jpeg": ("image/jpeg", ".jpg"),
+    ".png": ("image/png", ".png"),
+    ".webp": ("image/webp", ".webp"),
+}
 
 
 class PhotoStorageError(ValueError):
@@ -46,12 +52,23 @@ def _read_limited(file_obj: BinaryIO) -> bytes:
     return data
 
 
-def save_upload(file: UploadFile) -> str:
-    """Persist an uploaded image and return its storage-relative path."""
-    extension = SUPPORTED_CONTENT_TYPES.get(file.content_type or "")
+def supported_upload_type(file: UploadFile) -> tuple[str, str]:
+    """Return normalized content type and storage extension for an upload."""
+    content_type = (file.content_type or "").split(";", maxsplit=1)[0].strip().lower()
+    extension = SUPPORTED_CONTENT_TYPES.get(content_type)
+    if extension is None and file.filename:
+        inferred = SUPPORTED_EXTENSIONS.get(Path(file.filename).suffix.lower())
+        if inferred is not None:
+            content_type, extension = inferred
     if extension is None:
         msg = "unsupported photo type"
         raise PhotoStorageError(msg)
+    return content_type, extension
+
+
+def save_upload(file: UploadFile) -> str:
+    """Persist an uploaded image and return its storage-relative path."""
+    _, extension = supported_upload_type(file)
 
     photo_id = uuid.uuid4()
     now = datetime.now(UTC)

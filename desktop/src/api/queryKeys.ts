@@ -13,12 +13,16 @@ export const queryKeys = {
     ["dashboard", "source-breakdown", days] as const,
   dashboardDataQuality: (days: number) =>
     ["dashboard", "data-quality", days] as const,
+  statsInsights: (period: string, slot: string) =>
+    ["stats", "insights", period, slot] as const,
+  schedule: ["me", "schedule"] as const,
   nightscoutStatus: ["nightscout", "status"] as const,
   nightscoutSettings: ["nightscout", "settings"] as const,
   nightscoutDayStatus: (date: string) =>
     ["nightscout", "day-status", date] as const,
   nightscoutEvents: (from: string, to: string) =>
     ["nightscout", "events", from, to] as const,
+  nightscoutLatestReading: ["nightscout", "latest-reading"] as const,
   timeline: (from: string, to: string) => ["timeline", from, to] as const,
   glucoseDashboard: (from: string, to: string, mode: string) =>
     ["glucose", "dashboard", from, to, mode] as const,

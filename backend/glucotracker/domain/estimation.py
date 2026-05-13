@@ -491,6 +491,20 @@ def _label_item(
             weight_g,
         )
         serving_text = f"{weight_g:g} g"
+    elif (
+        weight_g is not None
+        and item.nutrition_per_100g is not None
+        and item.nutrition_per_100g.carbs_g is not None
+    ):
+        scaled = calculate_item_from_per_100g(
+            item.nutrition_per_100g.carbs_g,
+            item.nutrition_per_100g.protein_g,
+            item.nutrition_per_100g.fat_g,
+            item.nutrition_per_100g.fiber_g,
+            item.nutrition_per_100g.kcal,
+            weight_g,
+        )
+        serving_text = f"{weight_g:g} g"
     elif volume_ml is not None and facts.carbs_per_100ml is not None:
         scaled = _scale_per_100ml(facts, volume_ml)
         serving_text = f"{volume_ml:g} ml"
@@ -531,11 +545,21 @@ def _label_item(
         calculation_method=calculation_method,
         assumptions=assumptions,
         evidence=_base_evidence(item),
-        nutrients=_optional_nutrients_from_label(
-            item,
-            weight_g=weight_g,
-            volume_ml=volume_ml,
-        ),
+        nutrients={
+            **(
+                _optional_nutrients_from_per_100g(
+                    item,
+                    total_weight_g=float(scaled["grams"]),
+                )
+                if item.nutrition_per_100g is not None
+                else {}
+            ),
+            **_optional_nutrients_from_label(
+                item,
+                weight_g=weight_g,
+                volume_ml=volume_ml,
+            ),
+        },
     )
     normalized.warnings = _warning_payload(normalized)
     return normalized
@@ -673,6 +697,7 @@ def _known_component_nutrients(adjustment: Any) -> dict[str, Any]:
     """Return optional nutrients copied from matched known components."""
     nutrients: dict[str, Any] = {}
     for match in adjustment.matches:
+        multiplier = _component_count_multiplier(match.component)
         for code, value in (match.known_component.nutrients_json or {}).items():
             if code in {"component_type", "kind"}:
                 continue
@@ -681,12 +706,30 @@ def _known_component_nutrients(adjustment: Any) -> dict[str, Any]:
                     "source_kind": match.known_component.source_kind,
                     **value,
                 }
+                if isinstance(nutrients[code].get("amount"), (int, float)):
+                    nutrients[code]["amount"] = round(
+                        float(nutrients[code]["amount"]) * multiplier,
+                        1,
+                    )
             else:
                 nutrients[code] = {
-                    "amount": value,
+                    "amount": (
+                        round(float(value) * multiplier, 1)
+                        if isinstance(value, (int, float))
+                        else value
+                    ),
                     "source_kind": match.known_component.source_kind,
                 }
     return nutrients
+
+
+def _component_count_multiplier(component: Any) -> float:
+    """Return the visible unit count for copied component nutrients."""
+    count = getattr(component, "visual_count", None)
+    if count is None:
+        return 1.0
+    count = float(count)
+    return count if count > 0 else 1.0
 
 
 def _product_value(product: Any, key: str) -> Any:
