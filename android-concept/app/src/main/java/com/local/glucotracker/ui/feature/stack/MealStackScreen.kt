@@ -9,7 +9,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -71,6 +70,7 @@ import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
+import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -169,7 +169,7 @@ private fun ReadyStack(
             total = state.cards.size,
             onBack = onBack,
         )
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -179,47 +179,28 @@ private fun ReadyStack(
                     onBack = onBack,
                 ),
         ) {
-            val horizontalPadding = ((maxWidth - CardWidth) / 2).coerceAtLeast(22.dp)
-            state.cards.getOrNull(state.currentIndex + 1)?.let {
-                MealCardPeek(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = (-160).dp, y = 8.dp),
-                )
-            }
-            state.cards.getOrNull(state.currentIndex - 1)?.let {
-                MealCardPeek(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 160.dp, y = 8.dp),
-                )
-            }
             HorizontalPager(
                 state = pagerState,
-                pageSize = PageSize.Fixed(CardWidth),
-                contentPadding = PaddingValues(horizontal = horizontalPadding),
-                pageSpacing = 12.dp,
+                pageSize = PageSize.Fill,
+                contentPadding = PaddingValues(horizontal = 0.dp),
+                pageSpacing = 0.dp,
                 verticalAlignment = Alignment.Top,
                 userScrollEnabled = state.cards.size > 1 && !editSheetOpen,
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
             ) { page ->
-                val pageOffset = (
-                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                ).absoluteValue.coerceIn(0f, 1f)
-                MealCardComposable(
-                    card = state.cards[page],
-                    onRetry = onRetry,
+                Box(
                     modifier = Modifier
-                        .graphicsLayer {
-                            alpha = 1f - pageOffset * 0.65f
-                            val scale = 1f - pageOffset * 0.1f
-                            scaleX = scale
-                            scaleY = scale
-                        }
+                        .fillMaxWidth()
                         .padding(top = 8.dp, bottom = 18.dp),
-                )
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    MealCardComposable(
+                        card = state.cards[page],
+                        onRetry = onRetry,
+                    )
+                }
             }
             if (editSheetOpen) {
                 Box(
@@ -262,42 +243,9 @@ private fun StackTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = stringResource(
-                R.string.stack_kicker,
-                stackDate(date),
-                currentIndex + 1,
-                total,
-            ),
-            color = GT.colors.muted,
-            style = GT.type.kicker.copy(fontSize = 9.sp),
-            maxLines = 1,
-        )
-        Row(
-            modifier = Modifier.padding(top = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(total.coerceAtMost(MaxDots)) { index ->
-                val active = index == currentIndex.coerceAtMost(MaxDots - 1)
-                Box(
-                    modifier = Modifier
-                        .size(if (active) 6.dp else 5.dp)
-                        .background(
-                            color = if (active) GT.colors.ink else Color.Transparent,
-                            shape = CircleShape,
-                        )
-                        .border(
-                            width = GT.space.hairline,
-                            color = if (active) GT.colors.ink else GT.colors.muted,
-                            shape = CircleShape,
-                        ),
-                )
-            }
-        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -313,48 +261,21 @@ private fun StackTopBar(
                 maxLines = 1,
             )
         }
-    }
-}
-
-@Composable
-private fun MealCardPeek(
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(12.dp)
-    val photoShape = RoundedCornerShape(8.dp)
-    Column(
-        modifier = modifier
-            .width(CardWidth)
-            .graphicsLayer {
-                alpha = 0.35f
-                scaleX = 0.9f
-                scaleY = 0.9f
-            }
-            .background(GT.colors.bg, shape)
-            .border(1.dp, GT.colors.ink.copy(alpha = 0.22f), shape)
-            .padding(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(4f / 3f)
-                .clip(photoShape)
-                .background(GT.colors.surface)
-                .border(GT.space.hairline, GT.colors.hairline2, photoShape),
-        )
-        Box(
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .fillMaxWidth(0.72f)
-                .height(12.dp)
-                .background(GT.colors.surface, RoundedCornerShape(4.dp)),
-        )
-        Box(
-            modifier = Modifier
-                .padding(top = 5.dp)
-                .fillMaxWidth(0.48f)
-                .height(8.dp)
-                .background(GT.colors.surface, RoundedCornerShape(4.dp)),
+        Text(
+            text = if (total == 1) {
+                stringResource(R.string.stack_position_single, stackDate(date))
+            } else {
+                stringResource(
+                    R.string.stack_position,
+                    stackDate(date),
+                    currentIndex + 1,
+                    total,
+                )
+            },
+            modifier = Modifier.padding(top = 2.dp),
+            color = GT.colors.muted,
+            style = GT.type.kicker.copy(fontSize = 9.sp),
+            maxLines = 1,
         )
     }
 }
@@ -371,7 +292,7 @@ fun MealCardComposable(
             .width(CardWidth)
             .background(GT.colors.bg, shape)
             .border(1.dp, GT.colors.ink.copy(alpha = 0.22f), shape)
-            .padding(12.dp),
+            .padding(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
     ) {
         MealCardPhoto(card = card, onRetry = onRetry)
         Text(
@@ -382,13 +303,9 @@ fun MealCardComposable(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
-            text = cardSubtitle(card),
+        StackSubtitleLine(
+            card = card,
             modifier = Modifier.padding(top = 4.dp),
-            color = GT.colors.muted,
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
         MacrosBlock(
             card = card,
@@ -398,14 +315,10 @@ fun MealCardComposable(
             card = card,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Text(
-            text = stringResource(R.string.stack_gesture_edit),
+        EditChevron(
             modifier = Modifier
-                .padding(top = 3.dp)
+                .padding(top = 4.dp)
                 .align(Alignment.CenterHorizontally),
-            color = GT.colors.muted,
-            style = GT.type.kicker.copy(fontSize = 9.sp),
-            maxLines = 1,
         )
     }
 }
@@ -449,14 +362,6 @@ private fun MealCardPhoto(
             )
             PendingOverlay(card = card, onRetry = onRetry)
         }
-        if (card.state == MealCardState.Confirmed && card.confidence != null) {
-            ConfidencePill(
-                confidence = card.confidence,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-            )
-        }
     }
 }
 
@@ -488,27 +393,75 @@ private fun PendingOverlay(
 }
 
 @Composable
-private fun ConfidencePill(confidence: Double, modifier: Modifier = Modifier) {
+private fun StackSubtitleLine(card: MealCard, modifier: Modifier = Modifier) {
+    val separator = stringResource(R.string.stack_subtitle_separator)
+    val weight = card.weightGrams?.let { stringResource(R.string.stack_weight_value, formatGrams(it)) }
+        ?: stringResource(R.string.stack_weight_value, formatGrams(100.0))
     Row(
-        modifier = modifier
-            .background(GT.colors.surface2.copy(alpha = 0.92f), RoundedCornerShape(10.dp))
-            .padding(horizontal = 7.dp, vertical = 2.dp),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(5.dp)
-                .background(GT.colors.accent, CircleShape),
+        SubtitleText(text = sourceSubtitleLabel(card.source))
+        card.confidence?.let { confidence ->
+            SubtitleText(text = separator)
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .background(
+                        color = if (confidence < 0.6) GT.colors.warn else GT.colors.accent,
+                        shape = CircleShape,
+                    ),
+            )
+            SubtitleText(text = formatPercent(confidence.coerceIn(0.0, 1.0) * 100.0))
+        }
+        SubtitleText(text = separator)
+        SubtitleText(text = weight)
+        SubtitleText(text = separator)
+        SubtitleText(
+            text = card.eatenAt.timeText(),
+            modifier = Modifier.weight(1f, fill = false),
         )
-        Text(
-            text = stringResource(
-                R.string.stack_confidence,
-                formatPercent(confidence.coerceIn(0.0, 1.0) * 100.0),
-            ),
-            color = GT.colors.ink,
-            style = GT.type.monoLabel.copy(fontSize = 9.sp),
-            maxLines = 1,
+    }
+}
+
+@Composable
+private fun SubtitleText(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        color = GT.colors.muted,
+        style = GT.type.monoLabel.copy(fontSize = 10.sp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun EditChevron(modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.stack_edit_chevron_content_description)
+    val color = GT.colors.muted
+    Canvas(
+        modifier = modifier
+            .size(width = 18.dp, height = 8.dp)
+            .semantics { contentDescription = description },
+    ) {
+        val stroke = 1.2.dp.toPx()
+        val y = size.height * 0.68f
+        val centerX = size.width / 2f
+        drawLine(
+            color = color,
+            start = Offset(centerX - size.width * 0.28f, y),
+            end = Offset(centerX, size.height * 0.28f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(centerX, size.height * 0.28f),
+            end = Offset(centerX + size.width * 0.28f, y),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
         )
     }
 }
@@ -589,10 +542,13 @@ private fun MetaBlock(card: MealCard, modifier: Modifier = Modifier) {
             value = sourceMeta(card),
             modifier = Modifier.padding(top = 6.dp),
         )
-        MetaRow(
-            label = stringResource(R.string.stack_meta_status),
-            value = statusHintText(card),
-        )
+        LocalGlucoseSurfaces.current.StackMealGlucoseMetaRow(card.eatenAt)
+        if (card.statusHint != MealCardStatusHint.None) {
+            MetaRow(
+                label = stringResource(R.string.stack_meta_status),
+                value = statusHintText(card),
+            )
+        }
     }
 }
 
@@ -879,18 +835,6 @@ private fun fallbackTitle(card: MealCard): String =
     }
 
 @Composable
-private fun cardSubtitle(card: MealCard): String {
-    val weight = card.weightGrams?.let { stringResource(R.string.stack_weight_value, formatGrams(it)) }
-        ?: stringResource(R.string.stack_weight_value, formatGrams(100.0))
-    return stringResource(
-        R.string.stack_subtitle,
-        sourceSubtitleLabel(card.source),
-        weight,
-        card.eatenAt.timeText(),
-    )
-}
-
-@Composable
 private fun sourceSubtitleLabel(source: MealCardSource): String =
     when (source) {
         MealCardSource.Photo -> stringResource(R.string.stack_source_photo_estimate)
@@ -912,7 +856,11 @@ private fun sourceMeta(card: MealCard): String =
 @Composable
 private fun statusHintText(card: MealCard): String =
     when (card.statusHint) {
-        MealCardStatusHint.None -> stringResource(R.string.stack_status_confirmed)
+        MealCardStatusHint.None -> if (card.state == MealCardState.Confirmed) {
+            stringResource(R.string.stack_status_confirmed)
+        } else {
+            stringResource(R.string.today_status_draft)
+        }
         MealCardStatusHint.Queued -> stringResource(R.string.outbox_state_just_queued)
         MealCardStatusHint.Uploading -> stringResource(R.string.today_status_uploading)
         MealCardStatusHint.Estimating -> stringResource(R.string.today_status_estimating)
@@ -940,5 +888,4 @@ private fun Instant.timeText(): String {
     return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
 }
 
-private val CardWidth = 280.dp
-private const val MaxDots = 12
+private val CardWidth = 300.dp

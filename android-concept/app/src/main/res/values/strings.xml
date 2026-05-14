@@ -217,11 +217,14 @@
     <string name="record_stuck_kicker">НЕ ОТПРАВИЛОСЬ</string>
     <string name="record_stuck_body">Запись не дошла до сервера. Можно повторить отправку из очереди.</string>
     <string name="stack_kicker">%1$s · запись %2$d из %3$d</string>
+    <string name="stack_position">%1$s · %2$d из %3$d</string>
+    <string name="stack_position_single">%1$s · одна запись</string>
     <string name="stack_back_content_description">возврат в список</string>
     <string name="stack_empty">На этот день нет записей</string>
     <string name="stack_confidence">уверенность %1$s</string>
     <string name="stack_source_photo_estimate">оценка по фото</string>
     <string name="stack_subtitle">%1$s · %2$s · %3$s</string>
+    <string name="stack_subtitle_separator">·</string>
     <string name="stack_weight_value">%1$s г</string>
     <string name="stack_macro_carbs">угл</string>
     <string name="stack_macro_protein">бел</string>
@@ -237,6 +240,7 @@
     <string name="stack_weight_disabled">Вес станет доступен после оценки.</string>
     <string name="stack_gesture_back">↓ назад в список</string>
     <string name="stack_gesture_edit">править ↑</string>
+    <string name="stack_edit_chevron_content_description">перетащи вверх — править</string>
     <string name="stack_gesture_previous">← %1$s</string>
     <string name="stack_gesture_next">%1$s →</string>
     <string name="capture_photo">Камера</string>

@@ -38,6 +38,11 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
     }
 
     @Composable
+    override fun StackMealGlucoseMetaRow(eatenAt: Instant) {
+        GTHintBox(text = stringResource(R.string.record_glucose_at, "09:15"))
+    }
+
+    @Composable
     override fun HistoryDayCgmSparkline(date: LocalDate) {
         GTHintBox(
             text = stringResource(R.string.history_filter_cgm),

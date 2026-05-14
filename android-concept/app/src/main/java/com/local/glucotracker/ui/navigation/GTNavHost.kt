@@ -2,10 +2,9 @@
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -187,21 +186,23 @@ fun MainScaffold(
         Scaffold(
             containerColor = GT.colors.bg,
             bottomBar = {
-                MainBottomBar(
-                    navConfig = navConfig,
-                    selectedRoute = selectedRoute,
-                    onRouteClick = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                if (!fullScreenDetail) {
+                    MainBottomBar(
+                        navConfig = navConfig,
+                        selectedRoute = selectedRoute,
+                        onRouteClick = { route ->
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onCaptureClick = { captureSheetVisible = true },
-                    activeIndicatorColor = navConfig.brand?.activeIndicatorColor,
-                )
+                        },
+                        onCaptureClick = { captureSheetVisible = true },
+                        activeIndicatorColor = navConfig.brand?.activeIndicatorColor,
+                    )
+                }
             },
         ) { innerPadding ->
             val contentModifier = Modifier
@@ -333,18 +334,17 @@ fun GTNavHost(
                 navArgument(Route.MealStack.ArgFocusedId) { type = NavType.StringType },
             ),
             enterTransition = {
-                fadeIn(animationSpec = tween(220)) +
-                    scaleIn(animationSpec = tween(220), initialScale = 0.96f)
+                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
             },
             popExitTransition = {
-                fadeOut(animationSpec = tween(200)) +
-                    scaleOut(animationSpec = tween(200), targetScale = 0.96f)
+                fadeOut(animationSpec = tween(200, easing = LinearOutSlowInEasing))
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(200)) +
-                    scaleOut(animationSpec = tween(200), targetScale = 0.96f)
+                fadeOut(animationSpec = tween(200, easing = LinearOutSlowInEasing))
             },
-            popEnterTransition = { fadeIn(animationSpec = tween(180)) },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+            },
         ) {
             MealStackRoute(onBack = { navController.popBackStack() })
         }

@@ -48,6 +48,7 @@
     <string name="record_nightscout_synced_at">синхр. · %1$s</string>
     <string name="record_glucose_kicker">Глюкоза</string>
     <string name="record_glucose_at">около %1$s</string>
+    <string name="stack_glucose_meta_value">около %1$s →</string>
     <string name="record_glucose_open">Открыть →</string>
     <string name="more_section_nightscout">Nightscout</string>
     <string name="more_ns_connected">Подключено</string>

@@ -3,6 +3,7 @@
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.CachedView
@@ -92,6 +94,11 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     }
 
     @Composable
+    override fun StackMealGlucoseMetaRow(eatenAt: Instant) {
+        StackGlucoseMetaRow(eatenAt)
+    }
+
+    @Composable
     override fun HistoryDayCgmSparkline(date: LocalDate) {
         val viewModel: GlucoseSparklineViewModel = hiltViewModel()
         val points by viewModel.points(date).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -108,6 +115,31 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     override fun MoreNightscoutSection() {
         MoreNightscoutSurface()
         GTHairlineDivider()
+    }
+}
+
+@Composable
+private fun StackGlucoseMetaRow(eatenAt: Instant) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.record_glucose_kicker),
+            color = GT.colors.muted,
+            style = GT.type.kicker.copy(fontSize = 8.sp),
+            maxLines = 1,
+        )
+        Text(
+            text = stringResource(R.string.stack_glucose_meta_value, eatenAt.timeText()),
+            modifier = Modifier.padding(start = 10.dp),
+            color = GT.colors.ink2,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+        )
     }
 }
 

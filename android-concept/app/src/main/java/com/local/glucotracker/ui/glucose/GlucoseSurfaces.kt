@@ -21,6 +21,9 @@ interface GlucoseSurfaces {
     fun RecordGlucoseAtMealPanel(eatenAt: Instant)
 
     @Composable
+    fun StackMealGlucoseMetaRow(eatenAt: Instant)
+
+    @Composable
     fun HistoryDayCgmSparkline(date: LocalDate)
 
     @Composable
@@ -42,6 +45,9 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
 
     @Composable
     override fun RecordGlucoseAtMealPanel(eatenAt: Instant) = Unit
+
+    @Composable
+    override fun StackMealGlucoseMetaRow(eatenAt: Instant) = Unit
 
     @Composable
     override fun HistoryDayCgmSparkline(date: LocalDate) = Unit
