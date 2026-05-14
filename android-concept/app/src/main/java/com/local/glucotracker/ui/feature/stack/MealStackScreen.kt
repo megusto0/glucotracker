@@ -5,7 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -801,30 +803,43 @@ private fun Modifier.verticalStackGestures(
         this
     } else {
         pointerInput(Unit) {
-            val openThreshold = 100.dp.toPx()
-            val closeThreshold = -150.dp.toPx()
-            var totalDrag = 0f
-            var handled = false
-            detectVerticalDragGestures(
-                onDragStart = {
-                    totalDrag = 0f
-                    handled = false
-                },
-                onVerticalDrag = { change, dragAmount ->
-                    if (handled) return@detectVerticalDragGestures
-                    totalDrag += dragAmount
-                    when {
-                        totalDrag > openThreshold -> {
-                            handled = true
-                            onBack()
-                        }
-                        totalDrag < closeThreshold -> {
-                            handled = true
-                            onOpenEdit()
+            val backThreshold = 44.dp.toPx()
+            val editThreshold = -72.dp.toPx()
+            val intentSlop = 16.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val pointerId = down.id
+                var totalX = 0f
+                var totalY = 0f
+                var handled = false
+
+                while (!handled) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                    if (!change.pressed) break
+
+                    totalX += change.position.x - change.previousPosition.x
+                    totalY += change.position.y - change.previousPosition.y
+
+                    val absX = totalX.absoluteValue
+                    val absY = totalY.absoluteValue
+                    val hasVerticalIntent = absY > intentSlop && absY >= absX * 0.75f
+                    if (hasVerticalIntent) {
+                        when {
+                            totalY > backThreshold -> {
+                                handled = true
+                                change.consume()
+                                onBack()
+                            }
+                            totalY < editThreshold -> {
+                                handled = true
+                                change.consume()
+                                onOpenEdit()
+                            }
                         }
                     }
-                },
-            )
+                }
+            }
         }
     }
 
