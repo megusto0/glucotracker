@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -179,9 +180,12 @@ fun GTKcalRing(
     ringColor: Color,
     remainingValue: String,
     remainingLabel: String,
-    observation: String?,
+    observation: AnnotatedString?,
     contentDescription: String,
     modifier: Modifier = Modifier,
+    headline: String? = null,
+    overflowProgress: Float? = null,
+    overflowNote: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -219,6 +223,21 @@ fun GTKcalRing(
                         style = Stroke(width = stroke, cap = StrokeCap.Round),
                     )
                 }
+                val safeOverflow = overflowProgress?.coerceIn(0f, 1f) ?: 0f
+                if (safeOverflow > 0f) {
+                    val overflowStroke = 4.dp.toPx()
+                    val overflowInset = overflowStroke / 2f
+                    val overflowSize = Size(size.width - overflowStroke, size.height - overflowStroke)
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * safeOverflow,
+                        useCenter = false,
+                        topLeft = Offset(overflowInset, overflowInset),
+                        size = overflowSize,
+                        style = Stroke(width = overflowStroke, cap = StrokeCap.Round),
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -242,28 +261,48 @@ fun GTKcalRing(
                 .weight(1f)
                 .padding(start = 16.dp),
         ) {
-            Text(
-                text = remainingValue,
-                color = GT.colors.ink,
-                style = GT.type.monoNumber.copy(fontSize = 18.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = remainingLabel,
-                modifier = Modifier.padding(top = 2.dp),
-                color = GT.colors.muted,
-                style = GT.type.sansLabel.copy(fontSize = 11.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (headline != null) {
+                Text(
+                    text = headline,
+                    color = GT.colors.ink,
+                    style = GT.type.serifSection.copy(fontSize = 28.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else if (remainingValue.isNotBlank()) {
+                Text(
+                    text = remainingValue,
+                    color = GT.colors.ink,
+                    style = GT.type.monoNumber.copy(fontSize = 18.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = remainingLabel,
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.sansLabel.copy(fontSize = 11.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (observation != null) {
                 Text(
                     text = observation,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = if (headline != null) 4.dp else 8.dp),
                     color = GT.colors.ink2,
-                    style = GT.type.sansBody.copy(fontSize = 12.5.sp),
+                    style = GT.type.sansBody.copy(fontSize = 14.sp),
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (overflowNote != null) {
+                Text(
+                    text = overflowNote,
+                    modifier = Modifier.padding(top = 7.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -514,14 +553,18 @@ fun GTMealRow(
     modifier: Modifier = Modifier,
     muted: Boolean = false,
     primaryRightColor: Color? = null,
+    compact: Boolean = false,
 ) {
     val primaryTextColor = if (muted) GT.colors.muted else GT.colors.ink
     val secondaryTextColor = if (muted) GT.colors.muted else GT.colors.ink2
+    val verticalPadding = if (compact) 9.dp else 12.dp
+    val photoSize = if (compact) 36.dp else 32.dp
+    val minHeight = if (compact) 54.dp else 56.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .heightIn(min = minHeight)
+            .padding(horizontal = 14.dp, vertical = verticalPadding),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
@@ -531,7 +574,7 @@ fun GTMealRow(
             style = GT.type.monoLabel,
             maxLines = 1,
         )
-        GTPhotoSlot(model = photo, modifier = Modifier.size(32.dp))
+        GTPhotoSlot(model = photo, modifier = Modifier.size(photoSize))
         Column(
             modifier = Modifier
                 .weight(1f)

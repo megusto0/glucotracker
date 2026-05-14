@@ -23,6 +23,7 @@ import com.local.glucotracker.ui.format.PhotoProcessingUiState
 import com.local.glucotracker.ui.format.mapOutboxAndMealToPhotoProcessingUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +38,7 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
@@ -61,6 +63,7 @@ sealed interface TodayState {
         val canGoNext: Boolean,
         val softObservation: String? = null,
         val isOnline: Boolean = true,
+        val typicalKcal14d: Int? = null,
     ) : TodayState
 }
 
@@ -154,12 +157,26 @@ class TodayViewModel @Inject constructor(
         }
     }
 
+    private val typicalKcal14d = selectedDate.flatMapLatest { date ->
+        val comparisonDays = (1..TypicalKcalWindowDays)
+            .map { offset -> date.minus(DatePeriod(days = offset)) }
+            .reversed()
+        combine(comparisonDays.map(statsRepository::observeDayTotals)) { views ->
+            views.mapNotNull { view ->
+                view.value
+                    ?.takeIf { totals -> totals.mealCount > 0 && totals.kcal > 0.0 }
+                    ?.kcal
+            }.medianKcalOrNull(minDays = TypicalKcalMinTrackedDays)
+        }
+    }
+
     val state = combine(
         coreState,
         settingsStore.userGoals,
         softObservation,
         isOnline,
-    ) { core, goals, observation, online ->
+        typicalKcal14d,
+    ) { core, goals, observation, online, typicalKcal ->
         toTodayState(
             date = core.date,
             cachedDay = core.cachedDay,
@@ -168,6 +185,7 @@ class TodayViewModel @Inject constructor(
             goals = goals,
             softObservation = observation.takeIf { core.date == currentLocalDate() },
             isOnline = online,
+            typicalKcal14d = typicalKcal,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -246,6 +264,7 @@ private fun toTodayState(
     goals: UserGoals,
     softObservation: String?,
     isOnline: Boolean,
+    typicalKcal14d: Int?,
 ): TodayState {
     val day = cachedDay.value
     val serverMeals = day?.meals.orEmpty()
@@ -294,6 +313,7 @@ private fun toTodayState(
         canGoNext = date < currentLocalDate(),
         softObservation = softObservation,
         isOnline = isOnline,
+        typicalKcal14d = typicalKcal14d,
     )
 }
 
@@ -579,3 +599,18 @@ private fun currentLocalDate(): LocalDate =
 
 private fun Instant.localDate(): LocalDate =
     toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+private const val TypicalKcalWindowDays = 14
+private const val TypicalKcalMinTrackedDays = 7
+
+private fun List<Double>.medianKcalOrNull(minDays: Int): Int? {
+    if (size < minDays) return null
+    val sorted = sorted()
+    val middle = sorted.size / 2
+    val median = if (sorted.size % 2 == 0) {
+        (sorted[middle - 1] + sorted[middle]) / 2.0
+    } else {
+        sorted[middle]
+    }
+    return median.roundToInt()
+}

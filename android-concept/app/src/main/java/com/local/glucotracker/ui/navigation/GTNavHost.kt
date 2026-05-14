@@ -32,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -140,6 +141,7 @@ fun MainScaffold(
     var captureSheetVisible by remember { mutableStateOf(false) }
     var lastQueuedOutboxId by rememberSaveable { mutableStateOf<String?>(null) }
     var historySearchRequestCounter by rememberSaveable { mutableStateOf(0) }
+    var todayStatsRequestCounter by rememberSaveable { mutableStateOf(0) }
     val currentBackStack by navController.currentBackStackEntryAsState()
     val fullScreenDetail = currentBackStack?.destination?.route == Route.MealStack.Pattern
     val selectedRoute = currentBackStack?.destination?.route?.toBottomRoute(navConfig) ?: Route.Today.route
@@ -179,6 +181,7 @@ fun MainScaffold(
                         selectedRoute = selectedRoute,
                         hasBrand = true,
                         onHistorySearchClick = { historySearchRequestCounter += 1 },
+                        onTodayStatsClick = { todayStatsRequestCounter += 1 },
                     )
                 },
             )
@@ -219,6 +222,7 @@ fun MainScaffold(
                     },
                     onOutboxQueued = navigateToTodayWithQueuedOutbox,
                     historySearchRequestCounter = historySearchRequestCounter,
+                    todayStatsRequestCounter = todayStatsRequestCounter,
                     navConfig = navConfig,
                     flavorNavGraph = flavorNavGraph,
                     modifier = contentModifier,
@@ -247,6 +251,7 @@ fun GTNavHost(
     onQueuedOutboxConsumed: (String) -> Unit = {},
     onOutboxQueued: (String) -> Unit = {},
     historySearchRequestCounter: Int = 0,
+    todayStatsRequestCounter: Int = 0,
     navConfig: NavConfig = DefaultNavConfig,
     flavorNavGraph: FlavorNavGraph = NoopFlavorNavGraph,
     modifier: Modifier = Modifier,
@@ -282,6 +287,7 @@ fun GTNavHost(
                         restoreState = true
                     }
                 },
+                todayStatsRequestCounter = todayStatsRequestCounter,
             )
         }
         composable(
@@ -307,6 +313,7 @@ fun GTNavHost(
                         restoreState = true
                     }
                 },
+                todayStatsRequestCounter = todayStatsRequestCounter,
             )
         }
         with(flavorNavGraph) {
@@ -497,9 +504,15 @@ private fun TodayStatsPager(
     brandAccentColor: Color?,
     initialDate: LocalDate? = null,
     onOpenMore: () -> Unit = {},
+    todayStatsRequestCounter: Int = 0,
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val pagerScope = rememberCoroutineScope()
+    LaunchedEffect(todayStatsRequestCounter) {
+        if (todayStatsRequestCounter > 0) {
+            pagerScope.launch { pagerState.animateScrollToPage(1) }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
@@ -602,9 +615,9 @@ private fun BrandRightSlot(
     selectedRoute: String,
     hasBrand: Boolean = false,
     onHistorySearchClick: () -> Unit = {},
+    onTodayStatsClick: () -> Unit = {},
 ) {
     val text = when {
-        selectedRoute == Route.Today.route && hasBrand -> null
         selectedRoute == Route.Today.route -> stringResource(R.string.today_stats_action)
         selectedRoute == Route.History.route -> stringResource(R.string.history_search_hint)
         selectedRoute == Route.Base.route -> stringResource(R.string.nav_base)
@@ -612,10 +625,10 @@ private fun BrandRightSlot(
         else -> null
     }
     if (text != null) {
-        val clickModifier = if (selectedRoute == Route.History.route) {
-            Modifier.clickable(onClick = onHistorySearchClick)
-        } else {
-            Modifier
+        val clickModifier = when {
+            selectedRoute == Route.History.route -> Modifier.clickable(onClick = onHistorySearchClick)
+            selectedRoute == Route.Today.route && hasBrand -> Modifier.clickable(onClick = onTodayStatsClick)
+            else -> Modifier
         }
         Text(
             text = text,

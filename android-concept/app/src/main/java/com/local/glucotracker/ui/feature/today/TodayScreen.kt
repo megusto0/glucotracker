@@ -38,6 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -73,11 +77,13 @@ import com.local.glucotracker.ui.format.computeRowState
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToLong
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.datetime.toLocalDateTime
@@ -169,6 +175,7 @@ fun TodayScreen(
     brandAccentColor: Color? = null,
     showPagerDots: Boolean = true,
     pagerPage: Int = 0,
+    now: LocalTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time,
 ) {
     when (state) {
         TodayState.Loading -> LoadingState(
@@ -204,6 +211,7 @@ fun TodayScreen(
             brandAccentColor = brandAccentColor,
             showPagerDots = showPagerDots,
             pagerPage = pagerPage,
+            now = now,
         )
     }
 }
@@ -306,6 +314,7 @@ private fun DayState(
     brandAccentColor: Color? = null,
     showPagerDots: Boolean = true,
     pagerPage: Int = 0,
+    now: LocalTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time,
 ) {
     var deleteCandidate by remember { mutableStateOf<TodayMealRowUi?>(null) }
 
@@ -316,7 +325,7 @@ private fun DayState(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(if (brandAccentColor != null) 6.dp else 14.dp),
         ) {
             item {
                 TodayHeader(
@@ -344,7 +353,7 @@ private fun DayState(
                     TarelkaTodaySummary(
                         state = state,
                         accentColor = brandAccentColor,
-                        onOpenMore = onOpenMore,
+                        now = now,
                         modifier = Modifier.padding(horizontal = 18.dp),
                     )
                 }
@@ -376,6 +385,7 @@ private fun DayState(
                     onOpenRow = onOpenRow,
                     onDeleteRow = { candidate -> deleteCandidate = candidate },
                     isOnline = state.isOnline,
+                    compact = brandAccentColor != null,
                 )
             }
             item {
@@ -418,7 +428,7 @@ private fun TodayHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(28.dp),
+                .height(if (foodBrand) 20.dp else 28.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showPagerDots) {
@@ -443,16 +453,18 @@ private fun TodayHeader(
             }
             GTKicker(text = weekday(date))
             Spacer(Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.today_stats_action),
-                modifier = Modifier
-                    .heightIn(min = 28.dp)
-                    .clickable(onClick = onOpenStats)
-                    .padding(start = 10.dp, top = 6.dp),
-                color = GT.colors.ink2,
-                style = GT.type.sansLabel.copy(fontSize = 11.5.sp),
-                maxLines = 1,
-            )
+            if (!foodBrand) {
+                Text(
+                    text = stringResource(R.string.today_stats_action),
+                    modifier = Modifier
+                        .heightIn(min = 28.dp)
+                        .clickable(onClick = onOpenStats)
+                        .padding(start = 10.dp, top = 6.dp),
+                    color = GT.colors.ink2,
+                    style = GT.type.sansLabel.copy(fontSize = 11.5.sp),
+                    maxLines = 1,
+                )
+            }
         }
         Row(
             modifier = Modifier
@@ -625,7 +637,7 @@ private fun TodayKpiGrid(
 private fun TarelkaTodaySummary(
     state: TodayState.Day,
     accentColor: Color,
-    onOpenMore: () -> Unit = {},
+    now: LocalTime,
     modifier: Modifier = Modifier,
 ) {
     val totals = state.totals
@@ -634,9 +646,16 @@ private fun TarelkaTodaySummary(
     val goalKcal = kcalGoal?.let(::formatKcal)
     val remaining = kcalGoal?.let { it - totals.kcal }
     val remainingDescription = remaining?.let { formatSignedKcal(it.roundToLong()) }
-    val remainingValue = remaining?.let {
-        stringResource(R.string.today_ring_remaining_value, formatSignedKcal(it.roundToLong()))
-    } ?: stringResource(R.string.value_empty)
+    val dayKcal = totals.kcal.roundToLong().toInt()
+    val dayCharacter = characterizeDay(dayKcal, state.typicalKcal14d, now)
+    val observation = tarelkaObservation(
+        consumed = dayKcal,
+        typical = state.typicalKcal14d,
+        goal = kcalGoal,
+        date = state.date,
+        accentColor = accentColor,
+    )
+    val overflowProgress = overflowProgress(totals.kcal, kcalGoal)
     val ringContentDescription = if (goalKcal == null) {
         stringResource(R.string.today_ring_no_goal_content_description, currentKcal)
     } else {
@@ -651,42 +670,22 @@ private fun TarelkaTodaySummary(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (kcalGoal == null) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = stringResource(R.string.today_no_goals_cta_title),
-                    color = GT.colors.ink,
-                    style = GT.type.serifSection,
-                )
-                Text(
-                    text = stringResource(R.string.today_no_goals_cta_hint),
-                    modifier = Modifier.padding(top = 4.dp),
-                    color = GT.colors.muted,
-                    style = GT.type.sansBody,
-                )
-                Text(
-                    text = stringResource(R.string.today_no_goals_cta_action),
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .heightIn(min = GT.space.touch)
-                        .clickable(onClick = onOpenMore),
-                    color = GT.colors.ink2,
-                    style = GT.type.sansLabel,
-                )
-            }
-        } else {
-            GTKcalRing(
-            value = goalKcal?.let { currentKcal } ?: stringResource(R.string.value_empty),
-            goalText = goalKcal?.let { stringResource(R.string.today_ring_goal, it) }
-                ?: stringResource(R.string.today_kpi_no_goal_sub),
+        GTKcalRing(
+            value = currentKcal,
+            goalText = goalKcal?.let { stringResource(R.string.today_ring_goal_label, it) }
+                ?: stringResource(R.string.today_ring_goal_unset),
             progress = kcalGoal?.let { progressOf(totals.kcal, it) },
             ringColor = accentColor,
-            remainingValue = remainingValue,
-            remainingLabel = stringResource(R.string.today_ring_remaining_label),
-            observation = state.softObservation,
+            remainingValue = "",
+            remainingLabel = "",
+            observation = observation,
             contentDescription = ringContentDescription,
-            )
-        }
+            headline = dayCharacter?.label(),
+            overflowProgress = overflowProgress,
+            overflowNote = overflowProgress
+                ?.takeIf { it > 0f }
+                ?.let { stringResource(R.string.tarelka_overflow_note) },
+        )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             GTMacroBar(
                 label = stringResource(R.string.today_kpi_protein),
@@ -827,6 +826,7 @@ private fun SwipeMealRow(
     onOpenRow: (TodayMealRowUi) -> Unit,
     onDeleteRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
+    compact: Boolean = false,
 ) {
     val canDeleteLocally = row.recordId == null && row.outboxId != null
     if (!canDeleteLocally) {
@@ -835,6 +835,7 @@ private fun SwipeMealRow(
             lastAddedId = lastAddedId,
             onOpenRow = onOpenRow,
             isOnline = isOnline,
+            compact = compact,
         )
         return
     }
@@ -859,6 +860,7 @@ private fun SwipeMealRow(
             lastAddedId = lastAddedId,
             onOpenRow = onOpenRow,
             isOnline = isOnline,
+            compact = compact,
         )
     }
 }
@@ -940,6 +942,7 @@ private fun MealRowSurface(
     lastAddedId: String?,
     onOpenRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
+    compact: Boolean = false,
 ) {
     var highlighted by remember(row.id, lastAddedId) { mutableStateOf(row.id == lastAddedId) }
     val bg by animateColorAsState(
@@ -991,6 +994,7 @@ private fun MealRowSurface(
                 status = null,
                 muted = row.kind == TodayMealRowKind.Pending,
                 primaryRightColor = if (row.isAgedPending) GT.colors.warn else null,
+                compact = compact,
             )
         }
     }
@@ -1156,6 +1160,79 @@ private fun TodayMealStatus.toOutboxState(): OutboxState = when (this) {
 internal val TodayMealRowUi.isAgedPending: Boolean
     get() = kind == TodayMealRowKind.Pending &&
         status == TodayMealStatus.Stuck
+
+private enum class TarelkaDayCharacter {
+    Dense,
+    Light,
+}
+
+private fun characterizeDay(todayKcal: Int, median14d: Int?, now: LocalTime): TarelkaDayCharacter? {
+    val median = median14d?.takeIf { it > 0 } ?: return null
+    if (now.hour < 12) return null
+    val ratio = todayKcal.toDouble() / median.toDouble()
+    return when {
+        ratio > 1.15 -> TarelkaDayCharacter.Dense
+        ratio < 0.85 -> TarelkaDayCharacter.Light
+        else -> null
+    }
+}
+
+@Composable
+private fun TarelkaDayCharacter.label(): String = when (this) {
+    TarelkaDayCharacter.Dense -> stringResource(R.string.tarelka_day_dense)
+    TarelkaDayCharacter.Light -> stringResource(R.string.tarelka_day_light)
+}
+
+@Composable
+private fun tarelkaObservation(
+    consumed: Int,
+    typical: Int?,
+    goal: Int?,
+    date: LocalDate,
+    accentColor: Color,
+): AnnotatedString? {
+    if (goal == null) {
+        return AnnotatedString(
+            stringResource(R.string.tarelka_observation_no_goal, formatKcal(consumed)),
+        )
+    }
+    val typicalKcal = typical?.takeIf { it > 0 } ?: return null
+    val delta = consumed - typicalKcal
+    if (abs(delta) <= 50) {
+        return AnnotatedString(stringResource(R.string.tarelka_observation_on_target))
+    }
+    val deltaText = stringResource(R.string.tarelka_observation_delta_value, formatKcal(abs(delta)))
+    return buildAnnotatedString {
+        append(stringResource(R.string.tarelka_observation_delta_prefix))
+        val start = length
+        append(deltaText)
+        addStyle(
+            SpanStyle(color = accentColor, fontWeight = FontWeight.Bold),
+            start = start,
+            end = length,
+        )
+        append(
+            if (delta > 0) {
+                stringResource(R.string.tarelka_observation_over_suffix, tarelkaOverCloser(date))
+            } else {
+                stringResource(R.string.tarelka_observation_under_suffix)
+            },
+        )
+    }
+}
+
+@Composable
+private fun tarelkaOverCloser(date: LocalDate): String = when (date.dayOfMonth % 3) {
+    0 -> stringResource(R.string.tarelka_over_closer_0)
+    1 -> stringResource(R.string.tarelka_over_closer_1)
+    else -> stringResource(R.string.tarelka_over_closer_2)
+}
+
+private fun overflowProgress(value: Double, goal: Int?): Float? {
+    val safeGoal = goal?.takeIf { it > 0 } ?: return null
+    if (value <= safeGoal) return null
+    return ((value - safeGoal) / safeGoal).toFloat().coerceIn(0f, 1f)
+}
 
 private fun progressOf(value: Double, goal: Int?): Float =
     if (goal == null || goal <= 0) 0f else (value / goal).toFloat().coerceIn(0f, 1f)

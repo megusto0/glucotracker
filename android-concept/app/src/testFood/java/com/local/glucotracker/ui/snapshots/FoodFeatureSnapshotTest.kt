@@ -4,6 +4,7 @@ import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.local.glucotracker.ui.design.FoodBrandTokens
 import com.local.glucotracker.ui.navigation.OfflineBannerUiState
+import kotlinx.datetime.LocalTime
 import org.junit.Rule
 import org.junit.Test
 
@@ -21,6 +22,30 @@ class FoodFeatureSnapshotTest {
 
     @Test fun todayNoGoal() = paparazzi.snapshotThemed("food_today_no_goal") {
         TodaySnapshot(todayNoGoalState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun todayOverGoal() = paparazzi.snapshotThemed("food_today_over_goal") {
+        TodaySnapshot(foodTodayOverGoalState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun todayUnderGoal() = paparazzi.snapshotThemed("food_today_under_goal") {
+        TodaySnapshot(foodTodayUnderGoalState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun todayOnTarget() = paparazzi.snapshotThemed("food_today_on_target") {
+        TodaySnapshot(foodTodayOnTargetState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun todayEarlyNoHeadline() = paparazzi.snapshotThemed("food_today_early_no_headline") {
+        TodaySnapshot(
+            foodTodayOverGoalState(),
+            brandAccentColor = FoodBrandTokens.Tangerine,
+            now = LocalTime(8, 30),
+        )
+    }
+
+    @Test fun todayNoGoalRing() = paparazzi.snapshotThemed("food_today_no_goal_ring") {
+        TodaySnapshot(foodTodayNoGoalState(), brandAccentColor = FoodBrandTokens.Tangerine)
     }
 
     @Test fun todayWithSoftObservation() = paparazzi.snapshotThemed("food_today_soft_observation") {

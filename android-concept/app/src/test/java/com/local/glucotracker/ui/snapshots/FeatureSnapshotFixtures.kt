@@ -58,6 +58,7 @@ import com.local.glucotracker.ui.navigation.OfflineBannerUiState
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.plus
 
 internal val SnapshotDate: LocalDate = LocalDate.parse("2026-05-05")
@@ -72,7 +73,11 @@ internal fun Paparazzi.snapshotThemed(name: String, content: @Composable () -> U
 }
 
 @Composable
-internal fun TodaySnapshot(state: TodayState, brandAccentColor: Color? = null) {
+internal fun TodaySnapshot(
+    state: TodayState,
+    brandAccentColor: Color? = null,
+    now: LocalTime = LocalTime(18, 0),
+) {
     TodayScreen(
         state = state,
         onOpenRow = {},
@@ -82,6 +87,7 @@ internal fun TodaySnapshot(state: TodayState, brandAccentColor: Color? = null) {
         onNextDay = {},
         onOpenStats = {},
         brandAccentColor = brandAccentColor,
+        now = now,
     )
 }
 
@@ -347,6 +353,40 @@ internal fun todayNoGoalState(): TodayState.Day =
 
 internal fun todaySoftObservationState(): TodayState.Day =
     todayFullState().copy(softObservation = "Похоже на твой обычный завтрак")
+
+internal fun foodTodayOverGoalState(): TodayState.Day =
+    todayFullState().copy(
+        totals = totals(SnapshotDate, mealCount = 4).copy(
+            kcal = 2420.0,
+            carbsG = 260.0,
+            proteinG = 118.0,
+            fatG = 86.0,
+        ),
+        goals = UserGoals(dailyKcal = 2200, dailyProteinG = 120, dailyCarbsG = 230, dailyFatG = 75, weightKg = 72.4),
+        typicalKcal14d = 1980,
+    )
+
+internal fun foodTodayUnderGoalState(): TodayState.Day =
+    todayFullState().copy(
+        totals = totals(SnapshotDate, mealCount = 2).copy(
+            kcal = 1380.0,
+            carbsG = 136.0,
+            proteinG = 78.0,
+            fatG = 42.0,
+        ),
+        goals = UserGoals(dailyKcal = 1900, dailyProteinG = 110, dailyCarbsG = 210, dailyFatG = 65, weightKg = 72.4),
+        typicalKcal14d = 1780,
+    )
+
+internal fun foodTodayOnTargetState(): TodayState.Day =
+    todayFullState().copy(
+        totals = totals(SnapshotDate, mealCount = 3).copy(kcal = 1810.0),
+        goals = UserGoals(dailyKcal = 1850, dailyProteinG = 110, dailyCarbsG = 210, dailyFatG = 65, weightKg = 72.4),
+        typicalKcal14d = 1830,
+    )
+
+internal fun foodTodayNoGoalState(): TodayState.Day =
+    todayNoGoalState().copy(typicalKcal14d = 1800)
 
 internal fun statsFullState(): StatsState.Charts =
     StatsState.Charts(
