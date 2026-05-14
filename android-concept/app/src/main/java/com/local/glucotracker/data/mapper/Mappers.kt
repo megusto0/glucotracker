@@ -35,6 +35,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -168,6 +169,10 @@ fun MealResponse.toCachedEntity(
         photoIdempotencyKey = photoIdempotencyKey,
         estimateStatus = estimateStatus,
         estimateError = estimateError,
+        mealRole = derivedCategories
+            ?.get("meal_role")
+            ?.jsonPrimitive
+            ?.contentOrNull,
     )
 
 fun CachedMealEntity.toDomain(): Meal =
@@ -195,6 +200,7 @@ fun CachedMealEntity.toDomain(): Meal =
         nightscoutLastAttemptAt = nightscoutLastAttemptAt,
         nightscoutSyncError = nightscoutSyncError,
         tags = tagsCsv.unpack().toSet(),
+        mealRole = mealRole,
         postprandialResponse = postprandialJson.toPostprandialResponse(),
         estimateStatus = estimateStatus,
         estimateError = estimateError,

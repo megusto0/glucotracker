@@ -4968,6 +4968,18 @@
             "title": "Created At",
             "type": "string"
           },
+          "derived_categories": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived Categories"
+          },
           "eaten_at": {
             "format": "date-time",
             "title": "Eaten At",

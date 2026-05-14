@@ -63,6 +63,22 @@ class FoodFeatureSnapshotTest {
         HistorySnapshot(historyEmptyState(), brandAccentColor = FoodBrandTokens.Tangerine)
     }
 
+    @Test fun historyTimelineVaried() = paparazzi.snapshotThemed("food_history_timeline_varied") {
+        HistorySnapshot(historyTimelineVariedState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun historyTimelineSingle() = paparazzi.snapshotThemed("food_history_timeline_single") {
+        HistorySnapshot(historyTimelineSingleState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun historyTimelineDense() = paparazzi.snapshotThemed("food_history_timeline_dense") {
+        HistorySnapshot(historyTimelineDenseState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
+    @Test fun historyTimelineMixedStatus() = paparazzi.snapshotThemed("food_history_timeline_mixed_status") {
+        HistorySnapshot(historyTimelineMixedStatusState(), brandAccentColor = FoodBrandTokens.Tangerine)
+    }
+
     @Test fun composeSheetEmpty() = paparazzi.snapshotThemed("food_compose_sheet_empty") {
         ComposeSheetEmptySnapshot()
     }

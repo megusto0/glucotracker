@@ -45,6 +45,7 @@ object DatabaseModule {
             Migration8To9,
             Migration9To10,
             Migration10To11,
+            Migration11To12,
         ).build()
 
     @Provides
@@ -141,6 +142,12 @@ object DatabaseModule {
     private val Migration10To11 = object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE cached_templates ADD COLUMN prefix TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val Migration11To12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cached_meals ADD COLUMN mealRole TEXT")
         }
     }
 

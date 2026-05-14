@@ -133,7 +133,9 @@
     <string name="history_filter_sweet">Сладкое</string>
     <string name="history_filter_breakfast">Завтраки</string>
     <string name="history_header_meta">%1$d дня · %2$d записей</string>
+    <string name="history_header_meta_compact">%1$s · %2$s</string>
     <string name="history_day_sub">%1$d записей · %2$d фото</string>
+    <string name="history_day_sub_compact">%1$s · %2$s</string>
     <string name="history_delta_average">%1$s от среднего</string>
     <string name="history_macro_summary">Б %1$s г · Ж %2$s г · У %3$s г</string>
     <string name="history_status_active">Активные</string>
@@ -143,6 +145,7 @@
     <string name="history_status_button">%1$s ▼</string>
     <string name="history_status_sheet_title">Статус</string>
     <string name="history_day_summary">%1$d приёмов · %2$s углев · %3$s ккал · %4$s баланс</string>
+    <string name="history_day_summary_compact">%1$s · %2$s углев · %3$s ккал · %4$s баланс</string>
     <string name="history_balance_empty">&#8212;</string>
     <string name="history_old_cache_hint">Старее 14 дней — нужна сеть</string>
     <string name="history_empty">Нет записей</string>

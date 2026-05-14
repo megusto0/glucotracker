@@ -102,6 +102,7 @@ data class Meal(
     val nightscoutLastAttemptAt: Instant? = null,
     val nightscoutSyncError: String? = null,
     val tags: Set<String> = emptySet(),
+    val mealRole: String? = null,
     val postprandialResponse: PostprandialResponse? = null,
     val estimateStatus: String? = null,
     val estimateError: String? = null,

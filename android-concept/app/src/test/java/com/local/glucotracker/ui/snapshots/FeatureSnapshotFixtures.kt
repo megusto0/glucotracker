@@ -432,6 +432,63 @@ internal fun historySweetHeavyState(): HistoryScreenState =
         totalRecords = 24,
     )
 
+internal fun historyTimelineVariedState(): HistoryScreenState =
+    historyTimelineState(
+        rows = listOf(
+            historyRow("coffee", "Кофе", 20.0, "drink", Instant.parse("2026-05-05T04:40:00Z")),
+            historyRow("breakfast", "Омлет", 420.0, "main_meal", Instant.parse("2026-05-05T06:25:00Z")),
+            historyRow("dessert", "Шоколад", 140.0, "dessert", Instant.parse("2026-05-05T10:05:00Z"), isSweet = true),
+            historyRow("lunch", "Рис с рыбой", 690.0, "main_meal", Instant.parse("2026-05-05T12:35:00Z")),
+            historyRow("snack", "Йогурт", 170.0, "snack", Instant.parse("2026-05-05T15:20:00Z")),
+            historyRow("dinner", "Курица и овощи", 560.0, "main_meal", Instant.parse("2026-05-05T18:45:00Z")),
+        ),
+    )
+
+internal fun historyTimelineSingleState(): HistoryScreenState =
+    historyTimelineState(
+        rows = listOf(
+            historyRow("single", "Суп", 355.0, "main_meal", Instant.parse("2026-05-05T13:18:00Z")),
+        ),
+    )
+
+internal fun historyTimelineDenseState(): HistoryScreenState =
+    historyTimelineState(
+        rows = (0 until 18).map { index ->
+            historyRow(
+                id = "dense-$index",
+                title = "Перекус",
+                kcal = 60.0 + index * 18.0,
+                mealRole = if (index % 5 == 0) "main_meal" else "snack",
+                time = Instant.parse("2026-05-05T${(7 + index / 2).toString().padStart(2, '0')}:${(index % 2 * 7).toString().padStart(2, '0')}:00Z"),
+            )
+        },
+    )
+
+internal fun historyTimelineMixedStatusState(): HistoryScreenState =
+    historyTimelineState(
+        rows = listOf(
+            historyRow("accepted", "Завтрак", 430.0, "main_meal", Instant.parse("2026-05-05T07:20:00Z")),
+            historyRow(
+                id = "pending",
+                title = "Фото",
+                kcal = null,
+                mealRole = null,
+                time = Instant.parse("2026-05-05T11:40:00Z"),
+                kind = HistoryMealRowKind.Pending,
+                status = HistoryMealStatus.Queued,
+            ),
+            historyRow(
+                id = "stuck",
+                title = "Ужин",
+                kcal = 610.0,
+                mealRole = "main_meal",
+                time = Instant.parse("2026-05-05T18:30:00Z"),
+                kind = HistoryMealRowKind.Pending,
+                status = HistoryMealStatus.Stuck,
+            ),
+        ),
+    )
+
 internal fun historyEmptyState(): HistoryScreenState =
     HistoryScreenState(
         filters = setOf(HistoryFilter.PhotoOnly),
@@ -531,11 +588,68 @@ private fun historyDay(
                 totalProteinG = 24.0,
                 totalFatG = 18.0,
                 isSweet = isSweet,
+                mealRole = if (isSweet) "dessert" else "main_meal",
                 errorMessage = null,
             ),
         ),
         dailyAverageKcalForPeriod = 2200.0,
         photoCount = 1,
+    )
+
+private fun historyTimelineState(rows: List<HistoryMealRowUi>): HistoryScreenState =
+    HistoryScreenState(
+        filters = emptySet(),
+        status = HistoryStatusFilter.Active,
+        search = "",
+        days = listOf(
+            HistoryDayUi(
+                date = SnapshotDate,
+                totals = totals(SnapshotDate, mealCount = rows.count { it.kind == HistoryMealRowKind.Accepted }).copy(
+                    kcal = rows.sumOf { it.totalKcal ?: 0.0 },
+                    carbsG = rows.sumOf { it.totalCarbsG ?: 0.0 },
+                    proteinG = rows.sumOf { it.totalProteinG ?: 0.0 },
+                    fatG = rows.sumOf { it.totalFatG ?: 0.0 },
+                    dailyAverageKcalForPeriod = 1800.0,
+                    photoCount = rows.count { it.photo != null || it.source == HistoryMealSource.Photo },
+                ),
+                rows = rows.sortedByDescending { it.eatenAt },
+                dailyAverageKcalForPeriod = 1800.0,
+                photoCount = rows.count { it.photo != null || it.source == HistoryMealSource.Photo },
+            ),
+        ),
+        isRefreshing = false,
+        showNeedsNetworkHint = false,
+        totalDays = 1,
+        totalRecords = rows.size,
+    )
+
+private fun historyRow(
+    id: String,
+    title: String,
+    kcal: Double?,
+    mealRole: String?,
+    time: Instant,
+    isSweet: Boolean = false,
+    kind: HistoryMealRowKind = HistoryMealRowKind.Accepted,
+    status: HistoryMealStatus = HistoryMealStatus.Accepted,
+): HistoryMealRowUi =
+    HistoryMealRowUi(
+        id = id,
+        recordId = if (kind == HistoryMealRowKind.Accepted) id else null,
+        outboxId = if (kind == HistoryMealRowKind.Pending) id else null,
+        kind = kind,
+        eatenAt = time,
+        title = title,
+        source = HistoryMealSource.Photo,
+        status = status,
+        photo = null,
+        totalKcal = kcal,
+        totalCarbsG = kcal?.div(10.0),
+        totalProteinG = kcal?.div(20.0),
+        totalFatG = kcal?.div(30.0),
+        isSweet = isSweet,
+        mealRole = mealRole,
+        errorMessage = null,
     )
 
 private fun sampleRecord(): RecordUi =

@@ -698,6 +698,7 @@ class MealResponse(BaseModel):
     thumbnail_url: str | None = None
     postprandial_response: dict[str, Any] | None = None
     photo_idempotency_key: str | None = None
+    derived_categories: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
     items: list[MealItemResponse] = Field(default_factory=list)

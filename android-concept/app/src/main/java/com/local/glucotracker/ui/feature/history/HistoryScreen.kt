@@ -1,9 +1,11 @@
 package com.local.glucotracker.ui.feature.history
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,14 +40,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.HistoryFilter
@@ -60,11 +64,15 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatSignedKcal
+import com.local.glucotracker.ui.format.pluralizeDay
+import com.local.glucotracker.ui.format.pluralizeMeal
+import com.local.glucotracker.ui.format.pluralizePhoto
+import com.local.glucotracker.ui.format.pluralizeRecord
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.max
 import kotlin.math.roundToLong
+import kotlin.math.sqrt
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -94,6 +102,7 @@ fun HistoryRoute(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     state: HistoryScreenState,
@@ -111,6 +120,7 @@ fun HistoryScreen(
     var statusSheetVisible by remember { mutableStateOf(false) }
     var searchVisible by remember { mutableStateOf(state.search.isNotBlank()) }
     val listState = rememberLazyListState()
+    val visibleDays = remember(state.days) { state.days.filter { day -> day.rows.isNotEmpty() } }
     val shouldLoadMore by remember(state.showNeedsNetworkHint) {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -154,7 +164,16 @@ fun HistoryScreen(
                 )
             }
         }
-        if (state.days.isEmpty() && !state.isRefreshing) {
+        if (visibleDays.isNotEmpty()) {
+            stickyHeader {
+                HourScaleHeader(
+                    modifier = Modifier
+                        .background(GT.colors.bg)
+                        .padding(horizontal = 18.dp, vertical = 4.dp),
+                )
+            }
+        }
+        if (visibleDays.isEmpty() && !state.isRefreshing) {
             item {
                 GTHintBox(
                     text = stringResource(R.string.history_empty),
@@ -163,13 +182,14 @@ fun HistoryScreen(
             }
         }
         items(
-            items = state.days,
+            items = visibleDays,
             key = { day -> day.date.toString() },
         ) { day ->
             if (brandAccentColor != null) {
                 HistoryDayCard(
                     day = day,
                     markerColor = brandAccentColor,
+                    onOpenMealStack = onOpenMealStack,
                     onOpenDay = onOpenDay,
                     modifier = Modifier.padding(horizontal = 18.dp),
                 )
@@ -223,7 +243,11 @@ private fun FoodHistoryHeader(
             maxLines = 1,
         )
         Text(
-            text = stringResource(R.string.history_header_meta, state.totalDays, state.totalRecords),
+            text = stringResource(
+                R.string.history_header_meta_compact,
+                pluralizeDay(state.totalDays),
+                pluralizeRecord(state.totalRecords),
+            ),
             modifier = Modifier.padding(top = 4.dp),
             color = GT.colors.muted,
             style = GT.type.monoLabel,
@@ -388,6 +412,7 @@ private fun FilterChip(
 private fun HistoryDayCard(
     day: HistoryDayUi,
     markerColor: Color,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -395,10 +420,11 @@ private fun HistoryDayCard(
     val kcal = totals?.kcal ?: day.rows.sumOf { it.totalKcal ?: 0.0 }
     val average = day.dailyAverageKcalForPeriod
     val delta = average?.let { (kcal - it).roundToLong() }
+    val mealCount = totals?.mealCount ?: day.rows.count { it.kind == HistoryMealRowKind.Accepted }
     val description = stringResource(
-        R.string.history_day_sub,
-        totals?.mealCount ?: day.rows.count { it.kind == HistoryMealRowKind.Accepted },
-        day.photoCount,
+        R.string.history_day_sub_compact,
+        pluralizeMeal(mealCount),
+        pluralizePhoto(day.photoCount),
     )
     Column(
         modifier = modifier
@@ -435,22 +461,22 @@ private fun HistoryDayCard(
                 )
                 if (delta != null) {
                     Text(
-                        text = stringResource(R.string.history_delta_average, formatSignedKcal(delta)),
+                        text = formatCompactDelta(delta),
                         modifier = Modifier.padding(top = 2.dp),
-                        color = GT.colors.muted,
+                        color = deltaColor(delta, markerColor),
                         style = GT.type.monoLabel,
                         maxLines = 1,
                     )
                 }
             }
         }
-        HistorySparkline(
-            rows = day.rows,
-            markerColor = markerColor,
+        DayTimeline(
+            meals = day.rows.toTimelineMeals(),
+            accentColor = markerColor,
+            onMealTap = { id -> onOpenMealStack(day.date, id) },
             modifier = Modifier
                 .padding(top = 12.dp)
                 .fillMaxWidth()
-                .height(32.dp),
         )
         Text(
             text = stringResource(
@@ -469,58 +495,100 @@ private fun HistoryDayCard(
 }
 
 @Composable
-private fun HistorySparkline(
-    rows: List<HistoryMealRowUi>,
-    markerColor: Color,
+private fun HourScaleHeader(modifier: Modifier = Modifier) {
+    val lineColor = GT.colors.muted.copy(alpha = 0.3f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            HourScaleLabels.forEach { label ->
+                Text(
+                    text = label,
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 9.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+        Canvas(
+            modifier = Modifier
+                .padding(top = 3.dp)
+                .fillMaxWidth()
+                .height(4.dp),
+        ) {
+            drawLine(
+                color = lineColor,
+                start = Offset(0f, size.height / 2f),
+                end = Offset(size.width, size.height / 2f),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayTimeline(
+    meals: List<MealForTimeline>,
+    accentColor: Color,
+    onMealTap: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = GT.colors
-    val acceptedRows = remember(rows) {
-        rows
-            .filter { it.kind == HistoryMealRowKind.Accepted && (it.totalKcal ?: 0.0) > 0.0 }
-            .sortedBy { it.eatenAt }
-    }
-    Canvas(modifier = modifier) {
-        val baseline = size.height - 2.dp.toPx()
-        if (acceptedRows.isEmpty()) {
-            drawLine(
-                color = colors.hairline2,
-                start = Offset(0f, baseline),
-                end = Offset(size.width, baseline),
-                strokeWidth = 1.2.dp.toPx(),
-            )
-            return@Canvas
-        }
-
-        val total = max(acceptedRows.sumOf { it.totalKcal ?: 0.0 }.toFloat(), 1f)
-        var cumulative = 0f
-        val points = acceptedRows.map { row ->
-            cumulative += (row.totalKcal ?: 0.0).toFloat()
-            val time = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
-            val minuteOfDay = time.hour * 60 + time.minute
-            val x = size.width * (minuteOfDay / 1_439f)
-            val y = baseline - (baseline - 2.dp.toPx()) * (cumulative / total)
-            row to Offset(x.coerceIn(0f, size.width), y.coerceIn(2.dp.toPx(), baseline))
-        }
-        val path = Path().apply {
-            moveTo(0f, baseline)
-            points.forEach { (_, point) -> lineTo(point.x, point.y) }
-            lineTo(size.width, points.last().second.y)
-        }
-        drawPath(
-            path = path,
-            color = colors.ink,
-            style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round),
+    val slate = GT.colors.info
+    val sortedMeals = remember(meals) { meals.sortedBy { it.minutesOfDay } }
+    Canvas(
+        modifier = modifier
+            .height(32.dp)
+            .pointerInput(sortedMeals) {
+                detectTapGestures { offset ->
+                    val tapped = sortedMeals
+                        .asReversed()
+                        .firstOrNull { meal ->
+                            val radius = computeTimelineRadiusPx(meal.kcal)
+                            val hitRadius = maxOf(radius, 12.dp.toPx())
+                            val center = Offset(
+                                x = size.width * (meal.minutesOfDay / MinutesPerDayFloat),
+                                y = size.height / 2f,
+                            )
+                            (offset - center).getDistance() <= hitRadius
+                        }
+                    tapped?.let { onMealTap(it.id) }
+                }
+            },
+    ) {
+        val baselineY = size.height / 2f
+        drawLine(
+            color = colors.muted.copy(alpha = 0.3f),
+            start = Offset(0f, baselineY),
+            end = Offset(size.width, baselineY),
+            strokeWidth = 1.dp.toPx(),
+            cap = StrokeCap.Round,
         )
-        points
-            .filter { (row, _) -> row.isSweet }
-            .forEach { (_, point) ->
+        sortedMeals.forEach { meal ->
+            val x = size.width * (meal.minutesOfDay / MinutesPerDayFloat)
+            val radius = computeTimelineRadiusPx(meal.kcal)
+            val color = when {
+                meal.status == HistoryMealStatus.Stuck -> colors.warn
+                meal.isMainMeal -> accentColor
+                else -> slate
+            }
+            if (meal.kind == HistoryMealRowKind.Accepted) {
                 drawCircle(
-                    color = markerColor,
-                    radius = 2.5.dp.toPx(),
-                    center = point,
+                    color = color.copy(alpha = 0.85f),
+                    radius = radius,
+                    center = Offset(x.coerceIn(0f, size.width), baselineY),
+                )
+            } else {
+                drawCircle(
+                    color = color.copy(alpha = 0.9f),
+                    radius = radius,
+                    center = Offset(x.coerceIn(0f, size.width), baselineY),
+                    style = Stroke(width = 1.2.dp.toPx()),
                 )
             }
+        }
     }
 }
 
@@ -551,6 +619,14 @@ private fun HistoryDaySection(
             }
             LocalGlucoseSurfaces.current.HistoryDayCgmSparkline(day.date)
         }
+        DayTimeline(
+            meals = day.rows.toTimelineMeals(),
+            accentColor = GT.colors.accent,
+            onMealTap = { id -> onOpenMealStack(day.date, id) },
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth(),
+        )
         Column(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -605,9 +681,10 @@ private fun HistoryDayUi.summaryText(): String {
         ?.roundToLong()
         ?.let(::formatSignedKcal)
         ?: stringResource(R.string.history_balance_empty)
+    val mealCount = totals?.mealCount ?: rows.count { it.kind == HistoryMealRowKind.Accepted }
     return stringResource(
-        R.string.history_day_summary,
-        totals?.mealCount ?: rows.count { it.kind == HistoryMealRowKind.Accepted },
+        R.string.history_day_summary_compact,
+        pluralizeMeal(mealCount),
         formatGrams(totals?.carbsG ?: 0.0),
         formatKcal(totals?.kcal ?: 0.0),
         balance,
@@ -713,6 +790,71 @@ private fun HistoryStatusFilter.label(): String =
         HistoryStatusFilter.All -> stringResource(R.string.history_status_all)
     }
 
+private fun List<HistoryMealRowUi>.toTimelineMeals(): List<MealForTimeline> =
+    mapNotNull { row ->
+        val id = row.recordId ?: row.outboxId ?: return@mapNotNull null
+        val time = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
+        val minutesOfDay = (time.hour * 60 + time.minute).coerceIn(0, MinutesPerDay - 1)
+        MealForTimeline(
+            id = id,
+            minutesOfDay = minutesOfDay,
+            kcal = row.totalKcal?.roundToLong()?.toInt()?.coerceAtLeast(0),
+            kind = row.kind,
+            status = row.status,
+            isMainMeal = row.isMainMealForTimeline(),
+        )
+    }
+
+private fun HistoryMealRowUi.isMainMealForTimeline(): Boolean =
+    when (mealRole) {
+        "main_meal",
+        "composite",
+        "meal",
+        -> true
+        "snack",
+        "drink",
+        "dessert",
+        -> false
+        else -> (totalKcal ?: 0.0) >= TimelineSnackKcalThreshold
+    }
+
+private fun Density.computeTimelineRadiusPx(kcal: Int?): Float {
+    val normalized = sqrt(((kcal ?: 0) / TimelineKcalNormalization).coerceIn(0f, 1f))
+    return TimelineMinRadius.toPx() + normalized * (TimelineMaxRadius.toPx() - TimelineMinRadius.toPx())
+}
+
+private fun formatCompactDelta(delta: Long): String =
+    when {
+        delta > 0 -> "+${formatKcal(delta)}"
+        delta < 0 -> formatSignedKcal(delta)
+        else -> "\u00B10"
+    }
+
+@Composable
+private fun deltaColor(delta: Long, accentColor: Color): Color =
+    when {
+        delta > 0 -> accentColor
+        delta < 0 -> GT.colors.info
+        else -> GT.colors.muted
+    }
+
+private data class MealForTimeline(
+    val id: String,
+    val minutesOfDay: Int,
+    val kcal: Int?,
+    val kind: HistoryMealRowKind,
+    val status: HistoryMealStatus,
+    val isMainMeal: Boolean,
+)
+
+private val HourScaleLabels = listOf("00", "06", "12", "18", "24")
+private val TimelineMinRadius = 4.dp
+private val TimelineMaxRadius = 14.dp
+private const val MinutesPerDay = 1_440
+private const val MinutesPerDayFloat = 1_440f
+private const val TimelineKcalNormalization = 700f
+private const val TimelineSnackKcalThreshold = 150.0
+
 @Composable
 private fun SearchGlyph(modifier: Modifier = Modifier) {
     val color = GT.colors.muted
@@ -746,7 +888,7 @@ private fun FilterGlyph() {
 
 private fun dayTitle(date: LocalDate): String =
     date.toJavaLocalDate()
-        .format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
+        .format(DateTimeFormatter.ofPattern("EEEE · d MMMM", Locale("ru")))
         .replaceFirstChar { char ->
             if (char.isLowerCase()) char.titlecase(Locale("ru")) else char.toString()
         }

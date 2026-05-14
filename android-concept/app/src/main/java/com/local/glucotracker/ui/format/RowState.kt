@@ -118,3 +118,30 @@ fun pluralizeRecord(count: Int): String {
         else -> "$count записей"
     }
 }
+
+fun pluralizeDay(count: Int): String =
+    pluralizeRu(count, "РґРµРЅСЊ", "РґРЅСЏ", "РґРЅРµР№")
+
+fun pluralizeMeal(count: Int): String =
+    pluralizeRu(count, "РїСЂРёС‘Рј", "РїСЂРёС‘РјР°", "РїСЂРёС‘РјРѕРІ")
+
+fun pluralizePhoto(count: Int): String =
+    pluralizeRu(count, "С„РѕС‚Рѕ", "С„РѕС‚Рѕ", "С„РѕС‚Рѕ")
+
+private fun pluralizeRu(
+    count: Int,
+    one: String,
+    few: String,
+    many: String,
+): String {
+    val absCount = kotlin.math.abs(count)
+    val mod10 = absCount % 10
+    val mod100 = absCount % 100
+    val word = when {
+        mod100 in 11..19 -> many
+        mod10 == 1 -> one
+        mod10 in 2..4 -> few
+        else -> many
+    }
+    return "$count $word"
+}

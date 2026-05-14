@@ -3611,6 +3611,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Derived Categories */
+            derived_categories?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Eaten At
              * Format: date-time

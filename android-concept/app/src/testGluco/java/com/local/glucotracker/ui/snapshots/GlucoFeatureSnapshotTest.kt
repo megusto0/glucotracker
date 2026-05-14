@@ -65,6 +65,22 @@ class GlucoFeatureSnapshotTest {
         HistorySnapshot(historyEmptyState())
     }
 
+    @Test fun historyTimelineVaried() = glucoSnapshot("gluco_history_timeline_varied") {
+        HistorySnapshot(historyTimelineVariedState())
+    }
+
+    @Test fun historyTimelineSingle() = glucoSnapshot("gluco_history_timeline_single") {
+        HistorySnapshot(historyTimelineSingleState())
+    }
+
+    @Test fun historyTimelineDense() = glucoSnapshot("gluco_history_timeline_dense") {
+        HistorySnapshot(historyTimelineDenseState())
+    }
+
+    @Test fun historyTimelineMixedStatus() = glucoSnapshot("gluco_history_timeline_mixed_status") {
+        HistorySnapshot(historyTimelineMixedStatusState())
+    }
+
     @Test fun composeSheetEmpty() = glucoSnapshot("gluco_compose_sheet_empty") {
         ComposeSheetEmptySnapshot()
     }

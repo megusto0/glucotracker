@@ -72,6 +72,7 @@ data class CachedMealEntity(
     val photoIdempotencyKey: String? = null,
     val estimateStatus: String? = null,
     val estimateError: String? = null,
+    val mealRole: String? = null,
 )
 
 @Fts4(tokenizer = "unicode61")
