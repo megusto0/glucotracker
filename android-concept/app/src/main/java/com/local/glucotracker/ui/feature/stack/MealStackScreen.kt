@@ -12,13 +12,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +35,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -48,9 +53,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -202,23 +209,37 @@ private fun ReadyStack(
                     )
                 }
             }
-            if (editSheetOpen) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(GT.colors.ink.copy(alpha = 0.16f)),
-                )
-            }
         }
     }
 
     if (editSheetOpen && currentCard != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        val haptic = LocalHapticFeedback.current
+        var hapticReady by remember(currentCard.id) { mutableStateOf(false) }
+
+        LaunchedEffect(sheetState.currentValue) {
+            if (
+                hapticReady &&
+                (
+                    sheetState.currentValue == SheetValue.Expanded ||
+                        sheetState.currentValue == SheetValue.Hidden
+                    )
+            ) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+            hapticReady = true
+        }
+
         ModalBottomSheet(
             onDismissRequest = { editSheetOpen = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = GT.colors.surface,
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            containerColor = GT.colors.bg,
             contentColor = GT.colors.ink,
             tonalElevation = 0.dp,
+            scrimColor = Color.Black.copy(alpha = 0.32f),
+            dragHandle = { JournalDragHandle() },
+            contentWindowInsets = { WindowInsets.ime.add(WindowInsets.navigationBars) },
         ) {
             QuickEditSheet(
                 card = currentCard,
@@ -595,9 +616,8 @@ private fun QuickEditSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.6f)
-            .navigationBarsPadding()
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -649,6 +669,25 @@ private fun QuickEditSheet(
                 style = GT.type.sansLabel,
             )
         }
+    }
+}
+
+@Composable
+private fun JournalDragHandle() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 32.dp, height = 4.dp)
+                .background(
+                    color = GT.colors.muted,
+                    shape = RoundedCornerShape(2.dp),
+                ),
+        )
     }
 }
 

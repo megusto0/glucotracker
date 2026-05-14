@@ -57,11 +57,11 @@ fun GTTheme(
         tertiary = colors.warn,
         background = colors.bg,
         onBackground = colors.ink,
-        surface = colors.surface,
+        surface = colors.bg,
         onSurface = colors.ink,
-        surfaceVariant = colors.surface2,
+        surfaceVariant = colors.surface,
         onSurfaceVariant = colors.ink2,
-        outline = colors.hairline,
+        outline = colors.muted,
         outlineVariant = colors.hairline2,
     )
 
