@@ -179,19 +179,19 @@ private fun ReadyStack(
                     onBack = onBack,
                 ),
         ) {
-            val horizontalPadding = ((maxWidth - CardWidth) / 2).coerceAtLeast(28.dp)
+            val horizontalPadding = ((maxWidth - CardWidth) / 2).coerceAtLeast(22.dp)
             state.cards.getOrNull(state.currentIndex + 1)?.let {
                 MealCardPeek(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .offset(x = (-146).dp, y = 8.dp),
+                        .offset(x = (-160).dp, y = 8.dp),
                 )
             }
             state.cards.getOrNull(state.currentIndex - 1)?.let {
                 MealCardPeek(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 146.dp, y = 8.dp),
+                        .offset(x = 160.dp, y = 8.dp),
                 )
             }
             HorizontalPager(
@@ -210,7 +210,6 @@ private fun ReadyStack(
                 ).absoluteValue.coerceIn(0f, 1f)
                 MealCardComposable(
                     card = state.cards[page],
-                    loadPhoto = pageOffset < 0.55f,
                     onRetry = onRetry,
                     modifier = Modifier
                         .graphicsLayer {
@@ -363,7 +362,6 @@ private fun MealCardPeek(
 @Composable
 fun MealCardComposable(
     card: MealCard,
-    loadPhoto: Boolean,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -375,7 +373,7 @@ fun MealCardComposable(
             .border(1.dp, GT.colors.ink.copy(alpha = 0.22f), shape)
             .padding(12.dp),
     ) {
-        MealCardPhoto(card = card, loadPhoto = loadPhoto, onRetry = onRetry)
+        MealCardPhoto(card = card, onRetry = onRetry)
         Text(
             text = card.title.orEmpty().ifBlank { fallbackTitle(card) },
             modifier = Modifier.padding(top = 10.dp),
@@ -415,11 +413,10 @@ fun MealCardComposable(
 @Composable
 private fun MealCardPhoto(
     card: MealCard,
-    loadPhoto: Boolean,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val imageModel = if (loadPhoto) rememberApiImageModel(card.photo) else null
+    val imageModel = rememberApiImageModel(card.photo)
     val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = modifier
@@ -943,5 +940,5 @@ private fun Instant.timeText(): String {
     return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
 }
 
-private val CardWidth = 256.dp
+private val CardWidth = 280.dp
 private const val MaxDots = 12
