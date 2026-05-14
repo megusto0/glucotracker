@@ -94,7 +94,7 @@ internal fun StatsSnapshot(state: StatsState, brandAccentColor: Color? = null) {
 internal fun HistorySnapshot(state: HistoryScreenState, brandAccentColor: Color? = null) {
     HistoryScreen(
         state = state,
-        onOpenRecord = {},
+        onOpenMealStack = { _, _ -> },
         onOpenDay = {},
         onToggleFilter = {},
         onClearFilters = {},

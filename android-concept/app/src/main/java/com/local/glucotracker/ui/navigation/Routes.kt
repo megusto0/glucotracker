@@ -21,6 +21,14 @@ sealed class Route(val route: String) {
             const val ArgId = "id"
         }
     }
+    data class MealStack(val date: kotlinx.datetime.LocalDate, val focusedId: String) :
+        Route("meal-stack/$date/$focusedId") {
+        companion object {
+            const val Pattern = "meal-stack/{date}/{focused_id}"
+            const val ArgDate = "date"
+            const val ArgFocusedId = "focused_id"
+        }
+    }
     data object Capture : Route("capture")
     data object PhotoCapture : Route("photo_capture")
 }

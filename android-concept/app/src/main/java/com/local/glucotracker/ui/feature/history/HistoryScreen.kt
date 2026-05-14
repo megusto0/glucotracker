@@ -73,7 +73,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @Composable
 fun HistoryRoute(
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenDay: (LocalDate) -> Unit = {},
     searchRequestCounter: Int = 0,
     brandAccentColor: Color? = null,
@@ -82,7 +82,7 @@ fun HistoryRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     HistoryScreen(
         state = state,
-        onOpenRecord = onOpenRecord,
+        onOpenMealStack = onOpenMealStack,
         onOpenDay = onOpenDay,
         onToggleFilter = viewModel::toggleFilter,
         onClearFilters = viewModel::clearFilters,
@@ -97,7 +97,7 @@ fun HistoryRoute(
 @Composable
 fun HistoryScreen(
     state: HistoryScreenState,
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenDay: (LocalDate) -> Unit,
     onToggleFilter: (HistoryFilter) -> Unit,
     onClearFilters: () -> Unit,
@@ -176,7 +176,7 @@ fun HistoryScreen(
             } else {
                 HistoryDaySection(
                     day = day,
-                    onOpenRecord = onOpenRecord,
+                    onOpenMealStack = onOpenMealStack,
                     modifier = Modifier.padding(horizontal = 18.dp),
                 )
             }
@@ -527,7 +527,7 @@ private fun HistorySparkline(
 @Composable
 private fun HistoryDaySection(
     day: HistoryDayUi,
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -561,7 +561,7 @@ private fun HistoryDaySection(
             day.rows.forEachIndexed { index, row ->
                 HistoryMealRow(
                     row = row,
-                    onOpenRecord = onOpenRecord,
+                    onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
                 )
                 if (index < day.rows.lastIndex) {
                     GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
@@ -574,11 +574,11 @@ private fun HistoryDaySection(
 @Composable
 private fun HistoryMealRow(
     row: HistoryMealRowUi,
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (String) -> Unit,
 ) {
     val clickId = row.recordId ?: row.outboxId
     val clickModifier = clickId?.let { id ->
-        Modifier.clickable { onOpenRecord(id) }
+        Modifier.clickable { onOpenMealStack(id) }
     } ?: Modifier
     Box(modifier = clickModifier) {
         GTMealRow(

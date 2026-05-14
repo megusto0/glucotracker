@@ -2,10 +2,12 @@ package com.local.glucotracker.ui.image
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.CachePolicy
@@ -24,15 +26,22 @@ fun rememberApiImageModel(model: Any?): Any? {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val tokenStore = remember(appContext) {
-        EntryPointAccessors.fromApplication(
-            appContext,
-            ApiImageEntryPoint::class.java,
-        ).tokenStore()
+        runCatching {
+            EntryPointAccessors.fromApplication(
+                appContext,
+                ApiImageEntryPoint::class.java,
+            ).tokenStore()
+        }.getOrNull()
     }
-    val accessTokenFlow = remember(tokenStore) {
-        tokenStore.observeSession().map { it?.accessToken }
+    val accessTokenState: State<String?> = if (tokenStore == null) {
+        remember { mutableStateOf(null) }
+    } else {
+        val accessTokenFlow = remember(tokenStore) {
+            tokenStore.observeSession().map { it?.accessToken }
+        }
+        accessTokenFlow.collectAsStateWithLifecycle(initialValue = tokenStore.lastAccessToken)
     }
-    val accessToken by accessTokenFlow.collectAsState(initial = tokenStore.lastAccessToken)
+    val accessToken by accessTokenState
     return remember(context, model, accessToken) {
         apiImageModel(context, model, accessToken)
     }

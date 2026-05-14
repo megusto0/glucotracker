@@ -4,6 +4,8 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -82,6 +84,7 @@ import com.local.glucotracker.ui.feature.capture.PhotoCaptureScreen
 import com.local.glucotracker.ui.feature.history.HistoryRoute
 import com.local.glucotracker.ui.feature.more.MoreRoute
 import com.local.glucotracker.ui.feature.record.RecordRoute
+import com.local.glucotracker.ui.feature.stack.MealStackRoute
 import com.local.glucotracker.ui.feature.sync.OutboxInspectorRoute
 import com.local.glucotracker.ui.feature.stats.StatsRoute
 import com.local.glucotracker.ui.feature.today.TodayRoute
@@ -139,6 +142,7 @@ fun MainScaffold(
     var lastQueuedOutboxId by rememberSaveable { mutableStateOf<String?>(null) }
     var historySearchRequestCounter by rememberSaveable { mutableStateOf(0) }
     val currentBackStack by navController.currentBackStackEntryAsState()
+    val fullScreenDetail = currentBackStack?.destination?.route == Route.MealStack.Pattern
     val selectedRoute = currentBackStack?.destination?.route?.toBottomRoute(navConfig) ?: Route.Today.route
     val navigateToTodayWithQueuedOutbox: (String) -> Unit = { outboxId ->
         lastQueuedOutboxId = outboxId
@@ -162,7 +166,7 @@ fun MainScaffold(
             state = offlineBannerState,
             onTap = { navController.navigate(Route.OutboxInspector.route) },
         )
-        navConfig.brand?.let { brand ->
+        if (!fullScreenDetail) navConfig.brand?.let { brand ->
             GTBrandLockup(
                 name = stringResource(brand.name),
                 mark = {
@@ -247,6 +251,9 @@ fun GTNavHost(
     modifier: Modifier = Modifier,
 ) {
     val glucoseRoute = navConfig.tabs.firstOrNull { it.icon == NavIcon.Trend }?.route
+    val openMealStack: (LocalDate, String) -> Unit = { date, id ->
+        navController.navigate(Route.MealStack(date, id).route)
+    }
     NavHost(
         navController = navController,
         startDestination = Route.Today.route,
@@ -258,7 +265,7 @@ fun GTNavHost(
     ) {
         composable(Route.Today.route) {
             TodayStatsPager(
-                onOpenRecord = { id -> navController.navigate(Route.Record(id).route) },
+                onOpenMealStack = openMealStack,
                 onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
                 onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
                 lastQueuedOutboxId = lastQueuedOutboxId,
@@ -282,7 +289,7 @@ fun GTNavHost(
         ) { entry ->
             val initialDate = entry.arguments?.getString(Route.Today.ArgDate)?.let(LocalDate::parse)
             TodayStatsPager(
-                onOpenRecord = { id -> navController.navigate(Route.Record(id).route) },
+                onOpenMealStack = openMealStack,
                 onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
                 onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
                 lastQueuedOutboxId = lastQueuedOutboxId,
@@ -306,7 +313,7 @@ fun GTNavHost(
         }
         composable(Route.History.route) {
             HistoryRoute(
-                onOpenRecord = { id -> navController.navigate(Route.Record(id).route) },
+                onOpenMealStack = openMealStack,
                 onOpenDay = { date ->
                     navController.navigate(Route.Today.forDate(date)) {
                         popUpTo(Route.Today.route) {
@@ -318,6 +325,28 @@ fun GTNavHost(
                 searchRequestCounter = historySearchRequestCounter,
                 brandAccentColor = navConfig.brand?.activeIndicatorColor,
             )
+        }
+        composable(
+            route = Route.MealStack.Pattern,
+            arguments = listOf(
+                navArgument(Route.MealStack.ArgDate) { type = NavType.StringType },
+                navArgument(Route.MealStack.ArgFocusedId) { type = NavType.StringType },
+            ),
+            enterTransition = {
+                fadeIn(animationSpec = tween(220)) +
+                    scaleIn(animationSpec = tween(220), initialScale = 0.96f)
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(200)) +
+                    scaleOut(animationSpec = tween(200), targetScale = 0.96f)
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(200)) +
+                    scaleOut(animationSpec = tween(200), targetScale = 0.96f)
+            },
+            popEnterTransition = { fadeIn(animationSpec = tween(180)) },
+        ) {
+            MealStackRoute(onBack = { navController.popBackStack() })
         }
         composable(Route.Base.route) {
             BaseRoute(
@@ -459,7 +488,7 @@ fun GTOfflineBanner(
 
 @Composable
 private fun TodayStatsPager(
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenOutbox: (String) -> Unit,
     onOpenOutboxSummary: () -> Unit,
     lastQueuedOutboxId: String?,
@@ -478,7 +507,7 @@ private fun TodayStatsPager(
         ) { page ->
             when (page) {
                 0 -> TodayRoute(
-                    onOpenRecord = onOpenRecord,
+                    onOpenMealStack = onOpenMealStack,
                     onOpenOutbox = onOpenOutbox,
                     onOpenOutboxSummary = onOpenOutboxSummary,
                     lastQueuedOutboxId = lastQueuedOutboxId,

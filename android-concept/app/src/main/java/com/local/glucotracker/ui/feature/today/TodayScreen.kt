@@ -84,7 +84,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @Composable
 fun TodayRoute(
-    onOpenRecord: (String) -> Unit,
+    onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenOutbox: (String) -> Unit = {},
     onOpenOutboxSummary: () -> Unit = {},
     lastQueuedOutboxId: String? = null,
@@ -136,10 +136,8 @@ fun TodayRoute(
         state = state,
         lastQueuedOutboxId = lastQueuedOutboxId,
         onOpenRow = { row ->
-            if (row.isAgedPending && row.outboxId != null) {
-                onOpenOutbox(row.outboxId)
-            } else {
-                (row.recordId ?: row.outboxId)?.let(onOpenRecord)
+            (row.recordId ?: row.outboxId)?.let { id ->
+                onOpenMealStack(row.eatenAt.localDate(), id)
             }
         },
         onDeleteRow = viewModel::deleteRow,
@@ -1188,6 +1186,9 @@ private fun Instant.timeText(): String {
     val time = toLocalDateTime(TimeZone.currentSystemDefault()).time
     return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
 }
+
+private fun Instant.localDate(): LocalDate =
+    toLocalDateTime(TimeZone.currentSystemDefault()).date
 
 @Preview(showBackground = true, backgroundColor = 0xFFF6F4EF)
 @Composable
