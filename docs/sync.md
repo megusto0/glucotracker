@@ -1,7 +1,7 @@
 # Sync And Reconciliation
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-16
 Owner/area: Android outbox, backend sync, Nightscout
 
 Glucotracker uses local-first Android reads/mutations and backend-owned accepted
@@ -49,6 +49,12 @@ Backend behavior:
 5. Return `202 Accepted`.
 6. Run Gemini estimation in a background task.
 7. Persist accepted results or an estimate error on the backend meal.
+
+`captured_at` is a local wall-clock value. Clients should send it without a
+trailing `Z`, for example `2026-05-16T20:10:00`; the backend stores the same
+wall time as `meals.eaten_at` and `photos.taken_at`. Offline outbox replay must
+preserve the original capture wall time unchanged rather than replacing it with
+sync time.
 
 The older multi-call flow still exists for compatibility/desktop/manual flows:
 

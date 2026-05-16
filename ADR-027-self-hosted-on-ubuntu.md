@@ -350,10 +350,14 @@ Alembic rules:
 4. Type changes forward-only: add new column → backfill → switch reads →
    drop old column in a follow-up migration after one verified deploy.
 
-Timezone: all timestamps `sa.DateTime(timezone=True)` → `TIMESTAMPTZ` in
-Postgres. Application code never `datetime.now()` — always
-`datetime.now(timezone.utc)`. `GLUCOTRACKER_APP_TIMEZONE` governs
-presentation only, not storage.
+Timezone: absolute timestamps `sa.DateTime(timezone=True)` → `TIMESTAMPTZ` in
+Postgres. User-entered wall-clock fields (`meals.eaten_at`,
+`photos.taken_at`, `meal_audit_events.eaten_at`) are explicit exceptions:
+they use `timestamp without time zone` so a Tauri `datetime-local` value like
+`2026-05-16T20:10:00` round-trips as 20:10 and is never shifted through UTC.
+Application code never `datetime.now()` for absolute timestamps — always
+`datetime.now(timezone.utc)`. `GLUCOTRACKER_APP_TIMEZONE` governs conversion
+from timezone-aware client values into local wall-clock values.
 
 ### 5.4 — Connection pool
 

@@ -199,7 +199,7 @@ class Meal(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    eaten_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    eaten_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[MealStatus] = enum_column(
@@ -552,7 +552,7 @@ class Photo(Base):
     original_filename: Mapped[str | None] = mapped_column(String, nullable=True)
     content_type: Mapped[str | None] = mapped_column(String, nullable=True)
     taken_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(timezone=False),
         nullable=True,
     )
     scenario: Mapped[PhotoScenario] = enum_column(
@@ -912,7 +912,7 @@ class MealAuditEvent(Base):
     action: Mapped[str] = mapped_column(String, nullable=False)
     meal_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     eaten_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(timezone=False),
         nullable=True,
     )
     title: Mapped[str | None] = mapped_column(String, nullable=True)

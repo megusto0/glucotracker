@@ -412,7 +412,7 @@ export interface paths {
         };
         /**
          * Health
-         * @description Return service health for local and container checks.
+         * @description Return lightweight service health for watchdog and reverse proxy checks.
          */
         get: operations["getHealth"];
         put?: never;
@@ -3019,7 +3019,7 @@ export interface components {
         HealthResponse: {
             /**
              * Db
-             * @example ok
+             * @example not_checked
              */
             db: string;
             /**
@@ -3181,7 +3181,7 @@ export interface components {
          * MealCreate
          * @description Create a meal with optional inline items.
          * @example {
-         *       "eaten_at": "2026-04-28T08:30:00Z",
+         *       "eaten_at": "2026-04-28T08:30:00",
          *       "items": [
          *         {
          *           "carbs_g": 8,

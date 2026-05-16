@@ -3869,7 +3869,7 @@
         "description": "Create a meal with optional inline items.",
         "examples": [
           {
-            "eaten_at": "2026-04-28T08:30:00Z",
+            "eaten_at": "2026-04-28T08:30:00",
             "items": [
               {
                 "carbs_g": 8,

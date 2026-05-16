@@ -10,7 +10,14 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from glucotracker.config import get_settings
-from glucotracker.infra.db.models import DailyTotal, MealAuditEvent, MealItem, Product
+from glucotracker.infra.db.models import (
+    DailyTotal,
+    Meal,
+    MealAuditEvent,
+    MealItem,
+    Photo,
+    Product,
+)
 
 
 def meal_payload(**overrides: object) -> dict:
@@ -217,6 +224,41 @@ def test_aware_meal_time_is_stored_as_app_local_wall_time(
         )
     assert daily is not None
     assert daily.meal_count == 1
+
+
+def test_naive_meal_time_round_trips_as_wall_clock(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tauri datetime-local values must not acquire a UTC offset on round trip."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(eaten_at="2026-05-16T20:10:00"),
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["eaten_at"] == "2026-05-16T20:10:00"
+
+    listed = api_client.get(
+        "/meals",
+        params={
+            "from": "2026-05-16T00:00:00+04:00",
+            "to": "2026-05-17T00:00:00+04:00",
+        },
+    )
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["eaten_at"] == "2026-05-16T20:10:00"
+
+
+def test_meal_wall_clock_columns_are_timezone_naive() -> None:
+    """Postgres must not store wall-clock meal/photo times as TIMESTAMPTZ."""
+    assert Meal.__table__.c.eaten_at.type.timezone is False
+    assert Photo.__table__.c.taken_at.type.timezone is False
+    assert MealAuditEvent.__table__.c.eaten_at.type.timezone is False
 
 
 def test_patch_updates_updated_at(api_client: TestClient) -> None:

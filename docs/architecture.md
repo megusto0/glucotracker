@@ -1,7 +1,7 @@
 # Architecture
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-16
 Owner/area: backend, desktop, Android architecture
 
 Glucotracker is a three-client-family repository around one backend:
@@ -46,6 +46,21 @@ Key entry points:
 
 `get_session` yields a sync SQLAlchemy `Session` from an async dependency. Keep
 that shape; it avoids QueuePool starvation during FastAPI dependency cleanup.
+
+### Time Semantics
+
+Meal and photo capture times are local wall-clock product data, not absolute
+instants. `meals.eaten_at`, `photos.taken_at`, and
+`meal_audit_events.eaten_at` are stored as timezone-naive datetimes
+(`timestamp without time zone` on Postgres). Tauri and Android should send
+`YYYY-MM-DDTHH:MM:SS` for local meal/capture times. If an older client sends an
+offset-aware value, the backend converts it to `GLUCOTRACKER_APP_TIMEZONE` and
+then stores the local wall time. These fields must not shift through UTC
+conversion.
+
+Absolute event timestamps such as `created_at`, `updated_at`, refresh-token
+expiry, Nightscout import timestamps, CGM readings, and worker timestamps remain
+timezone-aware UTC values (`TIMESTAMPTZ` on Postgres).
 
 ## Auth And Users
 

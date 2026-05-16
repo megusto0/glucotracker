@@ -1,7 +1,7 @@
 # Data Model
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-16
 Owner/area: backend persistence and Android local cache
 
 This is a practical map, not a full schema dump. Use
@@ -34,6 +34,24 @@ Defined primarily in `backend/glucotracker/infra/db/models.py`.
 | `cgm_calibration_models` | gluco-only | Display/normalization support. |
 | `user_profile`, `daily_activity` | user-owned | Activity/TDEE context for calorie balance. |
 | `non_typical_periods`, `day_anchor_history` | user-owned | Adaptive day-rhythm learning and overrides. |
+
+## Time Columns
+
+Glucotracker separates local wall-clock product times from absolute event
+instants:
+
+| Column | Meaning | Storage |
+| --- | --- | --- |
+| `meals.eaten_at` | User-visible meal/capture time and journal day assignment. | Naive local wall-clock; Postgres `timestamp without time zone`. |
+| `photos.taken_at` | Original camera/gallery capture wall time when known. | Naive local wall-clock; Postgres `timestamp without time zone`. |
+| `meal_audit_events.eaten_at` | Audit snapshot of the meal wall time. | Naive local wall-clock; Postgres `timestamp without time zone`. |
+| `created_at`, `updated_at`, token expiry, worker/import timestamps | Absolute system events. | Timezone-aware UTC; Postgres `TIMESTAMPTZ`. |
+| CGM/fingerstick/sensor timestamps | Gluco timeline events imported or entered as instants. | Timezone-aware UTC in storage; rendered through app-local presentation helpers. |
+
+Clients should send `eaten_at` and photo capture times as local datetime strings
+without a trailing `Z`, for example `2026-05-16T20:10:00`. The backend accepts
+offset-aware legacy values and converts them to `GLUCOTRACKER_APP_TIMEZONE`
+before storing the local wall time.
 
 ## Status Enums
 

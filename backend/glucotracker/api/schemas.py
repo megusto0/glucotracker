@@ -332,7 +332,7 @@ class MealCreate(MealBase):
         json_schema_extra={
             "examples": [
                 {
-                    "eaten_at": "2026-04-28T08:30:00Z",
+                    "eaten_at": "2026-04-28T08:30:00",
                     "title": "Breakfast",
                     "note": "Manual entry",
                     "source": "manual",
