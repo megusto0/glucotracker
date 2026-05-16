@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/postprandial/recompute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Recompute Postprandial
+         * @description Recompute postprandial analysis for meals in a date range.
+         */
+        post: operations["adminRecomputePostprandial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/recalculate": {
         parameters: {
             query?: never;
@@ -69,6 +89,86 @@ export interface paths {
          * @description Backfill daily totals for an inclusive date range.
          */
         post: operations["adminRecalculateDailyTotals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Authenticate a user and issue access/refresh tokens.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Revoke a refresh token.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description Return the authenticated user.
+         */
+        get: operations["getAuthMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Rotate a refresh token and return a fresh token pair.
+         */
+        post: operations["refreshAuthToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -292,7 +392,7 @@ export interface paths {
         };
         /**
          * Get Glucose Dashboard
-         * @description Return display-only glucose dashboard data.
+         * @description Return display-only glucose dashboard data from the local cache.
          */
         get: operations["getGlucoseDashboard"];
         put?: never;
@@ -318,6 +418,108 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Goals */
+        get: operations["getMyGoals"];
+        /** Update My Goals */
+        put: operations["updateMyGoals"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Schedule
+         * @description Return the user's current adaptive day rhythm.
+         */
+        get: operations["getMySchedule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/schedule/non-typical-periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create My Non Typical Period
+         * @description Add a date range excluded from automatic day-anchor learning.
+         */
+        post: operations["createMyNonTypicalPeriod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/schedule/non-typical-periods/{period_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete My Non Typical Period
+         * @description Remove one excluded schedule-learning period.
+         */
+        delete: operations["deleteMyNonTypicalPeriod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/schedule/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put My Schedule Override
+         * @description Set a manual day-anchor override.
+         */
+        put: operations["putMyScheduleOverride"];
+        post?: never;
+        /**
+         * Delete My Schedule Override
+         * @description Clear the manual day-anchor override and recompute the learned anchor.
+         */
+        delete: operations["deleteMyScheduleOverride"];
         options?: never;
         head?: never;
         patch?: never;
@@ -405,6 +607,26 @@ export interface paths {
          * @description Create a meal with optional inline items.
          */
         post: operations["createMeal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/meals/from-photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Meal From Photo
+         * @description Create one photo meal and let the backend own photo estimation.
+         */
+        post: operations["createMealFromPhoto"];
         delete?: never;
         options?: never;
         head?: never;
@@ -550,7 +772,7 @@ export interface paths {
         put?: never;
         /**
          * Estimate And Save Meal Draft
-         * @description Estimate draft items from meal photos and save them to the draft meal.
+         * @description Estimate items from meal photos and save them as accepted journal rows.
          */
         post: operations["estimateAndSaveMealDraft"];
         delete?: never;
@@ -763,6 +985,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nightscout/latest-reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nightscout Latest Reading
+         * @description Return the latest glucose reading from the local Nightscout cache.
+         */
+        get: operations["getNightscoutLatestReading"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nightscout/status": {
         parameters: {
             query?: never;
@@ -893,6 +1135,46 @@ export interface paths {
          * @description Patch a reusable meal pattern.
          */
         patch: operations["patchPattern"];
+        trace?: never;
+    };
+    "/patterns/{pattern_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Pattern Image
+         * @description Upload and replace a local pattern or restaurant image.
+         */
+        post: operations["uploadPatternImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patterns/{pattern_id}/image/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pattern Image File
+         * @description Stream a locally stored pattern or restaurant image.
+         */
+        get: operations["getPatternImageFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/photos/{photo_id}": {
@@ -1229,6 +1511,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stats/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats Insights
+         * @description Return deterministic, server-rendered food pattern observations.
+         */
+        get: operations["getStatsInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/timeline": {
         parameters: {
             query?: never;
@@ -1397,6 +1699,16 @@ export interface components {
             synced_at: string;
         };
         /**
+         * AdminPostprandialResponse
+         * @description Postprandial recompute response.
+         */
+        AdminPostprandialResponse: {
+            /** Meals Analyzed */
+            meals_analyzed: number;
+            /** Meals Total */
+            meals_total: number;
+        };
+        /**
          * AdminRecalculateResponse
          * @description Daily total backfill response.
          */
@@ -1549,11 +1861,45 @@ export interface components {
             /** Sensor Age Hours */
             sensor_age_hours: number;
         };
+        /** Body_createMealFromPhoto */
+        Body_createMealFromPhoto: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Context */
+            context?: string | null;
+            /**
+             * Idempotency Key
+             * Format: uuid
+             */
+            idempotency_key: string;
+            /**
+             * Photo
+             * @description JPEG, PNG, or WebP photo.
+             */
+            photo: string;
+            /**
+             * Source
+             * @default camera
+             * @enum {string}
+             */
+            source: "camera" | "gallery";
+        };
         /** Body_uploadMealPhoto */
         Body_uploadMealPhoto: {
             /**
              * File
              * @description JPEG, PNG, or WebP photo.
+             */
+            file: string;
+        };
+        /** Body_uploadPatternImage */
+        Body_uploadPatternImage: {
+            /**
+             * File
+             * @description JPEG, PNG, or WebP image.
              */
             file: string;
         };
@@ -1601,6 +1947,33 @@ export interface components {
             sensor_session_id: string;
         };
         /**
+         * CurrentUserDetailResponse
+         * @description Authenticated user details.
+         */
+        CurrentUserDetailResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Feature Flags */
+            feature_flags?: {
+                [key: string]: unknown;
+            };
+            /** Features */
+            features?: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Login At */
+            last_login_at?: string | null;
+            role: components["schemas"]["UserRole"];
+            /** Username */
+            username: string;
+        };
+        /**
          * DashboardDataQualityResponse
          * @description Dashboard data quality response.
          */
@@ -1633,6 +2006,8 @@ export interface components {
         DashboardDayResponse: {
             /** Carbs G */
             carbs_g: number;
+            /** Daily Average Kcal For Period */
+            daily_average_kcal_for_period?: number | null;
             /**
              * Date
              * Format: date
@@ -1648,6 +2023,11 @@ export interface components {
             meal_count: number;
             /** Nutrients */
             nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+            /**
+             * Photo Count
+             * @default 0
+             */
+            photo_count: number;
             /** Protein G */
             protein_g: number;
         };
@@ -1789,6 +2169,47 @@ export interface components {
             week_avg_kcal: number;
         };
         /**
+         * DashboardTodayWithGlucoseResponse
+         * @description Dashboard summary for a role with glucose context enabled.
+         */
+        DashboardTodayWithGlucoseResponse: {
+            /** Carbs G */
+            carbs_g: number;
+            /** Current Glucose */
+            current_glucose: number | null;
+            /** Current Glucose At */
+            current_glucose_at: string | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Fat G */
+            fat_g: number;
+            /** Fiber G */
+            fiber_g: number;
+            /** Hours Since Last Meal */
+            hours_since_last_meal?: number | null;
+            /** Kcal */
+            kcal: number;
+            /** Last Meal At */
+            last_meal_at?: string | null;
+            /** Meal Count */
+            meal_count: number;
+            /** Nutrients */
+            nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+            /** Prev Week Avg Carbs */
+            prev_week_avg_carbs: number;
+            /** Prev Week Avg Kcal */
+            prev_week_avg_kcal: number;
+            /** Protein G */
+            protein_g: number;
+            /** Week Avg Carbs */
+            week_avg_carbs: number;
+            /** Week Avg Kcal */
+            week_avg_kcal: number;
+        };
+        /**
          * DashboardTopPatternResponse
          * @description Top used pattern response row.
          */
@@ -1892,6 +2313,39 @@ export interface components {
             usage_count: number;
         };
         /**
+         * DayAnchorHistoryResponse
+         * @description One effective day-anchor history row.
+         */
+        DayAnchorHistoryResponse: {
+            /** Anchor Weekday Minutes */
+            anchor_weekday_minutes?: number | null;
+            /** Anchor Weekend Minutes */
+            anchor_weekend_minutes?: number | null;
+            /** Basis */
+            basis: string;
+            /** Duration Days */
+            duration_days?: number | null;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Shift From Previous Minutes */
+            shift_from_previous_minutes?: number | null;
+        };
+        /**
          * DeleteResponse
          * @description Generic delete response.
          */
@@ -1901,6 +2355,22 @@ export interface components {
              * @example true
              */
             deleted: boolean;
+        };
+        /**
+         * EndocrinologistAdaptiveScheduleResponse
+         * @description Adaptive rhythm banner for the report.
+         */
+        EndocrinologistAdaptiveScheduleResponse: {
+            /** Basis */
+            basis: string;
+            /** Ribbon */
+            ribbon: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+            /** Windows */
+            windows: components["schemas"]["EndocrinologistScheduleWindowResponse"][];
         };
         /**
          * EndocrinologistBottomMetric
@@ -1937,8 +2407,12 @@ export interface components {
             insulin: string;
             /** Lunch */
             lunch: string;
+            /** Spikes */
+            spikes: string;
             /** Tir */
             tir: string;
+            /** Windows */
+            windows: string;
         };
         /**
          * EndocrinologistMealProfileRow
@@ -1981,6 +2455,7 @@ export interface components {
          * @description Presentation-ready endocrinologist report data.
          */
         EndocrinologistReportResponse: {
+            adaptive_schedule: components["schemas"]["EndocrinologistAdaptiveScheduleResponse"];
             /** App Name */
             app_name: string;
             /** Bottom Metrics */
@@ -1996,6 +2471,21 @@ export interface components {
             footer: string;
             /** Generated Label */
             generated_label: string;
+            /**
+             * Glucose Mode
+             * @default raw
+             * @enum {string}
+             */
+            glucose_mode: "raw" | "normalized";
+            /**
+             * Glucose Mode Label
+             * @default исходная CGM
+             */
+            glucose_mode_label: string;
+            /** Glycemic Profile */
+            glycemic_profile: components["schemas"]["EndocrinologistReportKpi"][];
+            /** Hypo Concentration Line */
+            hypo_concentration_line: string;
             /** Kpis */
             kpis: components["schemas"]["EndocrinologistReportKpi"][];
             /** Meal Profile Rows */
@@ -2010,6 +2500,24 @@ export interface components {
             title: string;
             /** Warning */
             warning?: string | null;
+        };
+        /**
+         * EndocrinologistScheduleWindowResponse
+         * @description Adaptive report window with rendered wall-clock range.
+         */
+        EndocrinologistScheduleWindowResponse: {
+            /** End Label */
+            end_label: string;
+            /** End Minute */
+            end_minute: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Start Label */
+            start_label: string;
+            /** Start Minute */
+            start_minute: number;
         };
         /**
          * EstimateCalculationBreakdown
@@ -2295,6 +2803,32 @@ export interface components {
             notes?: string | null;
         };
         /**
+         * FoodEpisodeFoodResponse
+         * @description Computed food-only episode.
+         */
+        FoodEpisodeFoodResponse: {
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Id */
+            id: string;
+            /** Meals */
+            meals: components["schemas"]["MealResponse"][];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Title */
+            title: string;
+            /** Total Carbs G */
+            total_carbs_g: number;
+            /** Total Kcal */
+            total_kcal: number;
+        };
+        /**
          * FoodEpisodeResponse
          * @description Computed grouping of meal, insulin, and local CGM context.
          */
@@ -2500,6 +3034,26 @@ export interface components {
             version: string;
         };
         /**
+         * IssuedTokensResponse
+         * @description Issued access and refresh token response.
+         */
+        IssuedTokensResponse: {
+            /** Access */
+            access: string;
+            /**
+             * Access Expires At
+             * Format: date-time
+             */
+            access_expires_at: string;
+            /** Refresh */
+            refresh: string;
+            /**
+             * Refresh Expires At
+             * Format: date-time
+             */
+            refresh_expires_at: string;
+        };
+        /**
          * ItemSourceKind
          * @description Origin of an individual meal item estimate or calculation.
          * @enum {string}
@@ -2559,6 +3113,24 @@ export interface components {
             steps: number;
             /** Tdee */
             tdee?: number | null;
+        };
+        /**
+         * LoginRequest
+         * @description Username/password login payload.
+         */
+        LoginRequest: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * LogoutRequest
+         * @description Refresh-token revocation payload.
+         */
+        LogoutRequest: {
+            /** Refresh Token */
+            refresh_token: string;
         };
         /**
          * LowConfidenceItemResponse
@@ -3039,11 +3611,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Derived Categories */
+            derived_categories?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Eaten At
              * Format: date-time
              */
             eaten_at: string;
+            /** Estimate Error */
+            estimate_error?: string | null;
+            /** Estimate Status */
+            estimate_status?: string | null;
             /**
              * Id
              * Format: uuid
@@ -3066,10 +3646,18 @@ export interface components {
             nightscout_synced_at?: string | null;
             /** Note */
             note?: string | null;
+            /** Photo Idempotency Key */
+            photo_idempotency_key?: string | null;
             /** Photos */
             photos?: components["schemas"]["PhotoResponse"][];
+            /** Postprandial Response */
+            postprandial_response?: {
+                [key: string]: unknown;
+            } | null;
             source: components["schemas"]["MealSource"];
             status: components["schemas"]["MealStatus"];
+            /** Tags */
+            tags?: string[];
             /** Thumbnail Url */
             thumbnail_url?: string | null;
             /** Title */
@@ -3266,6 +3854,25 @@ export interface components {
             timestamp: string;
         };
         /**
+         * NightscoutLatestReadingResponse
+         * @description Latest glucose reading from the local Nightscout cache.
+         */
+        NightscoutLatestReadingResponse: {
+            /** Sensor Id */
+            sensor_id?: string | null;
+            /** Timestamp */
+            timestamp?: string | null;
+            /**
+             * Total Entries
+             * @default 0
+             */
+            total_entries: number;
+            /** Trend */
+            trend?: string | null;
+            /** Value Mmol L */
+            value_mmol_l?: number | null;
+        };
+        /**
          * NightscoutSettingsPatch
          * @description Update server-side Nightscout settings.
          */
@@ -3429,6 +4036,52 @@ export interface components {
             } | null;
             /** Version */
             version?: string | null;
+        };
+        /**
+         * NonTypicalPeriodCreate
+         * @description Create a period excluded from day-anchor learning.
+         */
+        NonTypicalPeriodCreate: {
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+        };
+        /**
+         * NonTypicalPeriodResponse
+         * @description Date range excluded from automatic day-anchor learning.
+         */
+        NonTypicalPeriodResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
         };
         /**
          * NutrientDefinitionResponse
@@ -3843,6 +4496,29 @@ export interface components {
             updated_at: string;
             /** Usage Count */
             usage_count: number;
+        };
+        /**
+         * PhotoCaptureResponse
+         * @description Accepted single-call photo capture response.
+         */
+        PhotoCaptureResponse: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Estimate Status
+             * @enum {string}
+             */
+            estimate_status: "estimating" | "succeeded" | "failed" | "timeout" | "error";
+            /**
+             * Meal Id
+             * Format: uuid
+             */
+            meal_id: string;
+            /** Photo Url */
+            photo_url: string;
         };
         /**
          * PhotoReferenceKind
@@ -4403,6 +5079,14 @@ export interface components {
             proposed_totals: components["schemas"]["MealTotalsResponse"];
         };
         /**
+         * RefreshRequest
+         * @description Refresh-token rotation payload.
+         */
+        RefreshRequest: {
+            /** Refresh Token */
+            refresh_token: string;
+        };
+        /**
          * RememberProductRequest
          * @description Persist an accepted label item into the product database.
          */
@@ -4422,6 +5106,55 @@ export interface components {
         ReportChipResponse: {
             /** Label */
             label: string;
+        };
+        /**
+         * ScheduleOverrideRequest
+         * @description Manual day-anchor override in minutes from midnight.
+         */
+        ScheduleOverrideRequest: {
+            /** Anchor Minutes */
+            anchor_minutes: number;
+        };
+        /**
+         * ScheduleResponse
+         * @description Current adaptive day rhythm and override state.
+         */
+        ScheduleResponse: {
+            /** Anchor Weekday Minutes */
+            anchor_weekday_minutes?: number | null;
+            /** Anchor Weekend Minutes */
+            anchor_weekend_minutes?: number | null;
+            /** Basis */
+            basis?: string | null;
+            /** Effective Anchor Minutes */
+            effective_anchor_minutes?: number | null;
+            /** History */
+            history?: components["schemas"]["DayAnchorHistoryResponse"][];
+            /** Last Shift At */
+            last_shift_at?: string | null;
+            /** Non Typical Periods */
+            non_typical_periods?: components["schemas"]["NonTypicalPeriodResponse"][];
+            /** User Override Minutes */
+            user_override_minutes?: number | null;
+            /** Windows */
+            windows: components["schemas"]["ScheduleWindowResponse"][];
+        };
+        /**
+         * ScheduleWindowResponse
+         * @description Rendered meal-window boundary for the current day rhythm.
+         */
+        ScheduleWindowResponse: {
+            /** End Minute */
+            end_minute: number;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "start" | "mid" | "late" | "night_cap";
+            /** Label */
+            label: string;
+            /** Start Minute */
+            start_minute: number;
         };
         /**
          * SensorQualityResponse
@@ -4636,6 +5369,61 @@ export interface components {
             warmup_instability_score?: number | null;
         };
         /**
+         * StatsInsightResponse
+         * @description Server-rendered stats observation.
+         */
+        StatsInsightResponse: {
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "consistent" | "weekday_pattern_sweet" | "time_of_day_eating" | "top_repeat_products" | "late_meal_share" | "today_morning" | "meal_predictability" | "evening_lows" | "hypo_recovery_pattern" | "late_meal_glucose_footprint";
+            /** Supporting Numbers */
+            supporting_numbers?: {
+                [key: string]: string;
+            } | null;
+            /** Text */
+            text: string;
+            /**
+             * Weight
+             * @enum {string}
+             */
+            weight: "primary" | "secondary";
+        };
+        /**
+         * StatsInsightsResponse
+         * @description Stats observation list.
+         */
+        StatsInsightsResponse: {
+            /** Insights */
+            insights: components["schemas"]["StatsInsightResponse"][];
+        };
+        /**
+         * TimelineFoodResponse
+         * @description Food-only history timeline response.
+         */
+        TimelineFoodResponse: {
+            /** Episodes */
+            episodes: components["schemas"]["FoodEpisodeFoodResponse"][];
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+        };
+        /**
          * TimelineGlucoseSummary
          * @description Small CGM summary for a computed food episode.
          */
@@ -4701,6 +5489,35 @@ export interface components {
             /** Ungrouped Insulin */
             ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
         };
+        /** UserGoalsResponse */
+        UserGoalsResponse: {
+            /** Carb Goal G Per Day */
+            carb_goal_g_per_day?: number | null;
+            /** Fat Goal G Per Day */
+            fat_goal_g_per_day?: number | null;
+            /**
+             * Goals Setup Completed
+             * @default false
+             */
+            goals_setup_completed: boolean;
+            /** Kcal Goal Per Day */
+            kcal_goal_per_day?: number | null;
+            /** Protein Goal G Per Day */
+            protein_goal_g_per_day?: number | null;
+        };
+        /** UserGoalsUpdate */
+        UserGoalsUpdate: {
+            /** Carb Goal G Per Day */
+            carb_goal_g_per_day?: number | null;
+            /** Fat Goal G Per Day */
+            fat_goal_g_per_day?: number | null;
+            /** Goals Setup Completed */
+            goals_setup_completed?: boolean | null;
+            /** Kcal Goal Per Day */
+            kcal_goal_per_day?: number | null;
+            /** Protein Goal G Per Day */
+            protein_goal_g_per_day?: number | null;
+        };
         /** UserProfileResponse */
         UserProfileResponse: {
             /**
@@ -4730,6 +5547,12 @@ export interface components {
             /** Weight Kg */
             weight_kg?: number | null;
         };
+        /**
+         * UserRole
+         * @description Supported application roles.
+         * @enum {string}
+         */
+        UserRole: "gluco" | "food";
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -4757,7 +5580,9 @@ export interface operations {
             query: {
                 day: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4789,7 +5614,9 @@ export interface operations {
                 from_date: string;
                 to_date: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4818,7 +5645,9 @@ export interface operations {
     syncActivity: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4848,13 +5677,49 @@ export interface operations {
             };
         };
     };
+    adminRecomputePostprandial: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPostprandialResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     adminRecalculateDailyTotals: {
         parameters: {
             query: {
                 from: string;
                 to: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4880,13 +5745,143 @@ export interface operations {
             };
         };
     };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedTokensResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getAuthMe: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUserDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refreshAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedTokensResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     autocomplete: {
         parameters: {
             query?: {
                 q?: string;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4917,7 +5912,9 @@ export interface operations {
             query?: {
                 days?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4948,7 +5945,9 @@ export interface operations {
             query?: {
                 weeks?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4980,7 +5979,9 @@ export interface operations {
                 from: string;
                 to: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5011,7 +6012,9 @@ export interface operations {
             query?: {
                 days?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5040,7 +6043,9 @@ export interface operations {
     getDashboardToday: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5052,7 +6057,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DashboardTodayResponse"];
+                    "application/json": components["schemas"]["DashboardTodayWithGlucoseResponse"] | components["schemas"]["DashboardTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5063,7 +6077,9 @@ export interface operations {
                 days?: number;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5099,7 +6115,9 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5131,7 +6149,9 @@ export interface operations {
                 from?: string | null;
                 to?: string | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5160,7 +6180,9 @@ export interface operations {
     createFingerstick: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5193,7 +6215,9 @@ export interface operations {
     deleteFingerstick: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 fingerstick_id: string;
             };
@@ -5222,7 +6246,9 @@ export interface operations {
     patchFingerstick: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 fingerstick_id: string;
             };
@@ -5261,7 +6287,9 @@ export interface operations {
                 to: string;
                 mode?: "raw" | "smoothed" | "normalized";
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5307,10 +6335,243 @@ export interface operations {
             };
         };
     };
+    getMyGoals: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGoalsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    updateMyGoals: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserGoalsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserGoalsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMySchedule: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createMyNonTypicalPeriod: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NonTypicalPeriodCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NonTypicalPeriodResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deleteMyNonTypicalPeriod: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                period_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    putMyScheduleOverride: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleOverrideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deleteMyScheduleOverride: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     deleteMealItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 item_id: string;
             };
@@ -5341,7 +6602,9 @@ export interface operations {
     patchMealItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 item_id: string;
             };
@@ -5376,7 +6639,9 @@ export interface operations {
     createMealFromMealItemWeight: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 item_id: string;
             };
@@ -5411,7 +6676,9 @@ export interface operations {
     rememberProductFromMealItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 item_id: string;
             };
@@ -5452,8 +6719,16 @@ export interface operations {
                 offset?: number;
                 q?: string | null;
                 status?: components["schemas"]["MealStatus"] | null;
+                tag?: ("sweet" | "breakfast") | null;
+                sweet?: boolean;
+                breakfast?: boolean;
+                photo_only?: boolean;
+                low_confidence?: boolean;
+                idempotency_key?: string | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5482,7 +6757,9 @@ export interface operations {
     createMeal: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -5512,10 +6789,47 @@ export interface operations {
             };
         };
     };
+    createMealFromPhoto: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_createMealFromPhoto"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoCaptureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getMeal: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5546,7 +6860,9 @@ export interface operations {
     deleteMeal: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5577,7 +6893,9 @@ export interface operations {
     patchMeal: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5612,7 +6930,9 @@ export interface operations {
     acceptMealDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5647,7 +6967,9 @@ export interface operations {
     listMealAiRuns: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5678,7 +7000,9 @@ export interface operations {
     applyEstimationRun: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
                 run_id: string;
@@ -5714,7 +7038,9 @@ export interface operations {
     discardMealDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5745,7 +7071,9 @@ export interface operations {
     estimateMealPhotos: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5780,7 +7108,9 @@ export interface operations {
     estimateAndSaveMealDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5815,7 +7145,9 @@ export interface operations {
     replaceMealItems: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5850,7 +7182,9 @@ export interface operations {
     addMealItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5885,7 +7219,9 @@ export interface operations {
     uploadMealPhoto: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5920,7 +7256,9 @@ export interface operations {
     reestimateMealPhotos: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5955,7 +7293,9 @@ export interface operations {
     syncMealToNightscout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -5986,7 +7326,9 @@ export interface operations {
     unsyncMealFromNightscout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 meal_id: string;
             };
@@ -6019,7 +7361,9 @@ export interface operations {
             query: {
                 date: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6051,7 +7395,9 @@ export interface operations {
                 from: string;
                 to: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6083,7 +7429,9 @@ export interface operations {
                 from: string;
                 to: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6112,7 +7460,9 @@ export interface operations {
     importNightscoutContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6148,7 +7498,9 @@ export interface operations {
                 from: string;
                 to: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6174,10 +7526,43 @@ export interface operations {
             };
         };
     };
+    getNightscoutLatestReading: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutLatestReadingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getNightscoutStatus: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6192,12 +7577,23 @@ export interface operations {
                     "application/json": components["schemas"]["NightscoutStatusResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     syncTodayToNightscout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6230,7 +7626,9 @@ export interface operations {
     listNutrientDefinitions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6245,6 +7643,15 @@ export interface operations {
                     "application/json": components["schemas"]["NutrientDefinitionResponse"][];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     listPatterns: {
@@ -6253,7 +7660,9 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6282,7 +7691,9 @@ export interface operations {
     createPattern: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6318,7 +7729,9 @@ export interface operations {
                 q: string;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6347,7 +7760,9 @@ export interface operations {
     getPattern: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 pattern_id: string;
             };
@@ -6378,7 +7793,9 @@ export interface operations {
     deletePattern: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 pattern_id: string;
             };
@@ -6409,7 +7826,9 @@ export interface operations {
     patchPattern: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 pattern_id: string;
             };
@@ -6441,10 +7860,82 @@ export interface operations {
             };
         };
     };
+    uploadPatternImage: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_uploadPatternImage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatternResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getPatternImageFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     deletePhoto: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 photo_id: string;
             };
@@ -6475,7 +7966,9 @@ export interface operations {
     getPhotoFile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 photo_id: string;
             };
@@ -6510,7 +8003,9 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6539,7 +8034,9 @@ export interface operations {
     createProduct: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6572,7 +8069,9 @@ export interface operations {
     createOrUpdateProductFromLabel: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6608,7 +8107,9 @@ export interface operations {
                 q: string;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6637,7 +8138,9 @@ export interface operations {
     getProduct: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 product_id: string;
             };
@@ -6668,7 +8171,9 @@ export interface operations {
     patchProduct: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 product_id: string;
             };
@@ -6703,7 +8208,9 @@ export interface operations {
     uploadProductImage: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 product_id: string;
             };
@@ -6738,7 +8245,9 @@ export interface operations {
     getProductImageFile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 product_id: string;
             };
@@ -6769,7 +8278,9 @@ export interface operations {
     getUserProfile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6784,12 +8295,23 @@ export interface operations {
                     "application/json": components["schemas"]["UserProfileResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     updateUserProfile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6824,8 +8346,12 @@ export interface operations {
             query: {
                 from: string;
                 to: string;
+                /** @description Glucose series used for report metrics. */
+                glucose_mode?: "raw" | "normalized";
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6854,7 +8380,9 @@ export interface operations {
     listSensors: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6869,12 +8397,23 @@ export interface operations {
                     "application/json": components["schemas"]["SensorSessionResponse"][];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     createSensor: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6907,7 +8446,9 @@ export interface operations {
     patchSensor: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 sensor_id: string;
             };
@@ -6942,7 +8483,9 @@ export interface operations {
     getSensorQuality: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 sensor_id: string;
             };
@@ -6973,7 +8516,9 @@ export interface operations {
     recalculateSensorCalibration: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 sensor_id: string;
             };
@@ -7004,7 +8549,9 @@ export interface operations {
     getNightscoutSettings: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7019,12 +8566,23 @@ export interface operations {
                     "application/json": components["schemas"]["NightscoutSettingsResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     updateNightscoutSettings: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7057,7 +8615,9 @@ export interface operations {
     testNightscoutConnection: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7072,15 +8632,26 @@ export interface operations {
                     "application/json": components["schemas"]["NightscoutTestResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    getTimeline: {
+    getStatsInsights: {
         parameters: {
-            query: {
-                from: string;
-                to: string;
+            query?: {
+                period?: "7d" | "14d" | "30d";
+                slot?: "today" | "stats";
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7092,7 +8663,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TimelineResponse"];
+                    "application/json": components["schemas"]["StatsInsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTimeline: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"] | components["schemas"]["TimelineFoodResponse"];
                 };
             };
             /** @description Validation Error */

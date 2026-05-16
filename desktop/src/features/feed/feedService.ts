@@ -21,11 +21,19 @@ export type FeedFilters = {
   to: string;
 };
 
-export const buildFeedMealQuery = (filters: FeedFilters, cursor?: string) => ({
+export const buildFeedMealQuery = (
+  filters: FeedFilters,
+  cursor?: string,
+  activeQuickFilters: Set<string> = new Set(),
+) => ({
   from: localDateBoundaryString(filters.from, false),
   limit: FEED_PAGE_SIZE,
+  breakfast: activeQuickFilters.has("breakfast") || undefined,
+  low_confidence: activeQuickFilters.has("lowConfidence") || undefined,
+  photo_only: activeQuickFilters.has("photoOnly") || undefined,
   q: filters.q.trim() || undefined,
   status: filters.status === "active" ? undefined : filters.status,
+  sweet: activeQuickFilters.has("sweet") || undefined,
   to: cursor ?? localDateBoundaryString(filters.to, true),
 });
 

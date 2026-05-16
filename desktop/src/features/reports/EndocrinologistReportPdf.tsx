@@ -11,6 +11,7 @@ import notoSansBold from "@fontsource/noto-sans/files/noto-sans-cyrillic-700-nor
 import notoSansMedium from "@fontsource/noto-sans/files/noto-sans-cyrillic-500-normal.woff?url";
 import notoSansRegular from "@fontsource/noto-sans/files/noto-sans-cyrillic-400-normal.woff?url";
 import type {
+  AdaptiveSchedule,
   DailySummaryRow,
   EndocrinologistReportData,
   MealProfileRow,
@@ -42,13 +43,13 @@ const MARGIN_Y = 24;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
 
 const KPI_GAP = 6;
-const KPI_CARD_WIDTH = (CONTENT_WIDTH - KPI_GAP * 3) / 4;
-const KPI_CARD_HEIGHT = 54;
+const KPI_CARD_WIDTH = (CONTENT_WIDTH - KPI_GAP * 5) / 6;
+const KPI_CARD_HEIGHT = 46;
 
-const TABLE_FONT = 7.5;
-const ROW_H = 16;
-const HEAD_H = 17;
-const TOTAL_H = 17;
+const TABLE_FONT = 6.5;
+const ROW_H = 15;
+const HEAD_H = 13;
+const TOTAL_H = 15;
 
 export function EndocrinologistReportPdf({
   data,
@@ -63,7 +64,9 @@ export function EndocrinologistReportPdf({
     >
       <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }} style={styles.page}>
         <Header data={data} />
-        <KpiBlock items={data.kpis} />
+        <KpiBlock items={data.glycemicProfile} />
+        <Text style={styles.hypoLine}>{data.hypoConcentrationLine}</Text>
+        <AdaptiveScheduleSection schedule={data.adaptiveSchedule} />
         <MealProfileSection rows={data.mealProfileRows} />
         <DailySection
           medianRow={data.dailyMedianRow}
@@ -83,7 +86,8 @@ function Header({ data }: { data: EndocrinologistReportData }) {
       <View style={styles.headerRow}>
         <Text style={styles.appName}>{data.appName}</Text>
         <Text style={styles.subtitle}>
-          {data.periodLabel} · {data.generatedLabel}
+          {data.periodLabel} · {data.generatedLabel} · Глюкоза:{" "}
+          {data.glucoseModeLabel}
         </Text>
       </View>
       <Text style={styles.title}>Сводка за период</Text>
@@ -109,8 +113,8 @@ function Header({ data }: { data: EndocrinologistReportData }) {
 
 function KpiBlock({ items }: { items: ReportKpi[] }) {
   const rows: ReportKpi[][] = [];
-  for (let i = 0; i < items.length; i += 4) {
-    rows.push(items.slice(i, i + 4));
+  for (let i = 0; i < items.length; i += 6) {
+    rows.push(items.slice(i, i + 6));
   }
 
   return (
@@ -127,8 +131,8 @@ function KpiBlock({ items }: { items: ReportKpi[] }) {
               <Text style={styles.kpiCaption}>{item.caption}</Text>
             </View>
           ))}
-          {row.length < 4
-            ? Array.from({ length: 4 - row.length }, (_, i) => (
+          {row.length < 6
+            ? Array.from({ length: 6 - row.length }, (_, i) => (
                 <View key={`empty-${i}`} style={styles.kpiCard} />
               ))
             : null}
@@ -138,14 +142,36 @@ function KpiBlock({ items }: { items: ReportKpi[] }) {
   );
 }
 
+function AdaptiveScheduleSection({ schedule }: { schedule: AdaptiveSchedule }) {
+  return (
+    <View style={styles.scheduleBox}>
+      <View style={styles.sectionTitleRow}>
+        <Text style={styles.sectionTitle}>{schedule.title}</Text>
+        <Text style={styles.sectionNote}>{schedule.summary}</Text>
+      </View>
+      <Text style={styles.ribbon}>{schedule.ribbon}</Text>
+      <View style={styles.scheduleWindows}>
+        {schedule.windows.map((window) => (
+          <View key={window.key} style={styles.scheduleWindow}>
+            <Text style={styles.scheduleWindowLabel}>{window.label}</Text>
+            <Text style={styles.scheduleWindowTime}>
+              {window.startLabel}-{window.endLabel}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const MEAL_COLS = [
-  { key: "label", label: "Приём пищи", width: 100, align: "left" as const },
-  { key: "episodes", label: "Эпиз.", width: 48, align: "center" as const },
-  { key: "carbs", label: "Угл., г", width: 52, align: "center" as const },
-  { key: "insulin", label: "Инс., ЕД", width: 56, align: "center" as const },
-  { key: "glucoseBefore", label: "Сахар до", width: 56, align: "center" as const },
-  { key: "glucoseAfter", label: "Сахар +2ч", width: 58, align: "center" as const },
-  { key: "observedRatio", label: "УК", width: 56, align: "center" as const },
+  { key: "label", label: "Окно", width: 130, align: "left" as const },
+  { key: "episodes", label: "N", width: 28, align: "center" as const },
+  { key: "carbs", label: "Углеводы", width: 62, align: "center" as const },
+  { key: "insulin", label: "Инсулин", width: 62, align: "center" as const },
+  { key: "glucoseBefore", label: "Сахар до", width: 62, align: "center" as const },
+  { key: "glucoseAfter", label: "Сахар +2ч", width: 62, align: "center" as const },
+  { key: "observedRatio", label: "УК", width: 60, align: "center" as const },
 ] as const;
 
 function MealProfileSection({ rows }: { rows: MealProfileRow[] }) {
@@ -185,13 +211,12 @@ function MealProfileSection({ rows }: { rows: MealProfileRow[] }) {
 
 const DAILY_COLS = [
   { key: "dateLabel", label: "Дата", width: 50 },
-  { key: "carbs", label: "Угл.", width: 44 },
-  { key: "insulin", label: "Инс., ЕД", width: 52 },
-  { key: "tir", label: "TIR", width: 40 },
-  { key: "hypo", label: "Гипо", width: 38 },
-  { key: "breakfast", label: "Завтрак", width: 62 },
-  { key: "lunch", label: "Обед", width: 62 },
-  { key: "dinner", label: "Ужин", width: 62 },
+  { key: "tir", label: "TIR", width: 48 },
+  { key: "carbs", label: "Угл.", width: 50 },
+  { key: "insulin", label: "Инс.", width: 52 },
+  { key: "hypo", label: "Гипо", width: 48 },
+  { key: "spikes", label: "Спайки", width: 54 },
+  { key: "windows", label: "Окна", width: 110 },
 ] as const;
 
 function DailySection({
@@ -203,9 +228,6 @@ function DailySection({
   note: string | null;
   rows: DailySummaryRow[];
 }) {
-  const maxRows = 6;
-  const displayRows = rows.slice(0, maxRows);
-
   return (
     <View style={styles.section}>
       <View style={styles.sectionTitleRow}>
@@ -218,7 +240,7 @@ function DailySection({
             <Cell key={col.key} align="center" text={col.label} width={col.width} />
           ))}
         </View>
-        {displayRows.map((row) => (
+        {rows.map((row) => (
           <View
             key={row.date}
             style={[
@@ -388,10 +410,10 @@ const styles = StyleSheet.create({
     color: c.secondary,
     fontSize: 6.5,
     lineHeight: 1.25,
-    marginTop: 8,
+    marginTop: 5,
   },
   header: {
-    marginBottom: 8,
+    marginBottom: 5,
   },
   headerRow: {
     alignItems: "center",
@@ -400,7 +422,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   kpiBlock: {
-    marginBottom: 10,
+    marginBottom: 4,
   },
   kpiCaption: {
     color: c.secondary,
@@ -410,7 +432,7 @@ const styles = StyleSheet.create({
     borderColor: c.border,
     borderWidth: 1,
     height: KPI_CARD_HEIGHT,
-    padding: 7,
+    padding: 5,
     width: KPI_CARD_WIDTH,
   },
   kpiLabel: {
@@ -419,7 +441,7 @@ const styles = StyleSheet.create({
     fontSize: 6.5,
     fontWeight: 700,
     letterSpacing: 0.4,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   kpiRow: {
     flexDirection: "row",
@@ -427,20 +449,29 @@ const styles = StyleSheet.create({
   },
   kpiUnit: {
     color: c.text,
-    fontSize: 8,
+    fontSize: 6.5,
     marginLeft: 2,
-    paddingTop: 7,
+    paddingTop: 5,
   },
   kpiValue: {
     color: c.text,
     fontFamily: "JetBrainsMono",
-    fontSize: 22,
+    fontSize: 16,
     letterSpacing: 0.2,
   },
   kpiValueRow: {
     alignItems: "baseline",
     flexDirection: "row",
-    marginBottom: 2,
+    marginBottom: 1,
+  },
+  hypoLine: {
+    borderBottomColor: c.border,
+    borderBottomWidth: 1,
+    color: c.text,
+    fontFamily: "JetBrainsMono",
+    fontSize: 7.5,
+    marginBottom: 5,
+    paddingBottom: 4,
   },
   notes: {
     color: c.secondary,
@@ -454,7 +485,7 @@ const styles = StyleSheet.create({
     paddingVertical: MARGIN_Y,
   },
   section: {
-    marginTop: 10,
+    marginTop: 6,
   },
   sectionNote: {
     color: c.secondary,
@@ -466,6 +497,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 700,
     marginBottom: 4,
+  },
+  ribbon: {
+    color: c.text,
+    fontFamily: "JetBrainsMono",
+    fontSize: 7,
+    marginBottom: 4,
+  },
+  scheduleBox: {
+    borderColor: c.border,
+    borderWidth: 1,
+    marginBottom: 6,
+    padding: 6,
+  },
+  scheduleWindow: {
+    borderColor: c.border,
+    borderWidth: 1,
+    flexGrow: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+  },
+  scheduleWindowLabel: {
+    color: c.text,
+    fontSize: 7,
+    fontWeight: 700,
+  },
+  scheduleWindowTime: {
+    color: c.secondary,
+    fontFamily: "JetBrainsMono",
+    fontSize: 6.5,
+    marginTop: 1,
+  },
+  scheduleWindows: {
+    flexDirection: "row",
+    gap: 4,
   },
   sectionTitleRow: {
     alignItems: "baseline",
@@ -496,10 +561,10 @@ const styles = StyleSheet.create({
   title: {
     color: c.text,
     fontFamily: "NotoSans",
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: 700,
     letterSpacing: -0.3,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   totalRow: {
     backgroundColor: c.fill,

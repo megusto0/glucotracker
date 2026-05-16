@@ -7,8 +7,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 
 from glucotracker.domain.estimation import normalize_estimation_to_items
+from glucotracker.infra.db.models import NutrientDefinition
 from glucotracker.infra.gemini.schemas import (
     EstimatedComponent,
     EstimatedItem,
@@ -69,6 +73,19 @@ def test_nutrient_definitions_are_seeded(api_client: TestClient) -> None:
         "calcium_mg",
         "magnesium_mg",
     }.issubset(codes)
+
+
+def test_nutrient_definitions_do_not_write_on_read(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """The nutrient catalog is returned from code defaults without DB seeding."""
+    response = api_client.get("/nutrients/definitions")
+
+    assert response.status_code == 200
+    with Session(db_engine) as session:
+        count = session.scalar(select(func.count()).select_from(NutrientDefinition))
+    assert count == 0
 
 
 def test_unknown_nutrient_remains_null_and_not_counted_as_zero(

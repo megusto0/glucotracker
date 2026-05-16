@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.routers.meals import (
+    _audit_meal,
     _build_item,
     _get_meal,
     _increment_usage_counters,
@@ -31,14 +43,17 @@ from glucotracker.api.schemas import (
     EstimateSourcePhotoResponse,
     MealItemCreate,
     MealTotalsResponse,
+    PhotoCaptureResponse,
     PhotoResponse,
     ReestimateMealRequest,
     ReestimateMealResponse,
 )
+from glucotracker.application.categorization.worker import categorize_one
 from glucotracker.application.photo_estimation import (
     PhotoEstimationDependencies,
     PhotoEstimationService,
 )
+from glucotracker.application.time import local_wall_time
 from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
@@ -61,6 +76,7 @@ from glucotracker.infra.db.models import (
     Product,
     utc_now,
 )
+from glucotracker.infra.db.session import get_session_factory
 from glucotracker.infra.gemini.client import (
     PHOTO_ESTIMATION_PROMPT_VERSION,
     GeminiClient,
@@ -72,35 +88,52 @@ from glucotracker.infra.gemini.schemas import EstimationResult
 from glucotracker.infra.storage import photo_store
 from glucotracker.workers.daily_totals import schedule_and_recalculate
 
-router = APIRouter(
-    tags=["photos"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["photos"])
+IMAGE_RESPONSE_HEADERS = {"Cache-Control": "private, max-age=604800"}
+logger = logging.getLogger(__name__)
 
 GeminiClientDep = Annotated[GeminiClient, Depends(get_gemini_client)]
 UploadFileDep = Annotated[UploadFile, File(description="JPEG, PNG, or WebP photo.")]
+PhotoFileDep = Annotated[UploadFile, File(description="JPEG, PNG, or WebP photo.")]
 
 
 def _photo_estimation_service(
     session: SessionDep,
+    user_id: UUID,
     gemini_client: GeminiClient,
 ) -> PhotoEstimationService:
     """Build the application service with router-local helper dependencies."""
     return PhotoEstimationService(
         session=session,
+        user_id=user_id,
         gemini_client=gemini_client,
         dependencies=PhotoEstimationDependencies(
-            get_meal=_get_meal,
-            load_pattern_context=_load_pattern_context,
-            load_product_context=_load_product_context,
+            get_meal=lambda session, meal_id: _get_meal(session, user_id, meal_id),
+            load_pattern_context=lambda session, ids: _load_pattern_context(
+                session,
+                user_id,
+                ids,
+            ),
+            load_product_context=lambda session, ids: _load_product_context(
+                session,
+                user_id,
+                ids,
+            ),
             ordered_photos=_ordered_photos,
             photo_inputs=_photo_inputs,
             clean_context_note=_clean_context_note,
             ai_run_summary=_ai_run_summary,
             photo_reference_kind=_photo_reference_kind,
             photo_scenario=_photo_scenario,
-            products_by_barcode=_products_by_barcode,
-            load_known_components=_load_known_components,
+            products_by_barcode=lambda session, result: _products_by_barcode(
+                session,
+                user_id,
+                result,
+            ),
+            load_known_components=lambda session: _load_known_components(
+                session,
+                user_id,
+            ),
             attach_user_context_to_items=_attach_user_context_to_items,
             set_photo_ids=_set_photo_ids,
             items_json=_items_json,
@@ -110,9 +143,11 @@ def _photo_estimation_service(
     )
 
 
-def _get_photo(session: SessionDep, photo_id: UUID) -> Photo:
+def _get_photo(session: SessionDep, user_id: UUID, photo_id: UUID) -> Photo:
     """Fetch a photo or raise 404."""
-    photo = session.get(Photo, photo_id)
+    photo = session.scalar(
+        select(Photo).where(Photo.id == photo_id, Photo.owner_id == user_id)
+    )
     if photo is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -195,28 +230,41 @@ def _serialize_product(product: Product) -> dict[str, Any]:
 
 def _load_pattern_context(
     session: SessionDep,
+    user_id: UUID,
     pattern_ids: list[UUID],
 ) -> list[dict[str, Any]]:
     """Load selected pattern context for Gemini."""
     if not pattern_ids:
         return []
-    patterns = session.scalars(select(Pattern).where(Pattern.id.in_(pattern_ids))).all()
+    patterns = session.scalars(
+        select(Pattern).where(
+            Pattern.id.in_(pattern_ids),
+            Pattern.owner_id == user_id,
+        )
+    ).all()
     return [_serialize_pattern(pattern) for pattern in patterns]
 
 
 def _load_product_context(
     session: SessionDep,
+    user_id: UUID,
     product_ids: list[UUID],
 ) -> list[dict[str, Any]]:
     """Load selected product context for Gemini."""
     if not product_ids:
         return []
-    products = session.scalars(select(Product).where(Product.id.in_(product_ids))).all()
+    products = session.scalars(
+        select(Product).where(
+            Product.id.in_(product_ids),
+            (Product.owner_id.is_(None)) | (Product.owner_id == user_id),
+        )
+    ).all()
     return [_serialize_product(product) for product in products]
 
 
 def _products_by_barcode(
     session: SessionDep,
+    user_id: UUID,
     result: EstimationResult,
 ) -> dict[str, Product]:
     """Load local products for barcodes identified by Gemini."""
@@ -228,7 +276,10 @@ def _products_by_barcode(
     if not barcodes:
         return {}
     products = session.scalars(
-        select(Product).where(Product.barcode.in_(barcodes))
+        select(Product).where(
+            Product.barcode.in_(barcodes),
+            (Product.owner_id.is_(None)) | (Product.owner_id == user_id),
+        )
     ).all()
     return {product.barcode: product for product in products if product.barcode}
 
@@ -324,12 +375,17 @@ def _is_component_record(
     }
 
 
-def _load_known_components(session: SessionDep) -> list[KnownComponent]:
+def _load_known_components(
+    session: SessionDep,
+    user_id: UUID,
+) -> list[KnownComponent]:
     """Load known local products and patterns for backend component adjustment."""
     components: list[KnownComponent] = []
 
     products = session.scalars(
-        select(Product).options(selectinload(Product.aliases))
+        select(Product)
+        .where((Product.owner_id.is_(None)) | (Product.owner_id == user_id))
+        .options(selectinload(Product.aliases))
     ).all()
     for product in products:
         aliases = [alias.alias for alias in product.aliases]
@@ -363,7 +419,9 @@ def _load_known_components(session: SessionDep) -> list[KnownComponent]:
         )
 
     patterns = session.scalars(
-        select(Pattern).options(selectinload(Pattern.aliases))
+        select(Pattern)
+        .where(Pattern.owner_id == user_id)
+        .options(selectinload(Pattern.aliases))
     ).all()
     for pattern in patterns:
         aliases = [alias.alias for alias in pattern.aliases]
@@ -823,7 +881,7 @@ def _save_suggested_items_as_drafts(
     photos: list[Photo],
     session: SessionDep,
 ) -> list[EstimateCreatedDraftResponse]:
-    """Persist estimated items as one editable draft journal row per item."""
+    """Persist estimated items as accepted journal rows."""
     created: list[EstimateCreatedDraftResponse] = []
     moved_photo_ids: set[UUID] = set()
     original_items = list(result.items)
@@ -836,21 +894,24 @@ def _save_suggested_items_as_drafts(
         draft_meal = source_meal
         if position > 0:
             draft_meal = Meal(
+                owner_id=source_meal.owner_id,
                 eaten_at=source_meal.eaten_at,
                 title=_draft_title(item),
                 note=source_meal.note,
-                status=MealStatus.draft,
+                status=MealStatus.accepted,
                 source=MealSource.photo,
             )
             session.add(draft_meal)
             session.flush()
         else:
             draft_meal.title = _draft_title(item)
-            draft_meal.status = MealStatus.draft
+            draft_meal.status = MealStatus.accepted
             draft_meal.source = MealSource.photo
 
         item.position = 0
-        draft_meal.items = [_build_item(item, draft_meal.id, session)]
+        draft_meal.items = [
+            _build_item(item, draft_meal.id, session, source_meal.owner_id)
+        ]
         _move_source_photos_to_draft(
             item=item,
             meal=draft_meal,
@@ -858,8 +919,15 @@ def _save_suggested_items_as_drafts(
             moved_photo_ids=moved_photo_ids,
         )
         for draft_item in draft_meal.items:
-            _increment_usage_counters(session, draft_item)
+            _increment_usage_counters(session, source_meal.owner_id, draft_item)
         _recalculate_meal(draft_meal)
+        _audit_meal(
+            session,
+            source_meal.owner_id,
+            "photo_estimate_saved",
+            draft_meal,
+            {"via": "estimate_and_save_draft", "source_meal_id": str(source_meal.id)},
+        )
         created.append(_created_draft_response(draft_meal, item))
 
     if created and photos:
@@ -1027,10 +1095,11 @@ def reestimate_meal_photos(
     meal_id: UUID,
     payload: ReestimateMealRequest,
     session: SessionDep,
+    current_user: CurrentUserDep,
     gemini_client: GeminiClientDep,
 ) -> ReestimateMealResponse:
     """Re-run photo estimation for an existing meal without overwriting it."""
-    meal = _get_meal(session, meal_id)
+    meal = _get_meal(session, current_user.id, meal_id)
     if not meal.photos:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1082,8 +1151,8 @@ def reestimate_meal_photos(
 
     suggested_items = normalize_estimation_to_items(
         result,
-        products_by_barcode=_products_by_barcode(session, result),
-        known_components=_load_known_components(session),
+        products_by_barcode=_products_by_barcode(session, current_user.id, result),
+        known_components=_load_known_components(session, current_user.id),
     )
     _set_photo_ids(suggested_items, ordered_photos)
     current_items = [_item_create_from_orm(item) for item in meal.items]
@@ -1147,9 +1216,10 @@ def apply_estimation_run(
     run_id: UUID,
     payload: ApplyEstimationRunRequest,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> ApplyEstimationRunResponse:
     """Apply a stored re-estimation proposal to the current meal or a draft."""
-    meal = _get_meal(session, meal_id)
+    meal = _get_meal(session, current_user.id, meal_id)
     run = session.get(AIRun, run_id)
     if run is None or run.meal_id != meal.id:
         raise HTTPException(
@@ -1167,12 +1237,26 @@ def apply_estimation_run(
     ]
     old_eaten_at = meal.eaten_at
     if payload.apply_mode == "replace_current":
-        meal.items = [_build_item(item, meal.id, session) for item in proposed_items]
+        meal.items = [
+            _build_item(item, meal.id, session, current_user.id)
+            for item in proposed_items
+        ]
         for position, item in enumerate(meal.items):
             item.position = position
-            _increment_usage_counters(session, item)
+            _increment_usage_counters(session, current_user.id, item)
         _recalculate_meal(meal)
-        schedule_and_recalculate(session, [old_eaten_at, meal.eaten_at])
+        _audit_meal(
+            session,
+            current_user.id,
+            "items_changed",
+            meal,
+            {"via": "apply_estimation_run", "run_id": str(run.id)},
+        )
+        schedule_and_recalculate(
+            session,
+            current_user.id,
+            [old_eaten_at, meal.eaten_at],
+        )
         target_meal = meal
     else:
         title = (
@@ -1181,6 +1265,7 @@ def apply_estimation_run(
             else f"Переоценка · {len(proposed_items)} позиции"
         )
         draft = Meal(
+            owner_id=current_user.id,
             eaten_at=meal.eaten_at,
             title=title,
             note=meal.note,
@@ -1189,13 +1274,17 @@ def apply_estimation_run(
         )
         session.add(draft)
         session.flush()
-        draft.items = [_build_item(item, draft.id, session) for item in proposed_items]
+        draft.items = [
+            _build_item(item, draft.id, session, current_user.id)
+            for item in proposed_items
+        ]
         for position, item in enumerate(draft.items):
             item.position = position
-            _increment_usage_counters(session, item)
+            _increment_usage_counters(session, current_user.id, item)
         for photo in _ordered_photos(meal.photos):
             session.add(
                 Photo(
+                    owner_id=current_user.id,
                     meal_id=draft.id,
                     path=photo.path,
                     original_filename=photo.original_filename,
@@ -1208,6 +1297,13 @@ def apply_estimation_run(
                 )
             )
         _recalculate_meal(draft)
+        _audit_meal(
+            session,
+            current_user.id,
+            "created",
+            draft,
+            {"via": "apply_estimation_run_draft", "run_id": str(run.id)},
+        )
         target_meal = draft
 
     run.promoted_at = utc_now()
@@ -1215,7 +1311,7 @@ def apply_estimation_run(
     session.commit()
     return ApplyEstimationRunResponse(
         apply_mode=payload.apply_mode,
-        meal=_get_meal(session, target_meal.id),
+        meal=_get_meal(session, current_user.id, target_meal.id),
         ai_run_id=run.id,
     )
 
@@ -1225,15 +1321,210 @@ def apply_estimation_run(
     response_model=list[AIRunResponse],
     operation_id="listMealAiRuns",
 )
-def list_meal_ai_runs(meal_id: UUID, session: SessionDep) -> list[AIRun]:
+def list_meal_ai_runs(
+    meal_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> list[AIRun]:
     """Return AI estimation history for one meal."""
-    _get_meal(session, meal_id)
+    _get_meal(session, current_user.id, meal_id)
     return list(
         session.scalars(
             select(AIRun)
             .where(AIRun.meal_id == meal_id)
             .order_by(AIRun.created_at.desc())
         ).all()
+    )
+
+
+def _photo_capture_response(meal: Meal) -> PhotoCaptureResponse:
+    """Return the canonical accepted response for a photo capture meal."""
+    photo = _ordered_photos(meal.photos)[0]
+    status_value = meal.estimate_status or "estimating"
+    if status_value not in {"estimating", "succeeded", "failed", "timeout", "error"}:
+        status_value = "error"
+    return PhotoCaptureResponse(
+        meal_id=meal.id,
+        estimate_status=status_value,
+        captured_at=meal.eaten_at,
+        photo_url=f"/photos/{photo.id}/file",
+    )
+
+
+def _set_single_call_estimate_status(
+    *,
+    meal_id: UUID,
+    user_id: UUID,
+    estimate_status: str,
+    error: str | None = None,
+) -> None:
+    """Update persisted server-side estimate status after background work."""
+    session = get_session_factory()()
+    try:
+        meal = session.scalar(
+            select(Meal).where(Meal.id == meal_id, Meal.owner_id == user_id)
+        )
+        if meal is None:
+            return
+        meal.estimate_status = estimate_status
+        meal.estimate_error = error
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.warning(
+            "Failed to persist photo estimate status meal_id=%s user_id=%s",
+            meal_id,
+            user_id,
+            exc_info=True,
+        )
+    finally:
+        session.close()
+
+
+def _trigger_categorization(meal_id: UUID) -> None:
+    """Trigger taste profile classification for a freshly accepted meal."""
+    try:
+        categorize_one(meal_id)
+    except Exception:
+        logger.exception(
+            "Categorization failed for meal %s, will retry next nightly batch",
+            meal_id,
+        )
+
+
+def _run_single_call_photo_estimate(
+    meal_id: UUID,
+    user_id: UUID,
+    context_note: str | None,
+) -> None:
+    """Run the photo estimate after the capture request has returned 202."""
+    session = get_session_factory()()
+    try:
+        service = _photo_estimation_service(
+            session,
+            user_id,
+            get_gemini_client(),
+        )
+        response = service.estimate(
+            meal_id=meal_id,
+            payload=EstimateMealRequest(context_note=context_note),
+            save_draft=True,
+        )
+        if response.created_drafts:
+            _set_single_call_estimate_status(
+                meal_id=meal_id,
+                user_id=user_id,
+                estimate_status="succeeded",
+            )
+            _trigger_categorization(meal_id)
+        else:
+            _set_single_call_estimate_status(
+                meal_id=meal_id,
+                user_id=user_id,
+                estimate_status="failed",
+                error="Photo estimate did not return an accepted meal.",
+            )
+    except HTTPException as exc:
+        _set_single_call_estimate_status(
+            meal_id=meal_id,
+            user_id=user_id,
+            estimate_status="failed",
+            error=str(exc.detail),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Single-call photo estimate failed meal_id=%s user_id=%s",
+            meal_id,
+            user_id,
+            exc_info=True,
+        )
+        _set_single_call_estimate_status(
+            meal_id=meal_id,
+            user_id=user_id,
+            estimate_status="error",
+            error=str(exc),
+        )
+    finally:
+        session.close()
+
+
+@router.post(
+    "/meals/from-photo",
+    response_model=PhotoCaptureResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    operation_id="createMealFromPhoto",
+)
+def create_meal_from_photo(
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    photo: PhotoFileDep,
+    captured_at: Annotated[datetime, Form()],
+    idempotency_key: Annotated[UUID, Form()],
+    source: Annotated[Literal["camera", "gallery"], Form()] = "camera",
+    context: Annotated[str | None, Form()] = None,
+) -> PhotoCaptureResponse:
+    """Create one photo meal and let the backend own photo estimation."""
+    existing = session.scalar(
+        select(Meal)
+        .where(
+            Meal.owner_id == current_user.id,
+            Meal.photo_idempotency_key == str(idempotency_key),
+        )
+        .options(selectinload(Meal.photos))
+    )
+    if existing is not None and existing.photos:
+        return _photo_capture_response(existing)
+
+    try:
+        content_type, _ = photo_store.supported_upload_type(photo)
+        rel_path = photo_store.save_upload(photo)
+    except photo_store.PhotoStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    meal = Meal(
+        owner_id=current_user.id,
+        eaten_at=local_wall_time(captured_at),
+        title=None,
+        note=context,
+        status=MealStatus.draft,
+        source=MealSource.photo,
+        estimate_status="estimating",
+        estimate_error=None,
+        photo_idempotency_key=str(idempotency_key),
+    )
+    session.add(meal)
+    session.flush()
+    photo_row = Photo(
+        id=UUID(Path(rel_path).stem),
+        owner_id=current_user.id,
+        meal_id=meal.id,
+        path=rel_path,
+        original_filename=photo.filename,
+        content_type=content_type,
+        taken_at=local_wall_time(captured_at),
+    )
+    session.add(photo_row)
+    try:
+        session.commit()
+    except Exception:
+        photo_store.delete(rel_path)
+        raise
+
+    background_tasks.add_task(
+        _run_single_call_photo_estimate,
+        meal.id,
+        current_user.id,
+        context,
+    )
+    return PhotoCaptureResponse(
+        meal_id=meal.id,
+        estimate_status="estimating",
+        captured_at=meal.eaten_at,
+        photo_url=f"/photos/{photo_row.id}/file",
     )
 
 
@@ -1246,11 +1537,13 @@ def list_meal_ai_runs(meal_id: UUID, session: SessionDep) -> list[AIRun]:
 def upload_meal_photo(
     meal_id: UUID,
     session: SessionDep,
+    current_user: CurrentUserDep,
     file: UploadFileDep,
 ) -> Photo:
     """Upload a JPEG, PNG, or WebP photo for a meal."""
-    _get_meal(session, meal_id)
+    _get_meal(session, current_user.id, meal_id)
     try:
+        content_type, _ = photo_store.supported_upload_type(file)
         rel_path = photo_store.save_upload(file)
     except photo_store.PhotoStorageError as exc:
         raise HTTPException(
@@ -1260,10 +1553,11 @@ def upload_meal_photo(
 
     photo = Photo(
         id=UUID(Path(rel_path).stem),
+        owner_id=current_user.id,
         meal_id=meal_id,
         path=rel_path,
         original_filename=file.filename,
-        content_type=file.content_type,
+        content_type=content_type,
     )
     session.add(photo)
     try:
@@ -1278,9 +1572,13 @@ def upload_meal_photo(
     "/photos/{photo_id}/file",
     operation_id="getPhotoFile",
 )
-def get_photo_file(photo_id: UUID, session: SessionDep) -> FileResponse:
+def get_photo_file(
+    photo_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> FileResponse:
     """Stream the stored image bytes for a photo."""
-    photo = _get_photo(session, photo_id)
+    photo = _get_photo(session, current_user.id, photo_id)
     full_path = photo_store.get_full_path(photo.path)
     if not full_path.exists():
         raise HTTPException(
@@ -1291,6 +1589,8 @@ def get_photo_file(photo_id: UUID, session: SessionDep) -> FileResponse:
         full_path,
         media_type=photo.content_type,
         filename=photo.original_filename,
+        headers=IMAGE_RESPONSE_HEADERS,
+        content_disposition_type="inline",
     )
 
 
@@ -1299,11 +1599,19 @@ def get_photo_file(photo_id: UUID, session: SessionDep) -> FileResponse:
     response_model=DeleteResponse,
     operation_id="deletePhoto",
 )
-def delete_photo(photo_id: UUID, session: SessionDep) -> DeleteResponse:
+def delete_photo(
+    photo_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> DeleteResponse:
     """Delete a photo row and its stored file."""
-    photo = _get_photo(session, photo_id)
+    photo = _get_photo(session, current_user.id, photo_id)
     path = photo.path
-    for item in session.scalars(select(MealItem).where(MealItem.photo_id == photo.id)):
+    for item in session.scalars(
+        select(MealItem)
+        .join(Meal, Meal.id == MealItem.meal_id)
+        .where(MealItem.photo_id == photo.id, Meal.owner_id == current_user.id)
+    ):
         item.photo_id = None
     session.delete(photo)
     session.commit()
@@ -1320,10 +1628,11 @@ def estimate_meal_photos(
     meal_id: UUID,
     payload: EstimateMealRequest,
     session: SessionDep,
+    current_user: CurrentUserDep,
     gemini_client: GeminiClientDep,
 ) -> EstimateMealResponse:
     """Estimate draft items from meal photos without saving them."""
-    return _photo_estimation_service(session, gemini_client).estimate(
+    return _photo_estimation_service(session, current_user.id, gemini_client).estimate(
         meal_id=meal_id,
         payload=payload,
         save_draft=False,
@@ -1339,10 +1648,11 @@ def estimate_and_save_meal_draft(
     meal_id: UUID,
     payload: EstimateMealRequest,
     session: SessionDep,
+    current_user: CurrentUserDep,
     gemini_client: GeminiClientDep,
 ) -> EstimateMealResponse:
-    """Estimate draft items from meal photos and save them to the draft meal."""
-    return _photo_estimation_service(session, gemini_client).estimate(
+    """Estimate items from meal photos and save them as accepted journal rows."""
+    return _photo_estimation_service(session, current_user.id, gemini_client).estimate(
         meal_id=meal_id,
         payload=payload,
         save_draft=True,

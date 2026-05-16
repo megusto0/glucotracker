@@ -28,6 +28,9 @@ const protectedImagePathFromSrc = (src?: string | null) => {
     if (path.match(/^\/products\/[^/]+\/image\/file$/)) {
       return path;
     }
+    if (path.match(/^\/patterns\/[^/]+\/image\/file$/)) {
+      return path;
+    }
     return null;
   } catch {
     return null;

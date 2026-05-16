@@ -61,3 +61,62 @@ test("API client patches meal eaten_at", async () => {
   expect(method).toBe("PATCH");
   expect(body).toEqual({ eaten_at: "2026-04-28T12:30:00.000Z" });
 });
+
+test("API client sends endocrinologist report glucose mode", async () => {
+  let glucoseMode: string | null = null;
+
+  server.use(
+    http.get("http://api.test/reports/endocrinologist", ({ request }) => {
+      glucoseMode = new URL(request.url).searchParams.get("glucose_mode");
+      return HttpResponse.json({
+        app_name: "glucotracker",
+        title: "Отчёт для эндокринолога",
+        glucose_mode: "normalized",
+        glucose_mode_label: "нормализованная",
+        period_label: "Период: 28 апреля 2026",
+        generated_label: "Сгенерировано: 29 апреля 2026",
+        chips: [],
+        warning: null,
+        notes: [],
+        kpis: [],
+        glycemic_profile: [],
+        hypo_concentration_line: "Гипо <3,9: эпизодов нет",
+        adaptive_schedule: {
+          title: "Мой ритм",
+          summary: "Ритм не определён",
+          basis: "absolute_fallback",
+          windows: [],
+          ribbon: "",
+        },
+        meal_profile_rows: [],
+        daily_rows: [],
+        shown_daily_rows: [],
+        daily_median_row: {
+          date: "median",
+          date_label: "Медиана",
+          carbs: "—",
+          insulin: "—",
+          tir: "—",
+          hypo: "0",
+          spikes: "—",
+          windows: "",
+          breakfast: "—",
+          lunch: "—",
+          dinner: "—",
+          flagged: false,
+        },
+        bottom_metrics: [],
+        footer: "",
+      });
+    }),
+  );
+
+  await apiClient.getEndocrinologistReport(
+    { baseUrl: "http://api.test", token: "test-token" },
+    "2026-04-28",
+    "2026-04-28",
+    "normalized",
+  );
+
+  expect(glucoseMode).toBe("normalized");
+});

@@ -4,21 +4,25 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.api.schemas import (
+    FoodEpisodeFoodResponse,
     FoodEpisodeResponse,
     MealResponse,
     NightscoutGlucoseEntryResponse,
     NightscoutImportResponse,
     NightscoutInsulinEventResponse,
+    TimelineFoodResponse,
     TimelineGlucoseSummary,
     TimelineInsulinEventResponse,
     TimelineResponse,
 )
+from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -47,9 +51,11 @@ class NightscoutContextImportService:
     def __init__(
         self,
         session: Session,
+        user_id: UUID,
         client: NightscoutClient | None = None,
     ) -> None:
         self.session = session
+        self.user_id = user_id
         self.client = client
 
     async def import_range(
@@ -73,17 +79,30 @@ class NightscoutContextImportService:
         insulin_rows = []
         if sync_glucose:
             glucose_rows = await self.client.fetch_glucose_entries(
-                from_datetime, to_datetime,
+                from_datetime,
+                to_datetime,
             )
         if import_insulin_events:
             insulin_rows = await self.client.fetch_insulin_events(
-                from_datetime, to_datetime,
+                from_datetime,
+                to_datetime,
             )
+        sensor_event_rows = []
+        if hasattr(self.client, "fetch_sensor_events"):
+            try:
+                sensor_event_rows = await self.client.fetch_sensor_events(
+                    from_datetime,
+                    to_datetime,
+                )
+            except Exception:
+                sensor_event_rows = []
 
         return self.import_fetched(
-            from_datetime, to_datetime,
+            from_datetime,
+            to_datetime,
             glucose_rows=glucose_rows,
             insulin_rows=insulin_rows,
+            sensor_event_rows=sensor_event_rows,
         )
 
     def import_fetched(
@@ -93,6 +112,7 @@ class NightscoutContextImportService:
         *,
         glucose_rows: list[dict[str, Any]],
         insulin_rows: list[dict[str, Any]],
+        sensor_event_rows: list[dict[str, Any]] | None = None,
     ) -> NightscoutImportResponse:
         """Upsert pre-fetched Nightscout data into the local cache."""
         glucose_imported = 0
@@ -111,18 +131,32 @@ class NightscoutContextImportService:
             if insulin_rows:
                 state.last_insulin_import_at = utc_now()
 
+            if sensor_event_rows:
+                apply_sensor_lifecycle_events(
+                    self.session,
+                    self.user_id,
+                    sensor_event_rows,
+                )
+
             state.last_error = None
             state.updated_at = utc_now()
             self.session.commit()
         except Exception as exc:
-            state.last_error = str(exc) or "Nightscout import failed"
-            state.updated_at = utc_now()
-            self.session.commit()
+            self.session.rollback()
+            try:
+                state = self._state()
+                state.last_error = str(exc) or "Nightscout import failed"
+                state.updated_at = utc_now()
+                self.session.commit()
+            except Exception:
+                self.session.rollback()
             raise
 
         return self._response(
-            from_datetime, to_datetime,
-            glucose_imported, insulin_imported,
+            from_datetime,
+            to_datetime,
+            glucose_imported,
+            insulin_imported,
         )
 
     def _response(
@@ -138,12 +172,14 @@ class NightscoutContextImportService:
             select(func.count(NightscoutGlucoseEntry.id)).where(
                 NightscoutGlucoseEntry.timestamp >= local_from,
                 NightscoutGlucoseEntry.timestamp <= local_to,
+                NightscoutGlucoseEntry.owner_id == self.user_id,
             )
         )
         insulin_total = self.session.scalar(
             select(func.count(NightscoutInsulinEvent.id)).where(
                 NightscoutInsulinEvent.timestamp >= local_from,
                 NightscoutInsulinEvent.timestamp <= local_to,
+                NightscoutInsulinEvent.owner_id == self.user_id,
             )
         )
         return NightscoutImportResponse(
@@ -157,10 +193,14 @@ class NightscoutContextImportService:
         )
 
     def _state(self) -> NightscoutImportState:
-        row = self.session.get(NightscoutImportState, 1)
+        row = self.session.scalar(
+            select(NightscoutImportState).where(
+                NightscoutImportState.owner_id == self.user_id
+            )
+        )
         if row is not None:
             return row
-        row = NightscoutImportState(id=1)
+        row = NightscoutImportState(owner_id=self.user_id)
         self.session.add(row)
         self.session.flush()
         return row
@@ -171,11 +211,14 @@ class NightscoutContextImportService:
             return False
         existing = self.session.scalar(
             select(NightscoutGlucoseEntry).where(
-                NightscoutGlucoseEntry.source_key == normalized["source_key"]
+                NightscoutGlucoseEntry.source_key == normalized["source_key"],
+                NightscoutGlucoseEntry.owner_id == self.user_id,
             )
         )
         if existing is None:
-            self.session.add(NightscoutGlucoseEntry(**normalized))
+            self.session.add(
+                NightscoutGlucoseEntry(owner_id=self.user_id, **normalized)
+            )
             return True
         for key, value in normalized.items():
             setattr(existing, key, value)
@@ -189,11 +232,14 @@ class NightscoutContextImportService:
             return False
         existing = self.session.scalar(
             select(NightscoutInsulinEvent).where(
-                NightscoutInsulinEvent.source_key == normalized["source_key"]
+                NightscoutInsulinEvent.source_key == normalized["source_key"],
+                NightscoutInsulinEvent.owner_id == self.user_id,
             )
         )
         if existing is None:
-            self.session.add(NightscoutInsulinEvent(**normalized))
+            self.session.add(
+                NightscoutInsulinEvent(owner_id=self.user_id, **normalized)
+            )
             return True
         for key, value in normalized.items():
             setattr(existing, key, value)
@@ -205,8 +251,9 @@ class NightscoutContextImportService:
 class FoodEpisodeService:
     """Build backend-owned timeline episodes from local meals and NS context."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
+        self.user_id = user_id
 
     def timeline(
         self,
@@ -291,12 +338,44 @@ class FoodEpisodeService:
             ungrouped_insulin=ungrouped_insulin,
         )
 
+    def timeline_food(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> TimelineFoodResponse:
+        """Return computed food episodes without querying glucose-only tables."""
+        local_from = _local_wall_time(from_datetime)
+        local_to = _local_wall_time(to_datetime)
+        episodes: list[FoodEpisodeFoodResponse] = []
+        clusters = _cluster_meals(self._meals(local_from, local_to))
+        for index, cluster in enumerate(clusters):
+            first_meal_at = cluster[0].eaten_at
+            last_meal_at = cluster[-1].eaten_at
+            episodes.append(
+                FoodEpisodeFoodResponse(
+                    id=f"episode-{first_meal_at.isoformat()}-{index}",
+                    start_at=first_meal_at,
+                    end_at=last_meal_at,
+                    title=_episode_title(cluster),
+                    meals=[MealResponse.model_validate(meal) for meal in cluster],
+                    total_carbs_g=round(sum(meal.total_carbs_g for meal in cluster), 1),
+                    total_kcal=round(sum(meal.total_kcal for meal in cluster), 1),
+                )
+            )
+
+        return TimelineFoodResponse(
+            from_datetime=from_datetime,
+            to_datetime=to_datetime,
+            episodes=episodes,
+        )
+
     def _meals(self, from_datetime: datetime, to_datetime: datetime) -> list[Meal]:
         return list(
             self.session.scalars(
                 select(Meal)
                 .where(
                     Meal.status == MealStatus.accepted,
+                    Meal.owner_id == self.user_id,
                     Meal.eaten_at >= from_datetime,
                     Meal.eaten_at <= to_datetime,
                 )
@@ -323,6 +402,7 @@ class FoodEpisodeService:
                 .where(
                     NightscoutGlucoseEntry.timestamp >= from_datetime,
                     NightscoutGlucoseEntry.timestamp <= to_datetime,
+                    NightscoutGlucoseEntry.owner_id == self.user_id,
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
             )
@@ -339,6 +419,7 @@ class FoodEpisodeService:
                 .where(
                     NightscoutInsulinEvent.timestamp >= from_datetime,
                     NightscoutInsulinEvent.timestamp <= to_datetime,
+                    NightscoutInsulinEvent.owner_id == self.user_id,
                 )
                 .order_by(NightscoutInsulinEvent.timestamp.asc())
             )

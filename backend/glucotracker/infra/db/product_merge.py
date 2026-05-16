@@ -49,7 +49,11 @@ def merge_duplicate_source_photo_products(session: Session, target: Product) -> 
 
     duplicates = session.scalars(
         select(Product)
-        .where(Product.id != target.id, Product.image_url == target.image_url)
+        .where(
+            Product.id != target.id,
+            Product.image_url == target.image_url,
+            Product.owner_id == target.owner_id,
+        )
         .options(selectinload(Product.aliases), selectinload(Product.items))
     ).all()
     for duplicate in duplicates:
@@ -81,7 +85,9 @@ def _merge_product_into_target(
     for alias in duplicate.aliases:
         normalized = alias.alias.strip()
         if normalized and normalized.casefold() not in existing_aliases:
-            target.aliases.append(ProductAlias(alias=normalized))
+            target.aliases.append(
+                ProductAlias(owner_id=target.owner_id, alias=normalized)
+            )
             existing_aliases.add(normalized.casefold())
 
     for item in duplicate.items:

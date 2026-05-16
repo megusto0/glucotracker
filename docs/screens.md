@@ -1,122 +1,91 @@
-# Screens
+# Screens And Routes
 
-Last updated: 2026-05-05
+Status: source of truth
+Last updated: 2026-05-13
+Owner/area: desktop routes, Android navigation
+
+All user-facing copy is Russian. Where a feature is absent on mobile, render the
+dotted hint `Доступно в десктоп-версии.` per `CONCEPT.md` §2 instead of silently
+hiding the capability.
+
+## Desktop Routes
 
 Routes are defined in `desktop/src/app/routes.tsx`.
 
-## Shell
+| Route | Component | Responsibility |
+| --- | --- | --- |
+| `/login` | `LoginPage` | Username/password login for seeded users. |
+| `/` | `ChatPage` | Journal: selected day, meal entry, photo/Gemini draft review, accepted/draft rows, selected-meal panel. |
+| `/feed` | `FeedPage` | History/timeline projection of accepted food episodes and context events. |
+| `/stats` | `StatsPage` | Nutrition, day rhythm, insights, sparse-data summaries, calorie/TDEE context. |
+| `/glucose` | `GlucosePage` | Glucose dashboard, CGM ranges, sensor/fingerstick context. Gluco-only feature. |
+| `/database` | `DatabasePage` | Product/template browsing, saved products, local product actions. |
+| `/settings` | `SettingsPage` | Backend connection, Nightscout settings, activity/profile, PDF report, TXT export. |
 
-`Shell.tsx` renders:
+## Desktop Shell
 
-- fixed 200px left sidebar
-- scrollable `.gt-main`
-- route content with page-owned padding
+`Shell.tsx` renders the fixed sidebar, main scroll area, and route content.
+`Sidebar.tsx` owns navigation and the mini glucose widget when backend data is
+available. Page components own page padding and local layout.
 
-`Sidebar.tsx` contains:
+## Android Auth Gate
 
-- brand
-- Journal, History, Glucose, Stats, Product DB, Settings navigation
-- mini glucose widget when backend/Nightscout data exists
-- connection footer
+`GlucotrackerApp` shows:
 
-## Journal `/`
+- loading blank warm background while token state is read;
+- `LoginRoute` when signed out;
+- `SignedInApp` once authenticated.
 
-Primary food logging screen.
+Tokens are stored through `TokenStore` with `EncryptedSharedPreferences`.
 
-Main responsibilities:
+## Android Shared Routes
 
-- selected local day navigation
-- manual food input
-- photo flow and Gemini draft review
-- accepted meal rows
-- draft rows
-- right-side selected meal panel
-- Nightscout day sync affordance
+Routes are defined in `ui/navigation/Routes.kt` and `GTNavHost.kt`.
 
-Current row hierarchy:
+| Route | Responsibility |
+| --- | --- |
+| `today` and `today/{date}` | Today page. Also hosts the Stats pager as page 2. |
+| `history` | History list/search/filter surface. |
+| `base` | Product/template base. |
+| `more` | Settings, goals, schedule/rhythm, logout, flavor-provided sections. |
+| `outbox?focus={id}` | Outbox inspector and retry/delete/reconciliation UI. |
+| `record/{id}` | Meal detail and fast edit surface. |
+| `photo_capture` | Camera capture route. |
 
-- meal time and photo/name are dominant
-- carbs and kcal are primary numeric values
-- protein/fat/fiber and macro split bar are secondary
-- micro-bars must never overpower the meal name/photo
+The capture FAB opens `GTComposeSheet`; it is not a bottom-tab destination.
 
-Selected meal panel must show a compact summary before edit controls:
+## Android Flavor Tabs
 
-- name
-- kcal
-- carbs/protein/fat/fiber
-- weight
-- source
-- confidence
+Gluco flavor (`src/gluco/.../GlucoFlavorModule.kt`):
 
-## History `/feed`
+- Today
+- Glucose
+- History
+- More
 
-Timeline of accepted food episodes and standalone events.
+Food flavor (`src/food/.../FoodFlavorModule.kt`):
 
-Rules:
+- Today
+- History
+- Base
+- More
 
-- food episodes remain visually dominant
-- CGM sparkline stays inside each food episode card
-- insulin-only rows are muted
-- History is projection-only; do not merge meals to build the view
+Food flavor has no glucose tab and receives no real Nightscout/glucose surfaces.
 
-## Glucose `/glucose`
+## Screen Rules
 
-Glucose dashboard and sensor context.
+- Today headline totals show backend-accepted totals only; pending rows are
+  separate context.
+- Stats uses sparse-data summaries when there are too few tracked days.
+- History is a projection over meals/context; do not merge accepted meals to
+  manufacture history rows.
+- Glucose surfaces are display-only over immutable raw CGM.
+- Settings is the desktop owner for Nightscout URL/secret, OpenAPI, PDF, and TXT
+  exports.
 
-Current behavior:
+## Needs Verification
 
-- raw CGM remains stored unchanged
-- normalization is display-only
-- chart adapts by density:
-  - short ranges show detailed events
-  - longer ranges aggregate meals/events
-  - sparse data avoids huge empty regions
-- sensor panel and fingerstick forms are contextual tools, not primary page
-  content
-
-## Stats `/stats`
-
-Nutrition, calorie balance, TIR, dayparts, and meal timing.
-
-Real-data rules:
-
-- fewer than 3 valid tracked days: summary mode, not full trend charts
-- fewer than 14 valid days: charts focus actual tracked days
-- current incomplete day is excluded from period calorie balance
-- calorie balance is labelled relative to TDEE
-- TIR renders normal 0-100 stacked bars
-- daypart glucose profile always renders six 4-hour cards
-- meal heatmap stays exactly 6x7, one 4-hour block per cell
-
-## Product DB `/database`
-
-Local product and pattern database.
-
-Responsibilities:
-
-- browse saved products/patterns
-- product detail panel
-- manual product creation
-- import panel
-- "use in journal" action
-
-Backend remains source of product math and aliases.
-
-## Settings `/settings`
-
-Integration and local configuration screen.
-
-Responsibilities:
-
-- Nightscout URL/secret and sync flags
-- backend URL/token checks
-- theme selection
-- TDEE profile fields
-- endocrinologist PDF report
-- TXT food diary export
-- OpenAPI link
-
-Settings buttons should stay compact and low-contrast. Avoid black filled
-buttons except where a single row truly needs one primary destructive/commit
-action.
+- The original mobile concept (`CONCEPT.md` §3) specified five tabs plus central
+  FAB. Current code has four tabs per flavor plus the FAB, with Stats inside
+  Today. This is intentional in current code but should be reflected in future
+  product specs before treating the old concept as current navigation source.

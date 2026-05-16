@@ -2,32 +2,63 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.routers.patterns import search_pattern_rows
 from glucotracker.api.schemas import AutocompleteSuggestion
 from glucotracker.domain.nutrition import calculate_item_from_per_100g
 from glucotracker.infra.db.models import Product
 from glucotracker.infra.db.product_merge import collapse_duplicate_source_photo_products
 
-router = APIRouter(
-    tags=["autocomplete"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["autocomplete"])
 
 PRODUCT_PREFIXES = {"product", "products", "prod", "my"}
 PERSONAL_PATTERN_PREFIXES = {"my", "home"}
 RESTAURANT_PATTERN_PREFIXES = {"bk", "mc", "rostics", "vit"}
+SEARCH_STOP_WORDS = {"с", "со", "и", "в", "во", "на", "из", "к", "ко", "по", "для"}
+TOKEN_RE = re.compile(r"[\w]+", flags=re.UNICODE)
 
 
 def _normalized(value: str | None) -> str:
     """Return a casefolded search value."""
     return (value or "").casefold().strip()
+
+
+def _search_tokens(value: str | None) -> list[str]:
+    """Return significant searchable tokens without short connector words."""
+    return [
+        token
+        for token in TOKEN_RE.findall(_normalized(value))
+        if token and token not in SEARCH_STOP_WORDS
+    ]
+
+
+def _token_match_rank(value: str, query: str) -> int:
+    """Rank order-insensitive token matches for forgiving autocomplete."""
+    query_tokens = _search_tokens(query)
+    if not query_tokens:
+        return 9
+    value_tokens = _search_tokens(value)
+    if not value_tokens:
+        return 9
+    if all(
+        any(candidate == token for candidate in value_tokens)
+        for token in query_tokens
+    ):
+        return 2
+    if all(
+        any(candidate.startswith(token) for candidate in value_tokens)
+        for token in query_tokens
+    ):
+        return 4
+    return 9
 
 
 def _text_match_rank(values: list[str], q: str) -> int:
@@ -40,6 +71,12 @@ def _text_match_rank(values: list[str], q: str) -> int:
         return 0
     if any(value.startswith(query) for value in normalized_values):
         return 1
+    token_rank = min(
+        (_token_match_rank(value, query) for value in normalized_values),
+        default=9,
+    )
+    if token_rank < 9:
+        return token_rank
     if any(query in value for value in normalized_values):
         return 5
     return 9
@@ -151,11 +188,21 @@ def _product_macros(product: Product) -> dict[str, float | None]:
     }
 
 
-def _product_rows(session: SessionDep, q: str, *, limit: int) -> list[Product]:
+def _product_rows(
+    session: SessionDep,
+    user_id: UUID,
+    q: str,
+    *,
+    limit: int,
+) -> list[Product]:
     """Search products for autocomplete."""
-    statement = select(Product).options(
-        selectinload(Product.aliases),
-        selectinload(Product.items),
+    statement = (
+        select(Product)
+        .where((Product.owner_id.is_(None)) | (Product.owner_id == user_id))
+        .options(
+            selectinload(Product.aliases),
+            selectinload(Product.items),
+        )
     )
     products = [
         product
@@ -258,6 +305,7 @@ def _suggestion_sort_key(
 )
 def autocomplete(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str = "",
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[AutocompleteSuggestion]:
@@ -272,7 +320,12 @@ def autocomplete(
     if prefix in PRODUCT_PREFIXES:
         rows = [
             _product_suggestion(product, suffix)
-            for product in _product_rows(session, suffix, limit=limit)
+            for product in _product_rows(
+                session,
+                current_user.id,
+                suffix,
+                limit=limit,
+            )
         ]
         if prefix == "my":
             for personal_prefix in PERSONAL_PATTERN_PREFIXES:
@@ -280,6 +333,7 @@ def autocomplete(
                     _pattern_suggestion(pattern_row, suffix)
                     for pattern_row in search_pattern_rows(
                         session,
+                        current_user.id,
                         f"{personal_prefix}:{suffix}",
                         limit=limit,
                     )
@@ -292,7 +346,12 @@ def autocomplete(
             row[0]
             for row in [
                 _pattern_suggestion(pattern_row, suffix)
-                for pattern_row in search_pattern_rows(session, q, limit=limit)
+                for pattern_row in search_pattern_rows(
+                    session,
+                    current_user.id,
+                    q,
+                    limit=limit,
+                )
             ]
         ]
 
@@ -300,11 +359,21 @@ def autocomplete(
     rows: list[tuple[AutocompleteSuggestion, int, datetime | None, int, int]] = []
     rows.extend(
         _pattern_suggestion(pattern_row, q)
-        for pattern_row in search_pattern_rows(session, q, limit=source_limit)
+        for pattern_row in search_pattern_rows(
+            session,
+            current_user.id,
+            q,
+            limit=source_limit,
+        )
     )
     rows.extend(
         _product_suggestion(product, q)
-        for product in _product_rows(session, q, limit=source_limit)
+        for product in _product_rows(
+            session,
+            current_user.id,
+            q,
+            limit=source_limit,
+        )
     )
     rows.sort(key=_suggestion_sort_key)
     return [row[0] for row in rows[:limit]]

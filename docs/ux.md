@@ -1,99 +1,96 @@
 # UX
 
-Last updated: 2026-05-05
+Status: source of truth
+Last updated: 2026-05-13
+Owner/area: interaction model, UI states, copy rules
 
-## Product Posture
+Glucotracker is a repeated-use food diary, not a marketing surface and not a
+medical recommendation engine. It should feel calm, precise, and fast.
 
-Glucotracker is a work tool for repeated daily logging, review, and context.
-It should feel calm, editorial, and precise. It is not a marketing site, a SaaS
-dashboard, or a medical recommendation engine.
+Per `CONCEPT.md` §6, tab switches are instant, record open is fade + 8 px up for
+180 ms, bottom sheets use a short Material spring, and there is no decorative
+animation.
 
 ## Interaction Principles
 
-- Fast daily entry matters more than decorative layout.
-- Names, photos, and timestamps beat micro-visualizations.
-- Numbers are useful only when formatted predictably.
-- Empty and sparse data are normal states.
-- Read-only medical context must be clearly passive.
+- Fast entry beats decorative layout.
+- Names, photos, and timestamps are higher priority than micro-visualizations.
+- Numbers must be formatted predictably.
+- Empty, sparse, stale, and offline states are normal states.
+- Read-only medical context must stay passive and informational.
+- Gestures are accelerators, never the only path.
 
-## Real Data Resilience
+## Loading And Empty States
 
-The UI must remain stable with:
+- Journal empty day: show a short Russian prompt to use capture/text entry.
+- Stats with fewer than 3 valid tracked days: show a summary/low-data state, not
+  full trend claims.
+- Glucose without CGM data: show `Нет данных...` copy, not fake chart points.
+- Missing goals: show `цель не задана`, not failure language.
+- Missing optional nutrients: render an em dash or omit the optional line; do not
+  turn unknown values into zero.
 
-- one day of data
-- no data
-- missing macro targets
-- missing glucose slots
-- long decimals from backend math
-- sparse CGM
-- empty activity/TDEE profile
-- outlier calorie balance days
+## Offline And Pending
 
-Use summaries, dashes, "нет данных", or "нет цели" instead of fake precision.
+- Mobile mutations commit to local outbox first.
+- Pending rows are visually distinct from accepted rows.
+- Pending rows never mix into headline totals.
+- The top banner stays discreet: queue/stale/stuck context, no blocking overlay.
+- Stuck state offers explicit retry/delete/open actions in the inspector.
+
+Current Android row-state vocabulary is derived from `OutboxState` and
+`ui/format/RowState.kt`.
+
+## Error Hygiene
+
+- User-facing errors must be short, Russian, and actionable.
+- `CancellationException` and process death must not become scary user copy.
+- `401` means auth refresh/login flow, not a data error.
+- `403 feature_disabled` means role capability, not expired auth.
+- Network restoration should trigger retry; the user should not have to wait for
+  a long periodic worker slot when the app can observe connectivity.
 
 ## Number Formatting
 
-- kcal: integer
-- grams: integer or max 1 decimal
-- mmol/L: 1 decimal
-- kg: 2 decimals, comma in Russian UI
-- percentages: integer
-- no binary floating point artifacts
+Use existing helpers instead of inline formatting:
 
-Use `desktop/src/utils/nutritionFormat.ts` rather than ad hoc `toFixed` in page
-components.
+- desktop: `desktop/src/utils/nutritionFormat.ts`;
+- Android: `ui/format/NutritionFormat.kt`.
 
-## Hierarchy
+Rules:
 
-Journal rows:
+- kcal: integer;
+- grams: integer or one decimal;
+- mmol/L: one decimal, comma decimal in Russian UI;
+- kg: two decimals, comma decimal in Russian UI;
+- percentages: integer;
+- signed kcal: typographical minus `−`, not hyphen-minus;
+- numbers, times, units, and IDs use mono type.
 
-1. time
-2. photo/name/source/status
-3. carbs and kcal
-4. protein/fat/fiber
-5. macro split bar
-6. actions
+## Copy Boundaries
 
-History:
+Use observational language:
 
-1. food episode card
-2. episode summary and CGM sparkline
-3. meal lines
-4. muted insulin-only lines
+- `наблюдаемый`
+- `информационно`
+- `контекст`
+- `данных мало`
+- `по последним дням`
 
-Stats:
+Avoid:
 
-1. date/verdict
-2. KPIs
-3. primary charts
-4. secondary profiles
-5. data quality/footer context
+- recommendations;
+- praise/blame;
+- streak pressure;
+- dose/bolus/correction instructions;
+- treatment advice;
+- food judgement.
 
-## Buttons
+## Accessibility
 
-Buttons should be compact and quiet:
+Per `CONCEPT.md` §7:
 
-- default: hairline border, surface background
-- primary: slightly stronger graphite border/text, usually no black fill
-- destructive/danger: warn text and soft warn border
-- icon-only: square 28-30px
-
-Avoid making routine actions visually compete with the page title or content.
-
-## Safety Copy
-
-When describing Nightscout insulin or observed glucose context, use passive
-phrasing:
-
-- "read-only context"
-- "observed"
-- "informational"
-- "not used for dose calculation"
-
-Do not use:
-
-- "recommended"
-- "dose"
-- "bolus"
-- "correction" as an instruction
-- "treatment advice"
+- interactive touch targets are at least 44 dp/px equivalent;
+- color is never the only carrier of information;
+- KPI numbers must not clip at large dynamic font sizes;
+- TalkBack/VoiceOver date labels should be semantic, e.g. `5 мая 2026, вторник`.

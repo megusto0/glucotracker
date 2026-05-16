@@ -6,6 +6,7 @@ import type {
   DashboardSourceBreakdownResponse,
   DashboardTodayResponse,
   KcalBalanceDay,
+  StatsInsightResponse,
 } from "../../api/client";
 import {
   defaultDashboardRange,
@@ -15,8 +16,10 @@ import {
   useDashboardSourceBreakdown,
   useDashboardToday,
   useKcalBalanceRange,
+  useStatsInsights,
 } from "./useDashboard";
 import {
+  formatDecimal,
   formatGlucose,
   formatKcalValue,
   formatMacroValue,
@@ -25,6 +28,7 @@ import {
   fmtSignedInt,
 } from "../../utils/nutritionFormat";
 import { useGlucoseDashboard } from "../glucose/useGlucoseDashboard";
+import { KpiCard } from "../../design/primitives/KpiCard";
 
 const pad2 = (n: number) => n.toString().padStart(2, "0");
 const range = defaultDashboardRange();
@@ -38,6 +42,13 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 const average = (values: number[]) =>
   values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+const standardDeviation = (values: number[]) => {
+  if (values.length < 2) return 0;
+  const mean = average(values);
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+};
 
 const hasTrackedNutritionDay = (day: DashboardDayResponse) =>
   day.meal_count > 0 ||
@@ -82,6 +93,18 @@ type DaypartSummary = {
   count: number;
 };
 
+type GlucoseVariabilityDay = {
+  date: string;
+  d: string;
+  mean: number;
+  sd: number;
+  cv: number;
+  count: number;
+  enoughData: boolean;
+};
+
+const MIN_VARIABILITY_POINTS = 12;
+
 export function StatsPage() {
   const today = useDashboardToday();
   const rangeQuery = useDashboardRange(range.from, range.to);
@@ -89,6 +112,7 @@ export function StatsPage() {
   const sourceBreakdown = useDashboardSourceBreakdown(7);
   const dataQuality = useDashboardDataQuality(7);
   const kcalBalance = useKcalBalanceRange(range.from, range.to);
+  const insights = useStatsInsights("14d", "stats");
 
   const glucoseFrom = useMemo(() => {
     const d = new Date();
@@ -101,6 +125,7 @@ export function StatsPage() {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T23:59`;
   }, []);
   const glucoseDashboard = useGlucoseDashboard(glucoseFrom, glucoseTo, "raw");
+  const cgmPoints = glucoseDashboard.data?.points ?? [];
 
   const noData =
     today.isSuccess &&
@@ -108,11 +133,13 @@ export function StatsPage() {
     heatmap.isSuccess &&
     sourceBreakdown.isSuccess &&
     dataQuality.isSuccess &&
+    glucoseDashboard.isSuccess &&
     today.data?.meal_count === 0 &&
     rangeQuery.data?.summary.total_meals === 0 &&
     heatmap.data?.cells.length === 0 &&
     sourceBreakdown.data?.items.length === 0 &&
-    dataQuality.data?.total_item_count === 0;
+    dataQuality.data?.total_item_count === 0 &&
+    cgmPoints.length === 0;
 
   const dateTitle = useMemo(() => {
     const d = new Date();
@@ -132,7 +159,6 @@ export function StatsPage() {
   const todayBal = todayIntake > 0
     ? todayBalanceDay ? balanceValue(todayBalanceDay, fallbackTdee) : todayIntake - fallbackTdee
     : 0;
-  const cgmPoints = glucoseDashboard.data?.points ?? [];
 
   const tirDays = useMemo(() => {
     const byDay = new Map<string, { below: number; inRange: number; above: number; total: number }>();
@@ -157,6 +183,35 @@ export function StatsPage() {
           below,
           inRange,
           above: clamp(100 - below - inRange, 0, 100),
+        };
+      });
+  }, [cgmPoints]);
+
+  const variabilityDays: GlucoseVariabilityDay[] = useMemo(() => {
+    const byDay = new Map<string, number[]>();
+    cgmPoints.forEach((point) => {
+      const value = Number(point.raw_value);
+      if (!Number.isFinite(value) || value <= 0) return;
+      const day = point.timestamp.slice(0, 10);
+      const values = byDay.get(day) ?? [];
+      values.push(value);
+      byDay.set(day, values);
+    });
+
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8)
+      .map(([date, values]) => {
+        const mean = average(values);
+        const sd = standardDeviation(values);
+        return {
+          date,
+          d: shortDay(date),
+          mean: Math.round(mean * 10) / 10,
+          sd: Math.round(sd * 10) / 10,
+          cv: mean > 0 ? Math.round((sd / mean) * 1000) / 10 : 0,
+          count: values.length,
+          enoughData: values.length >= MIN_VARIABILITY_POINTS,
         };
       });
   }, [cgmPoints]);
@@ -220,11 +275,18 @@ export function StatsPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <CarbsCard days={daysData} />
-            <BalanceCard kcalDays={kcalDays} />
+            <div style={{ display: "grid", gap: 14 }}>
+              <StatsInsightCard insights={insights.data?.insights ?? []} />
+              <BalanceCard kcalDays={kcalDays} />
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <TirCard tirDays={tirDays} />
+            <GlucoseVariabilityCard days={variabilityDays} />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
             <DaypartCard dayparts={dayparts} />
           </div>
 
@@ -262,6 +324,35 @@ function Card({
         ) : null}
       </div>
       <div style={{ padding: bodyPad }}>{children}</div>
+    </div>
+  );
+}
+
+function StatsInsightCard({ insights }: { insights: StatsInsightResponse[] }) {
+  const primary = insights[0];
+  const secondary = insights.slice(1, 3);
+  if (!primary) return null;
+
+  return (
+    <div style={{ background: "var(--surface-2)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-lg)", padding: "14px 16px 16px" }}>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 12, fontWeight: 500 }}>
+        Наблюдение
+      </div>
+      <div style={{ fontFamily: "var(--serif)", fontSize: 17, lineHeight: 1.38, color: "var(--ink)" }}>
+        {primary.text}
+      </div>
+      {secondary.length ? (
+        <>
+          <div style={{ height: 1, background: "var(--hairline)", margin: "14px 0 12px" }} />
+          <div style={{ display: "grid", gap: 8 }}>
+            {secondary.map((insight) => (
+              <div key={insight.id} style={{ fontSize: 12, lineHeight: 1.45, color: "var(--ink-2)" }}>
+                {insight.text}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -328,16 +419,16 @@ function KpiCards({ today, kcalDays }: { today?: DashboardTodayResponse; kcalDay
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
       {kpis.map((kpi) => (
-        <div key={kpi.lbl} style={{ background: "var(--surface-2)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-lg)", padding: "12px 16px 14px" }}>
-          <div style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, marginBottom: 6 }}>{kpi.lbl}</div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: kpi.valueSize ?? 30, fontWeight: 500, lineHeight: 1, color: kpi.color }}>
-            {kpi.val}{kpi.u ? <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 3 }}>{kpi.u}</span> : null}
-          </div>
-          <div style={{ height: 2, background: "var(--hairline)", marginTop: 10, marginBottom: 10 }}>
-            {kpi.pct !== null ? <div style={{ height: "100%", width: `${clamp(kpi.pct * 100, 0, 100)}%`, background: kpi.color }} /> : null}
-          </div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", lineHeight: 1.5 }}>{kpi.sub}</div>
-        </div>
+        <KpiCard
+          key={kpi.lbl}
+          label={kpi.lbl}
+          progress={kpi.pct}
+          progressTone={kpi.color === "var(--accent)" ? "accent" : kpi.color === "var(--good)" ? "good" : "neutral"}
+          sub={kpi.sub}
+          unit={kpi.u}
+          value={kpi.val}
+          valueSize={kpi.valueSize ?? 30}
+        />
       ))}
     </div>
   );
@@ -583,6 +674,97 @@ function TirCard({ tirDays }: { tirDays: Array<{ date: string; d: string; below:
         <LegendDot color={COLOR_IN} label="В диапазоне" />
         <LegendDot color={COLOR_ABOVE} label="Выше диапазона" />
       </div>
+    </Card>
+  );
+}
+
+function GlucoseVariabilityCard({ days }: { days: GlucoseVariabilityDay[] }) {
+  const validDays = days.filter((day) => day.enoughData);
+  const summaryDays = validDays.length ? validDays : days;
+  const avgCv = average(summaryDays.map((day) => day.cv));
+  const avgSd = average(summaryDays.map((day) => day.sd));
+  const maxDay = summaryDays.reduce<GlucoseVariabilityDay | null>(
+    (best, day) => (!best || day.cv > best.cv ? day : best),
+    null,
+  );
+
+  if (!days.length) {
+    return (
+      <Card title="Вариабельность глюкозы по дням" bodyPad="14px 18px 18px">
+        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Нет данных глюкозы за период</div>
+      </Card>
+    );
+  }
+
+  const W = 520, H = 280;
+  const pL = 38, pR = 12, pT = 16, pB = 30;
+  const iW = W - pL - pR, iH = H - pT - pB;
+  const bw = iW / Math.max(days.length, 1);
+  const maxCv = Math.max(...days.map((day) => day.cv), 1);
+  const yMax = Math.max(20, Math.ceil(maxCv / 10) * 10);
+  const avgY = pT + iH - (avgCv / yMax) * iH;
+  const ticks = [0, yMax / 2, yMax];
+
+  return (
+    <Card title="Вариабельность глюкозы по дням" headerRight="CV · сырой CGM" bodyPad="6px 18px 14px">
+      <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.4, marginBottom: 10 }}>
+        CV = SD / среднее. Дни с малым числом точек показаны светлее.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+        <SummaryMetric label="сред. CV" value={summaryDays.length ? `${formatDecimal(avgCv, 1)}%` : "—"} />
+        <SummaryMetric label="сред. SD" value={summaryDays.length ? `${formatGlucose(avgSd)} ммоль/л` : "—"} />
+        <SummaryMetric label="макс. день" value={maxDay ? `${formatDecimal(maxDay.cv, 1)}%` : "—"} />
+      </div>
+      <svg
+        aria-label="Вариабельность глюкозы по дням"
+        role="img"
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ display: "block", width: "100%", height: "auto" }}
+      >
+        {ticks.map((tick) => {
+          const y = pT + iH - (tick / yMax) * iH;
+          return (
+            <g key={tick}>
+              <line x1={pL} x2={W - pR} y1={y} y2={y} stroke="var(--hairline)" strokeWidth="1" opacity={tick === 0 ? 1 : 0.55} />
+              <text x={pL - 6} y={y + 3} textAnchor="end" fontFamily="var(--mono)" fontSize="9" fill="var(--ink-4)">{formatDecimal(tick, 0)}%</text>
+            </g>
+          );
+        })}
+        <line x1={pL} x2={W - pR} y1={avgY} y2={avgY} stroke="var(--accent)" strokeDasharray="4 3" strokeWidth="1" opacity="0.75" />
+        <text x={W - pR - 4} y={Math.max(pT + 8, avgY - 4)} textAnchor="end" fontFamily="var(--mono)" fontSize="9" fill="var(--accent)">сред. {formatDecimal(avgCv, 1)}%</text>
+        {days.map((day, index) => {
+          const cx = pL + index * bw + bw / 2;
+          const barW = Math.min(34, bw * 0.55);
+          const x = cx - barW / 2;
+          const height = day.cv === 0 ? 0 : Math.max(1.5, day.cv / yMax * iH);
+          const y = pT + iH - height;
+          const fill = day.enoughData ? "var(--ink-2)" : "var(--hairline-2)";
+          const showLabel = days.length <= 5 || index % 2 === 0 || index === days.length - 1;
+          const tip = [
+            day.d,
+            `CV ${formatDecimal(day.cv, 1)}%`,
+            `SD ${formatGlucose(day.sd)} ммоль/л`,
+            `среднее ${formatGlucose(day.mean)} ммоль/л`,
+            `${day.count} точек`,
+          ].join(" · ");
+          return (
+            <g key={day.date}>
+              <rect x={x} y={y} width={barW} height={height} fill={fill} opacity={day.enoughData ? 1 : 0.72}>
+                <title>{tip}</title>
+              </rect>
+              <rect x={x} y={pT} width={barW} height={iH} fill="transparent" style={{ cursor: "help" }}>
+                <title>{tip}</title>
+              </rect>
+              {showLabel ? <text x={cx} y={pT + iH + 14} textAnchor="middle" fontFamily="var(--mono)" fontSize="9" fill="var(--ink-4)">{day.d}</text> : null}
+              {day.enoughData ? null : (
+                <text x={cx} y={pT + iH + 25} textAnchor="middle" fontFamily="var(--sans)" fontSize="9" fill="var(--ink-4)">мало</text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
     </Card>
   );
 }

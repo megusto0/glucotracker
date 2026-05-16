@@ -31,6 +31,7 @@ GeminiComponentType = Literal[
     "carb_anchor",
     "fat",
 ]
+EstimatedValuesBasis = Literal["total_visible", "per_unit", "unknown"]
 
 
 class ExtractedNutritionFacts(BaseModel):
@@ -162,6 +163,7 @@ class EstimatedItem(BaseModel):
     grams_low: float | None = None
     grams_mid: float | None = None
     grams_high: float | None = None
+    values_basis: EstimatedValuesBasis = "total_visible"
     carbs_g_low: float | None = None
     carbs_g_mid: float | None = None
     carbs_g_high: float | None = None

@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import (
     DeleteResponse,
     PatternCreate,
@@ -20,11 +22,10 @@ from glucotracker.api.schemas import (
 )
 from glucotracker.domain.nutrients import normalize_nutrients_object
 from glucotracker.infra.db.models import Pattern, PatternAlias, utc_now
+from glucotracker.infra.storage import pattern_image_store
 
-router = APIRouter(
-    tags=["patterns"],
-    dependencies=[Depends(verify_token)],
-)
+router = APIRouter(tags=["patterns"])
+IMAGE_RESPONSE_HEADERS = {"Cache-Control": "private, max-age=604800"}
 
 
 def _normalize_token(value: str) -> str:
@@ -37,10 +38,12 @@ def _pattern_options() -> tuple:
     return (selectinload(Pattern.aliases),)
 
 
-def _get_pattern(session: SessionDep, pattern_id: UUID) -> Pattern:
+def _get_pattern(session: SessionDep, user_id: UUID, pattern_id: UUID) -> Pattern:
     """Fetch a pattern or raise 404."""
     pattern = session.scalar(
-        select(Pattern).where(Pattern.id == pattern_id).options(*_pattern_options())
+        select(Pattern)
+        .where(Pattern.id == pattern_id, Pattern.owner_id == user_id)
+        .options(*_pattern_options())
     )
     if pattern is None:
         raise HTTPException(
@@ -178,6 +181,7 @@ def _sort_key(pattern: Pattern, query: str) -> tuple:
 
 def search_pattern_rows(
     session: SessionDep,
+    user_id: UUID,
     q: str,
     *,
     limit: int = 20,
@@ -186,7 +190,7 @@ def search_pattern_rows(
     prefix, query = _parse_pattern_query(q)
     statement = (
         select(Pattern)
-        .where(Pattern.is_archived.is_(False))
+        .where(Pattern.is_archived.is_(False), Pattern.owner_id == user_id)
         .options(*_pattern_options())
     )
     if prefix is not None:
@@ -209,11 +213,12 @@ def search_pattern_rows(
 )
 def list_patterns(
     session: SessionDep,
+    current_user: CurrentUserDep,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> PatternPageResponse:
     """List active patterns."""
-    filters = [Pattern.is_archived.is_(False)]
+    filters = [Pattern.is_archived.is_(False), Pattern.owner_id == current_user.id]
     total = session.scalar(select(func.count(Pattern.id)).where(*filters)) or 0
     patterns = session.scalars(
         select(Pattern)
@@ -237,7 +242,11 @@ def list_patterns(
     status_code=status.HTTP_201_CREATED,
     operation_id="createPattern",
 )
-def create_pattern(payload: PatternCreate, session: SessionDep) -> PatternResponse:
+def create_pattern(
+    payload: PatternCreate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> PatternResponse:
     """Create a reusable meal pattern."""
     data = payload.model_dump(exclude={"aliases"})
     data["prefix"] = _normalize_token(data["prefix"])
@@ -246,7 +255,7 @@ def create_pattern(payload: PatternCreate, session: SessionDep) -> PatternRespon
         data.get("nutrients_json"),
         default_source_kind="pattern",
     )
-    pattern = Pattern(**data)
+    pattern = Pattern(owner_id=current_user.id, **data)
     _replace_aliases(pattern, payload.aliases)
     session.add(pattern)
     try:
@@ -257,7 +266,7 @@ def create_pattern(payload: PatternCreate, session: SessionDep) -> PatternRespon
             status_code=status.HTTP_409_CONFLICT,
             detail="Pattern prefix/key already exists.",
         ) from exc
-    return _pattern_response(_get_pattern(session, pattern.id))
+    return _pattern_response(_get_pattern(session, current_user.id, pattern.id))
 
 
 @router.get(
@@ -267,13 +276,19 @@ def create_pattern(payload: PatternCreate, session: SessionDep) -> PatternRespon
 )
 def search_patterns(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str,
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[PatternResponse]:
     """Search active patterns by prefix, key, display name, and aliases."""
     return [
         _pattern_response(pattern, matched_alias=matched_alias)
-        for pattern, matched_alias in search_pattern_rows(session, q, limit=limit)
+        for pattern, matched_alias in search_pattern_rows(
+            session,
+            current_user.id,
+            q,
+            limit=limit,
+        )
     ]
 
 
@@ -282,9 +297,13 @@ def search_patterns(
     response_model=PatternResponse,
     operation_id="getPattern",
 )
-def get_pattern(pattern_id: UUID, session: SessionDep) -> PatternResponse:
+def get_pattern(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> PatternResponse:
     """Return a pattern by id."""
-    return _pattern_response(_get_pattern(session, pattern_id))
+    return _pattern_response(_get_pattern(session, current_user.id, pattern_id))
 
 
 @router.patch(
@@ -296,9 +315,10 @@ def patch_pattern(
     pattern_id: UUID,
     payload: PatternPatch,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> PatternResponse:
     """Patch a reusable meal pattern."""
-    pattern = _get_pattern(session, pattern_id)
+    pattern = _get_pattern(session, current_user.id, pattern_id)
     data = payload.model_dump(exclude_unset=True)
     aliases = data.pop("aliases", None)
     if "prefix" in data and data["prefix"] is not None:
@@ -321,7 +341,62 @@ def patch_pattern(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pattern prefix/key already exists.",
         ) from exc
-    return _pattern_response(_get_pattern(session, pattern.id))
+    return _pattern_response(_get_pattern(session, current_user.id, pattern.id))
+
+
+@router.post(
+    "/patterns/{pattern_id}/image",
+    response_model=PatternResponse,
+    operation_id="uploadPatternImage",
+)
+def upload_pattern_image(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    file: Annotated[UploadFile, File(description="JPEG, PNG, or WebP image.")],
+) -> PatternResponse:
+    """Upload and replace a local pattern or restaurant image."""
+    pattern = _get_pattern(session, current_user.id, pattern_id)
+    try:
+        pattern_image_store.save_upload(pattern.id, file)
+    except pattern_image_store.PatternImageStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    pattern.image_url = f"/patterns/{pattern.id}/image/file"
+    pattern.updated_at = utc_now()
+    session.commit()
+    return _pattern_response(_get_pattern(session, current_user.id, pattern.id))
+
+
+@router.get(
+    "/patterns/{pattern_id}/image/file",
+    operation_id="getPatternImageFile",
+)
+def get_pattern_image_file(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> FileResponse:
+    """Stream a locally stored pattern or restaurant image."""
+    pattern = _get_pattern(session, current_user.id, pattern_id)
+    try:
+        full_path = pattern_image_store.get_full_path(pattern.id)
+    except pattern_image_store.PatternImageStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return FileResponse(
+        full_path,
+        media_type=pattern_image_store.content_type_for_path(full_path),
+        filename=f"{pattern.display_name}{full_path.suffix}",
+        headers=IMAGE_RESPONSE_HEADERS,
+        content_disposition_type="inline",
+    )
 
 
 @router.delete(
@@ -329,9 +404,13 @@ def patch_pattern(
     response_model=DeleteResponse,
     operation_id="deletePattern",
 )
-def delete_pattern(pattern_id: UUID, session: SessionDep) -> DeleteResponse:
+def delete_pattern(
+    pattern_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> DeleteResponse:
     """Soft-delete a pattern by archiving it."""
-    pattern = _get_pattern(session, pattern_id)
+    pattern = _get_pattern(session, current_user.id, pattern_id)
     pattern.is_archived = True
     pattern.updated_at = utc_now()
     session.commit()

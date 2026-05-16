@@ -1,0 +1,241 @@
+Android photo estimate flow
+===========================
+
+Scope
+-----
+
+This document explains the current ADR-005 flow from the moment a photo is
+taken until estimates appear on the phone.
+
+The important constraints are:
+
+- Per CONCEPT.md section 1, mobile is capture-and-glance: the phone captures
+  quickly and reads backend-owned results.
+- Product invariant 1: the backend is the source of truth for accepted records.
+  Pending local rows are allowed, but final totals come from the server.
+- Product invariant 7: eaten_at is the shutter/gallery wall-clock moment and is
+  preserved through outbox, upload, estimate, and acceptance.
+- Photos are private user data. They stay in app-private storage and are sent
+  only through authenticated backend API calls.
+- Offline-first capture still commits locally first. Network success is not the
+  capture commit point.
+
+
+Main files involved
+-------------------
+
+Android:
+
+- android-concept/app/src/main/java/com/local/glucotracker/ui/feature/capture/PhotoCaptureScreen.kt
+- android-concept/app/src/main/java/com/local/glucotracker/ui/feature/capture/CaptureViewModel.kt
+- android-concept/app/src/main/java/com/local/glucotracker/data/local/PhotoStorage.kt
+- android-concept/app/src/main/java/com/local/glucotracker/domain/model/DomainModels.kt
+- android-concept/app/src/main/java/com/local/glucotracker/data/sync/OutboxProcessor.kt
+- android-concept/app/src/main/java/com/local/glucotracker/data/sync/OutboxRemote.kt
+- android-concept/app/src/main/java/com/local/glucotracker/data/api/PhotoUploadClient.kt
+
+Backend:
+
+- backend/glucotracker/api/routers/photos.py
+- backend/glucotracker/application/photo_estimation.py
+- backend/glucotracker/infra/db/models.py
+- backend/glucotracker/api/schemas.py
+
+
+1. Local capture
+----------------
+
+The camera screen records capturedAt at shutter time, writes a temporary JPEG,
+then calls CaptureViewModel.enqueueCameraPhoto().
+
+CaptureViewModel moves the file into durable app-local photo storage:
+
+  PhotoStorage.copyIntoStorage(tempFile, capturedAt)
+
+PhotoStorage applies EXIF orientation, scales large images, compresses for the
+server limit, writes EXIF DateTimeOriginal, and keeps the result under the app's
+private files directory.
+
+
+2. Outbox commit
+----------------
+
+CaptureViewModel creates an OutboxKind.CapturedMeal:
+
+  localPhotoPath = storedFile.absolutePath
+  capturedAt = capturedAt
+  source = "photo" or "gallery"
+  idempotencyKey = UUID.randomUUID().toString()
+
+Room stores it as a Queued outbox row. This is the durable local commit. If the
+network is offline or Android kills the process, the photo can still be retried.
+
+The Today screen may show a local pending photo row. Headline totals do not
+include it; they remain backend accepted totals plus the queue hint.
+
+
+3. Worker sends one canonical request
+-------------------------------------
+
+WorkManager runs OutboxWorker. OutboxProcessor marks the row Uploading, then
+KtorOutboxRemote calls PhotoUploadClient.createMealFromPhoto().
+
+Android now sends one multipart request:
+
+  POST /meals/from-photo
+
+Form fields:
+
+  photo             JPEG bytes
+  captured_at       capturedAt ISO instant
+  source            camera or gallery
+  idempotency_key   stable UUID stored in the outbox kind
+  context           optional user text
+
+Android no longer performs:
+
+  POST /meals
+  POST /meals/{id}/photos
+  POST /meals/{id}/estimate_and_save_draft
+
+for normal photo capture. Those old endpoints remain for compatibility and
+desktop/manual flows.
+
+
+4. Backend accepts capture
+--------------------------
+
+The backend route in photos.py does the orchestration server-side:
+
+1. Looks for an existing meal owned by current_user_id with the same
+   photo_idempotency_key.
+2. If found, returns the existing meal id and photo URL.
+3. Otherwise saves the uploaded image through photo_store.
+4. Creates one draft photo Meal with:
+
+   status = draft
+   source = photo
+   eaten_at = local_wall_time(captured_at)
+   estimate_status = estimating
+   photo_idempotency_key = idempotency_key
+
+5. Creates the Photo row attached to that meal.
+6. Returns 202 Accepted:
+
+   meal_id
+   estimate_status = estimating
+   captured_at
+   photo_url
+
+This means Android can confirm that upload/orchestration reached the server
+without waiting for Gemini.
+
+
+5. Backend estimates asynchronously
+-----------------------------------
+
+After returning 202, FastAPI BackgroundTasks runs the existing
+PhotoEstimationService with save_draft=true.
+
+The estimation service:
+
+1. Loads the meal and photos scoped to current_user_id.
+2. Sends photo bytes to Gemini from the backend only.
+3. Normalizes Gemini output into backend MealItemCreate objects.
+4. Saves the first detected item into the source meal and marks it accepted.
+5. Creates additional accepted photo meals for additional detected items.
+6. Recalculates backend-owned totals.
+7. Writes AI run audit data.
+
+When at least one accepted draft row is created, the source meal's
+estimate_status becomes succeeded. If Gemini or normalization fails, the meal
+stays draft and estimate_status becomes failed or error with estimate_error.
+
+
+6. Android confirms local work
+------------------------------
+
+Once POST /meals/from-photo returns 202, OutboxProcessor marks the local outbox
+row Confirmed with the returned meal_id.
+
+The Android outbox states for photo capture are now:
+
+- Queued
+- Uploading
+- Confirmed
+- Stuck
+
+Estimating is kept only as legacy compatibility for old rows. New photo capture
+does not enter Estimating, because estimation is a server-side meal state, not
+a phone outbox state.
+
+
+7. Phone sees the estimate
+--------------------------
+
+The normal local-first refresh path loads backend data:
+
+  GET /dashboard/today
+  GET /meals?from=...&to=...
+  GET /meals/{meal_id}
+  GET /photos/{photo_id}/file
+
+While the backend meal is still draft/estimating, the row can appear as a photo
+draft. After background estimation succeeds, the same meal becomes accepted with
+backend-calculated title, kcal, carbs, protein, fat, and thumbnail.
+
+KPI cards update only after backend totals refresh. The phone does not calculate
+accepted totals locally.
+
+
+8. Why this fixes the old failure
+---------------------------------
+
+The old Android flow had three network mutations plus a strict reconciliation
+step. Server logs could show successful create, photo upload, and estimation,
+while Android still left the row queued or errored with:
+
+  Photo estimate did not return an accepted meal.
+
+The failure was client orchestration after a successful backend result.
+
+ADR-005 moves orchestration to the backend. Android sends one idempotent request
+and confirms local upload once the server returns 202. Estimation success or
+failure is stored on the backend meal and is observed through normal meal
+refresh.
+
+There was also a backend normalization bug found on 2026-05-10. Gemini could
+successfully recognize a packaged food and return normalized nutrition facts in
+nutrition_per_100g while keeping the assumed package weight in extracted_facts.
+The old normalizer looked only at extracted_facts.carbs_per_100g for
+LABEL_PARTIAL and discarded the item when that field was null. The symptom was:
+
+  AI run status = success
+  response_raw contains a recognized item
+  normalized_items_json = []
+  created_drafts = []
+  Android shows "Photo estimate did not return an accepted meal."
+
+The normalizer now accepts the split shape:
+
+  extracted_facts.assumed_weight_g
+  nutrition_per_100g.carbs_g / protein_g / fat_g / kcal
+
+and saves a label_calc item using backend arithmetic.
+
+
+9. Debug signals
+----------------
+
+Healthy new flow in backend logs:
+
+  POST /meals/from-photo      202 Accepted
+  GET  /dashboard/today       200 OK
+  GET  /meals?...             200 OK
+  GET  /photos/{id}/file      200 OK
+
+If the phone shows "в очереди", check WorkManager/network/auth.
+If the phone shows a draft photo row for a while, check the backend meal's
+estimate_status and backend logs around the background Gemini call.
+If POST /meals/from-photo repeats with the same idempotency_key, the backend
+returns the same meal instead of creating a duplicate.

@@ -1,68 +1,102 @@
 # Testing And Verification
 
-Last updated: 2026-05-05
+Status: source of truth
+Last updated: 2026-05-13
+Owner/area: local verification
 
-Use checks that match the change.
+Use checks that match the change. For docs-only changes, run link checks and
+review generated Markdown. For code changes, use the relevant project checks
+below.
 
 ## Backend
 
-Run from `backend/`:
+From `backend/`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m ruff check .
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-For activity/dashboard work:
+High-risk focused tests:
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_api_nightscout_dashboard.py
-```
+- auth/JWT: `tests/test_auth.py`, `tests/test_api_auth.py`
+- user isolation: `tests/test_user_isolation.py`, `tests/test_shared_products.py`,
+  `tests/test_isolation_meta.py`
+- feature gating: `tests/test_feature_gating.py`
+- OpenAPI export: `tests/test_openapi_export.py`
+- meals/photos/Gemini: `tests/test_api_meals.py`,
+  `tests/test_api_photo_capture.py`, `tests/test_api_photos_gemini.py`
+- Nightscout/glucose: `tests/test_api_glucose.py`,
+  `tests/test_api_nightscout_dashboard.py`, `tests/test_nightscout_background.py`
+- categorization/postprandial: `tests/test_categorization.py`,
+  `tests/test_postprandial.py`
+- reports: `tests/test_api_reports.py`
 
 ## Desktop
 
-Run from `desktop/`:
+From `desktop/`:
 
 ```powershell
 npm run build
 npm test -- --run
 ```
 
-Known note: older frontend tests may fail if MSW handlers do not cover newer
-activity/profile endpoints. Build is the minimum required check for UI-only
-TypeScript/CSS changes.
-
-## Tauri
-
-Run from `desktop/src-tauri/`:
+After backend schema changes:
 
 ```powershell
+npm run api:types
+```
+
+Tauri/Rust check:
+
+```powershell
+cd desktop\src-tauri
 cargo check
 ```
 
-## Manual UI Checks
+## Android
 
-Start desktop dev server:
+From `android-concept/`:
 
 ```powershell
-cd desktop
-npm run dev -- --host 127.0.0.1 --port 5173
+.\gradlew.bat assembleGlucoDebug assembleFoodDebug
+.\gradlew.bat lint
+.\gradlew.bat testGlucoDebug testFoodDebug
 ```
 
-Check:
+Food flavor checks are especially important because the APK must not expose
+glucose classes or strings. Current Gradle tasks include food class/resource
+scans and Tarelka color-scope checks.
 
-- Journal row hierarchy with real meals and photos.
-- History food episode cards with CGM sparkline and muted insulin rows.
-- Glucose page at 3h, 6h, 12h, 24h, and 7d ranges.
-- Stats with zero, one, two, and many tracked days.
-- Settings button contrast and column alignment.
+## OpenAPI
+
+Regenerate API artifacts after backend route/schema changes:
+
+```powershell
+bash scripts/export-openapi.sh
+cd desktop
+npm run api:types
+```
+
+Use Git Bash or WSL if `bash` is not available in PowerShell. The script updates
+both `docs/openapi.json` and `docs/openapi.yaml`.
+
+## Documentation
+
+For docs edits:
+
+- check that every new document starts with status, last updated, and owner/area;
+- keep archived files linked from the archive README;
+- run a Markdown link check or the PowerShell link check from `doc-audit.md`;
+- ensure root `README.md` points to `docs/README.md`.
 
 ## Data Safety
 
-Do not commit runtime data:
+Do not commit:
 
 - `backend/data/`
 - `desktop/data/`
-- SQLite files
+- `*.db`, `*.sqlite*`
 - local photos/product images
-- generated repair dumps
+- crash dumps
+- `.env`

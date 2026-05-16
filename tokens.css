@@ -1,0 +1,22 @@
+/* glucotacker mobile — design tokens (pulled from desktop) */
+:root {
+  --bg: #f6f4ef;
+  --surface: #fbfaf6;
+  --surface-2: #ffffff;
+  --ink: #25241f;
+  --ink-2: #4a4842;
+  --muted: #8a857a;
+  --hairline: #e6e2d6;
+  --hairline-2: #d8d3c4;
+
+  /* accents — matched to desktop screenshots */
+  --accent: #5e6f3a;       /* olive — carbs / goal progress */
+  --good: #6b8a5a;          /* TIR in-range green */
+  --warn: #c98a55;          /* terracotta — over goal / surplus */
+  --bad:  #2d3340;          /* graphite-navy — deficit / dominant CTA */
+  --info: #6b7a92;          /* slate — fingerstick */
+
+  --serif: 'PT Serif', 'Source Serif Pro', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}

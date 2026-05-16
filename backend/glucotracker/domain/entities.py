@@ -63,6 +63,61 @@ class NightscoutSyncStatus(StrEnum):
     skipped = "skipped"
 
 
+class MealWindow(StrEnum):
+    """Meal position relative to the user's first-meal-of-day anchor."""
+
+    start = "start"
+    mid = "mid"
+    late = "late"
+    night_cap = "night_cap"
+
+
+class MealRole(StrEnum):
+    """Structural role of a meal based on kcal and protein."""
+
+    main_meal = "main_meal"
+    snack = "snack"
+    dessert = "dessert"
+    drink = "drink"
+    composite = "composite"
+
+
+class Provenance(StrEnum):
+    """Origin of the food in a meal (homemade vs packaged vs restaurant)."""
+
+    homemade = "homemade"
+    packaged = "packaged"
+    restaurant_fastfood = "restaurant_fastfood"
+    restaurant_other = "restaurant_other"
+    unknown = "unknown"
+
+
+class TasteProfile(StrEnum):
+    """Taste classification determined by Flash Lite."""
+
+    sweet = "sweet"
+    savory = "savory"
+    neutral = "neutral"
+    drink_sweet = "drink_sweet"
+    drink_other = "drink_other"
+
+
+class WeekdayType(StrEnum):
+    """Whether a meal falls on a weekday or weekend."""
+
+    weekday = "weekday"
+    weekend = "weekend"
+
+
+class AnchorBasis(StrEnum):
+    """Basis used to compute the user's day anchor."""
+
+    weighted_7d = "weighted_7d"
+    shift_3d = "shift_3d"
+    absolute_fallback = "absolute_fallback"
+    user_override = "user_override"
+
+
 @dataclass(frozen=True)
 class ValidationWarning:
     """Pure-domain warning raised by nutrition consistency checks."""
@@ -70,3 +125,22 @@ class ValidationWarning:
     code: str
     message: str
     field: str | None = None
+
+
+class PreMealState(StrEnum):
+    """CGM-based glucose state just before a meal."""
+
+    low = "low"
+    in_range = "in_range"
+    high = "high"
+    unknown = "unknown"
+
+
+class GlycemicResponse(StrEnum):
+    """Postprandial glucose curve shape classification."""
+
+    gentle = "gentle"
+    moderate = "moderate"
+    spike = "spike"
+    unstable = "unstable"
+    unknown = "unknown"

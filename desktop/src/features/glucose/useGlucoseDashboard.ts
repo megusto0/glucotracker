@@ -4,6 +4,7 @@ import {
   type FingerstickReadingCreate,
   type FingerstickReadingPatch,
   type GlucoseMode,
+  type NightscoutLatestReadingResponse,
   type SensorSessionCreate,
   type SensorSessionPatch,
 } from "../../api/client";
@@ -17,6 +18,21 @@ export function useGlucoseDashboard(from: string, to: string, mode: GlucoseMode)
     queryKey: queryKeys.glucoseDashboard(from, to, mode),
     queryFn: () => apiClient.getGlucoseDashboard(config, from, to, mode),
     enabled: Boolean(config.token.trim() && from && to),
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useLatestGlucoseReading() {
+  const config = useApiConfig();
+
+  return useQuery<NightscoutLatestReadingResponse>({
+    queryKey: queryKeys.nightscoutLatestReading,
+    queryFn: () => apiClient.getNightscoutLatestReading(config),
+    enabled: Boolean(config.token.trim()),
+    gcTime: 30 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 }
 

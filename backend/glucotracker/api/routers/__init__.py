@@ -2,10 +2,12 @@
 
 from glucotracker.api.routers.activity import router as activity_router
 from glucotracker.api.routers.admin import router as admin_router
+from glucotracker.api.routers.auth import router as auth_router
 from glucotracker.api.routers.autocomplete import router as autocomplete_router
 from glucotracker.api.routers.dashboard import router as dashboard_router
 from glucotracker.api.routers.database import router as database_router
 from glucotracker.api.routers.glucose import router as glucose_router
+from glucotracker.api.routers.goals import router as goals_router
 from glucotracker.api.routers.meals import router as meals_router
 from glucotracker.api.routers.nightscout import router as nightscout_router
 from glucotracker.api.routers.nutrients import router as nutrients_router
@@ -13,14 +15,18 @@ from glucotracker.api.routers.patterns import router as patterns_router
 from glucotracker.api.routers.photos import router as photos_router
 from glucotracker.api.routers.products import router as products_router
 from glucotracker.api.routers.reports import router as reports_router
+from glucotracker.api.routers.schedule import router as schedule_router
+from glucotracker.api.routers.stats import router as stats_router
 
 __all__ = [
     "admin_router",
     "activity_router",
+    "auth_router",
     "autocomplete_router",
     "dashboard_router",
     "database_router",
     "glucose_router",
+    "goals_router",
     "meals_router",
     "nightscout_router",
     "nutrients_router",
@@ -28,4 +34,6 @@ __all__ = [
     "photos_router",
     "products_router",
     "reports_router",
+    "schedule_router",
+    "stats_router",
 ]

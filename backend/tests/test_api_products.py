@@ -67,6 +67,28 @@ def test_product_crud_and_search(api_client: TestClient) -> None:
     assert search_by_barcode.json()[0]["id"] == product_id
 
 
+def test_product_search_ignores_connector_words(api_client: TestClient) -> None:
+    """Product search matches meaningful tokens without saved aliases."""
+    created = api_client.post(
+        "/products",
+        json=product_payload(name="Ролл со стрипсами", aliases=[]),
+    ).json()
+
+    with_connector = api_client.get(
+        "/products/search",
+        params={"q": "ролл с стрипсами", "limit": 20},
+    )
+    without_connector = api_client.get(
+        "/products/search",
+        params={"q": "ролл стрипсами", "limit": 20},
+    )
+
+    assert with_connector.status_code == 200
+    assert without_connector.status_code == 200
+    assert with_connector.json()[0]["id"] == created["id"]
+    assert without_connector.json()[0]["id"] == created["id"]
+
+
 def test_product_image_upload_updates_product_and_linked_meal_thumbnail(
     api_client: TestClient,
 ) -> None:

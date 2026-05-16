@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -29,6 +30,8 @@ from glucotracker.infra.db.models import Meal, MealItem, NightscoutSettings, utc
 from glucotracker.infra.nightscout.client import (
     NIGHTSCOUT_NOT_CONFIGURED,
     NightscoutClient,
+    NightscoutClientError,
+    NightscoutConnectError,
     NightscoutHTTPError,
     NightscoutTimeoutError,
 )
@@ -37,18 +40,23 @@ from glucotracker.infra.nightscout.client import (
 class NightscoutSettingsService:
     """Manage masked server-side Nightscout settings with .env fallback."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
+        self.user_id = user_id
 
     def get_or_create(self) -> NightscoutSettings:
         """Return the singleton settings row."""
-        row = self.session.get(NightscoutSettings, 1)
+        row = self.session.scalar(
+            select(NightscoutSettings).where(
+                NightscoutSettings.owner_id == self.user_id
+            )
+        )
         if row is not None:
             return row
 
         env = get_settings()
         row = NightscoutSettings(
-            id=1,
+            owner_id=self.user_id,
             enabled=bool(env.nightscout_url and env.nightscout_api_secret),
             url=env.nightscout_url,
             api_secret=env.nightscout_api_secret,
@@ -76,10 +84,20 @@ class NightscoutSettingsService:
             if request_field not in data:
                 continue
             value = data[request_field]
+            if request_field == "nightscout_url" and isinstance(value, str):
+                value = value.strip()
+                if value:
+                    parsed = urlparse(value)
+                    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail=(
+                                "Nightscout URL должен быть полным адресом вида "
+                                "https://example.com"
+                            ),
+                        )
             if request_field == "nightscout_api_secret" and value == "":
                 value = row.api_secret
-            if request_field == "autosend_meals":
-                value = False
             setattr(row, model_field, value)
         row.updated_at = utc_now()
         self.session.commit()
@@ -109,7 +127,7 @@ class NightscoutSettingsService:
             import_insulin_events=row.import_insulin_events,
             allow_meal_send=row.allow_meal_send,
             confirm_before_send=row.confirm_before_send,
-            autosend_meals=False,
+            autosend_meals=row.autosend_meals,
         )
 
     def effective_credentials(
@@ -177,18 +195,23 @@ class NightscoutSyncService:
     def __init__(
         self,
         session: Session,
+        user_id: UUID,
         client: NightscoutClient | None = None,
     ) -> None:
         self.session = session
-        self.settings = NightscoutSettingsService(session)
+        self.user_id = user_id
+        self.settings = NightscoutSettingsService(session, user_id)
         self.client = self.settings.client(client)
+        self._release_connection()
 
     async def status(self) -> NightscoutStatusResponse:
         """Return optional Nightscout status without blocking local app use."""
         settings_row = self.settings.get_or_create()
         if self.client is None or not self.client.configured:
             base = self.settings.response(settings_row, connected=False)
+            self._release_connection()
             return NightscoutStatusResponse(configured=base.configured, status=None)
+        self._release_connection()
         try:
             status_payload = await self.client.get_status()
         except Exception as exc:
@@ -208,6 +231,11 @@ class NightscoutSyncService:
             status=status_payload,
         )
 
+    def _release_connection(self) -> None:
+        """Return read-only settings connections before external awaits."""
+        if self.session.in_transaction():
+            self.session.commit()
+
     async def sync_meal(self, meal_id: UUID) -> NightscoutSyncResponse:
         """Sync one accepted meal as a diary-only Nightscout treatment."""
         nightscout = self._require_client()
@@ -224,6 +252,85 @@ class NightscoutSyncService:
 
         response = await self._post_meal(nightscout, meal)
         return self._sync_success(meal, response)
+
+    async def autosync_new_meal(
+        self,
+        meal_id: UUID,
+        *,
+        commit: bool = True,
+    ) -> NightscoutSyncResponse | None:
+        """Best-effort autosend for a newly accepted meal."""
+        meal = self._get_meal(meal_id)
+        settings = self.settings.get_or_create()
+        if not self._can_autosend(settings):
+            return None
+        if self.client is None or not self.client.configured:
+            self._sync_failure(meal, NIGHTSCOUT_NOT_CONFIGURED, commit=commit)
+            return None
+
+        try:
+            if meal.nightscout_id:
+                response = await self._update_meal(self.client, meal)
+            else:
+                response = await self._post_meal(self.client, meal)
+            return self._sync_success(meal, response, commit=commit)
+        except HTTPException as exc:
+            self._sync_failure(meal, _detail_to_text(exc.detail), commit=commit)
+            return None
+
+    async def mirror_meal_update(
+        self,
+        meal: Meal,
+        *,
+        commit: bool = False,
+    ) -> NightscoutSyncResponse | None:
+        """Keep a Nightscout treatment aligned with a local meal edit."""
+        settings = self.settings.get_or_create()
+        if not self._can_send_meals(settings):
+            return None
+        if not meal.nightscout_id:
+            if settings.autosend_meals:
+                return await self.autosync_new_meal(meal.id, commit=commit)
+            return None
+
+        nightscout = self._require_client()
+        response = await self._update_meal(nightscout, meal)
+        return self._sync_success(meal, response, commit=commit)
+
+    async def mirror_meal_delete(
+        self,
+        meal: Meal,
+        *,
+        commit: bool = False,
+    ) -> NightscoutSyncResponse | None:
+        """Delete the remote Nightscout treatment before deleting the local meal."""
+        settings = self.settings.get_or_create()
+        if not self._can_send_meals(settings) or not meal.nightscout_id:
+            return None
+
+        nightscout = self._require_client()
+        remote_id = meal.nightscout_id
+        try:
+            response = await nightscout.delete_treatment(remote_id)
+        except Exception as exc:
+            raise self.map_error(exc) from exc
+
+        meal.nightscout_id = None
+        meal.nightscout_synced_at = None
+        meal.nightscout_sync_status = NightscoutSyncStatus.not_synced
+        meal.nightscout_sync_error = None
+        meal.nightscout_last_attempt_at = utc_now()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+        return NightscoutSyncResponse(
+            synced=False,
+            nightscout_id=None,
+            nightscout_synced_at=None,
+            nightscout_sync_status=meal.nightscout_sync_status.value,
+            response=response,
+        )
 
     async def unsync_meal(self, meal_id: UUID) -> NightscoutSyncResponse:
         """Delete a Nightscout treatment and clear local sync fields."""
@@ -388,7 +495,7 @@ class NightscoutSyncService:
             meal_id,
             options=(selectinload(Meal.items).selectinload(MealItem.nutrients),),
         )
-        if meal is None:
+        if meal is None or meal.owner_id != self.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Meal not found.",
@@ -433,6 +540,39 @@ class NightscoutSyncService:
             self.session.flush()
             raise self.map_error(exc) from exc
         return await self._response_with_remote_id(nightscout, meal, response)
+
+    async def _update_meal(
+        self,
+        nightscout: NightscoutClient,
+        meal: Meal,
+    ) -> dict[str, Any]:
+        self._ensure_syncable(meal)
+        if not meal.nightscout_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Meal is not synced to Nightscout.",
+            )
+        meal.nightscout_last_attempt_at = utc_now()
+        meal.nightscout_sync_error = None
+        try:
+            if hasattr(nightscout, "update_meal_treatment"):
+                response = await nightscout.update_meal_treatment(
+                    meal.nightscout_id,
+                    meal,
+                )
+            else:
+                response = await nightscout.update_treatment(
+                    meal.nightscout_id,
+                    meal,
+                )
+        except Exception as exc:
+            meal.nightscout_sync_status = NightscoutSyncStatus.failed
+            meal.nightscout_sync_error = _detail_to_text(self.map_error(exc).detail)
+            self.session.flush()
+            raise self.map_error(exc) from exc
+        response = dict(response or {})
+        response.setdefault("_id", meal.nightscout_id)
+        return response
 
     async def _response_with_remote_id(
         self,
@@ -497,6 +637,29 @@ class NightscoutSyncService:
             response=response,
         )
 
+    def _sync_failure(
+        self,
+        meal: Meal,
+        error: str,
+        *,
+        commit: bool,
+    ) -> None:
+        meal.nightscout_sync_status = NightscoutSyncStatus.failed
+        meal.nightscout_sync_error = error
+        meal.nightscout_last_attempt_at = utc_now()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
+
+    @staticmethod
+    def _can_send_meals(settings: NightscoutSettings) -> bool:
+        return bool(settings.enabled and settings.allow_meal_send)
+
+    @classmethod
+    def _can_autosend(cls, settings: NightscoutSettings) -> bool:
+        return cls._can_send_meals(settings) and bool(settings.autosend_meals)
+
     def _accepted_meals_for_day(self, sync_date: date) -> list[Meal]:
         start = datetime.combine(sync_date, time.min, tzinfo=UTC)
         end = datetime.combine(sync_date, time.max, tzinfo=UTC)
@@ -505,6 +668,7 @@ class NightscoutSyncService:
                 select(Meal)
                 .where(
                     Meal.status == MealStatus.accepted,
+                    Meal.owner_id == self.user_id,
                     Meal.eaten_at >= start,
                     Meal.eaten_at <= end,
                 )
@@ -521,6 +685,11 @@ class NightscoutSyncService:
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail=str(exc),
             )
+        if isinstance(exc, NightscoutConnectError):
+            return HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            )
         if isinstance(exc, NightscoutHTTPError):
             return HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -529,6 +698,11 @@ class NightscoutSyncService:
                     "status_code": exc.status_code,
                     "response": exc.detail,
                 },
+            )
+        if isinstance(exc, NightscoutClientError):
+            return HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc) or "Nightscout request failed",
             )
         return HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

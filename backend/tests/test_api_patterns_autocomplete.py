@@ -244,6 +244,32 @@ def test_autocomplete_plain_query_finds_saved_product_without_prefix(
     assert body[0]["id"] == product["id"]
 
 
+def test_autocomplete_ignores_connector_words_for_product_tokens(
+    api_client: TestClient,
+) -> None:
+    """Product autocomplete matches meaningful tokens without saved aliases."""
+    product = api_client.post(
+        "/products",
+        json=product_payload(name="Ролл со стрипсами", aliases=[]),
+    ).json()
+
+    with_connector = api_client.get(
+        "/autocomplete",
+        params={"q": "ролл с стрипсами", "limit": 20},
+    )
+    without_connector = api_client.get(
+        "/autocomplete",
+        params={"q": "ролл стрипсами", "limit": 20},
+    )
+
+    assert with_connector.status_code == 200
+    assert without_connector.status_code == 200
+    assert with_connector.json()[0]["kind"] == "product"
+    assert with_connector.json()[0]["id"] == product["id"]
+    assert without_connector.json()[0]["kind"] == "product"
+    assert without_connector.json()[0]["id"] == product["id"]
+
+
 def test_autocomplete_plain_query_prioritizes_saved_product_over_restaurant(
     api_client: TestClient,
     db_engine: Engine,

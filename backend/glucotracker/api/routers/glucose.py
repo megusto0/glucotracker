@@ -8,7 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from glucotracker.api.dependencies import SessionDep, verify_token
+from glucotracker.api.dependencies import CurrentUserDep, SessionDep
+from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
     CgmCalibrationModelResponse,
     FingerstickReadingCreate,
@@ -24,7 +25,7 @@ from glucotracker.application.glucose_dashboard import GlucoseDashboardService
 
 router = APIRouter(
     tags=["glucose"],
-    dependencies=[Depends(verify_token)],
+    dependencies=[Depends(require_feature("glucose"))],
 )
 
 
@@ -33,14 +34,15 @@ router = APIRouter(
     response_model=GlucoseDashboardResponse,
     operation_id="getGlucoseDashboard",
 )
-def get_glucose_dashboard(
+async def get_glucose_dashboard(
     session: SessionDep,
+    current_user: CurrentUserDep,
     from_datetime: Annotated[datetime, Query(alias="from")],
     to_datetime: Annotated[datetime, Query(alias="to")],
     mode: Literal["raw", "smoothed", "normalized"] = "raw",
 ) -> GlucoseDashboardResponse:
-    """Return display-only glucose dashboard data."""
-    return GlucoseDashboardService(session).dashboard(
+    """Return display-only glucose dashboard data from the local cache."""
+    return GlucoseDashboardService(session, current_user.id).dashboard(
         from_datetime,
         to_datetime,
         mode,
@@ -56,9 +58,10 @@ def get_glucose_dashboard(
 def create_fingerstick(
     payload: FingerstickReadingCreate,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> FingerstickReadingResponse:
     """Create a manual capillary glucose reading."""
-    return GlucoseDashboardService(session).create_fingerstick(payload)
+    return GlucoseDashboardService(session, current_user.id).create_fingerstick(payload)
 
 
 @router.get(
@@ -68,11 +71,12 @@ def create_fingerstick(
 )
 def list_fingersticks(
     session: SessionDep,
+    current_user: CurrentUserDep,
     from_datetime: Annotated[datetime | None, Query(alias="from")] = None,
     to_datetime: Annotated[datetime | None, Query(alias="to")] = None,
 ) -> list[FingerstickReadingResponse]:
     """List manual capillary glucose readings."""
-    return GlucoseDashboardService(session).list_fingersticks(
+    return GlucoseDashboardService(session, current_user.id).list_fingersticks(
         from_datetime,
         to_datetime,
     )
@@ -87,9 +91,13 @@ def patch_fingerstick(
     fingerstick_id: UUID,
     payload: FingerstickReadingPatch,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> FingerstickReadingResponse:
     """Patch a manual capillary glucose reading."""
-    return GlucoseDashboardService(session).patch_fingerstick(fingerstick_id, payload)
+    return GlucoseDashboardService(session, current_user.id).patch_fingerstick(
+        fingerstick_id,
+        payload,
+    )
 
 
 @router.delete(
@@ -100,9 +108,10 @@ def patch_fingerstick(
 def delete_fingerstick(
     fingerstick_id: UUID,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> None:
     """Delete a manual capillary glucose reading."""
-    GlucoseDashboardService(session).delete_fingerstick(fingerstick_id)
+    GlucoseDashboardService(session, current_user.id).delete_fingerstick(fingerstick_id)
 
 
 @router.get(
@@ -110,9 +119,12 @@ def delete_fingerstick(
     response_model=list[SensorSessionResponse],
     operation_id="listSensors",
 )
-def list_sensors(session: SessionDep) -> list[SensorSessionResponse]:
+def list_sensors(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> list[SensorSessionResponse]:
     """List sensor sessions."""
-    return GlucoseDashboardService(session).list_sensors()
+    return GlucoseDashboardService(session, current_user.id).list_sensors()
 
 
 @router.post(
@@ -124,9 +136,10 @@ def list_sensors(session: SessionDep) -> list[SensorSessionResponse]:
 def create_sensor(
     payload: SensorSessionCreate,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> SensorSessionResponse:
     """Create a sensor session."""
-    return GlucoseDashboardService(session).create_sensor(payload)
+    return GlucoseDashboardService(session, current_user.id).create_sensor(payload)
 
 
 @router.patch(
@@ -138,9 +151,13 @@ def patch_sensor(
     sensor_id: UUID,
     payload: SensorSessionPatch,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> SensorSessionResponse:
     """Patch a sensor session."""
-    return GlucoseDashboardService(session).patch_sensor(sensor_id, payload)
+    return GlucoseDashboardService(session, current_user.id).patch_sensor(
+        sensor_id,
+        payload,
+    )
 
 
 @router.get(
@@ -151,9 +168,10 @@ def patch_sensor(
 def get_sensor_quality(
     sensor_id: UUID,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> SensorQualityResponse:
     """Return computed display-only quality metrics for one sensor."""
-    return GlucoseDashboardService(session).sensor_quality(sensor_id)
+    return GlucoseDashboardService(session, current_user.id).sensor_quality(sensor_id)
 
 
 @router.post(
@@ -164,6 +182,9 @@ def get_sensor_quality(
 def recalculate_sensor_calibration(
     sensor_id: UUID,
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> CgmCalibrationModelResponse:
     """Recompute and store a display-only calibration model."""
-    return GlucoseDashboardService(session).recalculate_calibration(sensor_id)
+    return GlucoseDashboardService(session, current_user.id).recalculate_calibration(
+        sensor_id
+    )

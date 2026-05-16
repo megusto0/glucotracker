@@ -23,8 +23,9 @@ from glucotracker.infra.db.product_merge import merge_duplicate_source_photo_pro
 class ProductMemoryService:
     """Coordinate product upserts created from accepted label-calculated items."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
+        self.user_id = user_id
 
     def remember_items(self, items: list[MealItem]) -> None:
         """Persist all eligible accepted label items into local product memory."""
@@ -55,7 +56,9 @@ class ProductMemoryService:
             normalized = alias.strip()
             if not normalized or normalized.casefold() in existing:
                 continue
-            product.aliases.append(ProductAlias(alias=normalized))
+            product.aliases.append(
+                ProductAlias(owner_id=product.owner_id, alias=normalized)
+            )
             existing.add(normalized.casefold())
 
     def response(self, product: Product) -> ProductResponse:
@@ -111,6 +114,7 @@ class ProductMemoryService:
         photo_id = self.session.scalar(
             select(Photo.id)
             .where(Photo.meal_id == meal_id)
+            .where(Photo.owner_id == self.user_id)
             .order_by(Photo.created_at.asc(), Photo.id.asc())
             .limit(1)
         )
@@ -151,6 +155,8 @@ class ProductMemoryService:
         return {}
 
     def _default_label_serving_size(self, item: MealItem) -> float | None:
+        if item.grams is not None and item.grams > 0:
+            return item.grams
         evidence = self._item_evidence(item)
         for key in ("net_weight_per_unit_g", "total_weight_g"):
             value = self._as_float(evidence.get(key))
@@ -250,6 +256,10 @@ class ProductMemoryService:
             product = self.session.scalar(
                 select(Product)
                 .where(Product.id == item.product_id)
+                .where(
+                    (Product.owner_id.is_(None))
+                    | (Product.owner_id == self.user_id)
+                )
                 .options(selectinload(Product.aliases))
             )
             if product is not None:
@@ -261,6 +271,10 @@ class ProductMemoryService:
             product = self.session.scalar(
                 select(Product)
                 .where(Product.barcode == str(barcode))
+                .where(
+                    (Product.owner_id.is_(None))
+                    | (Product.owner_id == self.user_id)
+                )
                 .options(selectinload(Product.aliases))
             )
             if product is not None:
@@ -273,6 +287,10 @@ class ProductMemoryService:
             product = self.session.scalar(
                 select(Product)
                 .where(Product.image_url == image_url)
+                .where(
+                    (Product.owner_id.is_(None))
+                    | (Product.owner_id == self.user_id)
+                )
                 .options(selectinload(Product.aliases))
             )
             if product is not None:
@@ -286,7 +304,10 @@ class ProductMemoryService:
         else:
             filters.append(Product.brand == item.brand)
         return self.session.scalar(
-            select(Product).where(*filters).options(selectinload(Product.aliases))
+            select(Product)
+            .where(*filters)
+            .where((Product.owner_id.is_(None)) | (Product.owner_id == self.user_id))
+            .options(selectinload(Product.aliases))
         )
 
     def _remember_label_item_as_product(self, item: MealItem) -> Product | None:
@@ -316,10 +337,8 @@ class ProductMemoryService:
             "brand": item.brand,
             "name": item.name,
             "default_grams": default_grams,
-            "default_serving_text": (
-                "1 упаковка"
-                if evidence.get("net_weight_per_unit_g") is not None
-                else item.serving_text
+            "default_serving_text": item.serving_text or (
+                f"{default_grams:g} г" if default_grams else None
             ),
             **nutrition_per_100g,
             **serving_values,
@@ -330,6 +349,7 @@ class ProductMemoryService:
 
         if product is None:
             product = Product(
+                owner_id=self.user_id,
                 **{
                     key: value
                     for key, value in product_values.items()

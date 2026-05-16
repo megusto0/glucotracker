@@ -1,0 +1,1639 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`visual regression snapshot at 320px 1`] = `
+<div
+  style="width: 320px;"
+>
+  <div
+    class="selected-panel"
+  >
+    <div
+      class="selected-panel-scroll"
+    >
+      <section
+        class="panel-headline panel-order-headline"
+        data-testid="panel-headline"
+      >
+        <div
+          style="width: 56px; height: 56px; border-radius: 3px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--hairline); background: var(--surface);"
+        >
+          <div
+            style="display: flex; height: 100%; align-items: center; justify-content: center; color: var(--ink-3);"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-image"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.6"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="18"
+                rx="2"
+                ry="2"
+                width="18"
+                x="3"
+                y="3"
+              />
+              <circle
+                cx="9"
+                cy="9"
+                r="2"
+              />
+              <path
+                d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
+              />
+            </svg>
+          </div>
+        </div>
+        <div
+          style="min-width: 0px; flex: 1 1 0%;"
+        >
+          <h2>
+            Паста с курицей
+          </h2>
+          <div
+            class="panel-kcal-big"
+          >
+            540
+             ккал
+          </div>
+          <div
+            class="row gap-4"
+            style="margin-top: 8px; flex-wrap: wrap;"
+          >
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              вручную
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              принято
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              150 г
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-summary panel-order-summary"
+        data-testid="panel-summary"
+      >
+        <div
+          class="panel-summary-title"
+        >
+          Сводка макросов
+        </div>
+        <div
+          class="panel-summary-main panel-summary-one-line"
+        >
+          <span>
+            У 34 г / Б 21 г / Ж 15 г / К 540 ккал
+          </span>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-order-edit"
+        data-testid="panel-quick-edit"
+      >
+        <div
+          class="lbl"
+        >
+          Быстрое редактирование
+        </div>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-name"
+          >
+            Название
+          </label>
+          <input
+            aria-label="Название"
+            class="panel-input"
+            id="meal-edit-name"
+            placeholder="Название еды"
+            value="Паста с курицей"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-time"
+          >
+            Время
+          </label>
+          <input
+            aria-label="Время"
+            class="panel-input"
+            id="meal-edit-time"
+            type="datetime-local"
+            value="2026-05-05T16:13"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-weight"
+          >
+            Вес записи
+          </label>
+          <input
+            aria-label="Вес записи"
+            class="panel-input"
+            id="meal-edit-weight"
+            inputmode="decimal"
+            placeholder="г"
+            value="150"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+      </section>
+      <section
+        class="panel-section panel-order-edit panel-secondary-block panel-repeat-create"
+        data-testid="panel-repeat-create"
+      >
+        <div
+          class="lbl"
+        >
+          Создать ещё порцию
+        </div>
+        <p
+          class="panel-helper-text"
+        >
+          Создаст новую запись. Текущая не изменится.
+        </p>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-repeat-weight"
+          >
+            Граммы
+          </label>
+          <input
+            aria-label="Граммы"
+            class="panel-input"
+            id="meal-repeat-weight"
+            inputmode="decimal"
+            value="100"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Создать
+          </button>
+        </form>
+        <div
+          class="panel-repeat-chips"
+        >
+          <button
+            class="btn"
+            type="button"
+          >
+            100 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            127 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            текущий вес
+          </button>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-source-block"
+        data-testid="panel-source-confidence"
+      >
+        <div
+          class="lbl"
+        >
+          Источник / достоверность
+        </div>
+        <div
+          class="panel-source-confidence"
+        >
+          <div>
+            <div
+              style="font-size: 13px; color: var(--ink);"
+            >
+              вручную
+            </div>
+            <div
+              style="font-size: 11px; color: var(--ink-3); margin-top: 4px;"
+            >
+              150 г
+            </div>
+          </div>
+          <div
+            class="row gap-4"
+            style="align-items: center;"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-check"
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="m9 12 2 2 4-4"
+              />
+            </svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              высокая · 82%
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Оценка модели
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Компоненты
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Допущения
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Исходные данные
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Синхронизация Nightscout
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+    </div>
+    <div
+      class="selected-panel-actions"
+      data-testid="panel-actions"
+    >
+      <div
+        class="row gap-8"
+        style="flex-wrap: wrap;"
+      >
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--hairline-2)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--ink-3)] hover:bg-[var(--surface-2)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-star"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"
+            />
+          </svg>
+          В избранное
+        </button>
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--warn-soft)] bg-[var(--surface)] text-[var(--warn)] hover:border-[var(--warn)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-trash2 lucide-trash-2"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 11v6"
+            />
+            <path
+              d="M14 11v6"
+            />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+            />
+            <path
+              d="M3 6h18"
+            />
+            <path
+              d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
+          </svg>
+          Удалить
+        </button>
+      </div>
+    </div>
+    <div
+      class="selected-panel-glucose"
+      data-testid="panel-sticky-glucose"
+    >
+      <div
+        class="text-[10px] font-medium uppercase leading-none tracking-[0.14em] text-[var(--ink-4)] mb-2"
+      >
+        Глюкоза
+      </div>
+      <div
+        class="row"
+        style="align-items: center; justify-content: space-between; gap: 10px;"
+      >
+        <span
+          class="mono"
+          style="font-size: 11px; color: var(--ink-3);"
+        >
+          последнее значение
+        </span>
+        <a
+          class="btn-link"
+          href="/glucose"
+        >
+          Открыть
+        </a>
+      </div>
+      <div
+        style="margin-top: 6px; font-size: 13px; color: var(--ink);"
+      >
+        нет данных
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`visual regression snapshot at 768px 1`] = `
+<div
+  style="width: 768px;"
+>
+  <div
+    class="selected-panel"
+  >
+    <div
+      class="selected-panel-scroll"
+    >
+      <section
+        class="panel-headline panel-order-headline"
+        data-testid="panel-headline"
+      >
+        <div
+          style="width: 56px; height: 56px; border-radius: 3px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--hairline); background: var(--surface);"
+        >
+          <div
+            style="display: flex; height: 100%; align-items: center; justify-content: center; color: var(--ink-3);"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-image"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.6"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="18"
+                rx="2"
+                ry="2"
+                width="18"
+                x="3"
+                y="3"
+              />
+              <circle
+                cx="9"
+                cy="9"
+                r="2"
+              />
+              <path
+                d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
+              />
+            </svg>
+          </div>
+        </div>
+        <div
+          style="min-width: 0px; flex: 1 1 0%;"
+        >
+          <h2>
+            Паста с курицей
+          </h2>
+          <div
+            class="panel-kcal-big"
+          >
+            540
+             ккал
+          </div>
+          <div
+            class="row gap-4"
+            style="margin-top: 8px; flex-wrap: wrap;"
+          >
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              вручную
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              принято
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              150 г
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-summary panel-order-summary"
+        data-testid="panel-summary"
+      >
+        <div
+          class="panel-summary-title"
+        >
+          Сводка макросов
+        </div>
+        <div
+          class="panel-summary-main panel-summary-one-line"
+        >
+          <span>
+            У 34 г / Б 21 г / Ж 15 г / К 540 ккал
+          </span>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-order-edit"
+        data-testid="panel-quick-edit"
+      >
+        <div
+          class="lbl"
+        >
+          Быстрое редактирование
+        </div>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-name"
+          >
+            Название
+          </label>
+          <input
+            aria-label="Название"
+            class="panel-input"
+            id="meal-edit-name"
+            placeholder="Название еды"
+            value="Паста с курицей"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-time"
+          >
+            Время
+          </label>
+          <input
+            aria-label="Время"
+            class="panel-input"
+            id="meal-edit-time"
+            type="datetime-local"
+            value="2026-05-05T16:13"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-weight"
+          >
+            Вес записи
+          </label>
+          <input
+            aria-label="Вес записи"
+            class="panel-input"
+            id="meal-edit-weight"
+            inputmode="decimal"
+            placeholder="г"
+            value="150"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+      </section>
+      <section
+        class="panel-section panel-order-edit panel-secondary-block panel-repeat-create"
+        data-testid="panel-repeat-create"
+      >
+        <div
+          class="lbl"
+        >
+          Создать ещё порцию
+        </div>
+        <p
+          class="panel-helper-text"
+        >
+          Создаст новую запись. Текущая не изменится.
+        </p>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-repeat-weight"
+          >
+            Граммы
+          </label>
+          <input
+            aria-label="Граммы"
+            class="panel-input"
+            id="meal-repeat-weight"
+            inputmode="decimal"
+            value="100"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Создать
+          </button>
+        </form>
+        <div
+          class="panel-repeat-chips"
+        >
+          <button
+            class="btn"
+            type="button"
+          >
+            100 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            127 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            текущий вес
+          </button>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-source-block"
+        data-testid="panel-source-confidence"
+      >
+        <div
+          class="lbl"
+        >
+          Источник / достоверность
+        </div>
+        <div
+          class="panel-source-confidence"
+        >
+          <div>
+            <div
+              style="font-size: 13px; color: var(--ink);"
+            >
+              вручную
+            </div>
+            <div
+              style="font-size: 11px; color: var(--ink-3); margin-top: 4px;"
+            >
+              150 г
+            </div>
+          </div>
+          <div
+            class="row gap-4"
+            style="align-items: center;"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-check"
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="m9 12 2 2 4-4"
+              />
+            </svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              высокая · 82%
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Оценка модели
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Компоненты
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Допущения
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Исходные данные
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Синхронизация Nightscout
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+    </div>
+    <div
+      class="selected-panel-actions"
+      data-testid="panel-actions"
+    >
+      <div
+        class="row gap-8"
+        style="flex-wrap: wrap;"
+      >
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--hairline-2)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--ink-3)] hover:bg-[var(--surface-2)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-star"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"
+            />
+          </svg>
+          В избранное
+        </button>
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--warn-soft)] bg-[var(--surface)] text-[var(--warn)] hover:border-[var(--warn)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-trash2 lucide-trash-2"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 11v6"
+            />
+            <path
+              d="M14 11v6"
+            />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+            />
+            <path
+              d="M3 6h18"
+            />
+            <path
+              d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
+          </svg>
+          Удалить
+        </button>
+      </div>
+    </div>
+    <div
+      class="selected-panel-glucose"
+      data-testid="panel-sticky-glucose"
+    >
+      <div
+        class="text-[10px] font-medium uppercase leading-none tracking-[0.14em] text-[var(--ink-4)] mb-2"
+      >
+        Глюкоза
+      </div>
+      <div
+        class="row"
+        style="align-items: center; justify-content: space-between; gap: 10px;"
+      >
+        <span
+          class="mono"
+          style="font-size: 11px; color: var(--ink-3);"
+        >
+          последнее значение
+        </span>
+        <a
+          class="btn-link"
+          href="/glucose"
+        >
+          Открыть
+        </a>
+      </div>
+      <div
+        style="margin-top: 6px; font-size: 13px; color: var(--ink);"
+      >
+        нет данных
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`visual regression snapshot at 1920px 1`] = `
+<div
+  style="width: 1920px;"
+>
+  <div
+    class="selected-panel"
+  >
+    <div
+      class="selected-panel-scroll"
+    >
+      <section
+        class="panel-headline panel-order-headline"
+        data-testid="panel-headline"
+      >
+        <div
+          style="width: 56px; height: 56px; border-radius: 3px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--hairline); background: var(--surface);"
+        >
+          <div
+            style="display: flex; height: 100%; align-items: center; justify-content: center; color: var(--ink-3);"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-image"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.6"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="18"
+                rx="2"
+                ry="2"
+                width="18"
+                x="3"
+                y="3"
+              />
+              <circle
+                cx="9"
+                cy="9"
+                r="2"
+              />
+              <path
+                d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
+              />
+            </svg>
+          </div>
+        </div>
+        <div
+          style="min-width: 0px; flex: 1 1 0%;"
+        >
+          <h2>
+            Паста с курицей
+          </h2>
+          <div
+            class="panel-kcal-big"
+          >
+            540
+             ккал
+          </div>
+          <div
+            class="row gap-4"
+            style="margin-top: 8px; flex-wrap: wrap;"
+          >
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              вручную
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              принято
+            </span>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              150 г
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-summary panel-order-summary"
+        data-testid="panel-summary"
+      >
+        <div
+          class="panel-summary-title"
+        >
+          Сводка макросов
+        </div>
+        <div
+          class="panel-summary-main panel-summary-one-line"
+        >
+          <span>
+            У 34 г / Б 21 г / Ж 15 г / К 540 ккал
+          </span>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-order-edit"
+        data-testid="panel-quick-edit"
+      >
+        <div
+          class="lbl"
+        >
+          Быстрое редактирование
+        </div>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-name"
+          >
+            Название
+          </label>
+          <input
+            aria-label="Название"
+            class="panel-input"
+            id="meal-edit-name"
+            placeholder="Название еды"
+            value="Паста с курицей"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-time"
+          >
+            Время
+          </label>
+          <input
+            aria-label="Время"
+            class="panel-input"
+            id="meal-edit-time"
+            type="datetime-local"
+            value="2026-05-05T16:13"
+          />
+          <button
+            class="btn"
+            disabled=""
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-edit-weight"
+          >
+            Вес записи
+          </label>
+          <input
+            aria-label="Вес записи"
+            class="panel-input"
+            id="meal-edit-weight"
+            inputmode="decimal"
+            placeholder="г"
+            value="150"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Сохранить
+          </button>
+        </form>
+      </section>
+      <section
+        class="panel-section panel-order-edit panel-secondary-block panel-repeat-create"
+        data-testid="panel-repeat-create"
+      >
+        <div
+          class="lbl"
+        >
+          Создать ещё порцию
+        </div>
+        <p
+          class="panel-helper-text"
+        >
+          Создаст новую запись. Текущая не изменится.
+        </p>
+        <form
+          class="panel-quick-row"
+        >
+          <label
+            class="panel-input-label"
+            for="meal-repeat-weight"
+          >
+            Граммы
+          </label>
+          <input
+            aria-label="Граммы"
+            class="panel-input"
+            id="meal-repeat-weight"
+            inputmode="decimal"
+            value="100"
+          />
+          <button
+            class="btn"
+            type="submit"
+          >
+            Создать
+          </button>
+        </form>
+        <div
+          class="panel-repeat-chips"
+        >
+          <button
+            class="btn"
+            type="button"
+          >
+            100 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            127 г
+          </button>
+          <button
+            class="btn"
+            type="button"
+          >
+            текущий вес
+          </button>
+        </div>
+      </section>
+      <section
+        class="panel-section panel-source-block"
+        data-testid="panel-source-confidence"
+      >
+        <div
+          class="lbl"
+        >
+          Источник / достоверность
+        </div>
+        <div
+          class="panel-source-confidence"
+        >
+          <div>
+            <div
+              style="font-size: 13px; color: var(--ink);"
+            >
+              вручную
+            </div>
+            <div
+              style="font-size: 11px; color: var(--ink-3); margin-top: 4px;"
+            >
+              150 г
+            </div>
+          </div>
+          <div
+            class="row gap-4"
+            style="align-items: center;"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-check"
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="m9 12 2 2 4-4"
+              />
+            </svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-[2px] bg-[var(--surface-2)] px-[6px] py-[2px] text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-[var(--ink-3)] "
+            >
+              высокая · 82%
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Оценка модели
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Компоненты
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Допущения
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Исходные данные
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+      <section
+        class="panel-section"
+      >
+        <button
+          aria-expanded="false"
+          class="panel-accordion-btn"
+          type="button"
+        >
+          Синхронизация Nightscout
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down"
+            fill="none"
+            height="14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+      </section>
+    </div>
+    <div
+      class="selected-panel-actions"
+      data-testid="panel-actions"
+    >
+      <div
+        class="row gap-8"
+        style="flex-wrap: wrap;"
+      >
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--hairline-2)] bg-[var(--surface)] text-[var(--ink-2)] hover:border-[var(--ink-3)] hover:bg-[var(--surface-2)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-star"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"
+            />
+          </svg>
+          В избранное
+        </button>
+        <button
+          class="inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--radius)] border px-3 text-[12px] font-normal leading-none transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 border-[var(--warn-soft)] bg-[var(--surface)] text-[var(--warn)] hover:border-[var(--warn)] "
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-trash2 lucide-trash-2"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 11v6"
+            />
+            <path
+              d="M14 11v6"
+            />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+            />
+            <path
+              d="M3 6h18"
+            />
+            <path
+              d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
+          </svg>
+          Удалить
+        </button>
+      </div>
+    </div>
+    <div
+      class="selected-panel-glucose"
+      data-testid="panel-sticky-glucose"
+    >
+      <div
+        class="text-[10px] font-medium uppercase leading-none tracking-[0.14em] text-[var(--ink-4)] mb-2"
+      >
+        Глюкоза
+      </div>
+      <div
+        class="row"
+        style="align-items: center; justify-content: space-between; gap: 10px;"
+      >
+        <span
+          class="mono"
+          style="font-size: 11px; color: var(--ink-3);"
+        >
+          последнее значение
+        </span>
+        <a
+          class="btn-link"
+          href="/glucose"
+        >
+          Открыть
+        </a>
+      </div>
+      <div
+        style="margin-top: 6px; font-size: 13px; color: var(--ink);"
+      >
+        нет данных
+      </div>
+    </div>
+  </div>
+</div>
+`;

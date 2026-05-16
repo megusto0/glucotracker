@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiClient, type KcalBalanceResponse } from "../../api/client";
+import { formatKcalValue, formatMacroValue, formatSafeInt, formatSignedKcal } from "../../utils/nutritionFormat";
 import { useApiConfig } from "../settings/settingsStore";
 import type { FeedItem } from "./FeedPage.types";
 import { isValidCGM } from "./cgmUtils";
@@ -27,16 +28,16 @@ export function DaySummaryBar({
 
   const cells: { label: string; value: string }[] = [];
   if (stats.totalMeals) {
-    cells.push({ label: "приёмов", value: String(stats.totalMeals) });
+    cells.push({ label: "приёмов", value: formatSafeInt(stats.totalMeals) });
   }
   if (stats.totalCarbs > 0) {
-    cells.push({ label: "углеводы", value: `${Math.round(stats.totalCarbs)} г` });
+    cells.push({ label: "углеводы", value: `${formatMacroValue(stats.totalCarbs)} г` });
   }
   if (stats.totalKcal > 0) {
-    cells.push({ label: "ккал", value: String(Math.round(stats.totalKcal)) });
+    cells.push({ label: "ккал", value: formatKcalValue(stats.totalKcal) });
   }
   if (stats.totalInsulin) {
-    cells.push({ label: "NS-события", value: String(stats.totalInsulin) });
+    cells.push({ label: "NS-события", value: formatSafeInt(stats.totalInsulin) });
   }
 
   const netBalance = balance?.net_balance;
@@ -62,7 +63,7 @@ export function DaySummaryBar({
         <div className="flex items-stretch">
           <div className="flex items-baseline gap-2 border-r border-[var(--hairline)] px-4 py-2">
             <span className="font-mono text-[14px] leading-none text-[var(--muted)]">
-              TDEE {tdee ?? "—"}
+              TDEE {formatKcalValue(tdee)}
             </span>
           </div>
           <div className="flex items-baseline gap-2 border-r border-[var(--hairline)] px-4 py-2">
@@ -70,7 +71,7 @@ export function DaySummaryBar({
               шаги
             </span>
             <span className="font-mono text-[14px] leading-none text-[var(--fg)]">
-              {steps}
+              {formatSafeInt(steps)}
             </span>
           </div>
           <div className="flex items-baseline gap-2 px-4 py-2">
@@ -82,8 +83,7 @@ export function DaySummaryBar({
                 netBalance > 0 ? "text-[var(--danger)]" : "text-[var(--ok)]"
               }`}
             >
-              {netBalance > 0 ? "+" : ""}
-              {Math.round(netBalance)}
+              {formatSignedKcal(netBalance)}
             </span>
           </div>
         </div>
