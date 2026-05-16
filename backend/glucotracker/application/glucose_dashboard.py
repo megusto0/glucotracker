@@ -786,7 +786,7 @@ class GlucoseDashboardService:
         view_to: datetime,
     ) -> BiasOverLifetimeData | None:
         """Build bias-over-lifetime chart data for a sensor."""
-        sensor_start = sensor.started_at
+        sensor_start = _local_wall_time(sensor.started_at)
         sensor_end = _local_wall_time(sensor.ended_at or utc_now())
         sensor_raw = self._raw_points(sensor_start, sensor_end)
         sensor_fingersticks = self._fingerstick_rows(sensor_start, sensor.ended_at)
@@ -1355,15 +1355,16 @@ def _artifact_intervals(
         sensor is not None
         and _sensor_age_days(sensor, sensor.ended_at or _now_local()) >= 12
     ):
+        sensor_start = _local_wall_time(sensor.started_at)
         intervals.append(
             GlucoseArtifactInterval(
-                start_at=max(sensor.started_at, points[0].timestamp)
+                start_at=max(sensor_start, points[0].timestamp)
                 if points
-                else sensor.started_at,
+                else sensor_start,
                 end_at=(
                     points[-1].timestamp
                     if points
-                    else sensor.ended_at or _now_local()
+                    else _local_wall_time(sensor.ended_at or _now_local())
                 ),
                 kind="end_of_life_noise",
                 label="Конец срока сенсора: данные требуют осторожности",
@@ -1459,8 +1460,9 @@ def _missing_data_pct(
     from_datetime: datetime,
     to_datetime: datetime | None,
 ) -> float | None:
-    end = to_datetime or _now_local()
-    minutes = max((end - from_datetime).total_seconds() / 60, 1)
+    start = _local_wall_time(from_datetime)
+    end = _local_wall_time(to_datetime or _now_local())
+    minutes = max((end - start).total_seconds() / 60, 1)
     expected = minutes / 5
     if expected <= 0:
         return None
