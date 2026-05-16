@@ -1,11 +1,10 @@
 package com.local.glucotracker.ui.format
 
 import com.local.glucotracker.domain.model.OutboxItem
-import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.OutboxKind
+import com.local.glucotracker.domain.model.OutboxState
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
@@ -120,13 +119,13 @@ fun pluralizeRecord(count: Int): String {
 }
 
 fun pluralizeDay(count: Int): String =
-    pluralizeRu(count, "РґРµРЅСЊ", "РґРЅСЏ", "РґРЅРµР№")
+    pluralizeRu(count, "день", "дня", "дней")
 
 fun pluralizeMeal(count: Int): String =
-    pluralizeRu(count, "РїСЂРёС‘Рј", "РїСЂРёС‘РјР°", "РїСЂРёС‘РјРѕРІ")
+    pluralizeRu(count, "приём", "приёма", "приёмов")
 
 fun pluralizePhoto(count: Int): String =
-    pluralizeRu(count, "С„РѕС‚Рѕ", "С„РѕС‚Рѕ", "С„РѕС‚Рѕ")
+    pluralizeRu(count, "фото", "фото", "фото")
 
 private fun pluralizeRu(
     count: Int,

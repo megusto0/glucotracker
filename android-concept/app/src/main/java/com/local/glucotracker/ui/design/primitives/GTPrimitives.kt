@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -194,20 +195,24 @@ fun GTKcalRing(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(110.dp),
+            modifier = Modifier.size(124.dp),
             contentAlignment = Alignment.Center,
         ) {
             val trackColor = GT.colors.hairline
-            Canvas(modifier = Modifier.size(110.dp)) {
-                val stroke = 9.dp.toPx()
-                val inset = stroke / 2f
-                val arcSize = Size(size.width - stroke, size.height - stroke)
+            val thinStroke = GT.space.hairline
+            Canvas(modifier = Modifier.size(124.dp)) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val hasGoal = progress != null
+                val stroke = if (hasGoal) 8.dp.toPx() else thinStroke.toPx()
+                val ringRadius = 51.dp.toPx()
+                val topLeft = Offset(center.x - ringRadius, center.y - ringRadius)
+                val arcSize = Size(ringRadius * 2f, ringRadius * 2f)
                 drawArc(
                     color = trackColor,
                     startAngle = -90f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    topLeft = Offset(inset, inset),
+                    topLeft = topLeft,
                     size = arcSize,
                     style = Stroke(width = stroke, cap = StrokeCap.Round),
                 )
@@ -218,7 +223,7 @@ fun GTKcalRing(
                         startAngle = -90f,
                         sweepAngle = 360f * safeProgress,
                         useCenter = false,
-                        topLeft = Offset(inset, inset),
+                        topLeft = topLeft,
                         size = arcSize,
                         style = Stroke(width = stroke, cap = StrokeCap.Round),
                     )
@@ -226,14 +231,15 @@ fun GTKcalRing(
                 val safeOverflow = overflowProgress?.coerceIn(0f, 1f) ?: 0f
                 if (safeOverflow > 0f) {
                     val overflowStroke = 4.dp.toPx()
-                    val overflowInset = overflowStroke / 2f
-                    val overflowSize = Size(size.width - overflowStroke, size.height - overflowStroke)
+                    val overflowRadius = ringRadius + 6.dp.toPx()
+                    val overflowTopLeft = Offset(center.x - overflowRadius, center.y - overflowRadius)
+                    val overflowSize = Size(overflowRadius * 2f, overflowRadius * 2f)
                     drawArc(
                         color = ringColor,
                         startAngle = -90f,
                         sweepAngle = 360f * safeOverflow,
                         useCenter = false,
-                        topLeft = Offset(overflowInset, overflowInset),
+                        topLeft = overflowTopLeft,
                         size = overflowSize,
                         style = Stroke(width = overflowStroke, cap = StrokeCap.Round),
                     )
@@ -554,6 +560,7 @@ fun GTMealRow(
     muted: Boolean = false,
     primaryRightColor: Color? = null,
     compact: Boolean = false,
+    extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val primaryTextColor = if (muted) GT.colors.muted else GT.colors.ink
     val secondaryTextColor = if (muted) GT.colors.muted else GT.colors.ink2
@@ -603,6 +610,7 @@ fun GTMealRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            extraMetaContent()
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(

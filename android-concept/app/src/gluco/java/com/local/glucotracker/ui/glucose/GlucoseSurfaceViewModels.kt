@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
+import com.local.glucotracker.domain.model.GlucoseReading
+import com.local.glucotracker.domain.model.InsulinEvent
+import com.local.glucotracker.data.repository.InsulinRepository
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.NightscoutRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -66,10 +70,32 @@ class MiniGlucoseViewModel @Inject constructor(
 class GlucoseSparklineViewModel @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
 ) : ViewModel() {
-    fun points(date: LocalDate): Flow<List<Double>> {
+    fun readings(date: LocalDate): Flow<List<GlucoseReading>> {
         val (from, to) = date.dayBounds()
         return glucoseRepository.observeCachedRange(from, to)
-            .map { view -> view.value?.readings.orEmpty().map { it.displayValueMmolL } }
+            .map { view -> view.value?.readings.orEmpty() }
+    }
+
+}
+
+@HiltViewModel
+class InsulinContextViewModel @Inject constructor(
+    private val insulinRepository: InsulinRepository,
+) : ViewModel() {
+    private val dayEvents = MutableStateFlow<Map<LocalDate, List<InsulinEvent>>>(emptyMap())
+    private val requestedDates = mutableSetOf<LocalDate>()
+
+    fun events(date: LocalDate): Flow<List<InsulinEvent>> {
+        load(date)
+        return dayEvents.map { eventsByDay -> eventsByDay[date].orEmpty() }
+    }
+
+    private fun load(date: LocalDate) {
+        if (!requestedDates.add(date)) return
+        viewModelScope.launch {
+            val events = runCatching { insulinRepository.eventsForDay(date) }.getOrDefault(emptyList())
+            dayEvents.update { current -> current + (date to events) }
+        }
     }
 }
 

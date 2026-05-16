@@ -7,13 +7,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,7 +55,7 @@ class NavigationShellInstrumentedTest {
     }
 
     @Test
-    fun pressingFabShowsCaptureSheet() {
+    fun pressingFabShowsActionOptions() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         compose.setContent {
             GTTheme {
@@ -72,8 +70,9 @@ class NavigationShellInstrumentedTest {
             .onNodeWithContentDescription(context.getString(R.string.nav_capture_content_description))
             .performClick()
 
-        compose.onNodeWithTag("gt-compose-sheet").assertIsDisplayed()
-        compose.onNodeWithTag("gt-compose-input").assertIsFocused()
+        compose.onNodeWithText(context.getString(R.string.fab_option_manual)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.fab_option_photo)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.fab_option_gallery)).assertIsDisplayed()
     }
 
     @Test

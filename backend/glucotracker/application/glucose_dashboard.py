@@ -33,6 +33,7 @@ from glucotracker.api.schemas import (
     SensorSessionResponse,
     SensorWarmupMetricsResponse,
 )
+from glucotracker.application.sensor_lifecycle import close_previous_open_sensors
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -129,6 +130,7 @@ class GlucoseDashboardService:
         row.started_at = _local_wall_time(row.started_at)
         if row.ended_at is not None:
             row.ended_at = _local_wall_time(row.ended_at)
+        close_previous_open_sensors(self.session, self.user_id, row.started_at)
         self.session.add(row)
         self.session.commit()
         self.session.refresh(row)

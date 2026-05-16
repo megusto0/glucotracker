@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.feature.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.data.api.ScheduleApi
 import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.data.sync.ConnectivityObserver
 import com.local.glucotracker.domain.model.CachedView
@@ -119,6 +120,7 @@ class TodayViewModel @Inject constructor(
     private val outboxRepository: OutboxRepository,
     private val syncRepository: SyncRepository,
     private val statsRepository: StatsRepository,
+    private val scheduleApi: ScheduleApi,
     private val settingsStore: SettingsStore,
     private val connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
@@ -157,16 +159,33 @@ class TodayViewModel @Inject constructor(
         }
     }
 
+    private val nonTypicalPeriods = refreshTick.flatMapLatest {
+        flow {
+            emit(
+                runCatching {
+                    scheduleApi.getSchedule().nonTypicalPeriods.orEmpty()
+                        .map { period -> NonTypicalDatePeriod(period.startDate, period.endDate) }
+                }.getOrDefault(emptyList()),
+            )
+        }
+    }
+
     private val typicalKcal14d = selectedDate.flatMapLatest { date ->
         val comparisonDays = (1..TypicalKcalWindowDays)
             .map { offset -> date.minus(DatePeriod(days = offset)) }
             .reversed()
-        combine(comparisonDays.map(statsRepository::observeDayTotals)) { views ->
-            views.mapNotNull { view ->
-                view.value
-                    ?.takeIf { totals -> totals.mealCount > 0 && totals.kcal > 0.0 }
-                    ?.kcal
-            }.medianKcalOrNull(minDays = TypicalKcalMinTrackedDays)
+        combine(
+            nonTypicalPeriods,
+            combine(comparisonDays.map(statsRepository::observeDayTotals)) { views -> views.toList() },
+        ) { excludedPeriods, views ->
+            comparisonDays.zip(views)
+                .filterNot { (day, _) -> excludedPeriods.any { it.contains(day) } }
+                .mapNotNull { (_, view) ->
+                    view.value
+                        ?.takeIf { totals -> totals.mealCount > 0 && totals.kcal > 0.0 }
+                        ?.kcal
+                }
+                .medianKcalOrNull(minDays = TypicalKcalMinTrackedDays)
         }
     }
 
@@ -255,6 +274,13 @@ private data class TodayCoreState(
     val outbox: List<OutboxItem>,
     val syncStatus: SyncStatus,
 )
+
+private data class NonTypicalDatePeriod(
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+) {
+    fun contains(date: LocalDate): Boolean = date >= startDate && date <= endDate
+}
 
 private fun toTodayState(
     date: LocalDate,

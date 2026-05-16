@@ -22,6 +22,7 @@ from glucotracker.api.schemas import (
     TimelineInsulinEventResponse,
     TimelineResponse,
 )
+from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -86,12 +87,22 @@ class NightscoutContextImportService:
                 from_datetime,
                 to_datetime,
             )
+        sensor_event_rows = []
+        if hasattr(self.client, "fetch_sensor_events"):
+            try:
+                sensor_event_rows = await self.client.fetch_sensor_events(
+                    from_datetime,
+                    to_datetime,
+                )
+            except Exception:
+                sensor_event_rows = []
 
         return self.import_fetched(
             from_datetime,
             to_datetime,
             glucose_rows=glucose_rows,
             insulin_rows=insulin_rows,
+            sensor_event_rows=sensor_event_rows,
         )
 
     def import_fetched(
@@ -101,6 +112,7 @@ class NightscoutContextImportService:
         *,
         glucose_rows: list[dict[str, Any]],
         insulin_rows: list[dict[str, Any]],
+        sensor_event_rows: list[dict[str, Any]] | None = None,
     ) -> NightscoutImportResponse:
         """Upsert pre-fetched Nightscout data into the local cache."""
         glucose_imported = 0
@@ -118,6 +130,13 @@ class NightscoutContextImportService:
                     insulin_imported += 1
             if insulin_rows:
                 state.last_insulin_import_at = utc_now()
+
+            if sensor_event_rows:
+                apply_sensor_lifecycle_events(
+                    self.session,
+                    self.user_id,
+                    sensor_event_rows,
+                )
 
             state.last_error = None
             state.updated_at = utc_now()

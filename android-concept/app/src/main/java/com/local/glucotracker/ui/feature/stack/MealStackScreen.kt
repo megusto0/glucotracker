@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.aspectRatio
@@ -33,6 +34,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
@@ -78,6 +81,7 @@ import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
+import com.local.glucotracker.ui.glucose.MealContextAnchor
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -191,7 +195,7 @@ private fun ReadyStack(
                 pageSize = PageSize.Fill,
                 contentPadding = PaddingValues(horizontal = 0.dp),
                 pageSpacing = 0.dp,
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 userScrollEnabled = state.cards.size > 1 && !editSheetOpen,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -200,11 +204,13 @@ private fun ReadyStack(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 18.dp),
-                    contentAlignment = Alignment.TopCenter,
+                        .fillMaxHeight()
+                        .padding(bottom = 18.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     MealCardComposable(
                         card = state.cards[page],
+                        allCards = state.cards,
                         onRetry = onRetry,
                     )
                 }
@@ -264,24 +270,9 @@ private fun StackTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .clickable(onClick = onBack)
-                .semantics { contentDescription = backDescription },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.stack_gesture_back),
-                color = GT.colors.muted,
-                style = GT.type.kicker.copy(fontSize = 9.sp),
-                maxLines = 1,
-            )
-        }
         Text(
             text = if (total == 1) {
                 stringResource(R.string.stack_position_single, stackDate(date))
@@ -293,17 +284,70 @@ private fun StackTopBar(
                     total,
                 )
             },
-            modifier = Modifier.padding(top = 2.dp),
             color = GT.colors.muted,
             style = GT.type.kicker.copy(fontSize = 9.sp),
             maxLines = 1,
         )
+        StackPageDots(
+            currentIndex = currentIndex,
+            total = total,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(GT.space.touch)
+                .clickable(onClick = onBack)
+                .semantics { contentDescription = backDescription },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.stack_gesture_back),
+                color = GT.colors.muted,
+                style = GT.type.kicker.copy(fontSize = 9.sp),
+                maxLines = 1,
+            )
+        }
     }
+}
+
+@Composable
+private fun StackPageDots(
+    currentIndex: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (total <= 1) return
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(total) { index ->
+            val active = index == currentIndex
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(
+                        color = if (active) GT.colors.ink else Color.Transparent,
+                        shape = CircleShape,
+                    )
+                    .border(
+                        width = GT.space.hairline,
+                        color = if (active) GT.colors.ink else GT.colors.hairline2,
+                        shape = CircleShape,
+                    ),
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(2.dp))
 }
 
 @Composable
 fun MealCardComposable(
     card: MealCard,
+    allCards: List<MealCard> = listOf(card),
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -334,6 +378,7 @@ fun MealCardComposable(
         )
         MetaBlock(
             card = card,
+            allCards = allCards,
             modifier = Modifier.padding(top = 8.dp),
         )
         EditChevron(
@@ -546,7 +591,11 @@ private fun MacroCell(
 }
 
 @Composable
-private fun MetaBlock(card: MealCard, modifier: Modifier = Modifier) {
+private fun MetaBlock(
+    card: MealCard,
+    allCards: List<MealCard>,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -564,6 +613,16 @@ private fun MetaBlock(card: MealCard, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(top = 6.dp),
         )
         LocalGlucoseSurfaces.current.StackMealGlucoseMetaRow(card.eatenAt)
+        LocalGlucoseSurfaces.current.StackMealContextMetaRows(
+            mealId = card.serverId ?: card.id,
+            eatenAt = card.eatenAt,
+            meals = allCards.map { meal ->
+                MealContextAnchor(
+                    id = meal.serverId ?: meal.id,
+                    eatenAt = meal.eatenAt,
+                )
+            },
+        )
         if (card.statusHint != MealCardStatusHint.None) {
             MetaRow(
                 label = stringResource(R.string.stack_meta_status),

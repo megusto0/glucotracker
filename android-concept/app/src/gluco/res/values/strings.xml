@@ -49,6 +49,11 @@
     <string name="record_glucose_kicker">Глюкоза</string>
     <string name="record_glucose_at">около %1$s</string>
     <string name="stack_glucose_meta_value">около %1$s →</string>
+    <string name="stack_meta_insulin">инсулин</string>
+    <string name="insulin_units_short">ЕД</string>
+    <string name="insulin_correction">коррекция</string>
+    <string name="insulin_source_nightscout">Nightscout</string>
+    <string name="insulin_attribution_tooltip">Источник: %1$s · Только чтение · id: %2$s</string>
     <string name="record_glucose_open">Открыть →</string>
     <string name="more_section_nightscout">Nightscout</string>
     <string name="more_ns_connected">Подключено</string>

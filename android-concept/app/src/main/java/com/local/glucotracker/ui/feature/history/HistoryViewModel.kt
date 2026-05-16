@@ -70,6 +70,7 @@ data class HistoryMealRowUi(
     val isSweet: Boolean,
     val mealRole: String?,
     val errorMessage: String?,
+    val responseKey: String? = null,
 )
 
 enum class HistoryMealRowKind {
@@ -265,6 +266,7 @@ private fun List<Meal>.toAcceptedRows(outbox: List<OutboxItem>): List<HistoryMea
                 totalFatG = meal.totalFatG,
                 isSweet = "sweet" in meal.tags || meal.hasSweetText(),
                 mealRole = meal.mealRole,
+                responseKey = meal.postprandialResponse?.glycemicResponse,
                 errorMessage = activeItem?.errorMessage,
             )
         }
@@ -292,6 +294,7 @@ private fun OutboxItem.toPendingRow(query: HistoryQuery): HistoryMealRowUi? {
                 totalFatG = draft.totalFatG,
                 isSweet = draft.items.any { item -> item.name.hasSweetText() },
                 mealRole = null,
+                responseKey = null,
                 errorMessage = errorMessage,
             )
         }
@@ -312,6 +315,7 @@ private fun OutboxItem.toPendingRow(query: HistoryQuery): HistoryMealRowUi? {
                 totalFatG = null,
                 isSweet = false,
                 mealRole = null,
+                responseKey = null,
                 errorMessage = errorMessage,
             )
         }

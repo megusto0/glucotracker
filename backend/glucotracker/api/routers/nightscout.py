@@ -341,11 +341,20 @@ async def import_nightscout_context(
 
     glucose_rows = []
     insulin_rows = []
+    sensor_event_rows = []
     if do_glucose:
         try:
             glucose_rows = await effective_client_obj.fetch_glucose_entries(
                 payload.from_datetime, payload.to_datetime,
             )
+            if hasattr(effective_client_obj, "fetch_sensor_events"):
+                try:
+                    sensor_event_rows = await effective_client_obj.fetch_sensor_events(
+                        payload.from_datetime,
+                        payload.to_datetime,
+                    )
+                except Exception:
+                    sensor_event_rows = []
         except Exception as exc:
             raise NightscoutSyncService.map_error(exc) from exc
     if do_insulin:
@@ -365,6 +374,7 @@ async def import_nightscout_context(
         payload.to_datetime,
         glucose_rows=glucose_rows,
         insulin_rows=insulin_rows,
+        sensor_event_rows=sensor_event_rows,
     )
 
 

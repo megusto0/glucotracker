@@ -10,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,7 +69,10 @@ import com.local.glucotracker.ui.format.pluralizeDay
 import com.local.glucotracker.ui.format.pluralizeMeal
 import com.local.glucotracker.ui.format.pluralizePhoto
 import com.local.glucotracker.ui.format.pluralizeRecord
+import com.local.glucotracker.ui.glucose.HistoryTimelineCircleInput
+import com.local.glucotracker.ui.glucose.HistoryTimelineMeal
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
+import com.local.glucotracker.ui.glucose.layoutHistoryTimelineCircles
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToLong
@@ -530,28 +534,35 @@ private fun HourScaleHeader(modifier: Modifier = Modifier) {
 
 @Composable
 private fun DayTimeline(
-    meals: List<MealForTimeline>,
+    meals: List<HistoryTimelineMeal>,
     accentColor: Color,
     onMealTap: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = GT.colors
-    val slate = GT.colors.info
     val sortedMeals = remember(meals) { meals.sortedBy { it.minutesOfDay } }
     Canvas(
         modifier = modifier
-            .height(32.dp)
+            .height(28.dp)
             .pointerInput(sortedMeals) {
                 detectTapGestures { offset ->
-                    val tapped = sortedMeals
-                        .asReversed()
-                        .firstOrNull { meal ->
-                            val radius = computeTimelineRadiusPx(meal.kcal)
-                            val hitRadius = maxOf(radius, 12.dp.toPx())
-                            val center = Offset(
+                    val baselineY = size.height / 2f
+                    val laidOut = layoutHistoryTimelineCircles(
+                        meals = sortedMeals.map { meal ->
+                            HistoryTimelineCircleInput(
+                                id = meal.id,
                                 x = size.width * (meal.minutesOfDay / MinutesPerDayFloat),
-                                y = size.height / 2f,
+                                naturalY = baselineY,
+                                radius = computeTimelineRadiusPx(meal.kcal),
                             )
+                        },
+                        padding = 2.dp.toPx(),
+                    )
+                    val tapped = laidOut
+                        .asReversed()
+                        .firstOrNull { layout ->
+                            val hitRadius = maxOf(layout.radius, 12.dp.toPx())
+                            val center = Offset(layout.x.coerceIn(0f, size.width.toFloat()), layout.y)
                             (offset - center).getDistance() <= hitRadius
                         }
                     tapped?.let { onMealTap(it.id) }
@@ -566,28 +577,30 @@ private fun DayTimeline(
             strokeWidth = 1.dp.toPx(),
             cap = StrokeCap.Round,
         )
-        sortedMeals.forEach { meal ->
-            val x = size.width * (meal.minutesOfDay / MinutesPerDayFloat)
-            val radius = computeTimelineRadiusPx(meal.kcal)
-            val color = when {
-                meal.status == HistoryMealStatus.Stuck -> colors.warn
-                meal.isMainMeal -> accentColor
-                else -> slate
-            }
-            if (meal.kind == HistoryMealRowKind.Accepted) {
-                drawCircle(
-                    color = color.copy(alpha = 0.85f),
-                    radius = radius,
-                    center = Offset(x.coerceIn(0f, size.width), baselineY),
+        val laidOut = layoutHistoryTimelineCircles(
+            meals = sortedMeals.map { meal ->
+                HistoryTimelineCircleInput(
+                    id = meal.id,
+                    x = size.width * (meal.minutesOfDay / MinutesPerDayFloat),
+                    naturalY = baselineY,
+                    radius = computeTimelineRadiusPx(meal.kcal),
                 )
-            } else {
-                drawCircle(
-                    color = color.copy(alpha = 0.9f),
-                    radius = radius,
-                    center = Offset(x.coerceIn(0f, size.width), baselineY),
-                    style = Stroke(width = 1.2.dp.toPx()),
-                )
-            }
+            },
+            padding = 2.dp.toPx(),
+        )
+        laidOut.forEach { layout ->
+            val center = Offset(layout.x.coerceIn(0f, size.width), layout.y)
+            drawCircle(
+                color = accentColor.copy(alpha = 0.5f),
+                radius = layout.radius,
+                center = center,
+            )
+            drawCircle(
+                color = accentColor.copy(alpha = 0.8f),
+                radius = layout.radius,
+                center = center,
+                style = Stroke(width = 1.dp.toPx()),
+            )
         }
     }
 }
@@ -617,11 +630,10 @@ private fun HistoryDaySection(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            LocalGlucoseSurfaces.current.HistoryDayCgmSparkline(day.date)
         }
-        DayTimeline(
+        LocalGlucoseSurfaces.current.HistoryDayTimeline(
+            date = day.date,
             meals = day.rows.toTimelineMeals(),
-            accentColor = GT.colors.accent,
             onMealTap = { id -> onOpenMealStack(day.date, id) },
             modifier = Modifier
                 .padding(top = 10.dp)
@@ -634,15 +646,20 @@ private fun HistoryDaySection(
                 .background(GT.colors.surface, GT.shapes.card)
                 .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
         ) {
-            day.rows.forEachIndexed { index, row ->
-                HistoryMealRow(
-                    row = row,
-                    onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
-                )
-                if (index < day.rows.lastIndex) {
+            LocalGlucoseSurfaces.current.HistoryRows(
+                date = day.date,
+                rows = day.rows,
+                rowContent = { row, extraMetaContent ->
+                    HistoryMealRow(
+                        row = row,
+                        onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
+                        extraMetaContent = extraMetaContent,
+                    )
+                },
+                divider = {
                     GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
-                }
-            }
+                },
+            )
         }
     }
 }
@@ -651,6 +668,7 @@ private fun HistoryDaySection(
 private fun HistoryMealRow(
     row: HistoryMealRowUi,
     onOpenMealStack: (String) -> Unit,
+    extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val clickId = row.recordId ?: row.outboxId
     val clickModifier = clickId?.let { id ->
@@ -671,6 +689,7 @@ private fun HistoryMealRow(
             secondaryRight = secondaryRightText(row),
             status = null,
             muted = row.kind == HistoryMealRowKind.Pending,
+            extraMetaContent = extraMetaContent,
         )
     }
 }
@@ -790,18 +809,19 @@ private fun HistoryStatusFilter.label(): String =
         HistoryStatusFilter.All -> stringResource(R.string.history_status_all)
     }
 
-private fun List<HistoryMealRowUi>.toTimelineMeals(): List<MealForTimeline> =
+private fun List<HistoryMealRowUi>.toTimelineMeals(): List<HistoryTimelineMeal> =
     mapNotNull { row ->
         val id = row.recordId ?: row.outboxId ?: return@mapNotNull null
         val time = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
         val minutesOfDay = (time.hour * 60 + time.minute).coerceIn(0, MinutesPerDay - 1)
-        MealForTimeline(
+        HistoryTimelineMeal(
             id = id,
             minutesOfDay = minutesOfDay,
             kcal = row.totalKcal?.roundToLong()?.toInt()?.coerceAtLeast(0),
-            kind = row.kind,
-            status = row.status,
-            isMainMeal = row.isMainMealForTimeline(),
+            accepted = row.kind == HistoryMealRowKind.Accepted,
+            stuck = row.status == HistoryMealStatus.Stuck,
+            mainMeal = row.isMainMealForTimeline(),
+            responseKey = row.responseKey,
         )
     }
 
@@ -837,15 +857,6 @@ private fun deltaColor(delta: Long, accentColor: Color): Color =
         delta < 0 -> GT.colors.info
         else -> GT.colors.muted
     }
-
-private data class MealForTimeline(
-    val id: String,
-    val minutesOfDay: Int,
-    val kcal: Int?,
-    val kind: HistoryMealRowKind,
-    val status: HistoryMealStatus,
-    val isMainMeal: Boolean,
-)
 
 private val HourScaleLabels = listOf("00", "06", "12", "18", "24")
 private val TimelineMinRadius = 4.dp

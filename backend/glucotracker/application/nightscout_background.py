@@ -152,6 +152,15 @@ class NightscoutBackgroundImporter:
         except Exception as exc:
             self._record_error(candidate.user_id, exc)
             raise
+        sensor_event_rows = []
+        if hasattr(client, "fetch_sensor_events"):
+            try:
+                sensor_event_rows = await client.fetch_sensor_events(
+                    from_datetime,
+                    to_datetime,
+                )
+            except Exception:
+                sensor_event_rows = []
 
         with self.session_factory() as session:
             response = NightscoutContextImportService(
@@ -163,6 +172,7 @@ class NightscoutBackgroundImporter:
                 to_datetime,
                 glucose_rows=glucose_rows,
                 insulin_rows=[],
+                sensor_event_rows=sensor_event_rows,
             )
             return response.glucose_imported
 

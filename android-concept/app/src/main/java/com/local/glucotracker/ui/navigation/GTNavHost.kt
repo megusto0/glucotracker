@@ -1,5 +1,8 @@
 ﻿package com.local.glucotracker.ui.navigation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -71,7 +74,6 @@ import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTBrandLockup
 import com.local.glucotracker.ui.design.primitives.GTBottomBar
 import com.local.glucotracker.ui.design.primitives.GTBottomBarItem
-import com.local.glucotracker.ui.design.primitives.GTFab
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
@@ -79,7 +81,8 @@ import com.local.glucotracker.ui.feature.auth.AuthGateState
 import com.local.glucotracker.ui.feature.auth.AuthGateViewModel
 import com.local.glucotracker.ui.feature.auth.LoginRoute
 import com.local.glucotracker.ui.feature.base.BaseRoute
-import com.local.glucotracker.ui.feature.capture.GTComposeSheet
+import com.local.glucotracker.ui.feature.capture.CaptureViewModel
+import com.local.glucotracker.ui.feature.capture.ManualEntrySearchSheet
 import com.local.glucotracker.ui.feature.capture.PhotoCaptureScreen
 import com.local.glucotracker.ui.feature.history.HistoryRoute
 import com.local.glucotracker.ui.feature.more.MoreRoute
@@ -137,17 +140,26 @@ fun MainScaffold(
     flavorNavGraph: FlavorNavGraph = NoopFlavorNavGraph,
     glucoseSurfaces: GlucoseSurfaces = GlucoseSurfacesNoop,
     navHost: (@Composable (Modifier, NavHostController) -> Unit)? = null,
+    captureViewModel: CaptureViewModel? = null,
 ) {
-    var captureSheetVisible by remember { mutableStateOf(false) }
+    var actionOptionsOpen by rememberSaveable { mutableStateOf(false) }
+    var manualEntrySheetVisible by rememberSaveable { mutableStateOf(false) }
     var lastQueuedOutboxId by rememberSaveable { mutableStateOf<String?>(null) }
     var historySearchRequestCounter by rememberSaveable { mutableStateOf(0) }
     var todayStatsRequestCounter by rememberSaveable { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val resolvedCaptureViewModel: CaptureViewModel? = captureViewModel ?: if (navHost == null) {
+        hiltViewModel()
+    } else {
+        null
+    }
     val currentBackStack by navController.currentBackStackEntryAsState()
     val fullScreenDetail = currentBackStack?.destination?.route == Route.MealStack.Pattern
     val selectedRoute = currentBackStack?.destination?.route?.toBottomRoute(navConfig) ?: Route.Today.route
     val navigateToTodayWithQueuedOutbox: (String) -> Unit = { outboxId ->
         lastQueuedOutboxId = outboxId
-        captureSheetVisible = false
+        actionOptionsOpen = false
+        manualEntrySheetVisible = false
         navController.navigate(Route.Today.route) {
             popUpTo(Route.Today.route) {
                 saveState = true
@@ -156,91 +168,127 @@ fun MainScaffold(
             restoreState = true
         }
     }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(GT.colors.bg)
-            .statusBarsPadding(),
-    ) {
-        GTOfflineBanner(
-            state = offlineBannerState,
-            onTap = { navController.navigate(Route.OutboxInspector.route) },
-        )
-        if (!fullScreenDetail) navConfig.brand?.let { brand ->
-            GTBrandLockup(
-                name = stringResource(brand.name),
-                mark = {
-                    Image(
-                        painter = painterResource(brand.mark),
-                        contentDescription = null,
-                    )
-                },
-                rightSlot = {
-                    BrandRightSlot(
-                        selectedRoute = selectedRoute,
-                        hasBrand = true,
-                        onHistorySearchClick = { historySearchRequestCounter += 1 },
-                        onTodayStatsClick = { todayStatsRequestCounter += 1 },
-                    )
-                },
-            )
-        }
-        Scaffold(
-            containerColor = GT.colors.bg,
-            bottomBar = {
-                if (!fullScreenDetail) {
-                    MainBottomBar(
-                        navConfig = navConfig,
-                        selectedRoute = selectedRoute,
-                        onRouteClick = { route ->
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onCaptureClick = { captureSheetVisible = true },
-                        activeIndicatorColor = navConfig.brand?.activeIndicatorColor,
-                    )
-                }
-            },
-        ) { innerPadding ->
-            val contentModifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-            if (navHost == null) {
-                GTNavHost(
-                    navController = navController,
-                    lastQueuedOutboxId = lastQueuedOutboxId,
-                    onQueuedOutboxConsumed = { consumedId ->
-                        if (lastQueuedOutboxId == consumedId) {
-                            lastQueuedOutboxId = null
-                        }
-                    },
-                    onOutboxQueued = navigateToTodayWithQueuedOutbox,
-                    historySearchRequestCounter = historySearchRequestCounter,
-                    todayStatsRequestCounter = todayStatsRequestCounter,
-                    navConfig = navConfig,
-                    flavorNavGraph = flavorNavGraph,
-                    modifier = contentModifier,
-                )
-            } else {
-                CompositionLocalProvider(LocalGlucoseSurfaces provides glucoseSurfaces) {
-                    navHost(contentModifier, navController)
-                }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri?.let {
+            resolvedCaptureViewModel?.enqueueGalleryPhoto(it) { outboxId ->
+                navigateToTodayWithQueuedOutbox(outboxId)
             }
         }
     }
 
-    if (captureSheetVisible) {
-        GTComposeSheet(
-            onDismiss = { captureSheetVisible = false },
-            onCameraClick = { navController.navigate(Route.PhotoCapture.route) },
-            onOutboxQueued = navigateToTodayWithQueuedOutbox,
-        )
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(GT.colors.bg)
+                .statusBarsPadding(),
+        ) {
+            GTOfflineBanner(
+                state = offlineBannerState,
+                onTap = { navController.navigate(Route.OutboxInspector.route) },
+            )
+            if (!fullScreenDetail) navConfig.brand?.let { brand ->
+                GTBrandLockup(
+                    name = stringResource(brand.name),
+                    mark = {
+                        Image(
+                            painter = painterResource(brand.mark),
+                            contentDescription = null,
+                        )
+                    },
+                    rightSlot = {
+                        BrandRightSlot(
+                            selectedRoute = selectedRoute,
+                            hasBrand = true,
+                            onHistorySearchClick = { historySearchRequestCounter += 1 },
+                            onTodayStatsClick = { todayStatsRequestCounter += 1 },
+                        )
+                    },
+                )
+            }
+            Scaffold(
+                containerColor = GT.colors.bg,
+                bottomBar = {
+                    if (!fullScreenDetail) {
+                        MainBottomBar(
+                            navConfig = navConfig,
+                            selectedRoute = selectedRoute,
+                            onRouteClick = { route ->
+                                actionOptionsOpen = false
+                                navController.navigate(route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            onCaptureClick = { actionOptionsOpen = !actionOptionsOpen },
+                            isOptionsOpen = actionOptionsOpen,
+                            openAccentColor = navConfig.brand?.activeIndicatorColor ?: GT.colors.accent,
+                            activeIndicatorColor = navConfig.brand?.activeIndicatorColor,
+                        )
+                    }
+                },
+            ) { innerPadding ->
+                val contentModifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                if (navHost == null) {
+                    GTNavHost(
+                        navController = navController,
+                        lastQueuedOutboxId = lastQueuedOutboxId,
+                        onQueuedOutboxConsumed = { consumedId ->
+                            if (lastQueuedOutboxId == consumedId) {
+                                lastQueuedOutboxId = null
+                            }
+                        },
+                        onOutboxQueued = navigateToTodayWithQueuedOutbox,
+                        historySearchRequestCounter = historySearchRequestCounter,
+                        todayStatsRequestCounter = todayStatsRequestCounter,
+                        navConfig = navConfig,
+                        flavorNavGraph = flavorNavGraph,
+                        modifier = contentModifier,
+                    )
+                } else {
+                    CompositionLocalProvider(LocalGlucoseSurfaces provides glucoseSurfaces) {
+                        navHost(contentModifier, navController)
+                    }
+                }
+            }
+        }
+        if (!fullScreenDetail) {
+            ActionFabSpawner(
+                isOpen = actionOptionsOpen,
+                openAccentColor = navConfig.brand?.activeIndicatorColor ?: GT.colors.accent,
+                onDismiss = { actionOptionsOpen = false },
+                onPenTap = {
+                    actionOptionsOpen = false
+                    scope.launch {
+                        kotlinx.coroutines.delay(200)
+                        manualEntrySheetVisible = true
+                    }
+                },
+                onCameraTap = {
+                    actionOptionsOpen = false
+                    navController.navigate(Route.PhotoCapture.route)
+                },
+                onGalleryTap = {
+                    actionOptionsOpen = false
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+            )
+        }
+        if (manualEntrySheetVisible) {
+            ManualEntrySearchSheet(
+                onDismiss = { manualEntrySheetVisible = false },
+                onOutboxQueued = navigateToTodayWithQueuedOutbox,
+            )
+        }
     }
 }
 
@@ -584,9 +632,10 @@ private fun MainBottomBar(
     selectedRoute: String,
     onRouteClick: (String) -> Unit,
     onCaptureClick: () -> Unit,
+    isOptionsOpen: Boolean,
+    openAccentColor: Color,
     activeIndicatorColor: Color?,
 ) {
-    val captureDescription = stringResource(R.string.nav_capture_content_description)
     GTBottomBar(
         items = navConfig.tabs.map { spec ->
             GTBottomBarItem(
@@ -597,11 +646,12 @@ private fun MainBottomBar(
         },
         onClick = onRouteClick,
         centerSlot = {
-            GTFab(
+            BottomNavFab(
+                isOptionsOpen = isOptionsOpen,
+                openAccentColor = openAccentColor,
                 onClick = onCaptureClick,
                 modifier = Modifier
-                    .padding(top = 4.dp)
-                    .semantics { contentDescription = captureDescription },
+                    .padding(top = 4.dp),
             )
         },
         modifier = Modifier.navigationBarsPadding(),

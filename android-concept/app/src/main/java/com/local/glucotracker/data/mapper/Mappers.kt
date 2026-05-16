@@ -221,6 +221,7 @@ private fun String?.toPostprandialResponse(): PostprandialResponse? {
     return PostprandialResponse(
         deltaMaxMmolL = root["delta_max"]?.jsonPrimitive?.doubleOrNull,
         coverage180 = root["coverage_180min"]?.jsonPrimitive?.doubleOrNull,
+        glycemicResponse = root["glycemic_response"]?.jsonPrimitive?.contentOrNull,
         points = points,
     )
 }

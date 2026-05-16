@@ -313,6 +313,21 @@ class NightscoutClient:
                 insulin_events.append(treatment)
         return insulin_events
 
+    async def fetch_sensor_events(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[dict[str, Any]]:
+        """Fetch explicit sensor lifecycle treatments from Nightscout."""
+        treatments = await self.fetch_treatments(from_datetime, to_datetime)
+        sensor_events: list[dict[str, Any]] = []
+        for treatment in treatments:
+            event_type = str(treatment.get("eventType") or "").casefold()
+            notes = str(treatment.get("notes") or "").casefold()
+            if "sensor" in event_type or "sensor" in notes:
+                sensor_events.append(treatment)
+        return sensor_events
+
 
 def get_nightscout_client() -> NightscoutClient | None:
     """FastAPI dependency factory for optional Nightscout integration."""

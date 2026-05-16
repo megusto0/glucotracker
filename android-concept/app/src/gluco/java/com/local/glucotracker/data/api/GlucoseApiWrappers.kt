@@ -4,6 +4,7 @@ import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
+import com.local.glucotracker.generated.model.NightscoutInsulinEventResponse
 import com.local.glucotracker.generated.model.NightscoutStatusResponse
 import com.local.glucotracker.generated.model.NightscoutSyncTodayRequest
 import com.local.glucotracker.generated.model.NightscoutSyncTodayResponse
@@ -35,4 +36,7 @@ class NightscoutApi @Inject constructor(
 
     suspend fun timeline(from: Instant, to: Instant): TimelineResponse =
         nightscoutApi.getTimeline(from = from, to = to).body()
+
+    suspend fun insulin(from: Instant, to: Instant): List<NightscoutInsulinEventResponse> =
+        nightscoutApi.getNightscoutInsulin(from = from, to = to).body()
 }

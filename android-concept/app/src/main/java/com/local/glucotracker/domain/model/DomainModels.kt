@@ -64,6 +64,7 @@ data class PostprandialPoint(
 data class PostprandialResponse(
     val deltaMaxMmolL: Double? = null,
     val coverage180: Double? = null,
+    val glycemicResponse: String? = null,
     val points: List<PostprandialPoint> = emptyList(),
 )
 

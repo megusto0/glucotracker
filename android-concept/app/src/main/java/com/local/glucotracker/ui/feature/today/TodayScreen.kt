@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -375,18 +376,21 @@ private fun DayState(
                     )
                 }
             }
-            items(
-                items = state.rows,
-                key = { row -> row.id },
-            ) { row ->
-                SwipeMealRow(
-                    row = row,
-                    lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
-                    onOpenRow = onOpenRow,
-                    onDeleteRow = { candidate -> deleteCandidate = candidate },
-                    isOnline = state.isOnline,
-                    compact = brandAccentColor != null,
-                )
+            item {
+                LocalGlucoseSurfaces.current.TodayRows(
+                    date = state.date,
+                    rows = state.rows,
+                ) { row, extraMetaContent ->
+                    SwipeMealRow(
+                        row = row,
+                        lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
+                        onOpenRow = onOpenRow,
+                        onDeleteRow = { candidate -> deleteCandidate = candidate },
+                        isOnline = state.isOnline,
+                        compact = brandAccentColor != null,
+                        extraMetaContent = extraMetaContent,
+                    )
+                }
             }
             item {
                 Column {
@@ -827,6 +831,7 @@ private fun SwipeMealRow(
     onDeleteRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
     compact: Boolean = false,
+    extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val canDeleteLocally = row.recordId == null && row.outboxId != null
     if (!canDeleteLocally) {
@@ -836,6 +841,7 @@ private fun SwipeMealRow(
             onOpenRow = onOpenRow,
             isOnline = isOnline,
             compact = compact,
+            extraMetaContent = extraMetaContent,
         )
         return
     }
@@ -861,6 +867,7 @@ private fun SwipeMealRow(
             onOpenRow = onOpenRow,
             isOnline = isOnline,
             compact = compact,
+            extraMetaContent = extraMetaContent,
         )
     }
 }
@@ -943,6 +950,7 @@ private fun MealRowSurface(
     onOpenRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
     compact: Boolean = false,
+    extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     var highlighted by remember(row.id, lastAddedId) { mutableStateOf(row.id == lastAddedId) }
     val bg by animateColorAsState(
@@ -995,6 +1003,7 @@ private fun MealRowSurface(
                 muted = row.kind == TodayMealRowKind.Pending,
                 primaryRightColor = if (row.isAgedPending) GT.colors.warn else null,
                 compact = compact,
+                extraMetaContent = extraMetaContent,
             )
         }
     }

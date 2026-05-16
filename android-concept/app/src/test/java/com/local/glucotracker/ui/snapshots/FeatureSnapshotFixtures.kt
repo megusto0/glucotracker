@@ -28,7 +28,7 @@ import com.local.glucotracker.ui.feature.base.BaseFilter
 import com.local.glucotracker.ui.feature.base.BaseItem
 import com.local.glucotracker.ui.feature.base.BaseScreen
 import com.local.glucotracker.ui.feature.base.BaseState
-import com.local.glucotracker.ui.feature.capture.GTComposeSheetContent
+import com.local.glucotracker.ui.feature.capture.ManualEntrySearchSheetContent
 import com.local.glucotracker.ui.feature.history.HistoryDayUi
 import com.local.glucotracker.ui.feature.history.HistoryMealRowKind
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
@@ -171,10 +171,9 @@ internal fun ComposeSheetEmptySnapshot() {
             .fillMaxSize()
             .background(com.local.glucotracker.ui.design.GT.colors.bg),
     ) {
-        GTComposeSheetContent(
+        ManualEntrySearchSheetContent(
             openCount = 0,
-            onCameraClick = {},
-            onGalleryClick = {},
+            onDismiss = {},
             onSubmitText = {},
             onSubmitProduct = {},
             onSubmitTemplate = {},
@@ -191,10 +190,9 @@ internal fun ComposeSheetResultsSnapshot() {
             .fillMaxSize()
             .background(com.local.glucotracker.ui.design.GT.colors.bg),
     ) {
-        GTComposeSheetContent(
+        ManualEntrySearchSheetContent(
             openCount = 1,
-            onCameraClick = {},
-            onGalleryClick = {},
+            onDismiss = {},
             onSubmitText = {},
             onSubmitProduct = {},
             onSubmitTemplate = {},
@@ -214,10 +212,9 @@ internal fun ComposeSheetNoMatchSnapshot() {
             .fillMaxSize()
             .background(com.local.glucotracker.ui.design.GT.colors.bg),
     ) {
-        GTComposeSheetContent(
+        ManualEntrySearchSheetContent(
             openCount = 4,
-            onCameraClick = {},
-            onGalleryClick = {},
+            onDismiss = {},
             onSubmitText = {},
             onSubmitProduct = {},
             onSubmitTemplate = {},
@@ -672,6 +669,7 @@ private fun historyRow(
     isSweet: Boolean = false,
     kind: HistoryMealRowKind = HistoryMealRowKind.Accepted,
     status: HistoryMealStatus = HistoryMealStatus.Accepted,
+    responseKey: String? = null,
 ): HistoryMealRowUi =
     HistoryMealRowUi(
         id = id,
@@ -690,6 +688,7 @@ private fun historyRow(
         isSweet = isSweet,
         mealRole = mealRole,
         errorMessage = null,
+        responseKey = responseKey,
     )
 
 private fun sampleRecord(): RecordUi =

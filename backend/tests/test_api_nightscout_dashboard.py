@@ -14,8 +14,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from glucotracker.application.nightscout_context import NightscoutContextImportService
+from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
 from glucotracker.config import get_settings
-from glucotracker.infra.db.models import DailyTotal
+from glucotracker.domain.auth import UserRole
+from glucotracker.infra.db.models import DailyTotal, SensorSession, User
 from glucotracker.infra.nightscout.client import (
     NightscoutConnectError,
     NightscoutHTTPError,
@@ -25,6 +27,7 @@ from glucotracker.infra.nightscout.client import (
     _meal_treatment_payload,
     get_nightscout_client,
 )
+from glucotracker.infra.security import hash_password
 from glucotracker.main import app
 
 
@@ -45,6 +48,7 @@ class FakeNightscoutClient:
         glucose_error: Exception | None = None,
         insulin_rows: list[dict[str, Any]] | None = None,
         insulin_error: Exception | None = None,
+        sensor_event_rows: list[dict[str, Any]] | None = None,
         treatment_rows: list[dict[str, Any]] | None = None,
     ) -> None:
         self.post_response = post_response or {"_id": "ns-treatment-1"}
@@ -56,6 +60,7 @@ class FakeNightscoutClient:
         self.glucose_error = glucose_error
         self.insulin_rows = insulin_rows or []
         self.insulin_error = insulin_error
+        self.sensor_event_rows = sensor_event_rows or []
         self.treatment_rows = treatment_rows or []
         self.posted_meals = []
         self.updated_meals = []
@@ -127,6 +132,14 @@ class FakeNightscoutClient:
         if self.insulin_error is not None:
             raise self.insulin_error
         return self.insulin_rows
+
+    async def fetch_sensor_events(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[dict[str, Any]]:
+        """Return fake sensor lifecycle rows."""
+        return self.sensor_event_rows
 
 
 class FailingCommitSession:
@@ -701,6 +714,135 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     assert episodes[0]["glucose_summary"]["before_value"] == 5.5
     assert episodes[0]["glucose_summary"]["peak_value"] == 9.8
     assert episodes[0]["total_carbs_g"] == 68
+
+
+def test_nightscout_sensor_stop_event_closes_current_sensor(
+    api_client: TestClient,
+) -> None:
+    """Explicit Nightscout sensor stop events close the active sensor."""
+    sensor = api_client.post(
+        "/sensors",
+        json={
+            "started_at": "2026-04-30T02:07:00",
+            "expected_life_days": 15,
+            "label": "Ottai #4",
+        },
+    )
+    assert sensor.status_code == 201
+    sensor_id = sensor.json()["id"]
+    fake = FakeNightscoutClient(
+        glucose_rows=[],
+        sensor_event_rows=[
+            {
+                "_id": "sensor-stop-1",
+                "created_at": "2026-05-15T02:07:00Z",
+                "eventType": "Sensor Stop",
+                "notes": "Sensor ended",
+            }
+        ],
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+
+    imported = api_client.post(
+        "/nightscout/import",
+        json={
+            "from_datetime": "2026-05-15T00:00:00Z",
+            "to_datetime": "2026-05-15T04:00:00Z",
+        },
+    )
+    sensors = api_client.get("/sensors")
+
+    assert imported.status_code == 200
+    assert sensors.status_code == 200
+    updated = next(row for row in sensors.json() if row["id"] == sensor_id)
+    assert updated["ended_at"].startswith("2026-05-15T02:07:00")
+    assert "Автоматически завершён: Sensor Stop" in updated["notes"]
+
+
+def test_nightscout_glucose_gap_does_not_close_sensor_without_lifecycle_event(
+    api_client: TestClient,
+) -> None:
+    """Missing later CGM points are connection state, not sensor end evidence."""
+    sensor = api_client.post(
+        "/sensors",
+        json={
+            "started_at": "2026-04-30T02:07:00",
+            "expected_life_days": 15,
+            "label": "Ottai #4",
+        },
+    )
+    assert sensor.status_code == 201
+    sensor_id = sensor.json()["id"]
+    fake = FakeNightscoutClient(
+        glucose_rows=[
+            {
+                "_id": "glucose-last-before-gap",
+                "dateString": "2026-05-15T02:07:00Z",
+                "sgv": 108,
+                "direction": "Flat",
+                "device": "CGM",
+            }
+        ],
+        sensor_event_rows=[],
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+
+    imported = api_client.post(
+        "/nightscout/import",
+        json={
+            "from_datetime": "2026-05-15T00:00:00Z",
+            "to_datetime": "2026-05-15T12:00:00Z",
+        },
+    )
+    sensors = api_client.get("/sensors")
+
+    assert imported.status_code == 200
+    updated = next(row for row in sensors.json() if row["id"] == sensor_id)
+    assert updated["ended_at"] is None
+
+
+def test_sensor_lifecycle_events_are_scoped_to_current_user(
+    api_client: TestClient,
+) -> None:
+    """A sensor event for one user must not close another user's open sensor."""
+    session_factory = api_client.app_state["session_factory"]
+    alice_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        bob = User(
+            username="bob-gluco",
+            password_hash=hash_password("bob-password"),
+            role=UserRole.gluco,
+        )
+        session.add(bob)
+        session.flush()
+        alice_sensor = SensorSession(
+            owner_id=alice_id,
+            started_at=datetime(2026, 4, 30, 2, 7),
+            expected_life_days=15,
+        )
+        bob_sensor = SensorSession(
+            owner_id=bob.id,
+            started_at=datetime(2026, 4, 30, 2, 7),
+            expected_life_days=15,
+        )
+        session.add_all([alice_sensor, bob_sensor])
+        session.flush()
+
+        closed = apply_sensor_lifecycle_events(
+            session,
+            alice_id,
+            [
+                {
+                    "created_at": "2026-05-15T02:07:00Z",
+                    "eventType": "Sensor Stop",
+                }
+            ],
+        )
+        session.commit()
+
+        assert closed == 1
+        assert alice_sensor.ended_at == datetime(2026, 5, 15, 2, 7)
+        assert bob_sensor.ended_at is None
 
 
 def test_nightscout_import_maps_connect_errors_to_502(api_client: TestClient) -> None:
