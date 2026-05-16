@@ -16,6 +16,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.local.glucotracker.data.api.MealApi
+import com.local.glucotracker.data.api.ApiConnection
 import com.local.glucotracker.data.api.OpenApiJson
 import com.local.glucotracker.data.api.PhotoUploadClient
 import com.local.glucotracker.data.auth.AuthRepository
@@ -139,7 +140,7 @@ class OutboxWorker(
     companion object {
         const val InputForegroundPhotoUpload = "foreground_photo_upload"
         const val InputApiBaseUrl = "api_base_url"
-        const val DefaultApiBaseUrl = "http://192.168.3.6:8000"
+        val DefaultApiBaseUrl = ApiConnection.BASE_URL
         private const val Tag = "OutboxWorker"
     }
 }

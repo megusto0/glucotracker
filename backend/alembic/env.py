@@ -3,6 +3,7 @@
 from logging.config import fileConfig
 
 from alembic import context
+from glucotracker.config import get_settings
 from glucotracker.infra.db import models  # noqa: F401
 from glucotracker.infra.db.base import Base
 
@@ -12,12 +13,24 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+DEFAULT_DATABASE_URL = "sqlite:///./data/glucotracker.sqlite3"
+
+
+def _migration_database_url() -> str:
+    """Return the database URL for Alembic, honoring test-provided overrides."""
+    configured_url = config.get_main_option("sqlalchemy.url")
+    if configured_url and configured_url != DEFAULT_DATABASE_URL:
+        return configured_url
+    return get_settings().database_url
 
 
 def run_migrations_offline() -> None:
     """Run migrations without a database connection."""
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=_migration_database_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -25,12 +38,12 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations with a database connection."""
-    from sqlalchemy import engine_from_config, pool
+    from sqlalchemy import create_engine, pool
 
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        _migration_database_url(),
         poolclass=pool.NullPool,
+        future=True,
     )
 
     with connectable.connect() as connection:

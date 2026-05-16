@@ -19,15 +19,24 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("users", sa.Column("kcal_goal_per_day", sa.Integer(), nullable=True))
-    op.add_column("users", sa.Column("protein_goal_g_per_day", sa.Integer(), nullable=True))
-    op.add_column("users", sa.Column("carb_goal_g_per_day", sa.Integer(), nullable=True))
-    op.add_column("users", sa.Column("fat_goal_g_per_day", sa.Integer(), nullable=True))
+    op.add_column(
+        "users",
+        sa.Column("protein_goal_g_per_day", sa.Integer(), nullable=True),
+    )
+    op.add_column(
+        "users",
+        sa.Column("carb_goal_g_per_day", sa.Integer(), nullable=True),
+    )
+    op.add_column(
+        "users",
+        sa.Column("fat_goal_g_per_day", sa.Integer(), nullable=True),
+    )
     op.add_column(
         "users",
         sa.Column(
             "goals_setup_completed",
             sa.Boolean(),
-            server_default=sa.text("0"),
+            server_default=sa.false(),
             nullable=False,
         ),
     )

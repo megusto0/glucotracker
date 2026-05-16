@@ -28,7 +28,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(examples=["ok"])
     version: str = Field(examples=["0.1.0"])
-    db: str = Field(examples=["ok"])
+    db: str = Field(examples=["not_checked"])
 
 
 class StatsInsightResponse(BaseModel):

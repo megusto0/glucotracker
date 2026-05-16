@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import (
@@ -18,7 +19,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -1478,8 +1479,8 @@ def create_meal_from_photo(
 
     try:
         content_type, _ = photo_store.supported_upload_type(photo)
-        rel_path = photo_store.save_upload(photo)
-    except photo_store.PhotoStorageError as exc:
+        rel_path = photo_store.save_upload(photo, owner_id=current_user.id)
+    except photo_store.StorageError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -1544,8 +1545,8 @@ def upload_meal_photo(
     _get_meal(session, current_user.id, meal_id)
     try:
         content_type, _ = photo_store.supported_upload_type(file)
-        rel_path = photo_store.save_upload(file)
-    except photo_store.PhotoStorageError as exc:
+        rel_path = photo_store.save_upload(file, owner_id=current_user.id)
+    except photo_store.StorageError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -1576,21 +1577,32 @@ def get_photo_file(
     photo_id: UUID,
     session: SessionDep,
     current_user: CurrentUserDep,
-) -> FileResponse:
+) -> StreamingResponse:
     """Stream the stored image bytes for a photo."""
     photo = _get_photo(session, current_user.id, photo_id)
-    full_path = photo_store.get_full_path(photo.path)
-    if not full_path.exists():
+    try:
+        file_obj, metadata = photo_store.open_for_read(photo.path)
+    except photo_store.StorageNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Photo file not found.",
-        )
-    return FileResponse(
-        full_path,
+        ) from exc
+    except photo_store.StorageIOError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Photo storage is unavailable.",
+        ) from exc
+    headers = {
+        **IMAGE_RESPONSE_HEADERS,
+        "Content-Length": str(metadata.content_length),
+    }
+    if photo.original_filename:
+        filename = quote(photo.original_filename)
+        headers["Content-Disposition"] = f"inline; filename*=utf-8''{filename}"
+    return StreamingResponse(
+        photo_store.iter_file(file_obj),
         media_type=photo.content_type,
-        filename=photo.original_filename,
-        headers=IMAGE_RESPONSE_HEADERS,
-        content_disposition_type="inline",
+        headers=headers,
     )
 
 

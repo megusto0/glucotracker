@@ -259,7 +259,9 @@ const withRequestTimeout = async <T>(
 
 const normalizeBaseUrl = (baseUrl: string) => {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
-  const url = new URL(trimmed || "http://127.0.0.1:8000");
+  const url = new URL(
+    trimmed || import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000",
+  );
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("Backend URL must use http or https.");
   }

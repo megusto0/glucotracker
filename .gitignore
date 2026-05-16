@@ -27,6 +27,7 @@ build/
 *.sqlite3
 backend/data/
 desktop/data/
+glucotracker-db-env-backup-*.zip
 
 # Node / frontend
 node_modules/

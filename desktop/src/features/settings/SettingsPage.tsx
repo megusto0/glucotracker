@@ -21,7 +21,7 @@ import {
   type UserProfileUpdate,
 } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import { useApiConfig } from "./settingsStore";
+import { defaultBackendUrl, useApiConfig } from "./settingsStore";
 import {
   useNightscoutSettings,
   useSyncTodayToNightscout,
@@ -38,7 +38,7 @@ import { FoodDiaryExportSection } from "./FoodDiaryExportSection";
 import { type Theme, useSettingsStore } from "./settingsStore";
 
 const openApiHref = (baseUrl: string) =>
-  `${baseUrl.trim().replace(/\/+$/, "") || "http://127.0.0.1:8000"}/openapi.json`;
+  `${baseUrl.trim().replace(/\/+$/, "") || defaultBackendUrl}/openapi.json`;
 
 type SyncFlags = {
   sync_glucose: boolean;

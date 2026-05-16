@@ -23,7 +23,9 @@
         { "url": "http://127.0.0.1:*" },
         { "url": "http://localhost:*" },
         { "url": "https://127.0.0.1:*" },
-        { "url": "https://localhost:*" }
+        { "url": "https://localhost:*" },
+        { "url": "https://megusto.duckdns.org:1338" },
+        { "url": "https://megusto.duckdns.org:1338/*" }
       ]
     }
   ]

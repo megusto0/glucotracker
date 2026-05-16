@@ -7,7 +7,11 @@ import type {
   IssuedTokensResponse,
 } from "../../api/client";
 
-export const defaultBackendUrl = "http://127.0.0.1:8000";
+export const defaultBackendUrl =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.PROD
+    ? "https://megusto.duckdns.org:1338"
+    : "http://127.0.0.1:8000");
 
 export type Theme = "light" | "dark" | "system";
 

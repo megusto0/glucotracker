@@ -3555,7 +3555,7 @@
         "properties": {
           "db": {
             "examples": [
-              "ok"
+              "not_checked"
             ],
             "title": "Db",
             "type": "string"
@@ -11786,7 +11786,7 @@
     },
     "/health": {
       "get": {
-        "description": "Return service health for local and container checks.",
+        "description": "Return lightweight service health for watchdog and reverse proxy checks.",
         "operationId": "getHealth",
         "responses": {
           "200": {

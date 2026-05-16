@@ -48,9 +48,19 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"http://127.0.0.1:8000\"",
+            )
         }
         release {
             isMinifyEnabled = true
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"https://megusto.duckdns.org:1338\"",
+            )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -69,6 +79,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     sourceSets {

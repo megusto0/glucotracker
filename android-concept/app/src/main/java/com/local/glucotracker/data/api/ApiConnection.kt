@@ -1,9 +1,10 @@
 package com.local.glucotracker.data.api
 
+import com.local.glucotracker.BuildConfig
 import java.net.URI
 
 object ApiConnection {
-    const val BASE_URL: String = "http://192.168.3.6:8000"
+    val BASE_URL: String = BuildConfig.API_BASE_URL
 
     fun resolveUrl(value: String, baseUrl: String = BASE_URL): String {
         val trimmed = value.trim()

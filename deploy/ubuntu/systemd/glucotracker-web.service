@@ -1,0 +1,31 @@
+[Unit]
+Description=Glucotracker FastAPI backend
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=glucotracker
+Group=glucotracker
+WorkingDirectory=/opt/glucotracker/backend
+Environment="PATH=/opt/glucotracker/venv/bin"
+EnvironmentFile=/etc/glucotracker/env
+ExecStartPre=/opt/glucotracker/venv/bin/alembic upgrade head
+ExecStart=/opt/glucotracker/venv/bin/uvicorn glucotracker.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=10s
+
+MemoryMax=1G
+TasksMax=200
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/glucotracker /var/log/glucotracker
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=glucotracker-web
+
+[Install]
+WantedBy=multi-user.target

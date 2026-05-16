@@ -16,16 +16,38 @@ class Settings(BaseSettings):
 
     app_version: str = "0.1.0"
     token: str | None = None
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices("LOG_LEVEL", "GLUCOTRACKER_LOG_LEVEL"),
+    )
     jwt_secret: str | None = Field(
         default=None,
         validation_alias=AliasChoices("JWT_SECRET", "GLUCOTRACKER_JWT_SECRET"),
     )
-    database_url: str = "sqlite:///./data/glucotracker.sqlite3"
+    database_url: str = Field(
+        default="sqlite:///./data/glucotracker.sqlite3",
+        validation_alias=AliasChoices("DATABASE_URL", "GLUCOTRACKER_DATABASE_URL"),
+    )
+    storage_backend: str = Field(
+        default="filesystem",
+        validation_alias=AliasChoices(
+            "STORAGE_BACKEND",
+            "GLUCOTRACKER_STORAGE_BACKEND",
+        ),
+    )
     photo_storage_dir: Path = Field(
         default=Path("./data/photos"),
         validation_alias=AliasChoices(
             "PHOTO_STORAGE_DIR",
             "GLUCOTRACKER_PHOTO_STORAGE_DIR",
+        ),
+    )
+    photo_max_size_bytes: int = Field(
+        default=12 * 1024 * 1024,
+        gt=0,
+        validation_alias=AliasChoices(
+            "PHOTO_MAX_SIZE_BYTES",
+            "GLUCOTRACKER_PHOTO_MAX_SIZE_BYTES",
         ),
     )
     activity_log_dir: Path = Field(
@@ -41,7 +63,12 @@ class Settings(BaseSettings):
     )
     gemini_model: str = Field(
         default="gemini-3-flash-preview",
-        validation_alias=AliasChoices("GEMINI_MODEL", "GLUCOTRACKER_GEMINI_MODEL"),
+        validation_alias=AliasChoices(
+            "GEMINI_MODEL_PHOTO",
+            "GLUCOTRACKER_GEMINI_MODEL_PHOTO",
+            "GEMINI_MODEL",
+            "GLUCOTRACKER_GEMINI_MODEL",
+        ),
     )
     gemini_cheap_model: str = Field(
         default="gemini-3.1-flash-lite-preview",
@@ -98,7 +125,12 @@ class Settings(BaseSettings):
     )
     nightscout_url: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("NIGHTSCOUT_URL", "GLUCOTRACKER_NIGHTSCOUT_URL"),
+        validation_alias=AliasChoices(
+            "NIGHTSCOUT_BASE_URL",
+            "GLUCOTRACKER_NIGHTSCOUT_BASE_URL",
+            "NIGHTSCOUT_URL",
+            "GLUCOTRACKER_NIGHTSCOUT_URL",
+        ),
     )
     nightscout_api_secret: str | None = Field(
         default=None,
@@ -115,10 +147,19 @@ class Settings(BaseSettings):
             "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_ENABLED",
         ),
     )
+    run_background_tasks_in_web: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "RUN_BACKGROUND_TASKS_IN_WEB",
+            "GLUCOTRACKER_RUN_BACKGROUND_TASKS_IN_WEB",
+        ),
+    )
     nightscout_background_import_interval_seconds: int = Field(
         default=300,
         ge=60,
         validation_alias=AliasChoices(
+            "NIGHTSCOUT_IMPORT_INTERVAL_SECONDS",
+            "GLUCOTRACKER_NIGHTSCOUT_IMPORT_INTERVAL_SECONDS",
             "NIGHTSCOUT_BACKGROUND_IMPORT_INTERVAL_SECONDS",
             "GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_INTERVAL_SECONDS",
         ),

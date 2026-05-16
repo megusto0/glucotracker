@@ -126,7 +126,21 @@ def _engine_kwargs(database_url: str) -> dict[str, object]:
     """Return engine options for the configured database backend."""
     if database_url.startswith("sqlite"):
         return {"poolclass": NullPool}
+    if database_url.startswith("postgresql"):
+        return {
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_pre_ping": True,
+            "pool_recycle": 3600,
+        }
     return {}
+
+
+def _connect_args(database_url: str) -> dict[str, object]:
+    """Return backend-specific SQLAlchemy connection args."""
+    if database_url.startswith("postgresql"):
+        return {"options": "-c timezone=utc"}
+    return _sqlite_connect_args(database_url)
 
 
 def _enable_sqlite_foreign_keys(engine: Engine) -> None:
@@ -151,7 +165,7 @@ def get_engine() -> Engine:
         database_url = get_settings().database_url
         _engine = create_engine(
             database_url,
-            connect_args=_sqlite_connect_args(database_url),
+            connect_args=_connect_args(database_url),
             future=True,
             **_engine_kwargs(database_url),
         )

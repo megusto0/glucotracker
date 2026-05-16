@@ -15,4 +15,4 @@ def test_health_returns_ok() -> None:
     body = response.json()
     assert body["status"] == "ok"
     assert body["version"] == "0.1.0"
-    assert body["db"] in {"ok", "unavailable"}
+    assert body["db"] == "not_checked"

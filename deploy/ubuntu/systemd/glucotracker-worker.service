@@ -1,0 +1,30 @@
+[Unit]
+Description=Glucotracker background worker
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=glucotracker
+Group=glucotracker
+WorkingDirectory=/opt/glucotracker/backend
+Environment="PATH=/opt/glucotracker/venv/bin"
+EnvironmentFile=/etc/glucotracker/env
+ExecStart=/opt/glucotracker/venv/bin/python -m glucotracker.workers
+Restart=always
+RestartSec=10s
+
+MemoryMax=1G
+TasksMax=200
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/glucotracker /var/log/glucotracker
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=glucotracker-worker
+
+[Install]
+WantedBy=multi-user.target

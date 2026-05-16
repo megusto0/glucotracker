@@ -5,7 +5,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
-from sqlalchemy import text
 
 from glucotracker.api.errors import UnauthorizedError, unauthorized_exception_handler
 from glucotracker.api.openapi import build_openapi
@@ -32,7 +31,7 @@ from glucotracker.api.schemas import HealthResponse
 from glucotracker.application.nightscout_background import NightscoutBackgroundImporter
 from glucotracker.application.postprandial.worker import PostprandialSweeper
 from glucotracker.config import get_settings
-from glucotracker.infra.db.session import get_engine, get_session_factory
+from glucotracker.infra.db.session import get_session_factory
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
 
 
@@ -44,11 +43,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     background_task: asyncio.Task[None] | None = None
     anchor_task: asyncio.Task[None] | None = None
     sweeper_task: asyncio.Task[None] | None = None
-    if settings.nightscout_background_import_enabled and not app.dependency_overrides:
+    run_background_tasks = (
+        settings.run_background_tasks_in_web and not app.dependency_overrides
+    )
+    if settings.nightscout_background_import_enabled and run_background_tasks:
         background_task = asyncio.create_task(
             NightscoutBackgroundImporter(get_session_factory()).run_forever()
         )
-    if not app.dependency_overrides:
+    if run_background_tasks:
         anchor_task = asyncio.create_task(
             AnchorRecomputeWorker().run_forever()
         )
@@ -106,16 +108,9 @@ app.openapi = lambda: build_openapi(app)
     operation_id="getHealth",
 )
 async def health() -> HealthResponse:
-    """Return service health for local and container checks."""
-    db_status = "ok"
-    try:
-        with get_engine().connect() as connection:
-            connection.execute(text("SELECT 1"))
-    except Exception:
-        db_status = "unavailable"
-
+    """Return lightweight service health for watchdog and reverse proxy checks."""
     return HealthResponse(
         status="ok",
         version=get_settings().app_version,
-        db=db_status,
+        db="not_checked",
     )
