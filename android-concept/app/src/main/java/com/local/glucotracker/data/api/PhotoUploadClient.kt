@@ -18,6 +18,8 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
 import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -50,7 +52,7 @@ class PhotoUploadClient @Inject constructor(
             setBody(
                 MultiPartFormDataContent(
                     formData {
-                        append("captured_at", capturedAt.toString())
+                        append("captured_at", capturedAt.toWallClockIso())
                         append("source", source.toPhotoCaptureSource())
                         append("idempotency_key", idempotencyKey)
                         context?.takeIf { it.isNotBlank() }?.let {
@@ -113,6 +115,9 @@ private fun String.toPhotoCaptureSource(): String =
         "gallery" -> "gallery"
         else -> "camera"
     }
+
+private fun Instant.toWallClockIso(): String =
+    toLocalDateTime(TimeZone.currentSystemDefault()).toString()
 
 private const val MaxServerPhotoBytes = 10 * 1024 * 1024
 
