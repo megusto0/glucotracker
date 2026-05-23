@@ -3597,6 +3597,14 @@
             },
             "title": "Links",
             "type": "array"
+          },
+          "reviewed_insulin_event_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Reviewed Insulin Event Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -3639,6 +3647,14 @@
               "$ref": "#/components/schemas/InsulinLinkMealResponse"
             },
             "title": "Meals",
+            "type": "array"
+          },
+          "reviewed_insulin_event_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Reviewed Insulin Event Ids",
             "type": "array"
           }
         },

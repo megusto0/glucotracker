@@ -3069,6 +3069,8 @@ export interface components {
             date: string;
             /** Links */
             links?: components["schemas"]["MealInsulinLinkItem"][];
+            /** Reviewed Insulin Event Ids */
+            reviewed_insulin_event_ids?: string[];
         };
         /**
          * InsulinLinkDayResponse
@@ -3088,6 +3090,8 @@ export interface components {
             links: components["schemas"]["MealInsulinLinkItem"][];
             /** Meals */
             meals: components["schemas"]["InsulinLinkMealResponse"][];
+            /** Reviewed Insulin Event Ids */
+            reviewed_insulin_event_ids?: string[];
         };
         /**
          * InsulinLinkEventResponse

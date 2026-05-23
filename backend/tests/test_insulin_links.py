@@ -124,6 +124,13 @@ def test_day_links_relabels_nearby_correction_bolus_as_food_context(
     assert event["link_source"] == "auto"
     assert set(event["suggested_meal_ids"]) == {str(first.id), str(second.id)}
     assert event["covers_multiple_food_events"] is True
+    assert {
+        (link["meal_id"], link["insulin_event_id"], link["source"])
+        for link in response.json()["links"]
+    } == {
+        (str(first.id), str(insulin.id), "auto"),
+        (str(second.id), str(insulin.id), "auto"),
+    }
 
 
 def test_put_day_links_persists_many_to_many_manual_links(
@@ -161,6 +168,10 @@ def test_put_day_links_persists_many_to_many_manual_links(
 
     payload = {
         "date": "2026-05-21",
+        "reviewed_insulin_event_ids": [
+            str(first_bolus.id),
+            str(second_bolus.id),
+        ],
         "links": [
             {"meal_id": str(first.id), "insulin_event_id": str(first_bolus.id)},
             {"meal_id": str(second.id), "insulin_event_id": str(first_bolus.id)},
@@ -181,11 +192,71 @@ def test_put_day_links_persists_many_to_many_manual_links(
         event["id"]: event for event in loaded.json()["insulin_events"]
     }
     assert by_event[str(first_bolus.id)]["context_label"] == "manual"
+    assert by_event[str(first_bolus.id)]["link_source"] == "manual"
     assert set(by_event[str(first_bolus.id)]["linked_meal_ids"]) == {
         str(first.id),
         str(second.id),
     }
     assert by_event[str(second_bolus.id)]["linked_meal_ids"] == [str(first.id)]
+    assert set(loaded.json()["reviewed_insulin_event_ids"]) == {
+        str(first_bolus.id),
+        str(second_bolus.id),
+    }
+
+
+def test_empty_manual_review_suppresses_auto_links(api_client: TestClient) -> None:
+    """A reviewed insulin event can intentionally remain unlinked."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        meal = _seed_meal(
+            session,
+            owner_id,
+            "Перекус",
+            datetime(2026, 5, 21, 16, 0),
+        )
+        insulin = _seed_insulin(
+            session,
+            owner_id,
+            "ns-reviewed-empty",
+            datetime(2026, 5, 21, 16, 5),
+        )
+        session.commit()
+
+    auto = api_client.get(
+        "/timeline/insulin-links",
+        params={"date": "2026-05-21"},
+    )
+    saved = api_client.put(
+        "/timeline/insulin-links",
+        json={
+            "date": "2026-05-21",
+            "reviewed_insulin_event_ids": [str(insulin.id)],
+            "links": [],
+        },
+    )
+    loaded = api_client.get(
+        "/timeline/insulin-links",
+        params={"date": "2026-05-21"},
+    )
+
+    assert auto.status_code == 200
+    assert auto.json()["links"] == [
+        {
+            "meal_id": str(meal.id),
+            "insulin_event_id": str(insulin.id),
+            "source": "auto",
+            "confidence": 0.9,
+            "note": None,
+        }
+    ]
+    assert saved.status_code == 200
+    assert loaded.status_code == 200
+    assert loaded.json()["links"] == []
+    assert loaded.json()["reviewed_insulin_event_ids"] == [str(insulin.id)]
+    event = loaded.json()["insulin_events"][0]
+    assert event["link_source"] == "manual"
+    assert event["context_label"] == "correction"
 
 
 @pytest.mark.parametrize(

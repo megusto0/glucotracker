@@ -11,6 +11,7 @@ SCOPED_DB_MODEL_NAMES = {
     "Meal",
     "MealAuditEvent",
     "MealInsulinLink",
+    "MealInsulinLinkReview",
     "NightscoutGlucoseEntry",
     "NightscoutImportState",
     "NightscoutInsulinEvent",

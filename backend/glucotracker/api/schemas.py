@@ -1293,8 +1293,10 @@ class InsulinLinkDayResponse(BaseModel):
     date: date_type
     meals: list[InsulinLinkMealResponse]
     insulin_events: list[InsulinLinkEventResponse]
+    # Active links are auto-rule results unless the user reviewed an insulin event.
     links: list[MealInsulinLinkItem]
     auto_links: list[MealInsulinLinkItem]
+    reviewed_insulin_event_ids: list[UUID] = Field(default_factory=list)
 
 
 class InsulinLinkDayPutRequest(BaseModel):
@@ -1302,6 +1304,7 @@ class InsulinLinkDayPutRequest(BaseModel):
 
     date: date_type
     links: list[MealInsulinLinkItem] = Field(default_factory=list)
+    reviewed_insulin_event_ids: list[UUID] = Field(default_factory=list)
 
 
 class SensorSessionBase(BaseModel):

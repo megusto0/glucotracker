@@ -26,6 +26,7 @@ from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     Meal,
     MealInsulinLink,
+    MealInsulinLinkReview,
     NightscoutInsulinEvent,
 )
 
@@ -79,11 +80,35 @@ class MealInsulinLinkRepository:
             )
         )
 
+    def reviewed_insulin_ids_for_day(
+        self,
+        day_start: datetime,
+        next_day_start: datetime,
+    ) -> set[UUID]:
+        """Return insulin events with explicit manual review markers."""
+        return set(
+            self.session.scalars(
+                select(MealInsulinLinkReview.insulin_event_id)
+                .join(
+                    NightscoutInsulinEvent,
+                    NightscoutInsulinEvent.id
+                    == MealInsulinLinkReview.insulin_event_id,
+                )
+                .where(
+                    MealInsulinLinkReview.owner_id == self.user_id,
+                    NightscoutInsulinEvent.owner_id == self.user_id,
+                    NightscoutInsulinEvent.timestamp >= day_start - DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp < next_day_start + DAY_BUFFER,
+                )
+            )
+        )
+
     def replace_for_day(
         self,
         day_start: datetime,
         next_day_start: datetime,
         links: list[MealInsulinLinkItem],
+        reviewed_insulin_event_ids: list[UUID],
     ) -> None:
         """Replace reviewed links for one local day."""
         meal_ids = list(
@@ -107,6 +132,7 @@ class MealInsulinLinkRepository:
         )
         meal_id_set = set(meal_ids)
         insulin_id_set = set(insulin_ids)
+        reviewed_id_set = set(reviewed_insulin_event_ids)
 
         for item in links:
             if item.meal_id not in meal_id_set:
@@ -119,6 +145,17 @@ class MealInsulinLinkRepository:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Insulin event is not part of this user's reviewed day.",
                 )
+            reviewed_id_set.add(item.insulin_event_id)
+
+        for insulin_id in reviewed_id_set:
+            if insulin_id not in insulin_id_set:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=(
+                        "Reviewed insulin event is not part of this user's "
+                        "reviewed day."
+                    ),
+                )
 
         if meal_ids or insulin_ids:
             self.session.execute(
@@ -128,6 +165,20 @@ class MealInsulinLinkRepository:
                         MealInsulinLink.meal_id.in_(meal_ids),
                         MealInsulinLink.insulin_event_id.in_(insulin_ids),
                     ),
+                )
+            )
+            self.session.execute(
+                delete(MealInsulinLinkReview).where(
+                    MealInsulinLinkReview.owner_id == self.user_id,
+                    MealInsulinLinkReview.insulin_event_id.in_(insulin_ids),
+                )
+            )
+
+        for insulin_id in reviewed_id_set:
+            self.session.add(
+                MealInsulinLinkReview(
+                    owner_id=self.user_id,
+                    insulin_event_id=insulin_id,
                 )
             )
 
@@ -163,9 +214,14 @@ class InsulinLinkDayService:
         meals = self._meals(day_start, next_day_start)
         insulin = self._insulin(day_start, next_day_start)
         manual_links = self.links.list_for_day(day_start, next_day_start)
+        reviewed_insulin_event_ids = self.links.reviewed_insulin_ids_for_day(
+            day_start,
+            next_day_start,
+        )
         manual_by_insulin: dict[UUID, list[MealInsulinLink]] = {}
         for link in manual_links:
             manual_by_insulin.setdefault(link.insulin_event_id, []).append(link)
+        reviewed_insulin_event_ids.update(manual_by_insulin)
 
         auto_links = _auto_links(meals, insulin)
         auto_by_insulin: dict[UUID, list[AutoLink]] = {}
@@ -189,6 +245,7 @@ class InsulinLinkDayService:
                     event,
                     manual_by_insulin.get(event.id, []),
                     auto_by_insulin.get(event.id, []),
+                    event.id in reviewed_insulin_event_ids,
                 )
                 for event in insulin
                 if _is_visible_event(
@@ -198,7 +255,11 @@ class InsulinLinkDayService:
                     manual_by_insulin,
                 )
             ],
-            links=[_link_item(link) for link in manual_links],
+            links=_effective_link_items(
+                reviewed_insulin_event_ids,
+                manual_by_insulin,
+                auto_links,
+            ),
             auto_links=[
                 MealInsulinLinkItem(
                     meal_id=link.meal_id,
@@ -208,12 +269,21 @@ class InsulinLinkDayService:
                 )
                 for link in auto_links
             ],
+            reviewed_insulin_event_ids=sorted(
+                reviewed_insulin_event_ids,
+                key=str,
+            ),
         )
 
     def replace_day(self, payload: InsulinLinkDayPutRequest) -> InsulinLinkDayResponse:
         """Replace manual links for the payload date and return fresh labels."""
         day_start, next_day_start = _day_bounds(payload.date)
-        self.links.replace_for_day(day_start, next_day_start, payload.links)
+        self.links.replace_for_day(
+            day_start,
+            next_day_start,
+            payload.links,
+            payload.reviewed_insulin_event_ids,
+        )
         self.session.commit()
         return self.get_day(payload.date)
 
@@ -292,12 +362,24 @@ def _event_response(
     event: NightscoutInsulinEvent,
     manual_links: list[MealInsulinLink],
     auto_links: list[AutoLink],
+    is_reviewed: bool,
 ) -> InsulinLinkEventResponse:
     manual_meal_ids = [link.meal_id for link in manual_links]
     auto_meal_ids = [link.meal_id for link in auto_links]
-    active_meal_ids = manual_meal_ids or auto_meal_ids
-    context_label = _context_label(event, manual_meal_ids, auto_meal_ids)
-    link_source = "manual" if manual_meal_ids else "auto" if auto_meal_ids else "none"
+    active_meal_ids = manual_meal_ids if is_reviewed else auto_meal_ids
+    context_label = _context_label(
+        event,
+        manual_meal_ids,
+        auto_meal_ids,
+        is_reviewed,
+    )
+    link_source = (
+        "manual"
+        if is_reviewed
+        else "auto"
+        if auto_meal_ids
+        else "none"
+    )
     confidence_values = (
         [link.confidence for link in manual_links if link.confidence is not None]
         or [link.confidence for link in auto_links]
@@ -327,10 +409,11 @@ def _context_label(
     event: NightscoutInsulinEvent,
     manual_meal_ids: list[UUID],
     auto_meal_ids: list[UUID],
+    is_reviewed: bool,
 ) -> str:
     if manual_meal_ids:
         return "manual"
-    if auto_meal_ids:
+    if auto_meal_ids and not is_reviewed:
         return "food"
     event_type = (event.event_type or "").casefold()
     if "correction" in event_type:
@@ -360,6 +443,27 @@ def _link_item(link: MealInsulinLink) -> MealInsulinLinkItem:
         confidence=link.confidence,
         note=link.note,
     )
+
+
+def _effective_link_items(
+    reviewed_insulin_event_ids: set[UUID],
+    manual_by_insulin: dict[UUID, list[MealInsulinLink]],
+    auto_links: list[AutoLink],
+) -> list[MealInsulinLinkItem]:
+    links: list[MealInsulinLinkItem] = []
+    for manual_links in manual_by_insulin.values():
+        links.extend(_link_item(link) for link in manual_links)
+    links.extend(
+        MealInsulinLinkItem(
+            meal_id=link.meal_id,
+            insulin_event_id=link.insulin_event_id,
+            source="auto",
+            confidence=link.confidence,
+        )
+        for link in auto_links
+        if link.insulin_event_id not in reviewed_insulin_event_ids
+    )
+    return links
 
 
 def _is_visible_event(

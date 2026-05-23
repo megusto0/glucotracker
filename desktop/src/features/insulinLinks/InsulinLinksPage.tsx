@@ -66,7 +66,7 @@ const normalizeLinks = (links: MealInsulinLinkItem[] = []): LinkDraft[] => {
     result.push({
       meal_id: link.meal_id,
       insulin_event_id: link.insulin_event_id,
-      source: "manual",
+      source: link.source ?? "manual",
       confidence: link.confidence,
       note: link.note,
     });
@@ -141,6 +141,8 @@ export function InsulinLinksPage() {
       apiClient.putTimelineInsulinLinks(config, {
         date,
         links,
+        reviewed_insulin_event_ids:
+          query.data?.insulin_events.map((event) => event.id) ?? [],
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.timelineInsulinLinks(date), data);
@@ -171,7 +173,7 @@ export function InsulinLinksPage() {
     });
   };
 
-  const applyAutoLinks = () => {
+  const restoreAutoLinks = () => {
     if (!query.data) return;
     setLinks(normalizeLinks(query.data.auto_links));
   };
@@ -188,7 +190,7 @@ export function InsulinLinksPage() {
         <div>
           <div className="gt-kicker">Nightscout · дневник</div>
           <h1>Связи еды и инсулина</h1>
-          <p>Ручной разбор одного дня без графиков.</p>
+          <p>Авторазбор одного дня по внутренним правилам с ручной правкой.</p>
         </div>
         <div className="insulin-link-toolbar">
           <button
@@ -230,9 +232,9 @@ export function InsulinLinksPage() {
           <section className="insulin-link-column">
             <div className="section-head">
               <span>Bolus events</span>
-              <button className="btn" onClick={applyAutoLinks} type="button">
+              <button className="btn" onClick={restoreAutoLinks} type="button">
                 <Sparkles size={13} />
-                Применить авто
+                Вернуть авто
               </button>
             </div>
             <div className="insulin-event-list">
@@ -345,6 +347,7 @@ export function InsulinLinksPage() {
                       <small>
                         {formatTime(meal?.eaten_at)} · {formatTime(event?.timestamp)}
                       </small>
+                      <small>{link.source === "auto" ? "автоправило" : "вручную"}</small>
                     </span>
                     <button
                       aria-label="Удалить связь"

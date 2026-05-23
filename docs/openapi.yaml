@@ -2399,6 +2399,12 @@ components:
             $ref: '#/components/schemas/MealInsulinLinkItem'
           title: Links
           type: array
+        reviewed_insulin_event_ids:
+          items:
+            format: uuid
+            type: string
+          title: Reviewed Insulin Event Ids
+          type: array
       required:
       - date
       title: InsulinLinkDayPutRequest
@@ -2429,6 +2435,12 @@ components:
           items:
             $ref: '#/components/schemas/InsulinLinkMealResponse'
           title: Meals
+          type: array
+        reviewed_insulin_event_ids:
+          items:
+            format: uuid
+            type: string
+          title: Reviewed Insulin Event Ids
           type: array
       required:
       - date
