@@ -122,7 +122,11 @@ export type KcalBalanceResponse = components["schemas"]["KcalBalanceResponse"];
 export type KcalBalanceDay = components["schemas"]["KcalBalanceDay"];
 export type KcalBalanceRangeResponse = components["schemas"]["KcalBalanceRangeResponse"];
 export type TwinCurveResponse = components["schemas"]["TwinCurveResponse"];
+export type TwinDataSummaryResponse =
+  components["schemas"]["TwinDataSummaryResponse"];
 export type TwinFitLogEntry = components["schemas"]["TwinFitLogEntry"];
+export type TwinFitRequest = components["schemas"]["TwinFitRequest"];
+export type TwinFitResponse = components["schemas"]["TwinFitResponse"];
 export type TwinParamsPatch = components["schemas"]["TwinParamsPatch"];
 export type TwinParamsRead = components["schemas"]["TwinParamsRead"];
 
@@ -989,6 +993,11 @@ export const apiClient = {
   getTwinParams: (config: ApiConfig) =>
     apiRequest<TwinParamsRead>("/twin/params", config),
 
+  getTwinDataSummary: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<TwinDataSummaryResponse>("/twin/data/summary", config, {
+      query: { from, to },
+    }),
+
   patchTwinParams: (config: ApiConfig, body: TwinParamsPatch) =>
     apiRequest<TwinParamsRead>("/twin/params", config, {
       method: "PATCH",
@@ -1003,6 +1012,13 @@ export const apiClient = {
   getTwinFitHistory: (config: ApiConfig, limit = 20) =>
     apiRequest<TwinFitLogEntry[]>("/twin/fit/history", config, {
       query: { limit },
+    }),
+
+  fitTwin: (config: ApiConfig, body: TwinFitRequest) =>
+    apiRequest<TwinFitResponse>("/twin/fit", config, {
+      method: "POST",
+      body,
+      timeoutMs: 90_000,
     }),
 
   getTwinCurve: (

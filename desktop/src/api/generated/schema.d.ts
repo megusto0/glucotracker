@@ -1599,6 +1599,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/twin/fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fit Twin
+         * @description Fit and persist current-user digital twin parameters.
+         */
+        post: operations["fitTwin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/twin/fit/history": {
         parameters: {
             query?: never;
@@ -1611,6 +1631,26 @@ export interface paths {
          * @description Return newest digital twin fit/manual-change history rows.
          */
         get: operations["getTwinFitHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/twin/data/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin Data Summary
+         * @description Return data availability counters for the fit wizard.
+         */
+        get: operations["getTwinDataSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5837,6 +5877,40 @@ export interface components {
             notes?: string[];
         };
         /**
+         * TwinDataSummaryResponse
+         * @description Data availability summary for automatic twin fitting.
+         */
+        TwinDataSummaryResponse: {
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+            /** Cgm Count */
+            cgm_count: number;
+            /** Fingerstick Count */
+            fingerstick_count: number;
+            /** Meal Count */
+            meal_count: number;
+            /** Insulin Count */
+            insulin_count: number;
+            /** Days With Cgm */
+            days_with_cgm: number;
+            /** First Cgm At */
+            first_cgm_at?: string | null;
+            /** Last Cgm At */
+            last_cgm_at?: string | null;
+            /** Ready For Fit */
+            ready_for_fit: boolean;
+            /** Fit Blockers */
+            fit_blockers?: string[];
+        };
+        /**
          * TwinFitLogEntry
          * @description One digital twin fit/manual-change history row.
          */
@@ -5875,6 +5949,70 @@ export interface components {
             iterations?: number | null;
             /** Notes */
             notes?: string | null;
+        };
+        /**
+         * TwinFitRequest
+         * @description Request an automatic digital twin fitting run.
+         */
+        TwinFitRequest: {
+            /** Data From */
+            data_from?: string | null;
+            /** Data To */
+            data_to?: string | null;
+        };
+        /**
+         * TwinFitResponse
+         * @description Automatic digital twin fitting response.
+         */
+        TwinFitResponse: {
+            /** Applied */
+            applied: boolean;
+            params: components["schemas"]["TwinParamsRead"];
+            previous_params?: components["schemas"]["TwinParamsRead"] | null;
+            result: components["schemas"]["TwinFitResultRead"];
+            /** Notes */
+            notes?: string[];
+        };
+        /**
+         * TwinFitResultRead
+         * @description Applied or rejected automatic fit metrics.
+         */
+        TwinFitResultRead: {
+            /** Icr Morning */
+            icr_morning: number;
+            /** Icr Day */
+            icr_day: number;
+            /** Icr Evening */
+            icr_evening: number;
+            /** Isf */
+            isf: number;
+            /** Baseline Drift Per Hour */
+            baseline_drift_per_hour: number;
+            /** Train Mae Mmol */
+            train_mae_mmol: number;
+            /** Holdout Mae Mmol */
+            holdout_mae_mmol: number;
+            /** Train Window Count */
+            train_window_count: number;
+            /** Holdout Window Count */
+            holdout_window_count: number;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "least_squares" | "fallback_to_defaults";
+            /** Converged */
+            converged: boolean;
+            /** Iterations */
+            iterations: number;
+            /** Per Window Train Mae */
+            per_window_train_mae?: number[];
+            /** Per Window Holdout Mae */
+            per_window_holdout_mae?: number[];
+            /** Per Window Train Dates */
+            per_window_train_dates?: string[];
+            /** Per Window Holdout Dates */
+            per_window_holdout_dates?: string[];
         };
         /**
          * TwinParamsPatch
@@ -9330,6 +9468,41 @@ export interface operations {
             };
         };
     };
+    fitTwin: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwinFitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinFitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getTwinFitHistory: {
         parameters: {
             query?: {
@@ -9350,6 +9523,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TwinFitLogEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTwinDataSummary: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinDataSummaryResponse"];
                 };
             };
             /** @description Validation Error */

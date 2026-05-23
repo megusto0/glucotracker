@@ -1579,6 +1579,60 @@ class TwinParamsPatch(BaseModel):
         return self
 
 
+class TwinFitRequest(BaseModel):
+    """Request an automatic digital twin fitting run."""
+
+    data_from: datetime | None = None
+    data_to: datetime | None = None
+
+
+class TwinFitResultRead(BaseModel):
+    """Applied or rejected automatic fit metrics."""
+
+    icr_morning: float
+    icr_day: float
+    icr_evening: float
+    isf: float
+    baseline_drift_per_hour: float
+    train_mae_mmol: float
+    holdout_mae_mmol: float
+    train_window_count: int
+    holdout_window_count: int
+    method: Literal["least_squares", "fallback_to_defaults"]
+    converged: bool
+    iterations: int
+    per_window_train_mae: list[float] = Field(default_factory=list)
+    per_window_holdout_mae: list[float] = Field(default_factory=list)
+    per_window_train_dates: list[date_type] = Field(default_factory=list)
+    per_window_holdout_dates: list[date_type] = Field(default_factory=list)
+
+
+class TwinFitResponse(BaseModel):
+    """Automatic digital twin fitting response."""
+
+    applied: bool
+    params: TwinParamsRead
+    previous_params: TwinParamsRead | None = None
+    result: TwinFitResultRead
+    notes: list[str] = Field(default_factory=list)
+
+
+class TwinDataSummaryResponse(BaseModel):
+    """Data availability summary for automatic twin fitting."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    cgm_count: int
+    fingerstick_count: int
+    meal_count: int
+    insulin_count: int
+    days_with_cgm: int
+    first_cgm_at: datetime | None = None
+    last_cgm_at: datetime | None = None
+    ready_for_fit: bool
+    fit_blockers: list[str] = Field(default_factory=list)
+
+
 class TwinFitLogEntry(BaseModel):
     """One digital twin fit/manual-change history row."""
 

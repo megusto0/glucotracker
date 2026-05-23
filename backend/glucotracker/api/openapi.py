@@ -24,6 +24,7 @@ SCOPED_PATH_PREFIXES: tuple[str, ...] = (
     "/database",
     "/autocomplete",
     "/products",
+    "/twin",
 )
 
 PUBLIC_PATHS: set[str] = {
@@ -38,6 +39,7 @@ GLUCOSE_FEATURE_PATH_PREFIXES: tuple[str, ...] = (
     "/sensors",
     "/timeline/insulin-links",
     "/reports/endocrinologist",
+    "/twin",
 )
 
 NIGHTSCOUT_FEATURE_PATH_PREFIXES: tuple[str, ...] = (

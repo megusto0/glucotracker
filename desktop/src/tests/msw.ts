@@ -886,6 +886,22 @@ export const server = setupServer(
       hint: "ready",
     });
   }),
+  http.get("http://api.test/twin/data/summary", ({ request }) => {
+    const url = new URL(request.url);
+    return HttpResponse.json({
+      from_datetime: url.searchParams.get("from") ?? "2026-03-28T00:00:00",
+      to_datetime: url.searchParams.get("to") ?? "2026-04-27T00:00:00",
+      cgm_count: 8640,
+      fingerstick_count: 42,
+      meal_count: 78,
+      insulin_count: 75,
+      days_with_cgm: 30,
+      first_cgm_at: "2026-03-28T00:00:00.000Z",
+      last_cgm_at: "2026-04-27T00:00:00.000Z",
+      ready_for_fit: true,
+      fit_blockers: [],
+    });
+  }),
   http.post("http://api.test/twin/params/reset", () =>
     HttpResponse.json({
       id: "twin-params-1",
@@ -913,6 +929,77 @@ export const server = setupServer(
       hint: "not_fitted",
     }),
   ),
+  http.post("http://api.test/twin/fit", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const previous = {
+      id: "twin-params-1",
+      icr_morning: null,
+      icr_day: null,
+      icr_evening: null,
+      morning_start_minutes: 360,
+      day_start_minutes: 660,
+      evening_start_minutes: 1080,
+      isf: null,
+      dia_minutes: 270,
+      carb_duration_minutes: 180,
+      baseline_drift_per_hour: 0,
+      last_fit_at: null,
+      last_fit_data_from: null,
+      last_fit_data_to: null,
+      last_fit_train_window_count: null,
+      last_fit_holdout_window_count: null,
+      last_fit_train_mae_mmol: null,
+      last_fit_holdout_mae_mmol: null,
+      last_fit_method: null,
+      last_fit_converged: null,
+      updated_at: now,
+      is_fitted: false,
+      hint: "not_fitted",
+    };
+    const next = {
+      ...previous,
+      icr_morning: 11.8,
+      icr_day: 12.4,
+      icr_evening: 13.1,
+      isf: 2.05,
+      baseline_drift_per_hour: 0.02,
+      last_fit_at: now,
+      last_fit_data_from: body.data_from ?? "2026-03-28T00:00:00",
+      last_fit_data_to: body.data_to ?? "2026-04-27T00:00:00",
+      last_fit_train_window_count: 96,
+      last_fit_holdout_window_count: 24,
+      last_fit_train_mae_mmol: 1.32,
+      last_fit_holdout_mae_mmol: 1.68,
+      last_fit_method: "least_squares",
+      last_fit_converged: true,
+      is_fitted: true,
+      hint: "ready",
+    };
+    return HttpResponse.json({
+      applied: true,
+      params: next,
+      previous_params: previous,
+      result: {
+        icr_morning: 11.8,
+        icr_day: 12.4,
+        icr_evening: 13.1,
+        isf: 2.05,
+        baseline_drift_per_hour: 0.02,
+        train_mae_mmol: 1.32,
+        holdout_mae_mmol: 1.68,
+        train_window_count: 96,
+        holdout_window_count: 24,
+        method: "least_squares",
+        converged: true,
+        iterations: 2,
+        per_window_train_mae: [],
+        per_window_holdout_mae: [],
+        per_window_train_dates: [],
+        per_window_holdout_dates: [],
+      },
+      notes: ["Подгонка является исследовательской моделью."],
+    });
+  }),
   http.get("http://api.test/twin/fit/history", () =>
     HttpResponse.json([
       {
