@@ -6328,6 +6328,427 @@ components:
       - episodes
       title: TimelineResponse
       type: object
+    TwinCurveAnchor:
+      description: Known glucose anchor used by the digital twin curve.
+      properties:
+        mmol:
+          title: Mmol
+          type: number
+        source:
+          default: fingerstick
+          enum:
+          - fingerstick
+          - cgm
+          title: Source
+          type: string
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+      required:
+      - timestamp
+      - mmol
+      title: TwinCurveAnchor
+      type: object
+    TwinCurveFoodEvent:
+      description: Food marker included in the digital twin curve.
+      properties:
+        carbs_g:
+          title: Carbs G
+          type: number
+        kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Kcal
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+        title:
+          title: Title
+          type: string
+      required:
+      - timestamp
+      - title
+      - carbs_g
+      title: TwinCurveFoodEvent
+      type: object
+    TwinCurveInsulinEvent:
+      description: Read-only insulin marker included in the digital twin curve.
+      properties:
+        event_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Event Type
+        insulin_units:
+          title: Insulin Units
+          type: number
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+      required:
+      - timestamp
+      - insulin_units
+      title: TwinCurveInsulinEvent
+      type: object
+    TwinCurvePoint:
+      description: One digital twin curve point.
+      properties:
+        ci_high:
+          title: Ci High
+          type: number
+        ci_low:
+          title: Ci Low
+          type: number
+        confidence:
+          title: Confidence
+          type: number
+        mmol:
+          title: Mmol
+          type: number
+        mode:
+          enum:
+          - interpolation
+          - forecast
+          - boundary
+          title: Mode
+          type: string
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+      required:
+      - timestamp
+      - mmol
+      - ci_low
+      - ci_high
+      - confidence
+      - mode
+      title: TwinCurvePoint
+      type: object
+    TwinCurveResponse:
+      description: Digital twin reconstruction/forecast response.
+      properties:
+        anchors:
+          items:
+            $ref: '#/components/schemas/TwinCurveAnchor'
+          title: Anchors
+          type: array
+        food_events:
+          items:
+            $ref: '#/components/schemas/TwinCurveFoodEvent'
+          title: Food Events
+          type: array
+        from_datetime:
+          format: date-time
+          title: From Datetime
+          type: string
+        insulin_events:
+          items:
+            $ref: '#/components/schemas/TwinCurveInsulinEvent'
+          title: Insulin Events
+          type: array
+        notes:
+          items:
+            type: string
+          title: Notes
+          type: array
+        params:
+          $ref: '#/components/schemas/TwinParamsRead'
+        points:
+          items:
+            $ref: '#/components/schemas/TwinCurvePoint'
+          title: Points
+          type: array
+        to_datetime:
+          format: date-time
+          title: To Datetime
+          type: string
+      required:
+      - from_datetime
+      - to_datetime
+      - points
+      - anchors
+      - food_events
+      - insulin_events
+      - params
+      title: TwinCurveResponse
+      type: object
+    TwinFitLogEntry:
+      description: One digital twin fit/manual-change history row.
+      properties:
+        converged:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Converged
+        data_from:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Data From
+        data_to:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Data To
+        fit_at:
+          format: date-time
+          title: Fit At
+          type: string
+        holdout_mae_mmol:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Holdout Mae Mmol
+        holdout_window_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Holdout Window Count
+        id:
+          format: uuid
+          title: Id
+          type: string
+        iterations:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Iterations
+        method:
+          title: Method
+          type: string
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        params_snapshot:
+          additionalProperties: true
+          title: Params Snapshot
+          type: object
+        train_mae_mmol:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Train Mae Mmol
+        train_window_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Train Window Count
+      required:
+      - id
+      - fit_at
+      - params_snapshot
+      - method
+      title: TwinFitLogEntry
+      type: object
+    TwinParamsPatch:
+      description: Manual digital twin parameter override.
+      properties:
+        baseline_drift_per_hour:
+          anyOf:
+          - maximum: 1.0
+            minimum: -1.0
+            type: number
+          - type: 'null'
+          title: Baseline Drift Per Hour
+        carb_duration_minutes:
+          anyOf:
+          - maximum: 360.0
+            minimum: 60.0
+            type: integer
+          - type: 'null'
+          title: Carb Duration Minutes
+        day_start_minutes:
+          anyOf:
+          - maximum: 1439.0
+            minimum: 0.0
+            type: integer
+          - type: 'null'
+          title: Day Start Minutes
+        dia_minutes:
+          anyOf:
+          - maximum: 480.0
+            minimum: 120.0
+            type: integer
+          - type: 'null'
+          title: Dia Minutes
+        evening_start_minutes:
+          anyOf:
+          - maximum: 1439.0
+            minimum: 0.0
+            type: integer
+          - type: 'null'
+          title: Evening Start Minutes
+        icr_day:
+          anyOf:
+          - maximum: 40.0
+            minimum: 3.0
+            type: number
+          - type: 'null'
+          title: Icr Day
+        icr_evening:
+          anyOf:
+          - maximum: 40.0
+            minimum: 3.0
+            type: number
+          - type: 'null'
+          title: Icr Evening
+        icr_morning:
+          anyOf:
+          - maximum: 40.0
+            minimum: 3.0
+            type: number
+          - type: 'null'
+          title: Icr Morning
+        isf:
+          anyOf:
+          - maximum: 8.0
+            minimum: 0.2
+            type: number
+          - type: 'null'
+          title: Isf
+        morning_start_minutes:
+          anyOf:
+          - maximum: 1439.0
+            minimum: 0.0
+            type: integer
+          - type: 'null'
+          title: Morning Start Minutes
+      title: TwinParamsPatch
+      type: object
+    TwinParamsRead:
+      description: Current per-user digital twin parameters.
+      properties:
+        baseline_drift_per_hour:
+          title: Baseline Drift Per Hour
+          type: number
+        carb_duration_minutes:
+          title: Carb Duration Minutes
+          type: integer
+        day_start_minutes:
+          title: Day Start Minutes
+          type: integer
+        dia_minutes:
+          title: Dia Minutes
+          type: integer
+        evening_start_minutes:
+          title: Evening Start Minutes
+          type: integer
+        hint:
+          enum:
+          - not_fitted
+          - ready
+          - stale
+          title: Hint
+          type: string
+        icr_day:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Icr Day
+        icr_evening:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Icr Evening
+        icr_morning:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Icr Morning
+        id:
+          format: uuid
+          title: Id
+          type: string
+        is_fitted:
+          title: Is Fitted
+          type: boolean
+        isf:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Isf
+        last_fit_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Fit At
+        last_fit_converged:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Last Fit Converged
+        last_fit_data_from:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Fit Data From
+        last_fit_data_to:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Fit Data To
+        last_fit_holdout_mae_mmol:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Last Fit Holdout Mae Mmol
+        last_fit_holdout_window_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Fit Holdout Window Count
+        last_fit_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Fit Method
+        last_fit_train_mae_mmol:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Last Fit Train Mae Mmol
+        last_fit_train_window_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Fit Train Window Count
+        morning_start_minutes:
+          title: Morning Start Minutes
+          type: integer
+        updated_at:
+          format: date-time
+          title: Updated At
+          type: string
+      required:
+      - id
+      - morning_start_minutes
+      - day_start_minutes
+      - evening_start_minutes
+      - dia_minutes
+      - carb_duration_minutes
+      - baseline_drift_per_hour
+      - updated_at
+      - is_fitted
+      - hint
+      title: TwinParamsRead
+      type: object
     UserGoalsResponse:
       properties:
         carb_goal_g_per_day:
@@ -10489,3 +10910,198 @@ paths:
       x-glucotracker-required-feature: glucose
       x-glucotracker-required-role: gluco
       x-glucotracker-scoped: true
+  /twin/curve:
+    get:
+      description: Return display-only digital twin reconstruction and forecast points.
+      operationId: getTwinCurve
+      parameters:
+      - in: query
+        name: from
+        required: true
+        schema:
+          format: date-time
+          title: From
+          type: string
+      - in: query
+        name: to
+        required: true
+        schema:
+          format: date-time
+          title: To
+          type: string
+      - in: query
+        name: step_minutes
+        required: false
+        schema:
+          default: 5
+          maximum: 60
+          minimum: 1
+          title: Step Minutes
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinCurveResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Twin Curve
+      tags:
+      - twin
+  /twin/fit/history:
+    get:
+      description: Return newest digital twin fit/manual-change history rows.
+      operationId: getTwinFitHistory
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          title: Limit
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TwinFitLogEntry'
+                title: Response Gettwinfithistory
+                type: array
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Twin Fit History
+      tags:
+      - twin
+  /twin/params:
+    get:
+      description: Return current digital twin parameters for the user.
+      operationId: getTwinParams
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinParamsRead'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Twin Params
+      tags:
+      - twin
+    patch:
+      description: Apply a manual digital twin parameter override.
+      operationId: patchTwinParams
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwinParamsPatch'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinParamsRead'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Patch Twin Params
+      tags:
+      - twin
+  /twin/params/reset:
+    post:
+      description: Reset fitted digital twin parameters to defaults.
+      operationId: resetTwinParams
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinParamsRead'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Reset Twin Params
+      tags:
+      - twin

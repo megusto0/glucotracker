@@ -26,6 +26,7 @@ from glucotracker.api.routers import (
     reports_router,
     schedule_router,
     stats_router,
+    twin_router,
 )
 from glucotracker.api.schemas import HealthResponse
 from glucotracker.application.nightscout_background import NightscoutBackgroundImporter
@@ -98,6 +99,7 @@ app.include_router(products_router)
 app.include_router(reports_router)
 app.include_router(schedule_router)
 app.include_router(stats_router)
+app.include_router(twin_router)
 app.openapi = lambda: build_openapi(app)
 
 

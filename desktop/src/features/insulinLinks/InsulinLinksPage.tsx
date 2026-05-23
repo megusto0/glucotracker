@@ -113,6 +113,8 @@ const selectedLinkCount = (links: LinkDraft[], insulinId: string) =>
 const timeValue = (value?: string | null) =>
   value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 
+const FOOD_ONLY_CLUSTER_WINDOW_MS = 45 * 60 * 1000;
+
 const episodeTitle = (meals: Meal[], insulin: InsulinEvent[], kind: EpisodeKind) => {
   if (meals.length > 1) return `${meals[0].title} + ${meals.length - 1}`;
   if (meals.length === 1) return meals[0].title;
@@ -150,6 +152,17 @@ const buildEpisodes = (data: InsulinLinkDayResponse, links: LinkDraft[]): Episod
       addEdge(`m:${link.meal_id}`, `i:${link.insulin_event_id}`);
     }
   });
+  const linkedMealIds = new Set(links.map((link) => link.meal_id));
+  const foodOnlyMeals = data.meals
+    .filter((meal) => !linkedMealIds.has(meal.id))
+    .sort((a, b) => timeValue(a.eaten_at) - timeValue(b.eaten_at));
+  for (let index = 1; index < foodOnlyMeals.length; index += 1) {
+    const previous = foodOnlyMeals[index - 1];
+    const current = foodOnlyMeals[index];
+    if (timeValue(current.eaten_at) - timeValue(previous.eaten_at) <= FOOD_ONLY_CLUSTER_WINDOW_MS) {
+      addEdge(`m:${previous.id}`, `m:${current.id}`);
+    }
+  }
 
   const visited = new Set<string>();
   const components: string[][] = [];

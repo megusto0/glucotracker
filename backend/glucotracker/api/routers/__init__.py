@@ -17,6 +17,7 @@ from glucotracker.api.routers.products import router as products_router
 from glucotracker.api.routers.reports import router as reports_router
 from glucotracker.api.routers.schedule import router as schedule_router
 from glucotracker.api.routers.stats import router as stats_router
+from glucotracker.api.routers.twin import router as twin_router
 
 __all__ = [
     "admin_router",
@@ -36,4 +37,5 @@ __all__ = [
     "reports_router",
     "schedule_router",
     "stats_router",
+    "twin_router",
 ]

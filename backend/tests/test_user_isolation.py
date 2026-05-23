@@ -34,6 +34,7 @@ from glucotracker.infra.db.models import (
     DailyTotal,
     FingerstickReading,
     Meal,
+    MealInsulinLink,
     MealItem,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
@@ -41,6 +42,8 @@ from glucotracker.infra.db.models import (
     Pattern,
     Photo,
     SensorSession,
+    TwinFitLog,
+    TwinParams,
     User,
     UserProfile,
 )
@@ -364,6 +367,39 @@ def _seed_nightscout_insulin(
     return event
 
 
+def _seed_twin_params(
+    session: Session,
+    owner_id: UUID,
+    icr_morning: float,
+) -> TwinParams:
+    params = TwinParams(
+        owner_id=owner_id,
+        icr_morning=icr_morning,
+        icr_day=12,
+        icr_evening=13,
+        isf=2,
+    )
+    session.add(params)
+    session.flush()
+    return params
+
+
+def _seed_twin_fit_log(
+    session: Session,
+    owner_id: UUID,
+    marker: str,
+) -> TwinFitLog:
+    row = TwinFitLog(
+        owner_id=owner_id,
+        fit_at=datetime(2026, 5, 1, 8, 0),
+        params_snapshot={"marker": marker},
+        method="manual",
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
 def _populate(env: dict) -> dict:
     """Seed both users with private data. Returns entity IDs for assertions."""
     sf = env["session_factory"]
@@ -387,6 +423,8 @@ def _populate(env: dict) -> dict:
     _seed_nightscout_settings(s, alice)
     alice_ns_glucose = _seed_nightscout_glucose(s, alice, now - timedelta(hours=1))
     alice_ns_insulin = _seed_nightscout_insulin(s, alice, now - timedelta(hours=1))
+    alice_twin_params = _seed_twin_params(s, alice, 11)
+    alice_twin_fit_log = _seed_twin_fit_log(s, alice, "alice")
     s.commit()
     s.close()
 
@@ -402,6 +440,8 @@ def _populate(env: dict) -> dict:
     _seed_nightscout_settings(s, bob)
     bob_ns_glucose = _seed_nightscout_glucose(s, bob, now + timedelta(hours=2))
     bob_ns_insulin = _seed_nightscout_insulin(s, bob, now + timedelta(hours=2))
+    bob_twin_params = _seed_twin_params(s, bob, 22)
+    bob_twin_fit_log = _seed_twin_fit_log(s, bob, "bob")
     s.commit()
     s.close()
 
@@ -412,12 +452,16 @@ def _populate(env: dict) -> dict:
         "alice_fingerstick": alice_fingerstick.id,
         "alice_ns_glucose": alice_ns_glucose.id,
         "alice_ns_insulin": alice_ns_insulin.id,
+        "alice_twin_params": alice_twin_params.id,
+        "alice_twin_fit_log": alice_twin_fit_log.id,
         "bob_meal": bob_meal.id,
         "bob_pattern": bob_pattern.id,
         "bob_sensor": bob_sensor.id,
         "bob_fingerstick": bob_fingerstick.id,
         "bob_ns_glucose": bob_ns_glucose.id,
         "bob_ns_insulin": bob_ns_insulin.id,
+        "bob_twin_params": bob_twin_params.id,
+        "bob_twin_fit_log": bob_twin_fit_log.id,
         "now": now,
         "today": today,
         "alice_day": alice_day,
@@ -611,6 +655,47 @@ class TestGETIsolation:
         data = r.json()
         assert str(self.ids["bob_sensor"]) not in _collect_ids(data)
 
+    def test_twin_params(self):
+        r = self.client.get("/twin/params", headers=self.alice_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["id"] == str(self.ids["alice_twin_params"])
+        assert data["icr_morning"] == 11
+        assert str(self.ids["bob_twin_params"]) not in _collect_ids(data)
+
+        r = self.client.get("/twin/params", headers=self.bob_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["id"] == str(self.ids["bob_twin_params"])
+        assert data["icr_morning"] == 22
+        assert str(self.ids["alice_twin_params"]) not in _collect_ids(data)
+
+    def test_twin_fit_history(self):
+        r = self.client.get("/twin/fit/history", headers=self.alice_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert str(self.ids["alice_twin_fit_log"]) in _collect_ids(data)
+        assert str(self.ids["bob_twin_fit_log"]) not in _collect_ids(data)
+
+        r = self.client.get("/twin/fit/history", headers=self.bob_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert str(self.ids["bob_twin_fit_log"]) in _collect_ids(data)
+        assert str(self.ids["alice_twin_fit_log"]) not in _collect_ids(data)
+
+    def test_twin_curve(self):
+        now = self.ids["now"]
+        params = {
+            "from": (now - timedelta(hours=2)).isoformat(),
+            "to": (now + timedelta(hours=2)).isoformat(),
+            "step_minutes": 30,
+        }
+        r = self.client.get("/twin/curve", params=params, headers=self.alice_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert str(self.ids["bob_twin_params"]) not in _collect_ids(data)
+        assert str(self.ids["bob_fingerstick"]) not in _collect_ids(data)
+
     def test_list_fingersticks(self):
         r = self.client.get("/fingersticks", headers=self.alice_headers)
         assert r.status_code == 200
@@ -716,6 +801,32 @@ class TestGETIsolation:
         data = r.json()
         assert str(self.ids["alice_meal"]) not in _collect_ids(data)
         assert str(self.ids["bob_meal"]) in _collect_ids(data)
+
+    def test_timeline_insulin_links(self):
+        params = {"date": self.ids["today"].isoformat()}
+        r = self.client.get(
+            "/timeline/insulin-links",
+            params=params,
+            headers=self.alice_headers,
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert str(self.ids["alice_meal"]) in _collect_ids(data)
+        assert str(self.ids["alice_ns_insulin"]) in _collect_ids(data)
+        assert str(self.ids["bob_meal"]) not in _collect_ids(data)
+        assert str(self.ids["bob_ns_insulin"]) not in _collect_ids(data)
+
+        r = self.client.get(
+            "/timeline/insulin-links",
+            params=params,
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert str(self.ids["bob_meal"]) in _collect_ids(data)
+        assert str(self.ids["bob_ns_insulin"]) in _collect_ids(data)
+        assert str(self.ids["alice_meal"]) not in _collect_ids(data)
+        assert str(self.ids["alice_ns_insulin"]) not in _collect_ids(data)
 
     def test_autocomplete(self):
         r = self.client.get(
@@ -1273,6 +1384,50 @@ class TestMutationIsolation:
             date=today - timedelta(days=2),
         ).one()
         assert activity.steps == 1000
+        s.close()
+
+    def test_put_timeline_insulin_links_ownership(self):
+        payload = {
+            "date": self.ids["today"].isoformat(),
+            "links": [
+                {
+                    "meal_id": str(self.ids["alice_meal"]),
+                    "insulin_event_id": str(self.ids["alice_ns_insulin"]),
+                    "source": "manual",
+                    "confidence": 1,
+                }
+            ],
+            "reviewed_insulin_event_ids": [],
+        }
+        r = self.client.put(
+            "/timeline/insulin-links",
+            json=payload,
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 404
+
+        payload["links"] = [
+            {
+                "meal_id": str(self.ids["bob_meal"]),
+                "insulin_event_id": str(self.ids["bob_ns_insulin"]),
+                "source": "manual",
+                "confidence": 1,
+            }
+        ]
+        r = self.client.put(
+            "/timeline/insulin-links",
+            json=payload,
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 200
+
+        sf = self.env["session_factory"]
+        s = sf()
+        link = s.query(MealInsulinLink).filter_by(
+            meal_id=self.ids["bob_meal"],
+            insulin_event_id=self.ids["bob_ns_insulin"],
+        ).one()
+        assert str(link.owner_id) == str(self.bob)
         s.close()
 
     def test_admin_recalculate_ownership(self):

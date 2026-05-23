@@ -7,7 +7,7 @@ from datetime import date as date_type
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from glucotracker.domain.entities import (
     ItemSourceKind,
@@ -1516,6 +1516,136 @@ class GlucoseDashboardResponse(BaseModel):
     quality: SensorQualityResponse
     summary: GlucoseDashboardSummary
     bias_over_lifetime: BiasOverLifetimeData | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class TwinParamsRead(BaseModel):
+    """Current per-user digital twin parameters."""
+
+    id: UUID
+    icr_morning: float | None = None
+    icr_day: float | None = None
+    icr_evening: float | None = None
+    morning_start_minutes: int
+    day_start_minutes: int
+    evening_start_minutes: int
+    isf: float | None = None
+    dia_minutes: int
+    carb_duration_minutes: int
+    baseline_drift_per_hour: float
+    last_fit_at: datetime | None = None
+    last_fit_data_from: datetime | None = None
+    last_fit_data_to: datetime | None = None
+    last_fit_train_window_count: int | None = None
+    last_fit_holdout_window_count: int | None = None
+    last_fit_train_mae_mmol: float | None = None
+    last_fit_holdout_mae_mmol: float | None = None
+    last_fit_method: str | None = None
+    last_fit_converged: bool | None = None
+    updated_at: datetime
+    is_fitted: bool
+    hint: Literal["not_fitted", "ready", "stale"]
+
+
+class TwinParamsPatch(BaseModel):
+    """Manual digital twin parameter override."""
+
+    icr_morning: float | None = Field(default=None, ge=3, le=40)
+    icr_day: float | None = Field(default=None, ge=3, le=40)
+    icr_evening: float | None = Field(default=None, ge=3, le=40)
+    morning_start_minutes: int | None = Field(default=None, ge=0, le=1439)
+    day_start_minutes: int | None = Field(default=None, ge=0, le=1439)
+    evening_start_minutes: int | None = Field(default=None, ge=0, le=1439)
+    isf: float | None = Field(default=None, ge=0.2, le=8)
+    dia_minutes: int | None = Field(default=None, ge=120, le=480)
+    carb_duration_minutes: int | None = Field(default=None, ge=60, le=360)
+    baseline_drift_per_hour: float | None = Field(default=None, ge=-1, le=1)
+
+    @model_validator(mode="after")
+    def validate_patch_slot_order(self) -> TwinParamsPatch:
+        """Reject an explicitly invalid slot order."""
+        values = [
+            self.morning_start_minutes,
+            self.day_start_minutes,
+            self.evening_start_minutes,
+        ]
+        if all(value is not None for value in values) and not (
+            values[0] < values[1] < values[2]
+        ):
+            raise ValueError(
+                "morning_start_minutes must be less than day_start_minutes "
+                "and day_start_minutes must be less than evening_start_minutes"
+            )
+        return self
+
+
+class TwinFitLogEntry(BaseModel):
+    """One digital twin fit/manual-change history row."""
+
+    id: UUID
+    fit_at: datetime
+    data_from: datetime | None = None
+    data_to: datetime | None = None
+    params_snapshot: dict[str, Any]
+    train_window_count: int | None = None
+    holdout_window_count: int | None = None
+    train_mae_mmol: float | None = None
+    holdout_mae_mmol: float | None = None
+    method: str
+    converged: bool | None = None
+    iterations: int | None = None
+    notes: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TwinCurvePoint(BaseModel):
+    """One digital twin curve point."""
+
+    timestamp: datetime
+    mmol: float
+    ci_low: float
+    ci_high: float
+    confidence: float
+    mode: Literal["interpolation", "forecast", "boundary"]
+
+
+class TwinCurveAnchor(BaseModel):
+    """Known glucose anchor used by the digital twin curve."""
+
+    timestamp: datetime
+    mmol: float
+    source: Literal["fingerstick", "cgm"] = "fingerstick"
+
+
+class TwinCurveFoodEvent(BaseModel):
+    """Food marker included in the digital twin curve."""
+
+    timestamp: datetime
+    title: str
+    carbs_g: float
+    kcal: float | None = None
+
+
+class TwinCurveInsulinEvent(BaseModel):
+    """Read-only insulin marker included in the digital twin curve."""
+
+    timestamp: datetime
+    insulin_units: float
+    event_type: str | None = None
+    notes: str | None = None
+
+
+class TwinCurveResponse(BaseModel):
+    """Digital twin reconstruction/forecast response."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    points: list[TwinCurvePoint]
+    anchors: list[TwinCurveAnchor]
+    food_events: list[TwinCurveFoodEvent]
+    insulin_events: list[TwinCurveInsulinEvent]
+    params: TwinParamsRead
     notes: list[str] = Field(default_factory=list)
 
 
