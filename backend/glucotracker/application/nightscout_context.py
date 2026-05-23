@@ -287,22 +287,26 @@ class FoodEpisodeService:
             linked_insulin = [
                 event
                 for event in insulin
-                if insulin_window_start <= event.timestamp <= insulin_window_end
+                if insulin_window_start
+                <= _local_wall_time(event.timestamp)
+                <= insulin_window_end
             ]
             linked_glucose = [
                 entry
                 for entry in glucose
-                if glucose_window_start <= entry.timestamp <= glucose_window_end
+                if glucose_window_start
+                <= _local_wall_time(entry.timestamp)
+                <= glucose_window_end
             ]
             linked_insulin_keys.update(event.source_key for event in linked_insulin)
             episode_start = min(
                 [meal.eaten_at for meal in cluster]
-                + [event.timestamp for event in linked_insulin],
+                + [_local_wall_time(event.timestamp) for event in linked_insulin],
                 default=first_meal_at,
             )
             episode_end = max(
                 [meal.eaten_at for meal in cluster]
-                + [event.timestamp for event in linked_insulin],
+                + [_local_wall_time(event.timestamp) for event in linked_insulin],
                 default=last_meal_at,
             )
             episode_id = f"episode-{first_meal_at.isoformat()}-{index}"
@@ -328,7 +332,7 @@ class FoodEpisodeService:
             )
             for event in insulin
             if event.source_key not in linked_insulin_keys
-            and local_from <= event.timestamp <= local_to
+            and local_from <= _local_wall_time(event.timestamp) <= local_to
         ]
 
         return TimelineResponse(
@@ -457,7 +461,9 @@ def _glucose_summary(
     if not entries:
         return TimelineGlucoseSummary()
     values = [entry.value_mmol_l for entry in entries]
-    before_entries = [entry for entry in entries if entry.timestamp <= meal_at]
+    before_entries = [
+        entry for entry in entries if _local_wall_time(entry.timestamp) <= meal_at
+    ]
     before = before_entries[-1].value_mmol_l if before_entries else None
     latest = entries[-1].value_mmol_l
     return TimelineGlucoseSummary(

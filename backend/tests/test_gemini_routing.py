@@ -11,6 +11,7 @@ from glucotracker.infra.gemini.client import (
     GeminiRequestError,
     PhotoInput,
 )
+from glucotracker.infra.gemini.flash_lite import FlashLiteClient
 from glucotracker.infra.gemini.schemas import EstimatedItem, EstimationResult
 
 FakeGeminiResult = EstimationResult | Exception
@@ -274,3 +275,39 @@ def test_automatic_routing_rejects_pro_models() -> None:
 
     with pytest.raises(GeminiClientError, match="refuses Pro models"):
         client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+
+
+def test_gemini_proxy_url_is_passed_to_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GEMINI_PROXY_URL configures only the GenAI SDK HTTP client."""
+    monkeypatch.setenv("GEMINI_PROXY_URL", "http://127.0.0.1:18080")
+    from glucotracker.config import get_settings
+
+    get_settings.cache_clear()
+    try:
+        client = GeminiClient(api_key="test-key", model="gemini-2.5-flash")
+
+        assert client._http_options() == {
+            "client_args": {"proxy": "http://127.0.0.1:18080"},
+            "async_client_args": {"proxy": "http://127.0.0.1:18080"},
+        }
+    finally:
+        get_settings.cache_clear()
+
+
+def test_flash_lite_proxy_url_is_passed_to_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Taste classification uses the same Gemini proxy as photo estimation."""
+    monkeypatch.setenv("GEMINI_PROXY_URL", "http://127.0.0.1:18080")
+    from glucotracker.config import get_settings
+
+    get_settings.cache_clear()
+    try:
+        client = FlashLiteClient(api_key="test-key", model="gemini-2.5-flash-lite")
+
+        assert client._http_options() == {
+            "client_args": {"proxy": "http://127.0.0.1:18080"},
+            "async_client_args": {"proxy": "http://127.0.0.1:18080"},
+        }
+    finally:
+        get_settings.cache_clear()

@@ -13,11 +13,22 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from glucotracker.application.nightscout_context import NightscoutContextImportService
+from glucotracker.application.nightscout_context import (
+    FoodEpisodeService,
+    NightscoutContextImportService,
+)
 from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
 from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
-from glucotracker.infra.db.models import DailyTotal, SensorSession, User
+from glucotracker.domain.entities import MealSource, MealStatus, NightscoutSyncStatus
+from glucotracker.infra.db.models import (
+    DailyTotal,
+    Meal,
+    NightscoutGlucoseEntry,
+    NightscoutInsulinEvent,
+    SensorSession,
+    User,
+)
 from glucotracker.infra.nightscout.client import (
     NightscoutConnectError,
     NightscoutHTTPError,
@@ -714,6 +725,83 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     assert episodes[0]["glucose_summary"]["before_value"] == 5.5
     assert episodes[0]["glucose_summary"]["peak_value"] == 9.8
     assert episodes[0]["total_carbs_g"] == 68
+
+
+def test_timeline_groups_aware_nightscout_events_with_wall_clock_meals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeline compares Nightscout instants against meal wall-clock times."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "UTC")
+    get_settings.cache_clear()
+    now = datetime.now(UTC)
+    owner_id = uuid4()
+    meal = Meal(
+        id=uuid4(),
+        owner_id=owner_id,
+        eaten_at=datetime(2026, 5, 16, 12, 0),
+        title="Обед",
+        status=MealStatus.accepted,
+        source=MealSource.manual,
+        total_carbs_g=40,
+        total_protein_g=10,
+        total_fat_g=12,
+        total_fiber_g=2,
+        total_kcal=320,
+        nightscout_sync_status=NightscoutSyncStatus.not_synced,
+        created_at=now,
+        updated_at=now,
+    )
+    insulin = NightscoutInsulinEvent(
+        id=uuid4(),
+        owner_id=owner_id,
+        source_key="insulin-aware",
+        nightscout_id="insulin-aware",
+        timestamp=datetime(2026, 5, 16, 12, 5, tzinfo=UTC),
+        insulin_units=2.0,
+        created_at=now,
+        updated_at=now,
+        fetched_at=now,
+    )
+    glucose = NightscoutGlucoseEntry(
+        id=uuid4(),
+        owner_id=owner_id,
+        source_key="glucose-aware",
+        timestamp=datetime(2026, 5, 16, 11, 55, tzinfo=UTC),
+        value_mmol_l=5.4,
+        created_at=now,
+        updated_at=now,
+        fetched_at=now,
+    )
+
+    class StubFoodEpisodeService(FoodEpisodeService):
+        def _meals(self, from_datetime: datetime, to_datetime: datetime) -> list[Meal]:
+            return [meal]
+
+        def _insulin(
+            self,
+            from_datetime: datetime,
+            to_datetime: datetime,
+        ) -> list[NightscoutInsulinEvent]:
+            return [insulin]
+
+        def _glucose(
+            self,
+            from_datetime: datetime,
+            to_datetime: datetime,
+        ) -> list[NightscoutGlucoseEntry]:
+            return [glucose]
+
+    try:
+        timeline = StubFoodEpisodeService(None, owner_id).timeline(
+            datetime(2026, 5, 16, 10, 0),
+            datetime(2026, 5, 16, 14, 0),
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert len(timeline.episodes) == 1
+    assert timeline.episodes[0].insulin[0].nightscout_id == "insulin-aware"
+    assert timeline.episodes[0].glucose_summary.before_value == 5.4
 
 
 def test_nightscout_sensor_stop_event_closes_current_sensor(

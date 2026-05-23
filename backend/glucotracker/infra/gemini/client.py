@@ -467,7 +467,10 @@ class GeminiClient:
                 )
             )
 
-        client = genai.Client(api_key=self.api_key)
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=self._http_options(),
+        )
         try:
             response = client.models.generate_content(
                 model=model,
@@ -522,6 +525,16 @@ class GeminiClient:
         if not value:
             return []
         return [model.strip() for model in value.split(",") if model.strip()]
+
+    def _http_options(self) -> dict[str, Any] | None:
+        """Return HTTP options for the Google GenAI SDK."""
+        if not self.settings.gemini_proxy_url:
+            return None
+        client_args = {"proxy": self.settings.gemini_proxy_url}
+        return {
+            "client_args": client_args,
+            "async_client_args": client_args,
+        }
 
     def _reset_run_metadata(self, primary_model: str) -> None:
         """Reset per-run Gemini routing metadata."""

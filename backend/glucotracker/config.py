@@ -61,6 +61,13 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("GEMINI_API_KEY", "GLUCOTRACKER_GEMINI_API_KEY"),
     )
+    gemini_proxy_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GEMINI_PROXY_URL",
+            "GLUCOTRACKER_GEMINI_PROXY_URL",
+        ),
+    )
     gemini_model: str = Field(
         default="gemini-3-flash-preview",
         validation_alias=AliasChoices(

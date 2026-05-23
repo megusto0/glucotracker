@@ -1,7 +1,12 @@
 # Environment and local config
 .env
 .env.*
+.env*
 !.env.example
+*.session
+*.session-journal
+telegram-userbot*.json
+.telegram-userbot*.json
 
 # Python
 __pycache__/
@@ -26,6 +31,8 @@ build/
 *.sqlite
 *.sqlite3
 backend/data/
+backend/exports/
+backend/.antigravitycli/
 desktop/data/
 glucotracker-db-env-backup-*.zip
 
@@ -45,6 +52,9 @@ desktop/src-tauri/gen/
 # Local scratch outputs
 tmp/
 temp/
+backend/kagglelabwork/
+backend/kagglelabwork_lab_data_*/
+backend/kagglelabwork_lab_data_*.zip
 
 # Editors and OS files
 .idea/

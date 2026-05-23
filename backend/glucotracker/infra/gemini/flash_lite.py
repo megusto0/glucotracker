@@ -20,6 +20,7 @@ class FlashLiteClient:
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         settings = get_settings()
+        self.settings = settings
         self.api_key = api_key if api_key is not None else settings.gemini_api_key
         self.model = (
             model if model is not None else settings.gemini_taste_profile_model
@@ -63,7 +64,10 @@ class FlashLiteClient:
         if response_schema is not None:
             config["response_schema"] = response_schema
 
-        client = genai.Client(api_key=self.api_key)
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=self._http_options(),
+        )
         try:
             response = client.models.generate_content(
                 model=self.model,
@@ -85,6 +89,16 @@ class FlashLiteClient:
             raise FlashLiteError(
                 f"Flash Lite response could not be parsed: {exc}"
             ) from exc
+
+    def _http_options(self) -> dict[str, Any] | None:
+        """Return HTTP options for the Google GenAI SDK."""
+        if not self.settings.gemini_proxy_url:
+            return None
+        client_args = {"proxy": self.settings.gemini_proxy_url}
+        return {
+            "client_args": client_args,
+            "async_client_args": client_args,
+        }
 
 
 class FlashLiteError(Exception):
