@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, timedelta
 from uuid import UUID
 
 import pytest
@@ -16,7 +16,7 @@ from glucotracker.application.stats_insights import (
 from glucotracker.application.time import local_now
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
-from glucotracker.infra.db.models import Meal, MealItem, User
+from glucotracker.infra.db.models import Meal, MealItem, NightscoutGlucoseEntry, User
 from glucotracker.infra.security import hash_password, issue_access_token
 
 EXTRA_BANNED_COPY = ("превышение", "плохо", "цель не достигнута", "нарушение", "опасно")
@@ -323,6 +323,60 @@ def test_stats_insights_gate_glucose_kinds_by_role(
     assert response.status_code == 200
     kinds = {item["kind"] for item in response.json()["insights"]}
     assert ("meal_predictability" in kinds) is expects_gluco_kind
+
+
+def test_stats_insights_compare_aware_glucose_to_wall_clock_meals(
+    api_client: TestClient,
+) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    today = local_now().date()
+    for offset in range(7):
+        day = today - timedelta(days=6 - offset)
+        eaten_at = local_now().replace(
+            year=day.year,
+            month=day.month,
+            day=day.day,
+            hour=1,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        session.add(
+            Meal(
+                owner_id=user_id,
+                eaten_at=eaten_at,
+                title="night meal",
+                source=MealSource.manual,
+                status=MealStatus.accepted,
+                total_carbs_g=30,
+                total_protein_g=10,
+                total_fat_g=8,
+                total_kcal=232,
+                derived_categories={"meal_window": "night_cap"},
+            )
+        )
+        for point_index in range(2):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=user_id,
+                    source_key=f"aware-glucose-{offset}-{point_index}",
+                    timestamp=(
+                        eaten_at + timedelta(hours=point_index + 1)
+                    ).replace(tzinfo=UTC),
+                    value_mmol_l=6.0 + point_index,
+                )
+            )
+    session.commit()
+    session.close()
+
+    response = api_client.get(
+        "/stats/insights",
+        params={"period": "14d", "slot": "stats"},
+    )
+
+    assert response.status_code == 200
 
 
 def test_stats_insight_templates_avoid_forbidden_copy() -> None:

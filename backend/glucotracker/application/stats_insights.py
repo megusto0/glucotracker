@@ -363,7 +363,7 @@ def _meal_feature(meal: Meal) -> InsightMeal:
 def _glucose_feature(row: NightscoutGlucoseEntry) -> InsightGlucosePoint:
     local_at = local_wall_time(row.timestamp)
     return InsightGlucosePoint(
-        timestamp=row.timestamp,
+        timestamp=local_at,
         local_date=local_at.date(),
         hour=local_at.hour,
         value_mmol_l=float(row.value_mmol_l),
