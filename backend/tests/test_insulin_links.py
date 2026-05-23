@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from glucotracker.application.insulin_links import _auto_links
+from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
@@ -131,6 +133,49 @@ def test_day_links_relabels_nearby_correction_bolus_as_food_context(
         (str(first.id), str(insulin.id), "auto"),
         (str(second.id), str(insulin.id), "auto"),
     }
+
+
+def test_day_links_match_utc_bolus_to_local_wall_clock_meal(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nightscout bolus instants are converted to local wall time for linking."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+
+    get_settings.cache_clear()
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        meal = _seed_meal(
+            session,
+            owner_id,
+            "Обед",
+            datetime(2026, 5, 20, 12, 0),
+            carbs=40,
+        )
+        insulin = _seed_insulin(
+            session,
+            owner_id,
+            "ns-utc-bolus",
+            datetime(2026, 5, 20, 8, 5, tzinfo=UTC),
+        )
+        session.commit()
+
+    try:
+        response = api_client.get(
+            "/timeline/insulin-links",
+            params={"date": "2026-05-20"},
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    event = response.json()["insulin_events"][0]
+    assert event["id"] == str(insulin.id)
+    assert event["timestamp"].startswith("2026-05-20T08:05:00")
+
+    auto_links = _auto_links([meal], [insulin])
+    assert [link.meal_id for link in auto_links] == [meal.id]
 
 
 def test_put_day_links_persists_many_to_many_manual_links(

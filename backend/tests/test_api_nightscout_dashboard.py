@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from glucotracker.application.nightscout_context import (
     FoodEpisodeService,
     NightscoutContextImportService,
+    _timestamp_from_row,
 )
 from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
 from glucotracker.config import get_settings
@@ -640,6 +641,20 @@ def test_nightscout_read_glucose_and_insulin_events(api_client: TestClient) -> N
     assert events.status_code == 200
     assert events.json()["glucose"][0]["value"] == 6.1
     assert events.json()["insulin"][0]["nightscout_id"] == "insulin-1"
+
+
+def test_nightscout_import_preserves_utc_instants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nightscout UTC strings stay instants; local wall conversion is display-only."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    try:
+        timestamp = _timestamp_from_row({"created_at": "2026-05-23T07:56:34.000Z"})
+    finally:
+        get_settings.cache_clear()
+
+    assert timestamp == datetime(2026, 5, 23, 7, 56, 34, tzinfo=UTC)
 
 
 def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
