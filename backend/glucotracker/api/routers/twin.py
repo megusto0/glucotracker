@@ -11,7 +11,10 @@ from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
     TwinCurveResponse,
+    TwinDataSummaryResponse,
     TwinFitLogEntry,
+    TwinFitRequest,
+    TwinFitResponse,
     TwinParamsPatch,
     TwinParamsRead,
 )
@@ -63,6 +66,20 @@ def reset_twin_params(
     return TwinService(session, current_user.id).reset_params()
 
 
+@router.post(
+    "/twin/fit",
+    response_model=TwinFitResponse,
+    operation_id="fitTwin",
+)
+def fit_twin(
+    payload: TwinFitRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> TwinFitResponse:
+    """Fit and persist current-user digital twin parameters."""
+    return TwinService(session, current_user.id).fit(payload)
+
+
 @router.get(
     "/twin/fit/history",
     response_model=list[TwinFitLogEntry],
@@ -75,6 +92,24 @@ def get_twin_fit_history(
 ) -> list[TwinFitLogEntry]:
     """Return newest digital twin fit/manual-change history rows."""
     return TwinService(session, current_user.id).fit_history(limit)
+
+
+@router.get(
+    "/twin/data/summary",
+    response_model=TwinDataSummaryResponse,
+    operation_id="getTwinDataSummary",
+)
+def get_twin_data_summary(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    from_datetime: Annotated[datetime, Query(alias="from")],
+    to_datetime: Annotated[datetime, Query(alias="to")],
+) -> TwinDataSummaryResponse:
+    """Return data availability counters for the fit wizard."""
+    return TwinService(session, current_user.id).data_summary(
+        from_datetime,
+        to_datetime,
+    )
 
 
 @router.get(

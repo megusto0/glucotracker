@@ -34,6 +34,8 @@ export const queryKeys = {
   kcalBalanceRange: (from: string, to: string) =>
     ["kcal-balance", "range", from, to] as const,
   twinParams: ["twin", "params"] as const,
+  twinDataSummary: (from: string, to: string) =>
+    ["twin", "data-summary", from, to] as const,
   twinFitHistory: (limit: number) => ["twin", "fit-history", limit] as const,
   twinCurve: (from: string, to: string, stepMinutes: number) =>
     ["twin", "curve", from, to, stepMinutes] as const,

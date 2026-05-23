@@ -1,4 +1,4 @@
-import { AlertTriangle, RefreshCw, RotateCcw } from "lucide-react";
+import { AlertTriangle, Play, RefreshCw, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   apiErrorMessage,
@@ -7,6 +7,7 @@ import {
 } from "../../api/client";
 import { formatDecimal, formatMmol } from "../../utils/nutritionFormat";
 import { TwinChart } from "./TwinChart";
+import { TwinFitWizard } from "./TwinFitWizard";
 import { useResetTwinParams, useTwinCurve, useTwinParams } from "./useTwin";
 
 type RangePreset = "6h" | "12h" | "24h";
@@ -68,6 +69,7 @@ export function TwinPage() {
   const [preset, setPreset] = useState<RangePreset>("6h");
   const [fromInput, setFromInput] = useState(initialRange.from);
   const [toInput, setToInput] = useState(initialRange.to);
+  const [fitWizardOpen, setFitWizardOpen] = useState(false);
   const from = toApiDateTime(fromInput);
   const to = toApiDateTime(toInput);
   const paramsQuery = useTwinParams();
@@ -129,6 +131,14 @@ export function TwinPage() {
           >
             <RefreshCw size={13} />
           </button>
+          <button
+            className="btn"
+            onClick={() => setFitWizardOpen(true)}
+            type="button"
+          >
+            <Play size={13} />
+            Подогнать
+          </button>
         </div>
       </header>
 
@@ -141,6 +151,9 @@ export function TwinPage() {
             Подгонка устарела (&gt; 30 дней). Перенастройка будет доступна в
             мастере подгонки.
           </span>
+          <button className="btn" onClick={() => setFitWizardOpen(true)} type="button">
+            Перенастроить
+          </button>
         </div>
       ) : null}
 
@@ -183,7 +196,7 @@ export function TwinPage() {
             </div>
           </div>
           {params && !params.is_fitted ? (
-            <NotFittedState />
+            <NotFittedState onStartFit={() => setFitWizardOpen(true)} />
           ) : (
             <TwinChart data={curve} />
           )}
@@ -191,11 +204,17 @@ export function TwinPage() {
 
         <TwinParamsPanel
           curve={curve}
+          onStartFit={() => setFitWizardOpen(true)}
           onReset={reset}
           params={params}
           resetting={resetParams.isPending}
         />
       </div>
+      <TwinFitWizard
+        onClose={() => setFitWizardOpen(false)}
+        open={fitWizardOpen}
+        params={params}
+      />
     </div>
   );
 }
@@ -275,7 +294,7 @@ function TwinHeaderCards({
   );
 }
 
-function NotFittedState() {
+function NotFittedState({ onStartFit }: { onStartFit: () => void }) {
   return (
     <div className="twin-not-fitted">
       <h2>Двойник ещё не подогнан.</h2>
@@ -285,8 +304,7 @@ function NotFittedState() {
       </p>
       <button
         className="btn"
-        disabled
-        title="Мастер подгонки будет добавлен отдельно."
+        onClick={onStartFit}
         type="button"
       >
         Запустить подгонку
@@ -297,11 +315,13 @@ function NotFittedState() {
 
 function TwinParamsPanel({
   curve,
+  onStartFit,
   onReset,
   params,
   resetting,
 }: {
   curve: TwinCurveResponse | undefined;
+  onStartFit: () => void;
   onReset: () => void;
   params: TwinParamsRead | undefined;
   resetting: boolean;
@@ -379,6 +399,15 @@ function TwinParamsPanel({
             </b>
           </div>
         </div>
+        <button
+          className="btn"
+          disabled={!params}
+          onClick={onStartFit}
+          type="button"
+        >
+          <Play size={13} />
+          {fitted ? "Перенастроить" : "Запустить подгонку"}
+        </button>
         <button
           className="btn"
           disabled={!params || resetting}

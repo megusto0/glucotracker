@@ -10422,6 +10422,88 @@
         "title": "TwinCurveResponse",
         "type": "object"
       },
+      "TwinDataSummaryResponse": {
+        "description": "Data availability summary for automatic twin fitting.",
+        "properties": {
+          "cgm_count": {
+            "title": "Cgm Count",
+            "type": "integer"
+          },
+          "days_with_cgm": {
+            "title": "Days With Cgm",
+            "type": "integer"
+          },
+          "fingerstick_count": {
+            "title": "Fingerstick Count",
+            "type": "integer"
+          },
+          "first_cgm_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Cgm At"
+          },
+          "fit_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fit Blockers",
+            "type": "array"
+          },
+          "from_datetime": {
+            "format": "date-time",
+            "title": "From Datetime",
+            "type": "string"
+          },
+          "insulin_count": {
+            "title": "Insulin Count",
+            "type": "integer"
+          },
+          "last_cgm_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Cgm At"
+          },
+          "meal_count": {
+            "title": "Meal Count",
+            "type": "integer"
+          },
+          "ready_for_fit": {
+            "title": "Ready For Fit",
+            "type": "boolean"
+          },
+          "to_datetime": {
+            "format": "date-time",
+            "title": "To Datetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_datetime",
+          "to_datetime",
+          "cgm_count",
+          "fingerstick_count",
+          "meal_count",
+          "insulin_count",
+          "days_with_cgm",
+          "ready_for_fit"
+        ],
+        "title": "TwinDataSummaryResponse",
+        "type": "object"
+      },
       "TwinFitLogEntry": {
         "description": "One digital twin fit/manual-change history row.",
         "properties": {
@@ -10553,6 +10635,179 @@
           "method"
         ],
         "title": "TwinFitLogEntry",
+        "type": "object"
+      },
+      "TwinFitRequest": {
+        "description": "Request an automatic digital twin fitting run.",
+        "properties": {
+          "data_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data From"
+          },
+          "data_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data To"
+          }
+        },
+        "title": "TwinFitRequest",
+        "type": "object"
+      },
+      "TwinFitResponse": {
+        "description": "Automatic digital twin fitting response.",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "params": {
+            "$ref": "#/components/schemas/TwinParamsRead"
+          },
+          "previous_params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TwinParamsRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/TwinFitResultRead"
+          }
+        },
+        "required": [
+          "applied",
+          "params",
+          "result"
+        ],
+        "title": "TwinFitResponse",
+        "type": "object"
+      },
+      "TwinFitResultRead": {
+        "description": "Applied or rejected automatic fit metrics.",
+        "properties": {
+          "baseline_drift_per_hour": {
+            "title": "Baseline Drift Per Hour",
+            "type": "number"
+          },
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "holdout_mae_mmol": {
+            "title": "Holdout Mae Mmol",
+            "type": "number"
+          },
+          "holdout_window_count": {
+            "title": "Holdout Window Count",
+            "type": "integer"
+          },
+          "icr_day": {
+            "title": "Icr Day",
+            "type": "number"
+          },
+          "icr_evening": {
+            "title": "Icr Evening",
+            "type": "number"
+          },
+          "icr_morning": {
+            "title": "Icr Morning",
+            "type": "number"
+          },
+          "isf": {
+            "title": "Isf",
+            "type": "number"
+          },
+          "iterations": {
+            "title": "Iterations",
+            "type": "integer"
+          },
+          "method": {
+            "enum": [
+              "least_squares",
+              "fallback_to_defaults"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "per_window_holdout_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Per Window Holdout Dates",
+            "type": "array"
+          },
+          "per_window_holdout_mae": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Per Window Holdout Mae",
+            "type": "array"
+          },
+          "per_window_train_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Per Window Train Dates",
+            "type": "array"
+          },
+          "per_window_train_mae": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Per Window Train Mae",
+            "type": "array"
+          },
+          "train_mae_mmol": {
+            "title": "Train Mae Mmol",
+            "type": "number"
+          },
+          "train_window_count": {
+            "title": "Train Window Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "icr_morning",
+          "icr_day",
+          "icr_evening",
+          "isf",
+          "baseline_drift_per_hour",
+          "train_mae_mmol",
+          "holdout_mae_mmol",
+          "train_window_count",
+          "holdout_window_count",
+          "method",
+          "converged",
+          "iterations"
+        ],
+        "title": "TwinFitResultRead",
         "type": "object"
       },
       "TwinParamsPatch": {
@@ -18013,7 +18268,156 @@
         "summary": "Get Twin Curve",
         "tags": [
           "twin"
-        ]
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/twin/data/summary": {
+      "get": {
+        "description": "Return data availability counters for the fit wizard.",
+        "operationId": "getTwinDataSummary",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinDataSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Twin Data Summary",
+        "tags": [
+          "twin"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/twin/fit": {
+      "post": {
+        "description": "Fit and persist current-user digital twin parameters.",
+        "operationId": "fitTwin",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinFitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwinFitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Fit Twin",
+        "tags": [
+          "twin"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
       }
     },
     "/twin/fit/history": {
@@ -18084,7 +18488,10 @@
         "summary": "Get Twin Fit History",
         "tags": [
           "twin"
-        ]
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
       }
     },
     "/twin/params": {
@@ -18139,7 +18546,10 @@
         "summary": "Get Twin Params",
         "tags": [
           "twin"
-        ]
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
       },
       "patch": {
         "description": "Apply a manual digital twin parameter override.",
@@ -18202,7 +18612,10 @@
         "summary": "Patch Twin Params",
         "tags": [
           "twin"
-        ]
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
       }
     },
     "/twin/params/reset": {
@@ -18257,7 +18670,10 @@
         "summary": "Reset Twin Params",
         "tags": [
           "twin"
-        ]
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
       }
     }
   }

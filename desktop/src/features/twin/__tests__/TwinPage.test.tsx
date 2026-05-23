@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { describe, expect, test } from "vitest";
 import { useSettingsStore } from "../../settings/settingsStore";
@@ -119,7 +120,9 @@ describe("TwinPage", () => {
 
     expect(await screen.findByText("Двойник ещё не подогнан.")).toBeInTheDocument();
     expect(screen.getByText(/не является медицинской рекомендацией/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Запустить подгонку" })).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: "Запустить подгонку" })[0],
+    ).toBeEnabled();
   });
 
   test("renders ready chart with interpolation, forecast, CI band and anchors", async () => {
@@ -162,5 +165,65 @@ describe("TwinPage", () => {
     renderTwin();
 
     expect(await screen.findByTestId("twin-chart-empty")).toBeInTheDocument();
+  });
+
+  test("opens fit wizard and shows fit result", async () => {
+    const user = userEvent.setup();
+    const notFitted = {
+      ...params,
+      icr_morning: null,
+      icr_day: null,
+      icr_evening: null,
+      isf: null,
+      is_fitted: false,
+      hint: "not_fitted",
+    };
+    server.use(
+      http.get("http://api.test/twin/params", () => HttpResponse.json(notFitted)),
+      http.get("http://api.test/twin/curve", () =>
+        HttpResponse.json(curve({ points: [], anchors: [], params: notFitted })),
+      ),
+    );
+
+    renderTwin();
+
+    await user.click(await screen.findByRole("button", { name: "Запустить подгонку" }));
+    const dialog = await screen.findByRole("dialog", { name: "Подгонка двойника" });
+    expect(within(dialog).getByText("CGM-точек")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Запустить подгонку" }));
+
+    expect(await within(dialog).findByText("Подгонка завершена")).toBeInTheDocument();
+    expect(within(dialog).getByText(/MAE на отложенных днях/)).toBeInTheDocument();
+  });
+
+  test("fit wizard disables start when summary has blockers", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("http://api.test/twin/data/summary", ({ request }) => {
+        const url = new URL(request.url);
+        return HttpResponse.json({
+          from_datetime: url.searchParams.get("from"),
+          to_datetime: url.searchParams.get("to"),
+          cgm_count: 12,
+          fingerstick_count: 1,
+          meal_count: 0,
+          insulin_count: 0,
+          days_with_cgm: 1,
+          first_cgm_at: "2026-04-01T00:00:00.000Z",
+          last_cgm_at: "2026-04-01T01:00:00.000Z",
+          ready_for_fit: false,
+          fit_blockers: ["cgm_count<200", "meal_count<1", "insulin_count<1"],
+        });
+      }),
+    );
+
+    renderTwin();
+
+    await user.click(await screen.findByRole("button", { name: "Подогнать" }));
+    const dialog = await screen.findByRole("dialog", { name: "Подгонка двойника" });
+    expect(await within(dialog).findByText(/Недостаточно данных/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Запустить подгонку" }),
+    ).toBeDisabled();
   });
 });

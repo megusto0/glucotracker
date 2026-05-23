@@ -125,7 +125,27 @@ GLUCOSE_FORBIDDEN_REQUESTS = [
     ("GET", "/twin/params", {}),
     ("PATCH", "/twin/params", {"json": {"icr_morning": 12}}),
     ("POST", "/twin/params/reset", {}),
+    (
+        "POST",
+        "/twin/fit",
+        {
+            "json": {
+                "data_from": "2026-04-01T00:00:00",
+                "data_to": "2026-04-15T00:00:00",
+            }
+        },
+    ),
     ("GET", "/twin/fit/history", {}),
+    (
+        "GET",
+        "/twin/data/summary",
+        {
+            "params": {
+                "from": "2026-04-01T00:00:00",
+                "to": "2026-04-15T00:00:00",
+            }
+        },
+    ),
     (
         "GET",
         "/twin/curve",
@@ -252,6 +272,16 @@ def test_gluco_user_can_read_feature_endpoints(api_client: TestClient) -> None:
             ("GET", "/sensors", {}),
             ("GET", f"/sensors/{sensor['id']}/quality", {}),
             ("GET", "/twin/params", {}),
+            (
+                "GET",
+                "/twin/data/summary",
+                {
+                    "params": {
+                        "from": "2026-04-01T00:00:00",
+                        "to": "2026-04-15T00:00:00",
+                    }
+                },
+            ),
             ("GET", "/twin/fit/history", {}),
             (
                 "GET",

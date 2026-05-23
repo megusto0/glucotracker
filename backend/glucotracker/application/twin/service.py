@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
@@ -15,7 +15,11 @@ from glucotracker.api.schemas import (
     TwinCurveInsulinEvent,
     TwinCurvePoint,
     TwinCurveResponse,
+    TwinDataSummaryResponse,
     TwinFitLogEntry,
+    TwinFitRequest,
+    TwinFitResponse,
+    TwinFitResultRead,
     TwinParamsPatch,
     TwinParamsRead,
 )
@@ -26,11 +30,13 @@ from glucotracker.application.twin.estimator import (
     InsulinEvent,
     estimate_curve,
 )
+from glucotracker.application.twin.fitter import CGMPoint, FitResult, fit_twin_params
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     FingerstickReading,
     Meal,
+    NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
     TwinParams,
     utc_now,
@@ -38,6 +44,7 @@ from glucotracker.infra.db.models import (
 from glucotracker.infra.db.repositories.twin import TwinRepository
 
 STALE_AFTER_DAYS = 30
+FIT_MIN_CGM_POINTS = 200
 
 
 class TwinService:
@@ -115,6 +122,144 @@ class TwinService:
         """Return this user's newest fit/history rows."""
         rows = self.repository.list_fit_logs(limit)
         return [TwinFitLogEntry.model_validate(row) for row in rows]
+
+    def data_summary(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> TwinDataSummaryResponse:
+        """Return scoped source-data counters for the fit wizard."""
+        local_from = _local_wall_time(from_datetime)
+        local_to = _local_wall_time(to_datetime)
+        if local_to < local_from:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="to must be greater than or equal to from.",
+            )
+
+        cgm_rows = self._cgm_points(local_from, local_to)
+        days_with_cgm = len({point.timestamp.date() for point in cgm_rows})
+        meal_count = self._meal_count(local_from, local_to)
+        insulin_count = self._insulin_count(local_from, local_to)
+        blockers = _fit_blockers(
+            cgm_count=len(cgm_rows),
+            days_with_cgm=days_with_cgm,
+            meal_count=meal_count,
+            insulin_count=insulin_count,
+        )
+        return TwinDataSummaryResponse(
+            from_datetime=from_datetime,
+            to_datetime=to_datetime,
+            cgm_count=len(cgm_rows),
+            fingerstick_count=self._fingerstick_count(local_from, local_to),
+            meal_count=meal_count,
+            insulin_count=insulin_count,
+            days_with_cgm=days_with_cgm,
+            first_cgm_at=cgm_rows[0].timestamp if cgm_rows else None,
+            last_cgm_at=cgm_rows[-1].timestamp if cgm_rows else None,
+            ready_for_fit=not blockers,
+            fit_blockers=blockers,
+        )
+
+    def fit(self, payload: TwinFitRequest) -> TwinFitResponse:
+        """Fit and persist current-user twin parameters from CGM history."""
+        data_to = _local_wall_time(payload.data_to or utc_now())
+        data_from = _local_wall_time(
+            payload.data_from or (data_to - timedelta(days=30))
+        )
+        if data_to < data_from:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="data_to must be greater than or equal to data_from.",
+            )
+
+        cgm = self._cgm_points(data_from, data_to)
+        if len(cgm) < FIT_MIN_CGM_POINTS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "reason": "insufficient_cgm",
+                    "available": len(cgm),
+                    "required": FIT_MIN_CGM_POINTS,
+                },
+            )
+
+        row = self.repository.get_or_create_params()
+        previous = _params_read(row)
+        existing = _estimator_params(row) if previous.is_fitted else None
+        lookback_from = data_from - timedelta(
+            minutes=max(row.dia_minutes, row.carb_duration_minutes)
+        )
+        result = fit_twin_params(
+            cgm=cgm,
+            carbs=[
+                CarbEvent(timestamp=event.timestamp, grams=event.carbs_g)
+                for event in self._food_events(lookback_from, data_to)
+            ],
+            insulin=[
+                InsulinEvent(timestamp=event.timestamp, units=event.insulin_units)
+                for event in self._insulin_events(lookback_from, data_to)
+            ],
+            existing_params=existing,
+            dia_minutes=row.dia_minutes,
+            carb_duration_minutes=row.carb_duration_minutes,
+            morning_start_minutes=row.morning_start_minutes,
+            day_start_minutes=row.day_start_minutes,
+            evening_start_minutes=row.evening_start_minutes,
+        )
+        if result.method == "fallback_to_defaults" or not result.converged:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "reason": "fit_failed",
+                    "details": "Недостаточно валидных окон CGM для подгонки.",
+                    "train_window_count": result.train_window_count,
+                    "holdout_window_count": result.holdout_window_count,
+                },
+            )
+
+        now = utc_now()
+        row.icr_morning = result.icr_morning
+        row.icr_day = result.icr_day
+        row.icr_evening = result.icr_evening
+        row.isf = result.isf
+        row.baseline_drift_per_hour = result.baseline_drift_per_hour
+        row.last_fit_at = now
+        row.last_fit_data_from = data_from
+        row.last_fit_data_to = data_to
+        row.last_fit_train_window_count = result.train_window_count
+        row.last_fit_holdout_window_count = result.holdout_window_count
+        row.last_fit_train_mae_mmol = result.train_mae_mmol
+        row.last_fit_holdout_mae_mmol = result.holdout_mae_mmol
+        row.last_fit_method = result.method
+        row.last_fit_converged = result.converged
+        row.updated_at = now
+        self.repository.add_fit_log(
+            params_snapshot=_params_snapshot(row),
+            method=result.method,
+            converged=result.converged,
+            data_from=data_from,
+            data_to=data_to,
+            fit_at=now,
+            holdout_mae_mmol=result.holdout_mae_mmol,
+            holdout_window_count=result.holdout_window_count,
+            iterations=result.iterations,
+            notes="Автоматическая исследовательская подгонка по CGM-истории.",
+            train_mae_mmol=result.train_mae_mmol,
+            train_window_count=result.train_window_count,
+        )
+        self.session.commit()
+        self.session.refresh(row)
+        return TwinFitResponse(
+            applied=True,
+            params=_params_read(row),
+            previous_params=previous,
+            result=_fit_result_read(result),
+            notes=[
+                "Подгонка является исследовательской моделью "
+                "и не является медицинской рекомендацией.",
+            ],
+        )
 
     def curve(
         self,
@@ -244,6 +389,86 @@ class TwinService:
             for row in rows
         ]
 
+    def _cgm_points(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[CGMPoint]:
+        rows = self.session.scalars(
+            select(NightscoutGlucoseEntry)
+            .where(
+                NightscoutGlucoseEntry.owner_id == self.user_id,
+                NightscoutGlucoseEntry.timestamp >= from_datetime,
+                NightscoutGlucoseEntry.timestamp <= to_datetime,
+            )
+            .order_by(NightscoutGlucoseEntry.timestamp.asc())
+        ).all()
+        return [
+            CGMPoint(
+                timestamp=_local_wall_time(row.timestamp),
+                mmol=row.value_mmol_l,
+            )
+            for row in rows
+        ]
+
+    def _fingerstick_count(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> int:
+        return int(
+            self.session.scalar(
+                select(func.count())
+                .select_from(FingerstickReading)
+                .where(
+                    FingerstickReading.owner_id == self.user_id,
+                    FingerstickReading.measured_at >= from_datetime,
+                    FingerstickReading.measured_at <= to_datetime,
+                )
+            )
+            or 0
+        )
+
+    def _meal_count(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> int:
+        return int(
+            self.session.scalar(
+                select(func.count())
+                .select_from(Meal)
+                .where(
+                    Meal.owner_id == self.user_id,
+                    Meal.status == MealStatus.accepted,
+                    Meal.eaten_at >= from_datetime,
+                    Meal.eaten_at <= to_datetime,
+                    Meal.total_carbs_g > 0,
+                )
+            )
+            or 0
+        )
+
+    def _insulin_count(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> int:
+        return int(
+            self.session.scalar(
+                select(func.count())
+                .select_from(NightscoutInsulinEvent)
+                .where(
+                    NightscoutInsulinEvent.owner_id == self.user_id,
+                    NightscoutInsulinEvent.timestamp >= from_datetime,
+                    NightscoutInsulinEvent.timestamp <= to_datetime,
+                    NightscoutInsulinEvent.insulin_units.is_not(None),
+                    NightscoutInsulinEvent.insulin_units > 0,
+                )
+            )
+            or 0
+        )
+
     def _food_events(
         self,
         from_datetime: datetime,
@@ -351,6 +576,46 @@ def _params_snapshot(row: TwinParams) -> dict[str, object]:
         "dia_minutes": row.dia_minutes,
         "carb_duration_minutes": row.carb_duration_minutes,
     }
+
+
+def _fit_result_read(result: FitResult) -> TwinFitResultRead:
+    return TwinFitResultRead(
+        icr_morning=result.icr_morning,
+        icr_day=result.icr_day,
+        icr_evening=result.icr_evening,
+        isf=result.isf,
+        baseline_drift_per_hour=result.baseline_drift_per_hour,
+        train_mae_mmol=result.train_mae_mmol,
+        holdout_mae_mmol=result.holdout_mae_mmol,
+        train_window_count=result.train_window_count,
+        holdout_window_count=result.holdout_window_count,
+        method=result.method,
+        converged=result.converged,
+        iterations=result.iterations,
+        per_window_train_mae=result.per_window_train_mae,
+        per_window_holdout_mae=result.per_window_holdout_mae,
+        per_window_train_dates=result.per_window_train_dates,
+        per_window_holdout_dates=result.per_window_holdout_dates,
+    )
+
+
+def _fit_blockers(
+    *,
+    cgm_count: int,
+    days_with_cgm: int,
+    meal_count: int,
+    insulin_count: int,
+) -> list[str]:
+    blockers: list[str] = []
+    if cgm_count < FIT_MIN_CGM_POINTS:
+        blockers.append(f"cgm_count<{FIT_MIN_CGM_POINTS}")
+    if days_with_cgm < 3:
+        blockers.append("days_with_cgm<3")
+    if meal_count < 1:
+        blockers.append("meal_count<1")
+    if insulin_count < 1:
+        blockers.append("insulin_count<1")
+    return blockers
 
 
 def _estimator_params(row: TwinParams) -> EstimatorParams:

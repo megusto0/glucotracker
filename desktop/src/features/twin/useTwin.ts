@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, type TwinParamsPatch } from "../../api/client";
+import {
+  apiClient,
+  type TwinFitRequest,
+  type TwinParamsPatch,
+} from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { useApiConfig } from "../settings/settingsStore";
 
@@ -26,6 +30,21 @@ export function useTwinCurve(from: string, to: string, stepMinutes = 5) {
   });
 }
 
+export function useTwinDataSummary(
+  from: string,
+  to: string,
+  enabled = true,
+) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.twinDataSummary(from, to),
+    queryFn: () => apiClient.getTwinDataSummary(config, from, to),
+    enabled: Boolean(enabled && config.token.trim() && from && to),
+    staleTime: 30_000,
+  });
+}
+
 export function useResetTwinParams() {
   const config = useApiConfig();
   const queryClient = useQueryClient();
@@ -44,6 +63,18 @@ export function usePatchTwinParams() {
 
   return useMutation({
     mutationFn: (body: TwinParamsPatch) => apiClient.patchTwinParams(config, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["twin"] });
+    },
+  });
+}
+
+export function useFitTwin() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: TwinFitRequest) => apiClient.fitTwin(config, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["twin"] });
     },

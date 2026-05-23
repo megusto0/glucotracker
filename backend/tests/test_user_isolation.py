@@ -696,6 +696,42 @@ class TestGETIsolation:
         assert str(self.ids["bob_twin_params"]) not in _collect_ids(data)
         assert str(self.ids["bob_fingerstick"]) not in _collect_ids(data)
 
+    def test_twin_data_summary(self):
+        now = self.ids["now"]
+        params = {
+            "from": (now - timedelta(hours=2)).isoformat(),
+            "to": (now + timedelta(hours=2)).isoformat(),
+        }
+        r = self.client.get(
+            "/twin/data/summary", params=params, headers=self.alice_headers
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["cgm_count"] == 1
+        assert str(self.bob) not in _collect_ids(data)
+
+        r = self.client.get(
+            "/twin/data/summary", params=params, headers=self.bob_headers
+        )
+        assert r.status_code == 200
+        assert r.json()["cgm_count"] == 1
+
+    def test_twin_fit_does_not_update_other_user(self):
+        now = self.ids["now"]
+        payload = {
+            "data_from": (now - timedelta(hours=2)).isoformat(),
+            "data_to": (now + timedelta(hours=2)).isoformat(),
+        }
+        r = self.client.post("/twin/fit", json=payload, headers=self.bob_headers)
+        assert r.status_code == 422
+        assert r.json()["detail"]["reason"] == "insufficient_cgm"
+
+        sf = self.env["session_factory"]
+        s = sf()
+        alice_params = s.get(TwinParams, self.ids["alice_twin_params"])
+        assert alice_params.icr_morning == 11
+        s.close()
+
     def test_list_fingersticks(self):
         r = self.client.get("/fingersticks", headers=self.alice_headers)
         assert r.status_code == 200
@@ -1428,6 +1464,39 @@ class TestMutationIsolation:
             insulin_event_id=self.ids["bob_ns_insulin"],
         ).one()
         assert str(link.owner_id) == str(self.bob)
+        s.close()
+
+    def test_patch_twin_params_updates_current_user_only(self):
+        r = self.client.patch(
+            "/twin/params",
+            json={
+                "icr_morning": 33,
+                "icr_day": 33,
+                "icr_evening": 33,
+                "isf": 3,
+            },
+            headers=self.bob_headers,
+        )
+        assert r.status_code == 200
+
+        sf = self.env["session_factory"]
+        s = sf()
+        alice_params = s.get(TwinParams, self.ids["alice_twin_params"])
+        bob_params = s.get(TwinParams, self.ids["bob_twin_params"])
+        assert alice_params.icr_morning == 11
+        assert bob_params.icr_morning == 33
+        s.close()
+
+    def test_reset_twin_params_updates_current_user_only(self):
+        r = self.client.post("/twin/params/reset", headers=self.bob_headers)
+        assert r.status_code == 200
+
+        sf = self.env["session_factory"]
+        s = sf()
+        alice_params = s.get(TwinParams, self.ids["alice_twin_params"])
+        bob_params = s.get(TwinParams, self.ids["bob_twin_params"])
+        assert alice_params.icr_morning == 11
+        assert bob_params.icr_morning is None
         s.close()
 
     def test_admin_recalculate_ownership(self):

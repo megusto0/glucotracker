@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+from glucotracker.application.twin.estimator import (
+    BGAnchor,
+    CarbEvent,
+    EstimatorParams,
+    InsulinEvent,
+    estimate_curve,
+)
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
     FingerstickReading,
     Meal,
+    NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
     TwinParams,
 )
@@ -183,3 +191,157 @@ def test_twin_curve_uses_scoped_fingersticks_and_events(
         "forecast",
         "interpolation",
     }
+
+
+def test_twin_data_summary_counts_scoped_fit_sources(api_client: TestClient) -> None:
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        session.add_all(
+            [
+                NightscoutGlucoseEntry(
+                    owner_id=user_id,
+                    source_key="summary-cgm-1",
+                    timestamp=datetime(2026, 4, 28, 8, 0),
+                    value_mmol_l=6.0,
+                ),
+                FingerstickReading(
+                    owner_id=user_id,
+                    measured_at=datetime(2026, 4, 28, 8, 5),
+                    glucose_mmol_l=6.1,
+                ),
+                Meal(
+                    owner_id=user_id,
+                    eaten_at=datetime(2026, 4, 28, 8, 15),
+                    title="Завтрак",
+                    source=MealSource.manual,
+                    status=MealStatus.accepted,
+                    total_carbs_g=24.0,
+                    total_kcal=180.0,
+                ),
+                NightscoutInsulinEvent(
+                    owner_id=user_id,
+                    source_key="summary-insulin-1",
+                    timestamp=datetime(2026, 4, 28, 8, 10),
+                    insulin_units=1.0,
+                ),
+            ]
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/twin/data/summary",
+        params={
+            "from": "2026-04-28T08:00:00",
+            "to": "2026-04-28T10:00:00",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cgm_count"] == 1
+    assert data["fingerstick_count"] == 1
+    assert data["meal_count"] == 1
+    assert data["insulin_count"] == 1
+    assert data["ready_for_fit"] is False
+    assert "cgm_count<200" in data["fit_blockers"]
+
+
+def test_twin_fit_empty_db_returns_insufficient_cgm(api_client: TestClient) -> None:
+    response = api_client.post(
+        "/twin/fit",
+        json={
+            "data_from": "2026-04-01T00:00:00",
+            "data_to": "2026-04-15T00:00:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["reason"] == "insufficient_cgm"
+
+
+def test_twin_fit_applies_params_and_writes_log(api_client: TestClient) -> None:
+    _seed_synthetic_fit_data(api_client)
+
+    response = api_client.post(
+        "/twin/fit",
+        json={
+            "data_from": "2026-04-01T00:00:00",
+            "data_to": "2026-04-10T23:59:00",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["applied"] is True
+    assert data["params"]["is_fitted"] is True
+    assert data["params"]["last_fit_method"] == "least_squares"
+    assert data["result"]["holdout_window_count"] >= 2
+
+    params = api_client.get("/twin/params").json()
+    assert params["is_fitted"] is True
+
+    history = api_client.get("/twin/fit/history").json()
+    assert history[0]["method"] == "least_squares"
+
+
+def _seed_synthetic_fit_data(api_client: TestClient) -> None:
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    params = EstimatorParams(
+        icr_morning=11.5,
+        icr_day=12.5,
+        icr_evening=13.0,
+        isf=2.1,
+        baseline_drift_per_hour=0.05,
+    )
+    with session_factory() as session:
+        for day_idx in range(10):
+            day = datetime(2026, 4, 1) + timedelta(days=day_idx)
+            for hour, grams, units in [
+                (6, 34.5, 1.0),
+                (11, 50.0, 1.5),
+                (18, 52.0, 1.8),
+            ]:
+                start = day.replace(hour=hour)
+                meal = CarbEvent(start + timedelta(minutes=15), grams)
+                bolus = InsulinEvent(start + timedelta(minutes=15), units)
+                session.add(
+                    Meal(
+                        owner_id=user_id,
+                        eaten_at=meal.timestamp,
+                        title="Приём пищи",
+                        source=MealSource.manual,
+                        status=MealStatus.accepted,
+                        total_carbs_g=grams,
+                        total_kcal=200,
+                    )
+                )
+                session.add(
+                    NightscoutInsulinEvent(
+                        owner_id=user_id,
+                        source_key=f"fit-insulin-{day_idx}-{hour}",
+                        timestamp=bolus.timestamp,
+                        insulin_units=units,
+                        event_type="Meal Bolus",
+                    )
+                )
+                points = estimate_curve(
+                    bg_anchors=[BGAnchor(start, 6.0, source="cgm")],
+                    carbs=[meal],
+                    insulin=[bolus],
+                    params=params,
+                    start=start,
+                    end=start + timedelta(minutes=180),
+                    step_minutes=5,
+                )
+                session.add_all(
+                    NightscoutGlucoseEntry(
+                        owner_id=user_id,
+                        source_key=f"fit-cgm-{day_idx}-{hour}-{idx}",
+                        timestamp=point.timestamp,
+                        value_mmol_l=point.mmol,
+                    )
+                    for idx, point in enumerate(points)
+                )
+        session.commit()
