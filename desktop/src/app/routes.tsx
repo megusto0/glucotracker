@@ -4,6 +4,7 @@ import { ChatPage } from "../features/chat/ChatPage";
 import { DatabasePage } from "../features/database/DatabasePage";
 import { FeedPage } from "../features/feed/FeedPage";
 import { GlucosePage } from "../features/glucose/GlucosePage";
+import { InsulinLinksPage } from "../features/insulinLinks/InsulinLinksPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { StatsPage } from "../features/stats/StatsPage";
 
@@ -27,6 +28,10 @@ export const routes: RouteObject[] = [
   {
     path: "/glucose",
     element: <GlucosePage />,
+  },
+  {
+    path: "/insulin-links",
+    element: <InsulinLinksPage />,
   },
   {
     path: "/database",

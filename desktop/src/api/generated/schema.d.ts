@@ -1551,6 +1551,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/timeline/insulin-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Timeline Insulin Links
+         * @description Return one-day food/insulin links and backend suggestions.
+         */
+        get: operations["getTimelineInsulinLinks"];
+        /**
+         * Put Timeline Insulin Links
+         * @description Replace reviewed one-day food/insulin links atomically.
+         */
+        put: operations["putTimelineInsulinLinks"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3034,6 +3058,111 @@ export interface components {
             version: string;
         };
         /**
+         * InsulinLinkDayPutRequest
+         * @description Replace reviewed food/insulin links for one day atomically.
+         */
+        InsulinLinkDayPutRequest: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Links */
+            links?: components["schemas"]["MealInsulinLinkItem"][];
+        };
+        /**
+         * InsulinLinkDayResponse
+         * @description One-day workspace for reviewing food and insulin event links.
+         */
+        InsulinLinkDayResponse: {
+            /** Auto Links */
+            auto_links: components["schemas"]["MealInsulinLinkItem"][];
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Insulin Events */
+            insulin_events: components["schemas"]["InsulinLinkEventResponse"][];
+            /** Links */
+            links: components["schemas"]["MealInsulinLinkItem"][];
+            /** Meals */
+            meals: components["schemas"]["InsulinLinkMealResponse"][];
+        };
+        /**
+         * InsulinLinkEventResponse
+         * @description Insulin event with backend-owned contextual label and link hints.
+         */
+        InsulinLinkEventResponse: {
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Context Label
+             * @enum {string}
+             */
+            context_label: "food" | "correction" | "mixed" | "unresolved" | "manual";
+            /**
+             * Covers Multiple Food Events
+             * @default false
+             */
+            covers_multiple_food_events: boolean;
+            /** Enteredby */
+            enteredBy?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Insulin Type */
+            insulin_type?: string | null;
+            /** Insulin Units */
+            insulin_units?: number | null;
+            /**
+             * Link Source
+             * @enum {string}
+             */
+            link_source: "manual" | "auto" | "none";
+            /** Linked Meal Ids */
+            linked_meal_ids?: string[];
+            /** Nightscout Id */
+            nightscout_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Raw Event Type */
+            raw_event_type?: string | null;
+            /** Reason */
+            reason: string;
+            /** Suggested Meal Ids */
+            suggested_meal_ids?: string[];
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /**
+         * InsulinLinkMealResponse
+         * @description Compact food event for one-day insulin review.
+         */
+        InsulinLinkMealResponse: {
+            /**
+             * Eaten At
+             * Format: date-time
+             */
+            eaten_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Total Carbs G */
+            total_carbs_g: number;
+            /** Total Kcal */
+            total_kcal: number;
+        };
+        /**
          * IssuedTokensResponse
          * @description Issued access and refresh token response.
          */
@@ -3220,6 +3349,32 @@ export interface components {
              * @example Breakfast
              */
             title?: string | null;
+        };
+        /**
+         * MealInsulinLinkItem
+         * @description One reviewed many-to-many food/insulin link.
+         */
+        MealInsulinLinkItem: {
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Insulin Event Id
+             * Format: uuid
+             */
+            insulin_event_id: string;
+            /**
+             * Meal Id
+             * Format: uuid
+             */
+            meal_id: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Source
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "auto";
         };
         /**
          * MealItemCreate
@@ -8698,6 +8853,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineResponse"] | components["schemas"]["TimelineFoodResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTimelineInsulinLinks: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsulinLinkDayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    putTimelineInsulinLinks: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsulinLinkDayPutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsulinLinkDayResponse"];
                 };
             };
             /** @description Validation Error */

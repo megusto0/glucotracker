@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Activity, BarChart3, BookOpen, Clock, Database, LogOut, Settings,
+  Activity, BarChart3, BookOpen, Clock, Database, Link2, LogOut, Settings,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +15,7 @@ const NAV = [
   { to: "/", label: "Журнал", icon: BookOpen },
   { to: "/feed", label: "История", icon: Clock },
   { to: "/glucose", label: "Глюкоза", icon: Activity },
+  { to: "/insulin-links", label: "Связи", icon: Link2 },
   { to: "/stats", label: "Статистика", icon: BarChart3 },
   { to: "/database", label: "База продуктов", icon: Database },
   { to: "/settings", label: "Настройки", icon: Settings },

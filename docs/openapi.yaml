@@ -2387,6 +2387,174 @@ components:
       - db
       title: HealthResponse
       type: object
+    InsulinLinkDayPutRequest:
+      description: Replace reviewed food/insulin links for one day atomically.
+      properties:
+        date:
+          format: date
+          title: Date
+          type: string
+        links:
+          items:
+            $ref: '#/components/schemas/MealInsulinLinkItem'
+          title: Links
+          type: array
+      required:
+      - date
+      title: InsulinLinkDayPutRequest
+      type: object
+    InsulinLinkDayResponse:
+      description: One-day workspace for reviewing food and insulin event links.
+      properties:
+        auto_links:
+          items:
+            $ref: '#/components/schemas/MealInsulinLinkItem'
+          title: Auto Links
+          type: array
+        date:
+          format: date
+          title: Date
+          type: string
+        insulin_events:
+          items:
+            $ref: '#/components/schemas/InsulinLinkEventResponse'
+          title: Insulin Events
+          type: array
+        links:
+          items:
+            $ref: '#/components/schemas/MealInsulinLinkItem'
+          title: Links
+          type: array
+        meals:
+          items:
+            $ref: '#/components/schemas/InsulinLinkMealResponse'
+          title: Meals
+          type: array
+      required:
+      - date
+      - meals
+      - insulin_events
+      - links
+      - auto_links
+      title: InsulinLinkDayResponse
+      type: object
+    InsulinLinkEventResponse:
+      description: Insulin event with backend-owned contextual label and link hints.
+      properties:
+        confidence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Confidence
+        context_label:
+          enum:
+          - food
+          - correction
+          - mixed
+          - unresolved
+          - manual
+          title: Context Label
+          type: string
+        covers_multiple_food_events:
+          default: false
+          title: Covers Multiple Food Events
+          type: boolean
+        enteredBy:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Enteredby
+        id:
+          format: uuid
+          title: Id
+          type: string
+        insulin_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Insulin Type
+        insulin_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Insulin Units
+        link_source:
+          enum:
+          - manual
+          - auto
+          - none
+          title: Link Source
+          type: string
+        linked_meal_ids:
+          items:
+            format: uuid
+            type: string
+          title: Linked Meal Ids
+          type: array
+        nightscout_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nightscout Id
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        raw_event_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Raw Event Type
+        reason:
+          title: Reason
+          type: string
+        suggested_meal_ids:
+          items:
+            format: uuid
+            type: string
+          title: Suggested Meal Ids
+          type: array
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+      required:
+      - id
+      - timestamp
+      - context_label
+      - link_source
+      - reason
+      title: InsulinLinkEventResponse
+      type: object
+    InsulinLinkMealResponse:
+      description: Compact food event for one-day insulin review.
+      properties:
+        eaten_at:
+          format: date-time
+          title: Eaten At
+          type: string
+        id:
+          format: uuid
+          title: Id
+          type: string
+        title:
+          title: Title
+          type: string
+        total_carbs_g:
+          title: Total Carbs G
+          type: number
+        total_kcal:
+          title: Total Kcal
+          type: number
+      required:
+      - id
+      - eaten_at
+      - title
+      - total_carbs_g
+      - total_kcal
+      title: InsulinLinkMealResponse
+      type: object
     IssuedTokensResponse:
       description: Issued access and refresh token response.
       properties:
@@ -2630,6 +2798,39 @@ components:
       required:
       - source
       title: MealCreate
+      type: object
+    MealInsulinLinkItem:
+      description: One reviewed many-to-many food/insulin link.
+      properties:
+        confidence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Confidence
+        insulin_event_id:
+          format: uuid
+          title: Insulin Event Id
+          type: string
+        meal_id:
+          format: uuid
+          title: Meal Id
+          type: string
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        source:
+          default: manual
+          enum:
+          - manual
+          - auto
+          title: Source
+          type: string
+      required:
+      - meal_id
+      - insulin_event_id
+      title: MealInsulinLinkItem
       type: object
     MealItemCreate:
       description: Create a meal item.
@@ -10195,4 +10396,84 @@ paths:
       - glucose
       - nightscout
       x-glucotracker-role-variant: true
+      x-glucotracker-scoped: true
+  /timeline/insulin-links:
+    get:
+      description: Return one-day food/insulin links and backend suggestions.
+      operationId: getTimelineInsulinLinks
+      parameters:
+      - in: query
+        name: date
+        required: true
+        schema:
+          format: date
+          title: Date
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsulinLinkDayResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Timeline Insulin Links
+      tags:
+      - nightscout
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+    put:
+      description: Replace reviewed one-day food/insulin links atomically.
+      operationId: putTimelineInsulinLinks
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsulinLinkDayPutRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsulinLinkDayResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Put Timeline Insulin Links
+      tags:
+      - nightscout
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
       x-glucotracker-scoped: true

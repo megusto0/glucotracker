@@ -24,6 +24,8 @@ export const queryKeys = {
     ["nightscout", "events", from, to] as const,
   nightscoutLatestReading: ["nightscout", "latest-reading"] as const,
   timeline: (from: string, to: string) => ["timeline", from, to] as const,
+  timelineInsulinLinks: (date: string) =>
+    ["timeline", "insulin-links", date] as const,
   glucoseDashboard: (from: string, to: string, mode: string) =>
     ["glucose", "dashboard", from, to, mode] as const,
   sensors: ["glucose", "sensors"] as const,

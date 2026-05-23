@@ -1084,6 +1084,59 @@ class NightscoutInsulinEvent(Base, TimestampMixin):
     owner: Mapped[User] = relationship()
 
 
+class MealInsulinLink(Base, TimestampMixin):
+    """User-reviewed many-to-many link between food and insulin context."""
+
+    __tablename__ = "meal_insulin_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "meal_id",
+            "insulin_event_id",
+            name="uq_meal_insulin_links_owner_meal_insulin",
+        ),
+        CheckConstraint(
+            "source in ('manual', 'auto')",
+            name="ck_meal_insulin_links_source",
+        ),
+        Index("ix_meal_insulin_links_owner_meal", "owner_id", "meal_id"),
+        Index(
+            "ix_meal_insulin_links_owner_insulin",
+            "owner_id",
+            "insulin_event_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    meal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("meals.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    insulin_event_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("nightscout_insulin_events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source: Mapped[str] = mapped_column(
+        String(20),
+        default="manual",
+        server_default=text("'manual'"),
+        nullable=False,
+    )
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    owner: Mapped[User] = relationship()
+    meal: Mapped[Meal] = relationship()
+    insulin_event: Mapped[NightscoutInsulinEvent] = relationship()
+
+
 class NightscoutImportState(Base):
     """Singleton import watermark for local Nightscout context cache."""
 

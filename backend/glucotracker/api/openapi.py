@@ -36,6 +36,7 @@ GLUCOSE_FEATURE_PATH_PREFIXES: tuple[str, ...] = (
     "/glucose",
     "/fingersticks",
     "/sensors",
+    "/timeline/insulin-links",
     "/reports/endocrinologist",
 )
 

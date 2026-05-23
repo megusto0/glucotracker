@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
+    InsulinLinkDayPutRequest,
+    InsulinLinkDayResponse,
     NightscoutDayStatusResponse,
     NightscoutEventsResponse,
     NightscoutGlucoseEntryResponse,
@@ -29,6 +31,7 @@ from glucotracker.api.schemas import (
     TimelineFoodResponse,
     TimelineResponse,
 )
+from glucotracker.application.insulin_links import InsulinLinkDayService
 from glucotracker.application.nightscout_context import (
     FoodEpisodeService,
     NightscoutContextImportService,
@@ -399,3 +402,33 @@ def get_timeline(
         from_datetime,
         to_datetime,
     )
+
+
+@router.get(
+    "/timeline/insulin-links",
+    response_model=InsulinLinkDayResponse,
+    operation_id="getTimelineInsulinLinks",
+    dependencies=[Depends(require_feature("glucose"))],
+)
+def get_timeline_insulin_links(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    date: Annotated[date_type, Query()],
+) -> InsulinLinkDayResponse:
+    """Return one-day food/insulin links and backend suggestions."""
+    return InsulinLinkDayService(session, current_user.id).get_day(date)
+
+
+@router.put(
+    "/timeline/insulin-links",
+    response_model=InsulinLinkDayResponse,
+    operation_id="putTimelineInsulinLinks",
+    dependencies=[Depends(require_feature("glucose"))],
+)
+def put_timeline_insulin_links(
+    payload: InsulinLinkDayPutRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> InsulinLinkDayResponse:
+    """Replace reviewed one-day food/insulin links atomically."""
+    return InsulinLinkDayService(session, current_user.id).replace_day(payload)

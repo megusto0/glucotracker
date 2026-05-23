@@ -10,6 +10,7 @@ SCOPED_DB_MODEL_NAMES = {
     "FingerstickReading",
     "Meal",
     "MealAuditEvent",
+    "MealInsulinLink",
     "NightscoutGlucoseEntry",
     "NightscoutImportState",
     "NightscoutInsulinEvent",

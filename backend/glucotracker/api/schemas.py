@@ -1247,6 +1247,63 @@ class TimelineFoodResponse(BaseModel):
     episodes: list[FoodEpisodeFoodResponse]
 
 
+class MealInsulinLinkItem(BaseModel):
+    """One reviewed many-to-many food/insulin link."""
+
+    meal_id: UUID
+    insulin_event_id: UUID
+    source: Literal["manual", "auto"] = "manual"
+    confidence: float | None = None
+    note: str | None = None
+
+
+class InsulinLinkMealResponse(BaseModel):
+    """Compact food event for one-day insulin review."""
+
+    id: UUID
+    eaten_at: datetime
+    title: str
+    total_carbs_g: float
+    total_kcal: float
+
+
+class InsulinLinkEventResponse(BaseModel):
+    """Insulin event with backend-owned contextual label and link hints."""
+
+    id: UUID
+    timestamp: datetime
+    insulin_units: float | None = None
+    raw_event_type: str | None = None
+    insulin_type: str | None = None
+    enteredBy: str | None = None
+    notes: str | None = None
+    nightscout_id: str | None = None
+    context_label: Literal["food", "correction", "mixed", "unresolved", "manual"]
+    link_source: Literal["manual", "auto", "none"]
+    linked_meal_ids: list[UUID] = Field(default_factory=list)
+    suggested_meal_ids: list[UUID] = Field(default_factory=list)
+    confidence: float | None = None
+    reason: str
+    covers_multiple_food_events: bool = False
+
+
+class InsulinLinkDayResponse(BaseModel):
+    """One-day workspace for reviewing food and insulin event links."""
+
+    date: date_type
+    meals: list[InsulinLinkMealResponse]
+    insulin_events: list[InsulinLinkEventResponse]
+    links: list[MealInsulinLinkItem]
+    auto_links: list[MealInsulinLinkItem]
+
+
+class InsulinLinkDayPutRequest(BaseModel):
+    """Replace reviewed food/insulin links for one day atomically."""
+
+    date: date_type
+    links: list[MealInsulinLinkItem] = Field(default_factory=list)
+
+
 class SensorSessionBase(BaseModel):
     """Shared CGM sensor session fields."""
 

@@ -70,6 +70,12 @@ export type NightscoutLatestReadingResponse =
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
 export type FoodEpisodeResponse =
   components["schemas"]["FoodEpisodeResponse"];
+export type InsulinLinkDayPutRequest =
+  components["schemas"]["InsulinLinkDayPutRequest"];
+export type InsulinLinkDayResponse =
+  components["schemas"]["InsulinLinkDayResponse"];
+export type MealInsulinLinkItem =
+  components["schemas"]["MealInsulinLinkItem"];
 export type AdminRecalculateResponse =
   components["schemas"]["AdminRecalculateResponse"];
 export type DatabaseItemResponse =
@@ -852,6 +858,20 @@ export const apiClient = {
   getTimeline: (config: ApiConfig, from: string, to: string) =>
     apiRequest<TimelineResponse>("/timeline", config, {
       query: { from, to },
+    }),
+
+  getTimelineInsulinLinks: (config: ApiConfig, date: string) =>
+    apiRequest<InsulinLinkDayResponse>("/timeline/insulin-links", config, {
+      query: { date },
+    }),
+
+  putTimelineInsulinLinks: (
+    config: ApiConfig,
+    body: InsulinLinkDayPutRequest,
+  ) =>
+    apiRequest<InsulinLinkDayResponse>("/timeline/insulin-links", config, {
+      method: "PUT",
+      body,
     }),
 
   getGlucoseDashboard: (
