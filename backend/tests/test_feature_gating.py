@@ -122,6 +122,20 @@ GLUCOSE_FORBIDDEN_REQUESTS = [
     ),
     ("GET", f"/sensors/{uuid4()}/quality", {}),
     ("POST", f"/sensors/{uuid4()}/recalculate-calibration", {}),
+    ("GET", "/twin/params", {}),
+    ("PATCH", "/twin/params", {"json": {"icr_morning": 12}}),
+    ("POST", "/twin/params/reset", {}),
+    ("GET", "/twin/fit/history", {}),
+    (
+        "GET",
+        "/twin/curve",
+        {
+            "params": {
+                "from": "2026-04-28T08:00:00",
+                "to": "2026-04-28T10:00:00",
+            }
+        },
+    ),
 ]
 
 
@@ -237,6 +251,18 @@ def test_gluco_user_can_read_feature_endpoints(api_client: TestClient) -> None:
             ("GET", "/fingersticks", {}),
             ("GET", "/sensors", {}),
             ("GET", f"/sensors/{sensor['id']}/quality", {}),
+            ("GET", "/twin/params", {}),
+            ("GET", "/twin/fit/history", {}),
+            (
+                "GET",
+                "/twin/curve",
+                {
+                    "params": {
+                        "from": "2026-04-28T08:00:00",
+                        "to": "2026-04-28T10:00:00",
+                    }
+                },
+            ),
             ("GET", "/settings/nightscout", {}),
             ("POST", "/settings/nightscout/test", {}),
             ("GET", "/nightscout/status", {}),

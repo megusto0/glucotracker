@@ -7,6 +7,7 @@ import { GlucosePage } from "../features/glucose/GlucosePage";
 import { InsulinLinksPage } from "../features/insulinLinks/InsulinLinksPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { StatsPage } from "../features/stats/StatsPage";
+import { TwinPage } from "../features/twin/TwinPage";
 
 export const routes: RouteObject[] = [
   {
@@ -28,6 +29,10 @@ export const routes: RouteObject[] = [
   {
     path: "/glucose",
     element: <GlucosePage />,
+  },
+  {
+    path: "/twin",
+    element: <TwinPage />,
   },
   {
     path: "/insulin-links",

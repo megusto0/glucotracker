@@ -79,6 +79,8 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "POST /meals/{meal_id}/unsync_nightscout",
     "POST /meals/from-photo",
     "GET /timeline",
+    "GET /timeline/insulin-links",
+    "PUT /timeline/insulin-links",
     "GET /autocomplete",
     "GET /profile",
     "PUT /profile",

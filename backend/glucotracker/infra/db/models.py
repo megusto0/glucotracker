@@ -1171,6 +1171,146 @@ class MealInsulinLinkReview(Base, TimestampMixin):
     insulin_event: Mapped[NightscoutInsulinEvent] = relationship()
 
 
+class TwinParams(Base, TimestampMixin):
+    """Per-user parameters for the informational digital twin model."""
+
+    __tablename__ = "twin_params"
+    __table_args__ = (
+        UniqueConstraint("owner_id", name="uq_twin_params_owner"),
+        CheckConstraint(
+            "morning_start_minutes < day_start_minutes "
+            "AND day_start_minutes < evening_start_minutes",
+            name="ck_twin_params_slot_order",
+        ),
+        Index("ix_twin_params_owner_id", "owner_id", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    icr_morning: Mapped[float | None] = mapped_column(Float, nullable=True)
+    icr_day: Mapped[float | None] = mapped_column(Float, nullable=True)
+    icr_evening: Mapped[float | None] = mapped_column(Float, nullable=True)
+    morning_start_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=360,
+        server_default="360",
+        nullable=False,
+    )
+    day_start_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=660,
+        server_default="660",
+        nullable=False,
+    )
+    evening_start_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=1080,
+        server_default="1080",
+        nullable=False,
+    )
+    isf: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dia_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=270,
+        server_default="270",
+        nullable=False,
+    )
+    carb_duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=180,
+        server_default="180",
+        nullable=False,
+    )
+    baseline_drift_per_hour: Mapped[float] = mapped_column(
+        Float,
+        default=0.0,
+        server_default="0",
+        nullable=False,
+    )
+    last_fit_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_fit_data_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_fit_data_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_fit_train_window_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    last_fit_holdout_window_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    last_fit_train_mae_mmol: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    last_fit_holdout_mae_mmol: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    last_fit_method: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_fit_converged: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    owner: Mapped[User] = relationship()
+
+
+class TwinFitLog(Base):
+    """Append-only per-user history of twin parameter changes and fits."""
+
+    __tablename__ = "twin_fit_log"
+    __table_args__ = (
+        Index("ix_twin_fit_log_owner_fit_at", "owner_id", "fit_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    fit_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    data_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    data_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    params_snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    train_window_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    holdout_window_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    train_mae_mmol: Mapped[float | None] = mapped_column(Float, nullable=True)
+    holdout_mae_mmol: Mapped[float | None] = mapped_column(Float, nullable=True)
+    method: Mapped[str] = mapped_column(String, nullable=False)
+    converged: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    iterations: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    owner: Mapped[User] = relationship()
+
+
 class NightscoutImportState(Base):
     """Singleton import watermark for local Nightscout context cache."""
 

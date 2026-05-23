@@ -33,4 +33,8 @@ export const queryKeys = {
     ["glucose", "fingersticks", from, to] as const,
   kcalBalanceRange: (from: string, to: string) =>
     ["kcal-balance", "range", from, to] as const,
+  twinParams: ["twin", "params"] as const,
+  twinFitHistory: (limit: number) => ["twin", "fit-history", limit] as const,
+  twinCurve: (from: string, to: string, stepMinutes: number) =>
+    ["twin", "curve", from, to, stepMinutes] as const,
 };

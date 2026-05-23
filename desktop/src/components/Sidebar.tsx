@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Activity, BarChart3, BookOpen, Clock, Database, Link2, LogOut, Settings,
+  Activity, BarChart3, BookOpen, Clock, Database, Dna, Link2, LogOut, Settings,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,8 +14,15 @@ import { formatMmol } from "../utils/nutritionFormat";
 const NAV = [
   { to: "/", label: "Журнал", icon: BookOpen },
   { to: "/feed", label: "История", icon: Clock },
-  { to: "/glucose", label: "Глюкоза", icon: Activity },
-  { to: "/insulin-links", label: "Связи", icon: Link2 },
+  { to: "/glucose", label: "Глюкоза", icon: Activity, feature: "glucose" },
+  {
+    to: "/twin",
+    label: "Двойник",
+    icon: Dna,
+    badge: "эксперимент.",
+    feature: "glucose",
+  },
+  { to: "/insulin-links", label: "Связи", icon: Link2, feature: "insulin" },
   { to: "/stats", label: "Статистика", icon: BarChart3 },
   { to: "/database", label: "База продуктов", icon: Database },
   { to: "/settings", label: "Настройки", icon: Settings },
@@ -95,6 +102,9 @@ export default function Sidebar() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isGlucosePage = location.pathname === "/glucose";
+  const hasFeature = (feature?: string) =>
+    !feature || !currentUser || currentUser.features.includes(feature);
+  const hasGlucoseFeature = hasFeature("glucose");
 
   const logout = () => {
     const tokenToRevoke = refreshToken.trim();
@@ -109,7 +119,7 @@ export default function Sidebar() {
   const { data: latestReading } = useQuery({
     queryKey: queryKeys.nightscoutLatestReading,
     queryFn: () => apiClient.getNightscoutLatestReading(config),
-    enabled: !!config.baseUrl && !!config.token,
+    enabled: hasGlucoseFeature && !!config.baseUrl && !!config.token,
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
@@ -126,7 +136,7 @@ export default function Sidebar() {
         "raw",
       );
     },
-    enabled: !!config.baseUrl && !!config.token,
+    enabled: hasGlucoseFeature && !!config.baseUrl && !!config.token,
     refetchInterval: 60_000 * 5,
     staleTime: 60_000 * 2,
     select: (d) => {
@@ -172,7 +182,7 @@ export default function Sidebar() {
 
       <nav className="gt-nav">
         <div className="gt-nav-section">Основное</div>
-        {NAV.map((n) => (
+        {NAV.filter((n) => hasFeature("feature" in n ? n.feature : undefined)).map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
@@ -180,12 +190,13 @@ export default function Sidebar() {
             className={({ isActive }) => isActive ? "active" : ""}
           >
             <n.icon />
-            {n.label}
+            <span className="gt-nav-label">{n.label}</span>
+            {"badge" in n ? <span className="gt-nav-badge">{n.badge}</span> : null}
           </NavLink>
         ))}
       </nav>
 
-      {!isGlucosePage && latestValue != null && (
+      {hasGlucoseFeature && !isGlucosePage && latestValue != null && (
         <div className="gt-side-glucose" onClick={() => navigate("/glucose")} title="Перейти к графику глюкозы">
           <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between" }}>
             <span className="lbl">сейчас</span>

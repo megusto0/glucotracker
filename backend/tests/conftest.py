@@ -30,6 +30,8 @@ from glucotracker.infra.db.models import (
     Pattern,
     Photo,
     SensorSession,
+    TwinFitLog,
+    TwinParams,
     User,
     UserProfile,
 )
@@ -90,6 +92,8 @@ def api_client(
         Pattern,
         Photo,
         SensorSession,
+        TwinFitLog,
+        TwinParams,
         UserProfile,
     )
     seed_session = session_factory()
