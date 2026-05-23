@@ -1170,6 +1170,7 @@ button {
   align-items:center;
   gap:6px;
 }
+.insulin-link-head{align-items:start;}
 .insulin-date-input{
   height:30px;
   border:1px solid var(--hairline-2);
@@ -1180,16 +1181,22 @@ button {
   font-size:12px;
   padding:0 8px;
 }
+.insulin-date-label{
+  min-width:88px;
+  color:var(--ink-2);
+  font-size:12px;
+  text-align:center;
+}
 .insulin-link-summary{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:1.15fr repeat(4,minmax(0,1fr));
   overflow:hidden;
-  margin-bottom:14px;
+  margin-bottom:18px;
   border:1px solid var(--hairline);
   border-radius:var(--radius-lg);
   background:var(--surface);
 }
-.insulin-link-summary > div{min-width:0;padding:12px 14px;}
+.insulin-link-summary > div{min-width:0;padding:12px 16px;}
 .insulin-link-summary > div + div{border-left:1px solid var(--hairline);}
 .insulin-link-summary span{
   display:block;
@@ -1202,22 +1209,27 @@ button {
 .insulin-link-summary b{
   display:block;
   margin-top:4px;
-  font-size:20px;
+  font-size:21px;
   font-weight:500;
+  line-height:1;
 }
 .insulin-link-layout{
   display:grid;
-  grid-template-columns:minmax(260px,0.95fr) minmax(320px,1.15fr) 300px;
-  gap:14px;
+  grid-template-columns:minmax(0,1fr) 320px;
+  gap:16px;
   align-items:start;
 }
-.insulin-link-column,
-.insulin-link-rail{
+.insulin-episode-list{
+  display:grid;
+  gap:14px;
   min-width:0;
-  border:1px solid var(--hairline);
-  border-radius:var(--radius-lg);
-  background:var(--surface);
-  padding:12px;
+}
+.insulin-link-rail{
+  display:grid;
+  gap:12px;
+  min-width:0;
+  position:sticky;
+  top:16px;
 }
 .section-head{
   display:flex;
@@ -1232,11 +1244,112 @@ button {
   letter-spacing:1px;
   text-transform:uppercase;
 }
-.insulin-event-list,
-.meal-link-list,
-.manual-link-list{display:grid;gap:8px;}
-.insulin-event-card,
-.meal-link-card{
+.manual-link-list,
+.insulin-row-list,
+.insulin-rail-meals{
+  display:grid;
+  gap:8px;
+}
+.insulin-episode{
+  overflow:hidden;
+  border:1px solid var(--hairline);
+  border-left-width:2px;
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+}
+.insulin-episode.food{border-left-color:var(--good);}
+.insulin-episode.manual{border-left-color:var(--ink);}
+.insulin-episode.mixed{border-left-color:var(--accent);}
+.insulin-episode.correction{border-left-color:var(--ink-3);}
+.insulin-episode.unresolved,
+.insulin-episode.food_only{border-left-color:var(--warn);}
+.insulin-episode-head{
+  display:grid;
+  grid-template-columns:78px minmax(0,1fr) auto;
+  gap:16px;
+  align-items:center;
+  border-bottom:1px solid var(--hairline);
+  padding:14px 16px 12px;
+}
+.insulin-episode-num{
+  color:var(--ink-4);
+  font-size:10px;
+  letter-spacing:.7px;
+  text-transform:uppercase;
+}
+.insulin-episode-num b{
+  display:block;
+  color:var(--ink);
+  font-family:var(--serif);
+  font-size:24px;
+  font-weight:400;
+  line-height:1;
+  text-transform:none;
+}
+.insulin-episode-title{min-width:0;}
+.insulin-episode-title > div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.insulin-episode-title h2{
+  overflow:hidden;
+  margin:3px 0 0;
+  color:var(--ink);
+  font-family:var(--serif);
+  font-size:18px;
+  font-weight:400;
+  line-height:1.15;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.insulin-episode-title p{
+  margin:5px 0 0;
+  color:var(--ink-3);
+  font-size:11px;
+}
+.insulin-episode-meta{
+  display:grid;
+  gap:5px;
+  justify-items:end;
+  color:var(--ink-3);
+  font-size:11px;
+}
+.insulin-episode-meta b{
+  border:1px solid var(--hairline-2);
+  border-radius:var(--radius);
+  background:var(--surface-2);
+  color:var(--ink-2);
+  font-size:10px;
+  font-weight:600;
+  padding:2px 6px;
+}
+.insulin-episode-body{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  background:var(--bg);
+}
+.insulin-episode-col{
+  min-width:0;
+  padding:12px 16px;
+}
+.insulin-episode-col + .insulin-episode-col{
+  border-left:1px solid var(--hairline);
+}
+.insulin-episode-col-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+  color:var(--ink-4);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.insulin-food-row,
+.insulin-bolus-row,
+.insulin-rail-meal{
   width:100%;
   min-width:0;
   border:1px solid var(--hairline);
@@ -1247,16 +1360,30 @@ button {
   font-family:var(--sans);
   text-align:left;
 }
-.insulin-event-card{
+.insulin-food-row{
   display:grid;
-  grid-template-columns:54px minmax(0,1fr);
+  grid-template-columns:30px minmax(0,1fr);
   gap:10px;
+  align-items:center;
+  min-height:58px;
+  padding:9px 10px;
+}
+.insulin-bolus-row{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
   padding:9px;
 }
-.insulin-event-card.active,
-.meal-link-card.linked{
+.insulin-food-row.linked,
+.insulin-bolus-row.active,
+.insulin-rail-meal.linked{
   border-color:var(--ink-3);
   background:var(--bg);
+}
+.insulin-food-row:disabled{
+  cursor:default;
+  opacity:.6;
 }
 .insulin-event-dose{
   display:flex;
@@ -1269,16 +1396,7 @@ button {
   color:var(--ink-fg);
 }
 .insulin-event-dose b{font-size:15px;font-weight:500;line-height:1;}
-.insulin-event-dose span{font-size:9px;color:var(--ink-fg);}
-.insulin-event-title{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  min-width:0;
-  font-family:var(--mono);
-  font-size:12px;
-}
+.insulin-event-dose small{font-size:9px;color:var(--ink-fg);}
 .insulin-label{
   border:1px solid var(--hairline-2);
   border-radius:var(--radius);
@@ -1292,26 +1410,10 @@ button {
 .insulin-label.food,
 .insulin-label.manual{background:var(--good-soft);}
 .insulin-label.correction{background:var(--accent-bg);}
+.insulin-label.food_only,
 .insulin-label.unresolved,
 .insulin-label.mixed{background:var(--warn-soft);}
-.insulin-event-meta{
-  margin-top:3px;
-  color:var(--ink-3);
-  font-size:11px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.meal-link-card{
-  display:grid;
-  grid-template-columns:30px minmax(0,1fr) auto;
-  gap:10px;
-  align-items:center;
-  min-height:58px;
-  padding:9px 10px;
-}
-.meal-link-card:disabled{cursor:default;opacity:.55;}
-.meal-link-icon{
+.insulin-link-icon{
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1321,7 +1423,9 @@ button {
   border-radius:var(--radius-lg);
   color:var(--ink-3);
 }
-.meal-link-card b{
+.insulin-food-row b,
+.insulin-bolus-row b,
+.insulin-rail-meal b{
   display:block;
   overflow:hidden;
   color:var(--ink);
@@ -1330,19 +1434,99 @@ button {
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.meal-link-card small{
+.insulin-food-row small,
+.insulin-bolus-row small{
   display:block;
   margin-top:2px;
   color:var(--ink-3);
   font-size:11px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
-.meal-link-card i{
+.insulin-reason{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  border-top:1px solid var(--hairline);
+  background:var(--surface-2);
+  padding:10px 16px;
+}
+.insulin-reason > span{
+  color:var(--ink-4);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.insulin-reason p{
+  overflow:hidden;
+  margin:0;
+  color:var(--ink-2);
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.insulin-reason div{
+  display:flex;
+  gap:6px;
+}
+.insulin-chip{
   border:1px solid var(--hairline-2);
   border-radius:var(--radius);
   color:var(--ink-3);
   font-size:10px;
   font-style:normal;
   padding:1px 6px;
+  background:var(--surface);
+}
+.insulin-rail-card{
+  min-width:0;
+  border:1px solid var(--hairline);
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+  padding:12px;
+}
+.insulin-selected-bolus{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+  margin-bottom:10px;
+}
+.insulin-selected-bolus b,
+.insulin-selected-bolus small{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.insulin-selected-bolus small{
+  color:var(--ink-3);
+  font-size:11px;
+}
+.insulin-rail-meal{
+  display:grid;
+  grid-template-columns:24px minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+  min-height:36px;
+  padding:6px 8px;
+}
+.insulin-rail-meal span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--ink-3);
+}
+.insulin-rail-meal i{
+  border:1px solid var(--hairline-2);
+  border-radius:var(--radius);
+  color:var(--ink-3);
+  font-size:10px;
+  font-style:normal;
+  padding:1px 5px;
 }
 .manual-link-row{
   display:grid;
@@ -1363,15 +1547,36 @@ button {
 }
 .manual-link-row b{font-size:12px;font-weight:600;}
 .manual-link-row small{color:var(--ink-3);font-size:10px;}
+.insulin-legend{
+  display:grid;
+  gap:8px;
+}
+.insulin-legend span{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.insulin-legend b{
+  overflow:hidden;
+  color:var(--ink-3);
+  font-size:11px;
+  font-weight:500;
+  text-align:right;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 .insulin-link-actions{
   flex-wrap:wrap;
   justify-content:flex-end;
-  margin-top:12px;
 }
 
 @media (max-width: 1180px){
-  .insulin-link-layout{grid-template-columns:1fr 1fr;}
-  .insulin-link-rail{grid-column:1 / -1;}
+  .insulin-link-layout{grid-template-columns:1fr;}
+  .insulin-link-rail{
+    grid-column:auto;
+    position:static;
+  }
 }
 @media (max-width: 820px){
   .gt-page-head{display:grid;}
@@ -1383,6 +1588,19 @@ button {
   .insulin-link-summary > div:nth-child(n+3){
     border-top:1px solid var(--hairline);
   }
-  .insulin-link-layout{grid-template-columns:1fr;}
-  .insulin-link-rail{grid-column:auto;}
+  .insulin-episode-head,
+  .insulin-episode-body,
+  .insulin-reason{
+    grid-template-columns:1fr;
+  }
+  .insulin-episode-meta{
+    justify-items:start;
+  }
+  .insulin-episode-col + .insulin-episode-col{
+    border-top:1px solid var(--hairline);
+    border-left:0;
+  }
+  .insulin-reason p{
+    white-space:normal;
+  }
 }
