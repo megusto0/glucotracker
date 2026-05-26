@@ -66,6 +66,7 @@ fun DashboardTodayResponse.toTotalsEntity(
         fetchedAt = fetchedAt,
         netBalanceKcal = balance?.netBalance.asDouble(),
         tdeeKcal = balance?.tdee.asDouble(),
+        activitySource = balance?.activitySource,
         photoCount = 0,
         dailyAverageKcalForPeriod = null,
     )
@@ -91,6 +92,7 @@ fun DashboardDayResponse.toTotalsEntity(
         fetchedAt = fetchedAt,
         netBalanceKcal = balance?.netBalance.asDouble() ?: balanceResponse?.netBalance.asDouble(),
         tdeeKcal = balance?.tdee.asDouble() ?: balanceResponse?.tdee.asDouble(),
+        activitySource = balance?.activitySource ?: balanceResponse?.activitySource,
         photoCount = photoCount ?: 0,
         dailyAverageKcalForPeriod = dailyAverageKcalForPeriod.asDouble(),
     )
@@ -107,6 +109,7 @@ fun CachedDayTotalsEntity.toDayTotals(): DayTotals =
         fetchedAt = fetchedAt,
         netBalanceKcal = netBalanceKcal,
         tdeeKcal = tdeeKcal,
+        activitySource = activitySource,
         photoCount = photoCount,
         dailyAverageKcalForPeriod = dailyAverageKcalForPeriod,
     )

@@ -28,6 +28,10 @@ KCAL_PER_MIN_CAP = 18.0
 NO_MOVE_FACTOR = 0.35
 STRIDE_M = 0.72
 WALKING_KCAL_PER_KM_FACTOR = 0.6
+TOTAL_KCAL_ACTIVITY_SOURCES = {
+    "health_connect_total",
+    "health_connect_total_calories",
+}
 
 
 def bmr_mifflin_st_jeor(
@@ -147,6 +151,9 @@ def tdee_from_profile(
         profile.age_years,
         profile.sex,
     )
+
+    if activity and activity.kcal_burned > 0 and activity.source in TOTAL_KCAL_ACTIVITY_SOURCES:
+        return round(activity.kcal_burned, 1)
 
     if activity and activity.kcal_burned > 0:
         return round(base_bmr + activity.kcal_burned, 1)

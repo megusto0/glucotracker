@@ -111,6 +111,9 @@ fun MoreScreen(
     ) {
         LocalGlucoseSurfaces.current.MoreNightscoutSection()
 
+        DebugHealthConnectSection()
+        GTHairlineDivider()
+
         BaseSection(onOpenBase = onOpenBase)
         GTHairlineDivider()
 
@@ -153,6 +156,37 @@ fun MoreScreen(
         LogoutSection(onLogout = { showLogoutConfirm = true })
 
         Spacer(Modifier.height(10.dp))
+    }
+}
+
+@Composable
+private fun DebugHealthConnectSection() {
+    val healthConnectAvailable = remember {
+        runCatching {
+            Class.forName("com.local.glucotracker.healthconnect.DebugHealthConnectSync")
+        }.isSuccess
+    }
+    if (!healthConnectAvailable) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GTKicker(text = stringResource(R.string.more_health_connect_title))
+            Spacer(Modifier.weight(1f))
+            GTOutlineButton(
+                text = stringResource(R.string.more_health_connect_connect),
+                onClick = {
+                    runCatching {
+                        Class.forName("com.local.glucotracker.healthconnect.DebugHealthConnectSync")
+                            .getMethod("requestSync")
+                            .invoke(null)
+                    }
+                },
+            )
+        }
+        GTHintBox(text = stringResource(R.string.more_health_connect_hint))
     }
 }
 

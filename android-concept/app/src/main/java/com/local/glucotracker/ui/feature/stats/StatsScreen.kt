@@ -650,6 +650,10 @@ private fun StatsKpiGrid(days: List<StatsDay>) {
     val fat = availableDays.sumOf { it.fatG }
     val carbsAverage = carbs / divisor
     val kcalAverage = kcal / divisor
+    val healthConnectKcalGoal = availableDays
+        .mapNotNull { it.healthConnectTdeeKcal() }
+        .takeIf { it.isNotEmpty() }
+        ?.sum()
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GTKpiCard(
@@ -664,8 +668,10 @@ private fun StatsKpiGrid(days: List<StatsDay>) {
             GTKpiCard(
                 label = stringResource(R.string.stats_kpi_kcal),
                 value = formatKcal(kcal),
-                sub = stringResource(R.string.stats_kpi_week_sub),
-                progress = 0f,
+                sub = healthConnectKcalGoal
+                    ?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it.toDouble())) }
+                    ?: stringResource(R.string.stats_kpi_week_sub),
+                progress = healthConnectKcalGoal?.let { progressOf(kcal, it) } ?: 0f,
                 progressColor = GT.colors.good.copy(alpha = 0.65f),
                 extra = stringResource(R.string.stats_kpi_avg_sub, formatKcal(kcalAverage)),
                 modifier = Modifier.weight(1f),
@@ -695,6 +701,22 @@ private fun StatsKpiGrid(days: List<StatsDay>) {
         }
     }
 }
+
+private fun DayTotals.healthConnectTdeeKcal(): Int? =
+    tdeeKcal
+        ?.takeIf { activitySource in HealthConnectGoalSources && it > 0.0 }
+        ?.roundToLong()
+        ?.toInt()
+
+private fun progressOf(value: Double, goal: Int): Float =
+    if (goal <= 0) 0f else (value / goal).toFloat().coerceIn(0f, 1f)
+
+private val HealthConnectGoalSources = setOf(
+    "health_connect_total",
+    "health_connect_total_calories",
+    "health_connect_active",
+    "health_connect_steps",
+)
 
 @Composable
 private fun ChartCard(

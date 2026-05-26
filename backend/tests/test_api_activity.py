@@ -35,3 +35,20 @@ def test_activity_sync_writes_readable_local_log(api_client: TestClient) -> None
     assert "Steps: 8432" in log_text
     assert "Calories burned: 412.5 kcal" in log_text
     assert '"heart_rate_avg": 91.0' in log_text
+
+
+def test_activity_balance_exposes_activity_source(api_client: TestClient) -> None:
+    payload = {
+        "date": "2026-05-05",
+        "steps": 8432,
+        "kcal_burned": 2234.6,
+        "source": "health_connect_total",
+        "calorie_confidence": "high",
+    }
+
+    sync_response = api_client.post("/activity/sync", json=payload)
+    balance_response = api_client.get("/activity/balance", params={"day": "2026-05-05"})
+
+    assert sync_response.status_code == 200
+    assert balance_response.status_code == 200
+    assert balance_response.json()["activity_source"] == "health_connect_total"

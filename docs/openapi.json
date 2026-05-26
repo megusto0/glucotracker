@@ -3901,6 +3901,17 @@
             "title": "Bmr Available",
             "type": "boolean"
           },
+          "activity_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Source"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -3967,6 +3978,17 @@
             "default": false,
             "title": "Bmr Available",
             "type": "boolean"
+          },
+          "activity_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Source"
           },
           "date": {
             "format": "date",

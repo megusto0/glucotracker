@@ -403,7 +403,7 @@ abstract class CachedTemplateDao {
         CachedTemplateFtsEntity::class,
         OutboxEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)

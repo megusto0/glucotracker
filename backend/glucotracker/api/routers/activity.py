@@ -69,6 +69,7 @@ class KcalBalanceResponse(BaseModel):
     tdee: float | None = None
     net_balance: float | None = None
     steps: int = 0
+    activity_source: str | None = None
     bmr_available: bool = False
 
 
@@ -78,6 +79,7 @@ class KcalBalanceDay(BaseModel):
     tdee: float | None = None
     net_balance: float | None = None
     steps: int = 0
+    activity_source: str | None = None
     bmr_available: bool = False
 
 
@@ -276,6 +278,7 @@ def get_kcal_balance(
     kcal_in = total.kcal if total else 0
     kcal_burned = activity.kcal_burned if activity else 0
     steps = activity.steps if activity else 0
+    activity_source = activity.source if activity else None
     tdee = tdee_from_profile(profile, activity)
     net = kcal_balance(kcal_in, profile, activity)
 
@@ -286,6 +289,7 @@ def get_kcal_balance(
         "tdee": tdee,
         "net_balance": net,
         "steps": steps,
+        "activity_source": activity_source,
         "bmr_available": tdee is not None,
     }
 
@@ -325,6 +329,7 @@ def get_kcal_balance_range(
 
         kcal_in = total.kcal if total else 0
         steps = activity.steps if activity else 0
+        activity_source = activity.source if activity else None
         tdee = tdee_from_profile(profile, activity)
         net = kcal_balance(kcal_in, profile, activity)
 
@@ -335,6 +340,7 @@ def get_kcal_balance_range(
                 "tdee": tdee,
                 "net_balance": net,
                 "steps": steps,
+                "activity_source": activity_source,
                 "bmr_available": tdee is not None,
             }
         )
