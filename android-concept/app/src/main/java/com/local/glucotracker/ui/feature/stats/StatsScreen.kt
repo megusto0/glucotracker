@@ -704,16 +704,18 @@ private fun StatsKpiGrid(days: List<StatsDay>) {
 
 private fun DayTotals.healthConnectTdeeKcal(): Int? =
     tdeeKcal
-        ?.takeIf { activitySource in HealthConnectTotalSources && it > 0.0 }
+        ?.takeIf { activitySource in HealthConnectGoalSources && it > 0.0 }
         ?.roundToLong()
         ?.toInt()
 
 private fun progressOf(value: Double, goal: Int): Float =
     if (goal <= 0) 0f else (value / goal).toFloat().coerceIn(0f, 1f)
 
-private val HealthConnectTotalSources = setOf(
+private val HealthConnectGoalSources = setOf(
     "health_connect_total",
     "health_connect_total_calories",
+    "health_connect_active",
+    "health_connect_steps",
 )
 
 @Composable
