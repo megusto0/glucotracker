@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from glucotracker.infra.db.models import DailyActivity, UserProfile
 
 ACTIVITY_MULTIPLIERS: dict[str, float] = {
@@ -32,6 +34,8 @@ TOTAL_KCAL_ACTIVITY_SOURCES = {
     "health_connect_total",
     "health_connect_total_calories",
 }
+MIN_TOTAL_KCAL_BMR_RATIO = 0.9
+MINUTES_PER_DAY = 24 * 60
 
 
 def bmr_mifflin_st_jeor(
@@ -136,6 +140,7 @@ def estimate_active_kcal_hybrid(
 def tdee_from_profile(
     profile: UserProfile,
     activity: DailyActivity | None = None,
+    now: datetime | None = None,
 ) -> float | None:
     if (
         profile.weight_kg is None
@@ -152,18 +157,40 @@ def tdee_from_profile(
         profile.sex,
     )
 
+    rejected_total_kcal = False
     if activity and activity.kcal_burned > 0 and activity.source in TOTAL_KCAL_ACTIVITY_SOURCES:
-        return round(activity.kcal_burned, 1)
+        total_kcal = _current_day_projected_total_kcal(activity, base_bmr, now)
+        if total_kcal >= base_bmr * MIN_TOTAL_KCAL_BMR_RATIO:
+            return round(total_kcal, 1)
+        rejected_total_kcal = True
 
-    if activity and activity.kcal_burned > 0:
+    if activity and activity.kcal_burned > 0 and activity.source not in TOTAL_KCAL_ACTIVITY_SOURCES:
         return round(base_bmr + activity.kcal_burned, 1)
 
-    if activity and activity.steps > 0:
+    if rejected_total_kcal and activity and activity.steps <= 0:
+        multiplier = ACTIVITY_MULTIPLIERS["sedentary"]
+    elif activity and activity.steps > 0:
         multiplier = activity_multiplier_from_steps(activity.steps)
     else:
         multiplier = ACTIVITY_MULTIPLIERS.get(profile.activity_level, 1.55)
 
     return round(base_bmr * multiplier, 1)
+
+
+def _current_day_projected_total_kcal(
+    activity: DailyActivity,
+    base_bmr: float,
+    now: datetime | None,
+) -> float:
+    """Project same-day Health Connect total calories to a full-day estimate."""
+    total_kcal = activity.kcal_burned
+    if now is None or activity.date != now.date():
+        return total_kcal
+
+    minutes_elapsed = now.hour * 60 + now.minute + now.second / 60
+    minutes_elapsed = max(minutes_elapsed, 1.0)
+    remaining_fraction = max(MINUTES_PER_DAY - minutes_elapsed, 0.0) / MINUTES_PER_DAY
+    return total_kcal + base_bmr * remaining_fraction
 
 
 def kcal_balance(
