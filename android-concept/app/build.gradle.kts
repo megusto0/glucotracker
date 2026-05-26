@@ -18,6 +18,9 @@ val openApiSpecPath = openApiSpec.asFile.absolutePath.replace('\\', '/')
 val generatedOpenApiDir = layout.buildDirectory.dir("generated/openapi")
 val generatedOpenApiKotlinDir = generatedOpenApiDir.map { it.dir("src/main/kotlin") }
 val generatedFoodOpenApiKotlinDir = layout.buildDirectory.dir("generated/openapi-food/src/main/kotlin")
+val debugApiBaseUrl = providers.gradleProperty("glucotracker.debugApiBaseUrl")
+    .orElse(providers.environmentVariable("GLUCOTRACKER_DEBUG_API_BASE_URL"))
+    .orElse("https://megusto.duckdns.org:1338")
 
 android {
     namespace = "com.local.glucotracker"
@@ -51,7 +54,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                "\"http://127.0.0.1:8000\"",
+                "\"${debugApiBaseUrl.get()}\"",
             )
         }
         release {

@@ -1,6 +1,7 @@
 package com.local.glucotracker.healthconnect
 
 import android.content.Context
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
@@ -31,13 +32,25 @@ object DebugHealthConnectSync {
     private const val RequestedPermissionsKey = "requested_permissions"
     private const val ProviderPackage = "com.google.android.apps.healthdata"
     private const val DaysToSync = 14
+    private const val Tag = "DebugHealthConnect"
 
-    private val permissions = setOf(
-        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+    private val totalCaloriesPermission = HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+    private val activeCaloriesPermission = HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class)
+    private val stepsPermission = HealthPermission.getReadPermission(StepsRecord::class)
+    private val heartRatePermission = HealthPermission.getReadPermission(HeartRateRecord::class)
+    private val restingHeartRatePermission = HealthPermission.getReadPermission(RestingHeartRateRecord::class)
+
+    private val requestedPermissions = setOf(
+        totalCaloriesPermission,
+        activeCaloriesPermission,
+        stepsPermission,
+        heartRatePermission,
+        restingHeartRatePermission,
+    )
+    private val syncablePermissions = setOf(
+        totalCaloriesPermission,
+        activeCaloriesPermission,
+        stepsPermission,
     )
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var permissionLauncher: ActivityResultLauncher<Set<String>>? = null
@@ -55,15 +68,15 @@ object DebugHealthConnectSync {
         permissionLauncher = activity.registerForActivityResult(
             PermissionController.createRequestPermissionResultContract(),
         ) { granted ->
-            if (granted.containsAll(permissions)) {
-                scope.launch { syncRecentDays(client, syncApi) }
+            if (granted.canSyncActivity()) {
+                scope.launch { syncRecentDays(client, syncApi, granted) }
             }
         }
 
         scope.launch {
             val granted = client.permissionController.getGrantedPermissions()
-            if (granted.containsAll(permissions)) {
-                syncRecentDays(client, syncApi)
+            if (granted.canSyncActivity()) {
+                syncRecentDays(client, syncApi, granted)
                 return@launch
             }
 
@@ -71,7 +84,7 @@ object DebugHealthConnectSync {
             if (!preferences.getBoolean(RequestedPermissionsKey, false)) {
                 preferences.edit().putBoolean(RequestedPermissionsKey, true).apply()
                 withContext(Dispatchers.Main) {
-                    permissionLauncher?.launch(permissions)
+                    permissionLauncher?.launch(requestedPermissions)
                 }
             }
         }
@@ -83,17 +96,21 @@ object DebugHealthConnectSync {
         val syncApi = healthSyncApi ?: return
         scope.launch {
             val granted = client.permissionController.getGrantedPermissions()
-            if (granted.containsAll(permissions)) {
-                syncRecentDays(client, syncApi)
+            if (granted.canSyncActivity()) {
+                syncRecentDays(client, syncApi, granted)
             } else {
                 withContext(Dispatchers.Main) {
-                    permissionLauncher?.launch(permissions)
+                    permissionLauncher?.launch(requestedPermissions)
                 }
             }
         }
     }
 
-    private suspend fun syncRecentDays(client: HealthConnectClient, syncApi: SyncApi) {
+    private suspend fun syncRecentDays(
+        client: HealthConnectClient,
+        syncApi: SyncApi,
+        grantedPermissions: Set<String>,
+    ) {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         (0 until DaysToSync).forEach { offset ->
@@ -103,7 +120,10 @@ object DebugHealthConnectSync {
                     syncApi = syncApi,
                     day = today.minusDays(offset.toLong()),
                     zone = zone,
+                    grantedPermissions = grantedPermissions,
                 )
+            }.onFailure { error ->
+                Log.w(Tag, "Health Connect sync failed for ${today.minusDays(offset.toLong())}", error)
             }
         }
     }
@@ -113,19 +133,33 @@ object DebugHealthConnectSync {
         syncApi: SyncApi,
         day: LocalDate,
         zone: ZoneId,
+        grantedPermissions: Set<String>,
     ) {
         val start = day.atStartOfDay(zone).toInstant()
         val end = day.plusDays(1).atStartOfDay(zone).toInstant()
+        val metrics = buildSet<AggregateMetric<*>> {
+            if (totalCaloriesPermission in grantedPermissions) {
+                add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+            }
+            if (activeCaloriesPermission in grantedPermissions) {
+                add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+            }
+            if (stepsPermission in grantedPermissions) {
+                add(StepsRecord.COUNT_TOTAL)
+            }
+            if (heartRatePermission in grantedPermissions) {
+                add(HeartRateRecord.BPM_AVG)
+                add(HeartRateRecord.MEASUREMENTS_COUNT)
+            }
+            if (restingHeartRatePermission in grantedPermissions) {
+                add(RestingHeartRateRecord.BPM_AVG)
+            }
+        }
+        if (metrics.isEmpty()) return
+
         val result = client.aggregate(
             AggregateRequest(
-                metrics = setOf(
-                    TotalCaloriesBurnedRecord.ENERGY_TOTAL,
-                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
-                    StepsRecord.COUNT_TOTAL,
-                    HeartRateRecord.BPM_AVG,
-                    HeartRateRecord.MEASUREMENTS_COUNT,
-                    RestingHeartRateRecord.BPM_AVG,
-                ),
+                metrics = metrics,
                 timeRangeFilter = TimeRangeFilter.between(start, end),
             ),
         )
@@ -171,6 +205,8 @@ object DebugHealthConnectSync {
             ),
         )
     }
+
+    private fun Set<String>.canSyncActivity(): Boolean = any { it in syncablePermissions }
 
     private fun Double.toBigDecimalOrZero(): BigDecimal =
         if (isFinite()) BigDecimal.valueOf(this) else BigDecimal.ZERO
