@@ -78,6 +78,7 @@ class TodayRepositoryImpl @Inject constructor(
     private val totalsDao: CachedDayTotalsDao,
     private val mealDao: CachedMealDao,
     private val todayApi: TodayApi,
+    private val statsApi: StatsApi,
     private val mealApi: MealApi,
     private val reconciler: MealReconciler,
     @Named("apiBaseUrl") private val baseUrl: String,
@@ -113,15 +114,22 @@ class TodayRepositoryImpl @Inject constructor(
         date: LocalDate,
         fetchedAt: Instant,
     ): CachedDayTotalsEntity? {
+        val balance = runCatching { statsApi.kcalBalance(date) }.getOrNull()
         if (date != currentLocalDate()) {
-            return todayApi.getDay(date)?.toTotalsEntity(fetchedAt)
+            return todayApi.getDay(date)?.toTotalsEntity(
+                fetchedAt = fetchedAt,
+                balanceResponse = balance,
+            )
         }
 
         val today = todayApi.getToday()
         return if (today.date == date) {
-            today.toTotalsEntity(fetchedAt)
+            today.toTotalsEntity(fetchedAt, balance)
         } else {
-            todayApi.getDay(date)?.toTotalsEntity(fetchedAt)
+            todayApi.getDay(date)?.toTotalsEntity(
+                fetchedAt = fetchedAt,
+                balanceResponse = balance,
+            )
         }
     }
 }

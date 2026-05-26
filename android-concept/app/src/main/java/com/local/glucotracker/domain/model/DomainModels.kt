@@ -36,6 +36,7 @@ data class DayTotals(
     val fetchedAt: Instant? = null,
     val netBalanceKcal: Double? = null,
     val tdeeKcal: Double? = null,
+    val activitySource: String? = null,
     val photoCount: Int = 0,
     val dailyAverageKcalForPeriod: Double? = null,
 )

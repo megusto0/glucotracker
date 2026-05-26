@@ -27,6 +27,8 @@ hilt-navigation-compose = "1.2.0"
 lifecycle = "2.9.0"
 security-crypto = "1.1.0-alpha06"
 startup = "1.2.0"
+health-connect = "1.1.0-alpha12"
+guava-android = "33.2.1-android"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -45,6 +47,8 @@ lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-view
 lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security-crypto" }
 startup-runtime = { group = "androidx.startup", name = "startup-runtime", version.ref = "startup" }
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "health-connect" }
+guava-android = { group = "com.google.guava", name = "guava", version.ref = "guava-android" }
 
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }

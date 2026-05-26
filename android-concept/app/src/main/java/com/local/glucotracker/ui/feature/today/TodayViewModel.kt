@@ -304,6 +304,16 @@ private fun toTodayState(
         queueDepth = activeOutbox.count { item -> item.state.countsInSyncQueue() },
     )
     val rows = buildRows(date, acceptedMeals, backendDrafts, activeOutbox)
+    val totals = day?.totals ?: DayTotals(
+        date = date,
+        kcal = 0.0,
+        carbsG = 0.0,
+        proteinG = 0.0,
+        fatG = 0.0,
+        fiberG = 0.0,
+        mealCount = 0,
+    )
+    val effectiveGoals = goals.withHealthConnectKcalGoal(totals)
 
     if (day == null && rows.isEmpty()) {
         return if (cachedDay.isRefreshing) {
@@ -321,16 +331,8 @@ private fun toTodayState(
 
     return TodayState.Day(
         date = date,
-        totals = day?.totals ?: DayTotals(
-            date = date,
-            kcal = 0.0,
-            carbsG = 0.0,
-            proteinG = 0.0,
-            fatG = 0.0,
-            fiberG = 0.0,
-            mealCount = 0,
-        ),
-        goals = goals,
+        totals = totals,
+        goals = effectiveGoals,
         rows = rows,
         pendingQueueCount = pendingCount,
         syncStatus = visibleSyncStatus,
@@ -342,6 +344,21 @@ private fun toTodayState(
         typicalKcal14d = typicalKcal14d,
     )
 }
+
+private fun UserGoals.withHealthConnectKcalGoal(totals: DayTotals): UserGoals {
+    val healthConnectGoal = totals.healthConnectTdeeKcal() ?: return this
+    return copy(dailyKcal = healthConnectGoal)
+}
+
+private fun DayTotals.healthConnectTdeeKcal(): Int? =
+    tdeeKcal
+        ?.takeIf { activitySource in HealthConnectTotalSources && it > 0.0 }
+        ?.roundToInt()
+
+private val HealthConnectTotalSources = setOf(
+    "health_connect_total",
+    "health_connect_total_calories",
+)
 
 private fun buildRows(
     date: LocalDate,

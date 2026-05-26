@@ -497,6 +497,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.startup.runtime)
+    debugImplementation(libs.health.connect.client)
+    implementation(libs.guava.android)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
