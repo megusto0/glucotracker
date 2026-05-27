@@ -169,7 +169,8 @@ def tdee_from_profile(
 
     if rejected_total_kcal and activity:
         observed_active_kcal = _observed_activity_kcal(activity, profile)
-        return round(base_bmr + observed_active_kcal, 1)
+        sedentary_tdee = base_bmr * ACTIVITY_MULTIPLIERS["sedentary"]
+        return round(sedentary_tdee + observed_active_kcal, 1)
 
     if activity and activity.steps > 0:
         multiplier = activity_multiplier_from_steps(activity.steps)

@@ -64,7 +64,7 @@ def test_tdee_rejects_implausibly_low_past_health_connect_total() -> None:
         profile,
         activity,
         now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
-    ) == round(bmr + observed_steps_kcal, 1)
+    ) == round(bmr * 1.2 + observed_steps_kcal, 1)
 
 
 def test_tdee_rejects_low_health_connect_total_without_steps_as_sedentary() -> None:
@@ -83,7 +83,7 @@ def test_tdee_rejects_low_health_connect_total_without_steps_as_sedentary() -> N
         profile,
         activity,
         now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
-    ) == round(bmr, 1)
+    ) == round(bmr * 1.2, 1)
 
 
 def test_tdee_rejected_health_connect_total_keeps_observed_active_kcal() -> None:
@@ -103,7 +103,7 @@ def test_tdee_rejected_health_connect_total_keeps_observed_active_kcal() -> None
         profile,
         activity,
         now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
-    ) == round(bmr + 120, 1)
+    ) == round(bmr * 1.2 + 120, 1)
 
 
 def test_tdee_adds_active_calorie_sources_to_bmr() -> None:
