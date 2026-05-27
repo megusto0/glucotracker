@@ -167,14 +167,30 @@ def tdee_from_profile(
     if activity and activity.kcal_burned > 0 and activity.source not in TOTAL_KCAL_ACTIVITY_SOURCES:
         return round(base_bmr + activity.kcal_burned, 1)
 
-    if rejected_total_kcal and activity and activity.steps <= 0:
-        multiplier = ACTIVITY_MULTIPLIERS["sedentary"]
-    elif activity and activity.steps > 0:
+    if rejected_total_kcal and activity:
+        observed_active_kcal = _observed_activity_kcal(activity, profile)
+        return round(base_bmr + observed_active_kcal, 1)
+
+    if activity and activity.steps > 0:
         multiplier = activity_multiplier_from_steps(activity.steps)
     else:
         multiplier = ACTIVITY_MULTIPLIERS.get(profile.activity_level, 1.55)
 
     return round(base_bmr * multiplier, 1)
+
+
+def _observed_activity_kcal(
+    activity: DailyActivity,
+    profile: UserProfile,
+) -> float:
+    if profile.weight_kg is None:
+        return 0.0
+
+    observed = steps_kcal(activity.steps, profile.weight_kg) if activity.steps > 0 else 0.0
+    observed = max(observed, activity.kcal_steps or 0.0)
+    observed = max(observed, activity.kcal_hr_active or 0.0)
+    observed = max(observed, (activity.kcal_no_move_hr or 0.0) * NO_MOVE_FACTOR)
+    return observed
 
 
 def _current_day_projected_total_kcal(

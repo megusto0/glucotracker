@@ -58,12 +58,13 @@ def test_tdee_rejects_implausibly_low_past_health_connect_total() -> None:
     )
 
     bmr = bmr_mifflin_st_jeor(70, 175, 30, "male")
+    observed_steps_kcal = 70 * (500 * 0.72 / 1000) * 0.6
 
     assert tdee_from_profile(
         profile,
         activity,
         now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
-    ) == round(bmr * 1.2, 1)
+    ) == round(bmr + observed_steps_kcal, 1)
 
 
 def test_tdee_rejects_low_health_connect_total_without_steps_as_sedentary() -> None:
@@ -82,7 +83,27 @@ def test_tdee_rejects_low_health_connect_total_without_steps_as_sedentary() -> N
         profile,
         activity,
         now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
-    ) == round(bmr * 1.2, 1)
+    ) == round(bmr, 1)
+
+
+def test_tdee_rejected_health_connect_total_keeps_observed_active_kcal() -> None:
+    profile = _profile()
+    activity = DailyActivity(
+        owner_id=uuid4(),
+        date=date(2026, 5, 5),
+        kcal_burned=300,
+        steps=0,
+        kcal_hr_active=120,
+        source="health_connect_total",
+    )
+
+    bmr = bmr_mifflin_st_jeor(70, 175, 30, "male")
+
+    assert tdee_from_profile(
+        profile,
+        activity,
+        now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
+    ) == round(bmr + 120, 1)
 
 
 def test_tdee_adds_active_calorie_sources_to_bmr() -> None:
