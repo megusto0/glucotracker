@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../../../tests/msw";
 import { useSettingsStore } from "../../settings/settingsStore";
 import { glucoseSyncLogger } from "../glucoseSyncLogger";
+import { SENSOR_DISCONNECTED_AFTER_MS } from "../testUtils";
 
 const IMPORT_URL = "http://api.test/nightscout/import";
 
@@ -174,6 +175,61 @@ describe("useGlucoseSyncTracker integration", () => {
     const summary = result.current.logSummary();
     expect(summary.total).toBeGreaterThan(0);
     expect(glucoseSyncLogger.getEntries("info").length).toBeGreaterThan(0);
+  }, 30000);
+
+  it("scenario: stale CGM stream marks sensor disconnected", async () => {
+    const staleTs = new Date(
+      Date.now() - SENSOR_DISCONNECTED_AFTER_MS - 60_000,
+    ).toISOString();
+
+    server.use(
+      http.post(IMPORT_URL, () =>
+        HttpResponse.json({
+          from_datetime: "2026-04-28T04:00:00",
+          to_datetime: "2026-04-28T10:00:00",
+          glucose_imported: 0,
+          insulin_imported: 0,
+          glucose_total: 1,
+          insulin_total: 0,
+        }),
+      ),
+      http.get("http://api.test/glucose/dashboard", ({ request }) => {
+        const mode = new URL(request.url).searchParams.get("mode") ?? "raw";
+        return HttpResponse.json({
+          mode,
+          points: [{ timestamp: staleTs }],
+          current_sensor: { id: "sensor-stale" },
+        });
+      }),
+    );
+
+    const { useGlucoseSyncTracker } = await import("../useGlucoseSyncTracker");
+
+    const { result } = renderHook(
+      () =>
+        useGlucoseSyncTracker(
+          "2026-04-28T04:00:00",
+          "2026-04-28T10:00:00",
+          "normalized",
+          true,
+          true,
+        ),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(
+      () => {
+        expect(result.current.syncState.phase).toBe("sensor_disconnected");
+      },
+      { timeout: 15000 },
+    );
+
+    expect(result.current.syncState.currentSensorId).toBe("sensor-stale");
+    expect(
+      glucoseSyncLogger
+        .getEntries("info")
+        .some((entry) => entry.event === "sensor_stream_disconnected"),
+    ).toBe(true);
   }, 30000);
 
   it("scenario: resetConnection clears offline state", async () => {

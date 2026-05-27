@@ -8,12 +8,16 @@ import {
 import { queryKeys } from "../../api/queryKeys";
 import { useApiConfig } from "../settings/settingsStore";
 import { glucoseSyncLogger } from "./glucoseSyncLogger";
+import {
+  CGM_INTERVAL_MS,
+  MAX_CHECK_INTERVAL_MS,
+  MIN_CHECK_INTERVAL_MS,
+  POST_DETECTION_DELAY_MS,
+  calculateBackoffMs,
+  delayFromLatestReading,
+  isSensorStreamDisconnected,
+} from "./glucoseSyncTiming";
 
-const CGM_INTERVAL_MS = 5 * 60 * 1000;
-const POST_DETECTION_DELAY_MS = 30 * 1000;
-const MIN_CHECK_INTERVAL_MS = 15 * 1000;
-const MAX_CHECK_INTERVAL_MS = 5 * 60 * 1000;
-const BACKOFF_BASE_MS = 10 * 1000;
 const MAX_CONSECUTIVE_ERRORS = 10;
 const OFFLINE_AUTO_RECOVERY_MS = 2 * 60 * 1000;
 const SYNC_LOOKBACK_HOURS = 6;
@@ -25,6 +29,7 @@ export type SyncPhase =
   | "awaiting_data"
   | "importing"
   | "backing_off"
+  | "sensor_disconnected"
   | "offline";
 
 export interface SyncState {
@@ -42,12 +47,6 @@ interface SensorState {
   lastKnownReadingTs: string | null;
   lastSuccessfulImportAt: string | null;
   consecutiveErrors: number;
-}
-
-function calculateBackoffMs(errors: number): number {
-  const delay = Math.min(BACKOFF_BASE_MS * Math.pow(2, errors), MAX_CHECK_INTERVAL_MS);
-  const jitter = Math.random() * BACKOFF_BASE_MS;
-  return delay + jitter;
 }
 
 function extractLatestTimestamp(data: GlucoseDashboardResponse): string | null {
@@ -72,20 +71,6 @@ function currentSyncWindow() {
     from: toLocalDateTimeSecond(from),
     to: toLocalDateTimeSecond(to),
   };
-}
-
-function delayFromLatestReading(latestTs: string): number {
-  const firstExpected =
-    new Date(latestTs).getTime() + CGM_INTERVAL_MS + POST_DETECTION_DELAY_MS;
-  const earliestAllowed = Date.now() + MIN_CHECK_INTERVAL_MS;
-  if (firstExpected >= earliestAllowed) {
-    return Math.max(firstExpected - Date.now(), MIN_CHECK_INTERVAL_MS);
-  }
-  const missedCycles = Math.ceil((earliestAllowed - firstExpected) / CGM_INTERVAL_MS);
-  return Math.max(
-    firstExpected + missedCycles * CGM_INTERVAL_MS - Date.now(),
-    MIN_CHECK_INTERVAL_MS,
-  );
 }
 
 export function useGlucoseSyncTracker(
@@ -237,47 +222,31 @@ export function useGlucoseSyncTracker(
         hadNewData,
       });
 
-      if (hadNewData && latestTs) {
+      if (latestTs) {
         updateSensorState(currentSensorId, { lastKnownReadingTs: latestTs });
 
-        const delay = delayFromLatestReading(latestTs);
+        const streamDisconnected = isSensorStreamDisconnected(latestTs);
+        const delay = streamDisconnected
+          ? MAX_CHECK_INTERVAL_MS
+          : delayFromLatestReading(latestTs);
 
-        glucoseSyncLogger.info("schedule_next_after_new_data", {
-          sensorId: currentSensorId,
-          latestTs,
-          nextCheckInMs: delay,
-        });
+        glucoseSyncLogger.info(
+          streamDisconnected
+            ? "sensor_stream_disconnected"
+            : hadNewData
+              ? "schedule_next_after_new_data"
+              : "schedule_next_from_local_latest",
+          {
+            sensorId: currentSensorId,
+            latestTs,
+            streamDisconnected,
+            nextCheckInMs: delay,
+          },
+        );
 
         setSyncState((prev) => ({
           ...prev,
-          phase: "awaiting_data",
-          lastKnownReadingTs: latestTs,
-          lastSuccessfulImportAt: now,
-          lastCheckAt: now,
-          currentSensorId,
-          nextScheduledAt: new Date(Date.now() + delay),
-          consecutiveErrors: 0,
-          lastError: null,
-        }));
-
-        clearTimer();
-        timerRef.current = setTimeout(() => {
-          if (mountedRef.current) performImport();
-        }, delay);
-      } else if (latestTs) {
-        updateSensorState(currentSensorId, { lastKnownReadingTs: latestTs });
-
-        const delay = delayFromLatestReading(latestTs);
-
-        glucoseSyncLogger.info("schedule_next_from_local_latest", {
-          sensorId: currentSensorId,
-          latestTs,
-          nextCheckInMs: delay,
-        });
-
-        setSyncState((prev) => ({
-          ...prev,
-          phase: "awaiting_data",
+          phase: streamDisconnected ? "sensor_disconnected" : "awaiting_data",
           lastKnownReadingTs: latestTs,
           lastSuccessfulImportAt: now,
           lastCheckAt: now,
@@ -418,18 +387,22 @@ export function useGlucoseSyncTracker(
       const sensorId = dashboardData.current_sensor?.id ?? "unknown";
 
       if (latestTs) {
-        const delay = delayFromLatestReading(latestTs);
+        const streamDisconnected = isSensorStreamDisconnected(latestTs);
+        const delay = streamDisconnected
+          ? MIN_CHECK_INTERVAL_MS
+          : delayFromLatestReading(latestTs);
 
         updateSensorState(sensorId, { lastKnownReadingTs: latestTs });
         glucoseSyncLogger.info("initial_schedule_from_cache", {
           sensorId,
           latestTs,
+          streamDisconnected,
           nextCheckInMs: delay,
         });
 
         setSyncState((prev) => ({
           ...prev,
-          phase: "awaiting_data",
+          phase: streamDisconnected ? "sensor_disconnected" : "awaiting_data",
           lastKnownReadingTs: latestTs,
           currentSensorId: sensorId,
           nextScheduledAt: new Date(Date.now() + delay),

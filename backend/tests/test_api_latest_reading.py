@@ -111,6 +111,31 @@ class TestLatestReadingEndpoint:
         data = response.json()
         assert data["sensor_id"] == sensor_id
 
+    def test_does_not_return_sensor_id_after_sensor_ended(self, api_client, db_engine):
+        session_factory = api_client.app_state["session_factory"]
+        session = session_factory()
+
+        sensor_start = datetime.now(UTC) - timedelta(days=2)
+        sensor_end = datetime.now(UTC) - timedelta(days=1)
+        reading_ts = datetime.now(UTC) - timedelta(minutes=5)
+        _insert_sensor(
+            session,
+            started_at=sensor_start,
+            ended_at=sensor_end,
+        )
+        _insert_glucose_entry(
+            session,
+            source_key="key-ended-sensor",
+            timestamp=reading_ts,
+            value_mmol_l=7.2,
+        )
+        session.close()
+
+        response = api_client.get("/nightscout/latest-reading")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sensor_id"] is None
+
 
 class TestSyncScenarios:
     def test_normal_update_cycle(self, api_client, db_engine):

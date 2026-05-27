@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { glucoseSyncLogger } from "../glucoseSyncLogger";
-import { calculateNextCheckDelay, CGM_INTERVAL_MS, POST_DETECTION_DELAY_MS } from "../testUtils";
+import {
+  calculateNextCheckDelay,
+  CGM_INTERVAL_MS,
+  POST_DETECTION_DELAY_MS,
+  SENSOR_DISCONNECTED_AFTER_MS,
+  isSensorStreamDisconnected,
+} from "../testUtils";
 
 describe("glucoseSyncLogger", () => {
   beforeEach(() => {
@@ -141,6 +147,31 @@ describe("Sensor change detection", () => {
   it("should handle null sensor gracefully", () => {
     const sensorId = null;
     expect(sensorId ?? "unknown").toBe("unknown");
+  });
+});
+
+describe("Sensor disconnection detection", () => {
+  it("should mark the CGM stream disconnected after the stale threshold", () => {
+    const now = new Date("2026-04-28T08:21:00Z").getTime();
+    const staleReading = new Date(
+      now - SENSOR_DISCONNECTED_AFTER_MS - 1000,
+    ).toISOString();
+
+    expect(isSensorStreamDisconnected(staleReading, now)).toBe(true);
+  });
+
+  it("should keep the CGM stream connected inside the stale threshold", () => {
+    const now = new Date("2026-04-28T08:20:00Z").getTime();
+    const recentReading = new Date(
+      now - SENSOR_DISCONNECTED_AFTER_MS + 1000,
+    ).toISOString();
+
+    expect(isSensorStreamDisconnected(recentReading, now)).toBe(false);
+  });
+
+  it("should ignore missing or invalid timestamps", () => {
+    expect(isSensorStreamDisconnected(null)).toBe(false);
+    expect(isSensorStreamDisconnected("not-a-date")).toBe(false);
   });
 });
 

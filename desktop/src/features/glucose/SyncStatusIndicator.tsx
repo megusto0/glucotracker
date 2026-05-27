@@ -54,6 +54,7 @@ export function SyncStatusIndicator({
     lastCheckAt,
     lastKnownReadingTs,
   } = syncState;
+  const isSensorDisconnected = phase === "sensor_disconnected";
   const isError = phase === "offline" || Boolean(lastError);
   const isLoading =
     phase === "checking" || phase === "importing" || phase === "backing_off";
@@ -67,6 +68,8 @@ export function SyncStatusIndicator({
 
   const label = isError
     ? "Не удалось обновить"
+    : isSensorDisconnected
+      ? "Нет связи с сенсором"
     : isLoading
       ? "Обновляем данные…"
       : noNewPoints
@@ -74,6 +77,8 @@ export function SyncStatusIndicator({
         : "Данные актуальны";
   const color = isError
     ? "var(--warn)"
+    : isSensorDisconnected
+      ? "var(--warn)"
     : isLoading
       ? "var(--accent)"
       : noNewPoints
@@ -86,7 +91,11 @@ export function SyncStatusIndicator({
   const details = lastSuccessfulImportAt
     ? ` · обновление ${formatRelative(lastSuccessfulImportAt)}`
     : "";
-  const singleLine = `${label}${nextCheck}${details}`;
+  const sensorDetails =
+    isSensorDisconnected && lastKnownReadingTs
+      ? ` · последняя CGM-точка ${formatRelative(lastKnownReadingTs)}`
+      : "";
+  const singleLine = `${label}${nextCheck}${sensorDetails || details}`;
 
   if (compact) {
     return (

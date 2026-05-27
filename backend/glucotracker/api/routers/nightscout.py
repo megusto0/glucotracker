@@ -286,6 +286,8 @@ def get_nightscout_latest_reading(
         .where(
             SensorSession.started_at <= latest.timestamp,
             SensorSession.owner_id == current_user.id,
+            (SensorSession.ended_at.is_(None))
+            | (SensorSession.ended_at >= latest.timestamp),
         )
         .order_by(SensorSession.started_at.desc())
         .limit(1)
