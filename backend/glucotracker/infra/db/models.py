@@ -1171,6 +1171,120 @@ class MealInsulinLinkReview(Base, TimestampMixin):
     insulin_event: Mapped[NightscoutInsulinEvent] = relationship()
 
 
+class MealInsulinEpisodeSnapshot(Base, TimestampMixin):
+    """Persisted day-review episode assembled from food, insulin, and CGM context."""
+
+    __tablename__ = "meal_insulin_episode_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "date",
+            "episode_key",
+            name="uq_meal_insulin_episode_snapshots_owner_date_key",
+        ),
+        CheckConstraint(
+            (
+                "kind in ('food', 'correction', 'mixed', 'unresolved', "
+                "'manual', 'food_only')"
+            ),
+            name="ck_meal_insulin_episode_snapshots_kind",
+        ),
+        Index(
+            "ix_meal_insulin_episode_snapshots_owner_date",
+            "owner_id",
+            "date",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    episode_key: Mapped[str] = mapped_column(String, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    start_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        nullable=False,
+    )
+    end_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        nullable=False,
+    )
+    meal_ids_json: Mapped[list[Any]] = mapped_column(
+        JSON,
+        default=list,
+        server_default=text("'[]'"),
+        nullable=False,
+    )
+    insulin_event_ids_json: Mapped[list[Any]] = mapped_column(
+        JSON,
+        default=list,
+        server_default=text("'[]'"),
+        nullable=False,
+    )
+    link_pairs_json: Mapped[list[Any]] = mapped_column(
+        JSON,
+        default=list,
+        server_default=text("'[]'"),
+        nullable=False,
+    )
+    total_carbs_g: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    total_kcal: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    total_insulin_units: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    glucose_minus_30_mmol_l: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    glucose_minus_30_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+    )
+    glucose_minus_30_source: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    glucose_plus_2h_mmol_l: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    glucose_plus_2h_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+    )
+    glucose_plus_2h_source: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    snapshot_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+
+    owner: Mapped[User] = relationship()
+
+
 class TwinParams(Base, TimestampMixin):
     """Per-user parameters for the informational digital twin model."""
 

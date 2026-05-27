@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -14,6 +15,7 @@ from glucotracker.api.schemas import (
     InsulinLinkDayPutRequest,
     InsulinLinkDayResponse,
     InsulinLinkEventResponse,
+    InsulinLinkGlucoseAnchorResponse,
     InsulinLinkMealResponse,
     MealInsulinLinkItem,
 )
@@ -25,12 +27,17 @@ from glucotracker.application.nightscout_context import (
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     Meal,
+    MealInsulinEpisodeSnapshot,
     MealInsulinLink,
     MealInsulinLinkReview,
+    NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
 )
 
 DAY_BUFFER = timedelta(minutes=90)
+FOOD_ONLY_CLUSTER_WINDOW = timedelta(minutes=45)
+GLUCOSE_ACTUAL_TOLERANCE = timedelta(minutes=5)
+GLUCOSE_INTERPOLATION_MAX_GAP = timedelta(minutes=15)
 
 
 @dataclass(frozen=True)
@@ -40,6 +47,54 @@ class AutoLink:
     meal_id: UUID
     insulin_event_id: UUID
     confidence: float
+
+
+@dataclass(frozen=True)
+class GlucoseAnchor:
+    """CGM anchor sampled for episode review display."""
+
+    value: float
+    timestamp: datetime
+    source: Literal["actual", "interpolated"]
+
+
+@dataclass(frozen=True)
+class DayLinkContext:
+    """Backend-owned day workspace used by responses and snapshots."""
+
+    day: date
+    day_start: datetime
+    next_day_start: datetime
+    meals: list[Meal]
+    insulin: list[NightscoutInsulinEvent]
+    visible_insulin: list[NightscoutInsulinEvent]
+    manual_by_insulin: dict[UUID, list[MealInsulinLink]]
+    auto_by_insulin: dict[UUID, list[AutoLink]]
+    auto_links: list[AutoLink]
+    active_links: list[MealInsulinLinkItem]
+    reviewed_insulin_event_ids: set[UUID]
+    glucose: list[NightscoutGlucoseEntry]
+
+
+@dataclass
+class EpisodeSnapshotData:
+    """Episode data persisted when the user saves day-link review."""
+
+    episode_key: str
+    sequence: int
+    kind: str
+    title: str
+    start_at: datetime
+    end_at: datetime
+    meal_ids: list[UUID]
+    insulin_event_ids: list[UUID]
+    link_pairs: list[dict[str, Any]]
+    total_carbs_g: float
+    total_kcal: float
+    total_insulin_units: float
+    glucose_minus_30: GlucoseAnchor | None
+    glucose_plus_2h: GlucoseAnchor | None
+    snapshot_json: dict[str, Any]
 
 
 class MealInsulinLinkRepository:
@@ -199,6 +254,71 @@ class MealInsulinLinkRepository:
                 )
             )
 
+    def replace_episode_snapshots(
+        self,
+        day: date,
+        snapshots: list[EpisodeSnapshotData],
+    ) -> None:
+        """Replace persisted episode snapshots for one reviewed local day."""
+        self.session.execute(
+            delete(MealInsulinEpisodeSnapshot).where(
+                MealInsulinEpisodeSnapshot.owner_id == self.user_id,
+                MealInsulinEpisodeSnapshot.date == day,
+            )
+        )
+        for snapshot in snapshots:
+            self.session.add(
+                MealInsulinEpisodeSnapshot(
+                    owner_id=self.user_id,
+                    date=day,
+                    episode_key=snapshot.episode_key,
+                    sequence=snapshot.sequence,
+                    kind=snapshot.kind,
+                    title=snapshot.title,
+                    start_at=snapshot.start_at,
+                    end_at=snapshot.end_at,
+                    meal_ids_json=[str(meal_id) for meal_id in snapshot.meal_ids],
+                    insulin_event_ids_json=[
+                        str(event_id) for event_id in snapshot.insulin_event_ids
+                    ],
+                    link_pairs_json=snapshot.link_pairs,
+                    total_carbs_g=snapshot.total_carbs_g,
+                    total_kcal=snapshot.total_kcal,
+                    total_insulin_units=snapshot.total_insulin_units,
+                    glucose_minus_30_mmol_l=(
+                        snapshot.glucose_minus_30.value
+                        if snapshot.glucose_minus_30
+                        else None
+                    ),
+                    glucose_minus_30_at=(
+                        snapshot.glucose_minus_30.timestamp
+                        if snapshot.glucose_minus_30
+                        else None
+                    ),
+                    glucose_minus_30_source=(
+                        snapshot.glucose_minus_30.source
+                        if snapshot.glucose_minus_30
+                        else None
+                    ),
+                    glucose_plus_2h_mmol_l=(
+                        snapshot.glucose_plus_2h.value
+                        if snapshot.glucose_plus_2h
+                        else None
+                    ),
+                    glucose_plus_2h_at=(
+                        snapshot.glucose_plus_2h.timestamp
+                        if snapshot.glucose_plus_2h
+                        else None
+                    ),
+                    glucose_plus_2h_source=(
+                        snapshot.glucose_plus_2h.source
+                        if snapshot.glucose_plus_2h
+                        else None
+                    ),
+                    snapshot_json=snapshot.snapshot_json,
+                )
+            )
+
 
 class InsulinLinkDayService:
     """Build and save the no-graph day review workspace."""
@@ -210,6 +330,72 @@ class InsulinLinkDayService:
 
     def get_day(self, day: date) -> InsulinLinkDayResponse:
         """Return meals, insulin events, manual links, and auto suggestions."""
+        context = self._day_context(day)
+
+        return InsulinLinkDayResponse(
+            date=day,
+            meals=[
+                InsulinLinkMealResponse(
+                    id=meal.id,
+                    eaten_at=meal.eaten_at,
+                    title=meal.title or "Приём пищи",
+                    total_carbs_g=round(meal.total_carbs_g, 1),
+                    total_kcal=round(meal.total_kcal, 1),
+                    glucose_minus_30=_glucose_anchor_response(
+                        _glucose_anchor(
+                            context.glucose,
+                            meal.eaten_at - timedelta(minutes=30),
+                        )
+                    ),
+                    glucose_plus_2h=_glucose_anchor_response(
+                        _glucose_anchor(
+                            context.glucose,
+                            meal.eaten_at + timedelta(hours=2),
+                        )
+                    ),
+                )
+                for meal in context.meals
+            ],
+            insulin_events=[
+                _event_response(
+                    event,
+                    context.manual_by_insulin.get(event.id, []),
+                    context.auto_by_insulin.get(event.id, []),
+                    event.id in context.reviewed_insulin_event_ids,
+                )
+                for event in context.visible_insulin
+            ],
+            links=context.active_links,
+            auto_links=[
+                MealInsulinLinkItem(
+                    meal_id=link.meal_id,
+                    insulin_event_id=link.insulin_event_id,
+                    source="auto",
+                    confidence=link.confidence,
+                )
+                for link in context.auto_links
+            ],
+            reviewed_insulin_event_ids=sorted(
+                context.reviewed_insulin_event_ids,
+                key=str,
+            ),
+        )
+
+    def replace_day(self, payload: InsulinLinkDayPutRequest) -> InsulinLinkDayResponse:
+        """Replace manual links for the payload date and return fresh labels."""
+        day_start, next_day_start = _day_bounds(payload.date)
+        self.links.replace_for_day(
+            day_start,
+            next_day_start,
+            payload.links,
+            payload.reviewed_insulin_event_ids,
+        )
+        self.session.flush()
+        self._replace_episode_snapshots(payload.date)
+        self.session.commit()
+        return self.get_day(payload.date)
+
+    def _day_context(self, day: date) -> DayLinkContext:
         day_start, next_day_start = _day_bounds(day)
         meals = self._meals(day_start, next_day_start)
         insulin = self._insulin(day_start, next_day_start)
@@ -228,64 +414,50 @@ class InsulinLinkDayService:
         for link in auto_links:
             auto_by_insulin.setdefault(link.insulin_event_id, []).append(link)
 
-        return InsulinLinkDayResponse(
-            date=day,
-            meals=[
-                InsulinLinkMealResponse(
-                    id=meal.id,
-                    eaten_at=meal.eaten_at,
-                    title=meal.title or "Приём пищи",
-                    total_carbs_g=round(meal.total_carbs_g, 1),
-                    total_kcal=round(meal.total_kcal, 1),
-                )
-                for meal in meals
-            ],
-            insulin_events=[
-                _event_response(
-                    event,
-                    manual_by_insulin.get(event.id, []),
-                    auto_by_insulin.get(event.id, []),
-                    event.id in reviewed_insulin_event_ids,
-                )
-                for event in insulin
-                if _is_visible_event(
-                    event,
-                    day_start,
-                    next_day_start,
-                    manual_by_insulin,
-                )
-            ],
-            links=_effective_link_items(
-                reviewed_insulin_event_ids,
+        visible_insulin = [
+            event
+            for event in insulin
+            if _is_visible_event(
+                event,
+                day_start,
+                next_day_start,
                 manual_by_insulin,
-                auto_links,
-            ),
-            auto_links=[
-                MealInsulinLinkItem(
-                    meal_id=link.meal_id,
-                    insulin_event_id=link.insulin_event_id,
-                    source="auto",
-                    confidence=link.confidence,
-                )
-                for link in auto_links
-            ],
-            reviewed_insulin_event_ids=sorted(
-                reviewed_insulin_event_ids,
-                key=str,
-            ),
+            )
+        ]
+        active_links = _effective_link_items(
+            reviewed_insulin_event_ids,
+            manual_by_insulin,
+            auto_links,
+        )
+        glucose = self._glucose(
+            day_start - timedelta(minutes=30),
+            next_day_start + timedelta(hours=2),
+        )
+        return DayLinkContext(
+            day=day,
+            day_start=day_start,
+            next_day_start=next_day_start,
+            meals=meals,
+            insulin=insulin,
+            visible_insulin=visible_insulin,
+            manual_by_insulin=manual_by_insulin,
+            auto_by_insulin=auto_by_insulin,
+            auto_links=auto_links,
+            active_links=active_links,
+            reviewed_insulin_event_ids=reviewed_insulin_event_ids,
+            glucose=glucose,
         )
 
-    def replace_day(self, payload: InsulinLinkDayPutRequest) -> InsulinLinkDayResponse:
-        """Replace manual links for the payload date and return fresh labels."""
-        day_start, next_day_start = _day_bounds(payload.date)
-        self.links.replace_for_day(
-            day_start,
-            next_day_start,
-            payload.links,
-            payload.reviewed_insulin_event_ids,
+    def _replace_episode_snapshots(self, day: date) -> None:
+        context = self._day_context(day)
+        snapshots = _episode_snapshots(
+            context.day,
+            context.meals,
+            context.visible_insulin,
+            context.active_links,
+            context.glucose,
         )
-        self.session.commit()
-        return self.get_day(payload.date)
+        self.links.replace_episode_snapshots(day, snapshots)
 
     def _meals(self, day_start: datetime, next_day_start: datetime) -> list[Meal]:
         return list(
@@ -318,10 +490,326 @@ class InsulinLinkDayService:
             )
         )
 
+    def _glucose(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[NightscoutGlucoseEntry]:
+        return list(
+            self.session.scalars(
+                select(NightscoutGlucoseEntry)
+                .where(
+                    NightscoutGlucoseEntry.owner_id == self.user_id,
+                    NightscoutGlucoseEntry.timestamp >= from_datetime,
+                    NightscoutGlucoseEntry.timestamp < to_datetime,
+                )
+                .order_by(NightscoutGlucoseEntry.timestamp.asc())
+            )
+        )
+
 
 def _day_bounds(day: date) -> tuple[datetime, datetime]:
     day_start = datetime.combine(day, time.min)
     return day_start, day_start + timedelta(days=1)
+
+
+def _glucose_anchor_response(
+    anchor: GlucoseAnchor | None,
+) -> InsulinLinkGlucoseAnchorResponse | None:
+    if anchor is None:
+        return None
+    return InsulinLinkGlucoseAnchorResponse(
+        value=anchor.value,
+        timestamp=anchor.timestamp,
+        source=anchor.source,
+    )
+
+
+def _glucose_anchor(
+    readings: list[NightscoutGlucoseEntry],
+    target: datetime,
+) -> GlucoseAnchor | None:
+    """Return CGM value nearest to target or interpolated across a short gap."""
+    if not readings:
+        return None
+
+    ordered = sorted(readings, key=_reading_local_timestamp)
+    nearest = min(
+        ordered,
+        key=lambda reading: abs(
+            (_reading_local_timestamp(reading) - target).total_seconds()
+        ),
+    )
+    nearest_time = _reading_local_timestamp(nearest)
+    if abs(nearest_time - target) <= GLUCOSE_ACTUAL_TOLERANCE:
+        return GlucoseAnchor(
+            value=round(nearest.value_mmol_l, 1),
+            timestamp=nearest_time,
+            source="actual",
+        )
+
+    before: NightscoutGlucoseEntry | None = None
+    after: NightscoutGlucoseEntry | None = None
+    for reading in ordered:
+        reading_time = _reading_local_timestamp(reading)
+        if reading_time <= target:
+            before = reading
+        if reading_time >= target and after is None:
+            after = reading
+
+    if before is None or after is None:
+        return None
+
+    before_time = _reading_local_timestamp(before)
+    after_time = _reading_local_timestamp(after)
+    if before_time == after_time:
+        return GlucoseAnchor(
+            value=round(before.value_mmol_l, 1),
+            timestamp=before_time,
+            source="actual",
+        )
+
+    gap = after_time - before_time
+    if gap > GLUCOSE_INTERPOLATION_MAX_GAP:
+        return None
+
+    fraction = (target - before_time).total_seconds() / gap.total_seconds()
+    value = before.value_mmol_l + (
+        after.value_mmol_l - before.value_mmol_l
+    ) * fraction
+    return GlucoseAnchor(
+        value=round(value, 1),
+        timestamp=target,
+        source="interpolated",
+    )
+
+
+def _reading_local_timestamp(reading: NightscoutGlucoseEntry) -> datetime:
+    return _local_wall_time(reading.timestamp)
+
+
+def _episode_snapshots(
+    day: date,
+    meals: list[Meal],
+    insulin: list[NightscoutInsulinEvent],
+    links: list[MealInsulinLinkItem],
+    glucose: list[NightscoutGlucoseEntry],
+) -> list[EpisodeSnapshotData]:
+    graph: dict[str, set[str]] = {}
+    meal_by_id = {meal.id: meal for meal in meals}
+    insulin_by_id = {event.id: event for event in insulin}
+
+    def add_node(node: str) -> None:
+        graph.setdefault(node, set())
+
+    def add_edge(left: str, right: str) -> None:
+        add_node(left)
+        add_node(right)
+        graph[left].add(right)
+        graph[right].add(left)
+
+    for meal in meals:
+        add_node(f"m:{meal.id}")
+    for event in insulin:
+        add_node(f"i:{event.id}")
+
+    visible_links = [
+        link
+        for link in links
+        if link.meal_id in meal_by_id and link.insulin_event_id in insulin_by_id
+    ]
+    for link in visible_links:
+        add_edge(f"m:{link.meal_id}", f"i:{link.insulin_event_id}")
+
+    linked_meal_ids = {link.meal_id for link in visible_links}
+    food_only_meals = sorted(
+        (meal for meal in meals if meal.id not in linked_meal_ids),
+        key=lambda meal: meal.eaten_at,
+    )
+    for previous, current in zip(food_only_meals, food_only_meals[1:], strict=False):
+        if current.eaten_at - previous.eaten_at <= FOOD_ONLY_CLUSTER_WINDOW:
+            add_edge(f"m:{previous.id}", f"m:{current.id}")
+
+    visited: set[str] = set()
+    components: list[list[str]] = []
+    for node in graph:
+        if node in visited:
+            continue
+        stack = [node]
+        component: list[str] = []
+        visited.add(node)
+        while stack:
+            current = stack.pop()
+            component.append(current)
+            for next_node in graph.get(current, set()):
+                if next_node in visited:
+                    continue
+                visited.add(next_node)
+                stack.append(next_node)
+        components.append(component)
+
+    snapshots: list[EpisodeSnapshotData] = []
+    for component in components:
+        component_meals = sorted(
+            (
+                meal_by_id[UUID(node[2:])]
+                for node in component
+                if node.startswith("m:") and UUID(node[2:]) in meal_by_id
+            ),
+            key=lambda meal: meal.eaten_at,
+        )
+        component_insulin = sorted(
+            (
+                insulin_by_id[UUID(node[2:])]
+                for node in component
+                if node.startswith("i:") and UUID(node[2:]) in insulin_by_id
+            ),
+            key=lambda event: _local_wall_time(event.timestamp),
+        )
+        component_links = [
+            link
+            for link in visible_links
+            if link.meal_id in {meal.id for meal in component_meals}
+            and link.insulin_event_id in {event.id for event in component_insulin}
+        ]
+        timestamps = [meal.eaten_at for meal in component_meals] + [
+            _local_wall_time(event.timestamp) for event in component_insulin
+        ]
+        if not timestamps:
+            continue
+
+        kind = _episode_kind(component_meals, component_insulin, component_links)
+        glucose_minus_30 = (
+            _glucose_anchor(
+                glucose,
+                component_meals[0].eaten_at - timedelta(minutes=30),
+            )
+            if component_meals
+            else None
+        )
+        glucose_plus_2h = (
+            _glucose_anchor(glucose, component_meals[-1].eaten_at + timedelta(hours=2))
+            if component_meals
+            else None
+        )
+        snapshot = EpisodeSnapshotData(
+            episode_key="|".join(sorted(component)),
+            sequence=0,
+            kind=kind,
+            title=_episode_title(component_meals, component_insulin, kind),
+            start_at=min(timestamps),
+            end_at=max(timestamps),
+            meal_ids=[meal.id for meal in component_meals],
+            insulin_event_ids=[event.id for event in component_insulin],
+            link_pairs=_link_pair_payloads(component_links),
+            total_carbs_g=round(
+                sum(meal.total_carbs_g for meal in component_meals),
+                1,
+            ),
+            total_kcal=round(sum(meal.total_kcal for meal in component_meals), 1),
+            total_insulin_units=round(
+                sum(event.insulin_units or 0 for event in component_insulin),
+                2,
+            ),
+            glucose_minus_30=glucose_minus_30,
+            glucose_plus_2h=glucose_plus_2h,
+            snapshot_json={},
+        )
+        snapshots.append(snapshot)
+
+    snapshots.sort(key=lambda snapshot: (snapshot.start_at, snapshot.episode_key))
+    for index, snapshot in enumerate(snapshots, start=1):
+        snapshot.sequence = index
+        snapshot.snapshot_json = _episode_snapshot_payload(day, snapshot)
+    return snapshots
+
+
+def _episode_kind(
+    meals: list[Meal],
+    insulin: list[NightscoutInsulinEvent],
+    links: list[MealInsulinLinkItem],
+) -> str:
+    if any(link.source == "manual" for link in links):
+        return "manual"
+    if meals and not insulin:
+        return "food_only"
+    if len(insulin) > 1:
+        return "mixed"
+    if links:
+        return "food"
+    if insulin and "correction" in (insulin[0].event_type or "").casefold():
+        return "correction"
+    return "unresolved"
+
+
+def _episode_title(
+    meals: list[Meal],
+    insulin: list[NightscoutInsulinEvent],
+    kind: str,
+) -> str:
+    if len(meals) > 1:
+        return f"{meals[0].title or 'Приём пищи'} + {len(meals) - 1}"
+    if len(meals) == 1:
+        return meals[0].title or "Приём пищи"
+    if kind == "correction":
+        return "Коррекция без еды"
+    if kind == "unresolved":
+        return "Требует разбора"
+    if len(insulin) > 1:
+        return "Несколько bolus events"
+    return "Bolus event"
+
+
+def _link_pair_payloads(links: list[MealInsulinLinkItem]) -> list[dict[str, Any]]:
+    return [
+        {
+            "meal_id": str(link.meal_id),
+            "insulin_event_id": str(link.insulin_event_id),
+            "source": link.source,
+            "confidence": link.confidence,
+            "note": link.note,
+        }
+        for link in links
+    ]
+
+
+def _episode_snapshot_payload(
+    day: date,
+    snapshot: EpisodeSnapshotData,
+) -> dict[str, Any]:
+    return {
+        "date": day.isoformat(),
+        "episode_key": snapshot.episode_key,
+        "sequence": snapshot.sequence,
+        "kind": snapshot.kind,
+        "title": snapshot.title,
+        "start_at": snapshot.start_at.isoformat(),
+        "end_at": snapshot.end_at.isoformat(),
+        "meal_ids": [str(meal_id) for meal_id in snapshot.meal_ids],
+        "insulin_event_ids": [
+            str(event_id) for event_id in snapshot.insulin_event_ids
+        ],
+        "link_pairs": snapshot.link_pairs,
+        "totals": {
+            "carbs_g": snapshot.total_carbs_g,
+            "kcal": snapshot.total_kcal,
+            "insulin_units": snapshot.total_insulin_units,
+        },
+        "glucose": {
+            "minus_30": _anchor_payload(snapshot.glucose_minus_30),
+            "plus_2h": _anchor_payload(snapshot.glucose_plus_2h),
+        },
+    }
+
+
+def _anchor_payload(anchor: GlucoseAnchor | None) -> dict[str, Any] | None:
+    if anchor is None:
+        return None
+    return {
+        "value": anchor.value,
+        "timestamp": anchor.timestamp.isoformat(),
+        "source": anchor.source,
+    }
 
 
 def _auto_links(

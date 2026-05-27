@@ -1257,6 +1257,14 @@ class MealInsulinLinkItem(BaseModel):
     note: str | None = None
 
 
+class InsulinLinkGlucoseAnchorResponse(BaseModel):
+    """CGM value sampled around a food/insulin episode."""
+
+    value: float
+    timestamp: datetime
+    source: Literal["actual", "interpolated"]
+
+
 class InsulinLinkMealResponse(BaseModel):
     """Compact food event for one-day insulin review."""
 
@@ -1265,6 +1273,8 @@ class InsulinLinkMealResponse(BaseModel):
     title: str
     total_carbs_g: float
     total_kcal: float
+    glucose_minus_30: InsulinLinkGlucoseAnchorResponse | None = None
+    glucose_plus_2h: InsulinLinkGlucoseAnchorResponse | None = None
 
 
 class InsulinLinkEventResponse(BaseModel):

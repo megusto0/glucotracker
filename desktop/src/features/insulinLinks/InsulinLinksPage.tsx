@@ -16,7 +16,11 @@ import {
   type MealInsulinLinkItem,
 } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
-import { formatDecimal, formatSafeInt } from "../../utils/nutritionFormat";
+import {
+  formatDecimal,
+  formatGlucose,
+  formatSafeInt,
+} from "../../utils/nutritionFormat";
 import { useApiConfig } from "../settings/settingsStore";
 
 type LinkDraft = Required<
@@ -27,6 +31,15 @@ type LinkDraft = Required<
 type Meal = InsulinLinkDayResponse["meals"][number];
 type InsulinEvent = InsulinLinkDayResponse["insulin_events"][number];
 type EpisodeKind = InsulinEvent["context_label"] | "food_only";
+type GlucoseAnchor = {
+  value: number;
+  timestamp: string;
+  source: "actual" | "interpolated";
+};
+type MealWithGlucose = Meal & {
+  glucose_minus_30?: GlucoseAnchor | null;
+  glucose_plus_2h?: GlucoseAnchor | null;
+};
 
 type Episode = {
   id: string;
@@ -39,6 +52,8 @@ type Episode = {
   confidence?: number | null;
   reason: string;
   sortTime: number;
+  glucoseMinus30?: GlucoseAnchor | null;
+  glucosePlus2h?: GlucoseAnchor | null;
 };
 
 const pad = (value: number) => value.toString().padStart(2, "0");
@@ -114,6 +129,14 @@ const timeValue = (value?: string | null) =>
   value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 
 const FOOD_ONLY_CLUSTER_WINDOW_MS = 45 * 60 * 1000;
+
+const formatGlucoseAnchor = (
+  label: string,
+  anchor?: GlucoseAnchor | null,
+) => (anchor ? `${label} ${formatGlucose(anchor.value)} ммоль/л` : null);
+
+const mealWithGlucose = (meal?: Meal): MealWithGlucose | undefined =>
+  meal as MealWithGlucose | undefined;
 
 const episodeTitle = (meals: Meal[], insulin: InsulinEvent[], kind: EpisodeKind) => {
   if (meals.length > 1) return `${meals[0].title} + ${meals.length - 1}`;
@@ -228,6 +251,9 @@ const buildEpisodes = (data: InsulinLinkDayResponse, links: LinkDraft[]): Episod
         confidence,
         reason: episodeReason(episodeLinks, insulin),
         sortTime,
+        glucoseMinus30: mealWithGlucose(meals[0])?.glucose_minus_30 ?? null,
+        glucosePlus2h:
+          mealWithGlucose(meals[meals.length - 1])?.glucose_plus_2h ?? null,
       };
     })
     .sort((a, b) => a.sortTime - b.sortTime)
@@ -311,6 +337,12 @@ function EpisodeCard({
       ? selectedInsulinId
       : firstInsulinId;
   const ratio = carbs > 0 && units > 0 ? (units / carbs) * 10 : null;
+  const glucoseSummary = [
+    formatGlucoseAnchor("−30м", episode.glucoseMinus30),
+    formatGlucoseAnchor("+2ч", episode.glucosePlus2h),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <article className={`insulin-episode ${episode.kind}`}>
@@ -331,6 +363,9 @@ function EpisodeCard({
             </i>
           </div>
           <h2>{episode.title}</h2>
+          {glucoseSummary ? (
+            <p className="mono">CGM {glucoseSummary}</p>
+          ) : null}
           <p className="mono">
             У {formatSafeInt(carbs)} г · К {formatSafeInt(kcal)} ·{" "}
             {formatDecimal(units, 1)} ЕД
