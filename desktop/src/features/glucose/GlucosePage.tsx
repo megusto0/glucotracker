@@ -301,7 +301,9 @@ const sensorDurationDays = (sensor?: SensorSessionResponse | null) => {
   if (!Number.isFinite(started) || !Number.isFinite(ended) || ended < started) {
     return null;
   }
-  return (ended - started) / 86_400_000;
+  const elapsedDays = (ended - started) / 86_400_000;
+  const expectedDays = sensor.expected_life_days ?? 15;
+  return Math.min(elapsedDays, Math.max(expectedDays, 0));
 };
 
 const sensorDurationLabel = (sensor?: SensorSessionResponse | null) => {
