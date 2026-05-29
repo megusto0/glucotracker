@@ -259,13 +259,25 @@ def get_nightscout_latest_reading(
     current_user: CurrentUserDep,
 ) -> NightscoutLatestReadingResponse:
     """Return the latest glucose reading from the local Nightscout cache."""
-    from sqlalchemy import func, select
+    from sqlalchemy import exists, func, not_, select
 
     from glucotracker.infra.db.models import NightscoutGlucoseEntry, SensorSession
 
+    excluded_glucose = exists(
+        select(1).where(
+            SensorSession.owner_id == current_user.id,
+            SensorSession.excluded_from_analytics.is_(True),
+            SensorSession.started_at <= NightscoutGlucoseEntry.timestamp,
+            (SensorSession.ended_at.is_(None))
+            | (SensorSession.ended_at >= NightscoutGlucoseEntry.timestamp),
+        )
+    )
     glucose_stmt = (
         select(NightscoutGlucoseEntry)
-        .where(NightscoutGlucoseEntry.owner_id == current_user.id)
+        .where(
+            NightscoutGlucoseEntry.owner_id == current_user.id,
+            not_(excluded_glucose),
+        )
         .order_by(NightscoutGlucoseEntry.timestamp.desc())
         .limit(1)
     )
@@ -277,7 +289,10 @@ def get_nightscout_latest_reading(
     count_stmt = (
         select(func.count())
         .select_from(NightscoutGlucoseEntry)
-        .where(NightscoutGlucoseEntry.owner_id == current_user.id)
+        .where(
+            NightscoutGlucoseEntry.owner_id == current_user.id,
+            not_(excluded_glucose),
+        )
     )
     total = session.execute(count_stmt).scalar() or 0
 
@@ -286,6 +301,7 @@ def get_nightscout_latest_reading(
         .where(
             SensorSession.started_at <= latest.timestamp,
             SensorSession.owner_id == current_user.id,
+            SensorSession.excluded_from_analytics.is_(False),
             (SensorSession.ended_at.is_(None))
             | (SensorSession.ended_at >= latest.timestamp),
         )

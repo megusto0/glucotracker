@@ -3334,6 +3334,8 @@ export interface components {
              * @default 0
              */
             steps: number;
+            /** Activity Source */
+            activity_source?: string | null;
             /**
              * Bmr Available
              * @default false
@@ -3365,6 +3367,8 @@ export interface components {
              * @default 0
              */
             steps: number;
+            /** Activity Source */
+            activity_source?: string | null;
             /**
              * Bmr Available
              * @default false
@@ -5552,6 +5556,13 @@ export interface components {
              * @default 15
              */
             expected_life_days: number;
+            /**
+             * Excluded From Analytics
+             * @default false
+             */
+            excluded_from_analytics: boolean;
+            /** Exclusion Reason */
+            exclusion_reason?: string | null;
             /** Notes */
             notes?: string | null;
         };
@@ -5574,6 +5585,10 @@ export interface components {
             ended_at?: string | null;
             /** Expected Life Days */
             expected_life_days?: number | null;
+            /** Excluded From Analytics */
+            excluded_from_analytics?: boolean | null;
+            /** Exclusion Reason */
+            exclusion_reason?: string | null;
             /** Notes */
             notes?: string | null;
         };
@@ -5615,6 +5630,13 @@ export interface components {
              * @default 15
              */
             expected_life_days: number;
+            /**
+             * Excluded From Analytics
+             * @default false
+             */
+            excluded_from_analytics: boolean;
+            /** Exclusion Reason */
+            exclusion_reason?: string | null;
             /** Notes */
             notes?: string | null;
             /**

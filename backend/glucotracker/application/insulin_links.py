@@ -24,6 +24,7 @@ from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_BEFORE,
     _local_wall_time,
 )
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     Meal,
@@ -110,6 +111,8 @@ class MealInsulinLinkRepository:
         next_day_start: datetime,
     ) -> list[MealInsulinLink]:
         """Return links touching meals or insulin events visible for the day."""
+        utc_day_start = utc_instant_from_local_wall(day_start)
+        utc_next_day_start = utc_instant_from_local_wall(next_day_start)
         return list(
             self.session.scalars(
                 select(MealInsulinLink)
@@ -124,11 +127,11 @@ class MealInsulinLinkRepository:
                     NightscoutInsulinEvent.owner_id == self.user_id,
                     or_(
                         Meal.eaten_at >= day_start,
-                        NightscoutInsulinEvent.timestamp >= day_start,
+                        NightscoutInsulinEvent.timestamp >= utc_day_start,
                     ),
                     or_(
                         Meal.eaten_at < next_day_start,
-                        NightscoutInsulinEvent.timestamp < next_day_start,
+                        NightscoutInsulinEvent.timestamp < utc_next_day_start,
                     ),
                 )
                 .order_by(Meal.eaten_at.asc(), NightscoutInsulinEvent.timestamp.asc())
@@ -141,6 +144,8 @@ class MealInsulinLinkRepository:
         next_day_start: datetime,
     ) -> set[UUID]:
         """Return insulin events with explicit manual review markers."""
+        utc_day_start = utc_instant_from_local_wall(day_start)
+        utc_next_day_start = utc_instant_from_local_wall(next_day_start)
         return set(
             self.session.scalars(
                 select(MealInsulinLinkReview.insulin_event_id)
@@ -152,8 +157,8 @@ class MealInsulinLinkRepository:
                 .where(
                     MealInsulinLinkReview.owner_id == self.user_id,
                     NightscoutInsulinEvent.owner_id == self.user_id,
-                    NightscoutInsulinEvent.timestamp >= day_start - DAY_BUFFER,
-                    NightscoutInsulinEvent.timestamp < next_day_start + DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp >= utc_day_start - DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp < utc_next_day_start + DAY_BUFFER,
                 )
             )
         )
@@ -166,6 +171,8 @@ class MealInsulinLinkRepository:
         reviewed_insulin_event_ids: list[UUID],
     ) -> None:
         """Replace reviewed links for one local day."""
+        utc_day_start = utc_instant_from_local_wall(day_start)
+        utc_next_day_start = utc_instant_from_local_wall(next_day_start)
         meal_ids = list(
             self.session.scalars(
                 select(Meal.id).where(
@@ -180,8 +187,8 @@ class MealInsulinLinkRepository:
             self.session.scalars(
                 select(NightscoutInsulinEvent.id).where(
                     NightscoutInsulinEvent.owner_id == self.user_id,
-                    NightscoutInsulinEvent.timestamp >= day_start - DAY_BUFFER,
-                    NightscoutInsulinEvent.timestamp < next_day_start + DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp >= utc_day_start - DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp < utc_next_day_start + DAY_BUFFER,
                 )
             )
         )
@@ -478,13 +485,15 @@ class InsulinLinkDayService:
         day_start: datetime,
         next_day_start: datetime,
     ) -> list[NightscoutInsulinEvent]:
+        utc_day_start = utc_instant_from_local_wall(day_start)
+        utc_next_day_start = utc_instant_from_local_wall(next_day_start)
         return list(
             self.session.scalars(
                 select(NightscoutInsulinEvent)
                 .where(
                     NightscoutInsulinEvent.owner_id == self.user_id,
-                    NightscoutInsulinEvent.timestamp >= day_start - DAY_BUFFER,
-                    NightscoutInsulinEvent.timestamp < next_day_start + DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp >= utc_day_start - DAY_BUFFER,
+                    NightscoutInsulinEvent.timestamp < utc_next_day_start + DAY_BUFFER,
                 )
                 .order_by(NightscoutInsulinEvent.timestamp.asc())
             )

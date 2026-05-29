@@ -1497,6 +1497,13 @@ class SensorSession(Base, TimestampMixin):
         server_default="15",
         nullable=False,
     )
+    excluded_from_analytics: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+    exclusion_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
 
     calibration_models: Mapped[list[CgmCalibrationModel]] = relationship(

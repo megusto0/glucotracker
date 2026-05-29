@@ -14,7 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.application.product_categories import is_sweet_text
-from glucotracker.application.time import local_day_bounds, local_now, local_wall_time
+from glucotracker.application.time import (
+    local_day_bounds,
+    local_now,
+    local_wall_time,
+    utc_instant_from_local_wall,
+)
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import Meal, MealItem, NightscoutGlucoseEntry, User
@@ -207,6 +212,8 @@ class StatsInsightsRepository:
         from_day = today - timedelta(days=days - 1)
         start, _ = local_day_bounds(from_day)
         _, end = local_day_bounds(today)
+        utc_start = utc_instant_from_local_wall(start)
+        utc_end = utc_instant_from_local_wall(end)
 
         rows = self.session.scalars(
             select(Meal)
@@ -223,8 +230,8 @@ class StatsInsightsRepository:
             select(NightscoutGlucoseEntry)
             .where(
                 NightscoutGlucoseEntry.owner_id == self.user_id,
-                NightscoutGlucoseEntry.timestamp >= start,
-                NightscoutGlucoseEntry.timestamp < end,
+                NightscoutGlucoseEntry.timestamp >= utc_start,
+                NightscoutGlucoseEntry.timestamp < utc_end,
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
@@ -363,7 +370,7 @@ def _meal_feature(meal: Meal) -> InsightMeal:
 def _glucose_feature(row: NightscoutGlucoseEntry) -> InsightGlucosePoint:
     local_at = local_wall_time(row.timestamp)
     return InsightGlucosePoint(
-        timestamp=row.timestamp,
+        timestamp=local_at,
         local_date=local_at.date(),
         hour=local_at.hour,
         value_mmol_l=float(row.value_mmol_l),

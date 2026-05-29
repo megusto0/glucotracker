@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, not_, select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.api.schemas import (
@@ -23,6 +23,7 @@ from glucotracker.api.schemas import (
     TimelineResponse,
 )
 from glucotracker.application.sensor_lifecycle import apply_sensor_lifecycle_events
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -31,6 +32,7 @@ from glucotracker.infra.db.models import (
     NightscoutGlucoseEntry,
     NightscoutImportState,
     NightscoutInsulinEvent,
+    SensorSession,
     utc_now,
 )
 from glucotracker.infra.nightscout.client import (
@@ -168,17 +170,19 @@ class NightscoutContextImportService:
     ) -> NightscoutImportResponse:
         local_from = _local_wall_time(from_datetime)
         local_to = _local_wall_time(to_datetime)
+        utc_from = utc_instant_from_local_wall(local_from)
+        utc_to = utc_instant_from_local_wall(local_to)
         glucose_total = self.session.scalar(
             select(func.count(NightscoutGlucoseEntry.id)).where(
-                NightscoutGlucoseEntry.timestamp >= local_from,
-                NightscoutGlucoseEntry.timestamp <= local_to,
+                NightscoutGlucoseEntry.timestamp >= utc_from,
+                NightscoutGlucoseEntry.timestamp <= utc_to,
                 NightscoutGlucoseEntry.owner_id == self.user_id,
             )
         )
         insulin_total = self.session.scalar(
             select(func.count(NightscoutInsulinEvent.id)).where(
-                NightscoutInsulinEvent.timestamp >= local_from,
-                NightscoutInsulinEvent.timestamp <= local_to,
+                NightscoutInsulinEvent.timestamp >= utc_from,
+                NightscoutInsulinEvent.timestamp <= utc_to,
                 NightscoutInsulinEvent.owner_id == self.user_id,
             )
         )
@@ -398,15 +402,27 @@ class FoodEpisodeService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[NightscoutGlucoseEntry]:
+        utc_from = utc_instant_from_local_wall(from_datetime)
+        utc_to = utc_instant_from_local_wall(to_datetime)
+        excluded_glucose = exists(
+            select(1).where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.excluded_from_analytics.is_(True),
+                SensorSession.started_at <= NightscoutGlucoseEntry.timestamp,
+                (SensorSession.ended_at.is_(None))
+                | (SensorSession.ended_at >= NightscoutGlucoseEntry.timestamp),
+            )
+        )
         # Future: history should stay on raw CGM by default; normalized display
         # data needs an explicit opt-in path and clear UI labeling.
         return list(
             self.session.scalars(
                 select(NightscoutGlucoseEntry)
                 .where(
-                    NightscoutGlucoseEntry.timestamp >= from_datetime,
-                    NightscoutGlucoseEntry.timestamp <= to_datetime,
+                    NightscoutGlucoseEntry.timestamp >= utc_from,
+                    NightscoutGlucoseEntry.timestamp <= utc_to,
                     NightscoutGlucoseEntry.owner_id == self.user_id,
+                    not_(excluded_glucose),
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
             )
@@ -417,12 +433,14 @@ class FoodEpisodeService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[NightscoutInsulinEvent]:
+        utc_from = utc_instant_from_local_wall(from_datetime)
+        utc_to = utc_instant_from_local_wall(to_datetime)
         return list(
             self.session.scalars(
                 select(NightscoutInsulinEvent)
                 .where(
-                    NightscoutInsulinEvent.timestamp >= from_datetime,
-                    NightscoutInsulinEvent.timestamp <= to_datetime,
+                    NightscoutInsulinEvent.timestamp >= utc_from,
+                    NightscoutInsulinEvent.timestamp <= utc_to,
                     NightscoutInsulinEvent.owner_id == self.user_id,
                 )
                 .order_by(NightscoutInsulinEvent.timestamp.asc())
@@ -560,12 +578,14 @@ def _timestamp_from_row(row: dict[str, Any]) -> datetime | None:
     raw = row.get("dateString") or row.get("created_at") or row.get("createdAt")
     if isinstance(raw, str) and raw:
         try:
-            return _local_wall_time(datetime.fromisoformat(raw.replace("Z", "+00:00")))
+            return utc_instant_from_local_wall(
+                datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            )
         except ValueError:
             return None
     raw_date = row.get("date")
     if isinstance(raw_date, int | float):
-        return _local_wall_time(datetime.fromtimestamp(raw_date / 1000, tz=UTC))
+        return datetime.fromtimestamp(raw_date / 1000, tz=UTC)
     return None
 
 
