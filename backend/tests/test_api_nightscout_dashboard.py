@@ -466,6 +466,79 @@ def test_nightscout_import_rolls_back_before_recording_commit_error() -> None:
     assert service.state.last_error == "database is locked"
 
 
+def test_nightscout_import_scopes_source_keys_by_owner(
+    api_client: TestClient,
+) -> None:
+    """The same Nightscout source ids can be cached separately per user."""
+    session_factory = api_client.app_state["session_factory"]
+    alice_id = api_client.app_state["current_user_id"]
+
+    session = session_factory()
+    try:
+        bob = User(
+            username=f"bob-{uuid4()}",
+            password_hash=hash_password("bob-password"),
+            role=UserRole.gluco,
+        )
+        session.add(bob)
+        session.commit()
+        bob_id = bob.id
+    finally:
+        session.close()
+
+    from_datetime = datetime(2026, 5, 27, 20, tzinfo=UTC)
+    to_datetime = datetime(2026, 5, 27, 21, tzinfo=UTC)
+    glucose_row = {
+        "_id": "shared-glucose-id",
+        "dateString": "2026-05-27T20:05:00.000Z",
+        "sgv": 108,
+        "direction": "Flat",
+        "device": "Ottai",
+    }
+    insulin_row = {
+        "_id": "shared-insulin-id",
+        "created_at": "2026-05-27T20:10:00.000Z",
+        "eventType": "Correction Bolus",
+        "insulin": 1.2,
+    }
+
+    for owner_id in (alice_id, bob_id):
+        session = session_factory()
+        session.info["current_user_id"] = owner_id
+        try:
+            response = NightscoutContextImportService(
+                session,
+                owner_id,
+            ).import_fetched(
+                from_datetime,
+                to_datetime,
+                glucose_rows=[glucose_row],
+                insulin_rows=[insulin_row],
+            )
+        finally:
+            session.close()
+        assert response.glucose_imported == 1
+        assert response.insulin_imported == 1
+
+    session = session_factory()
+    try:
+        glucose_rows = session.scalars(
+            select(NightscoutGlucoseEntry).where(
+                NightscoutGlucoseEntry.source_key == "glucose:shared-glucose-id"
+            )
+        ).all()
+        insulin_rows = session.scalars(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.source_key == "insulin:shared-insulin-id"
+            )
+        ).all()
+    finally:
+        session.close()
+
+    assert {row.owner_id for row in glucose_rows} == {alice_id, bob_id}
+    assert {row.owner_id for row in insulin_rows} == {alice_id, bob_id}
+
+
 def test_nightscout_500_and_timeout_are_mapped(api_client: TestClient) -> None:
     """Nightscout HTTP failures and timeouts return gateway errors."""
     meal = _create_meal(api_client)
@@ -740,6 +813,76 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     assert episodes[0]["glucose_summary"]["before_value"] == 5.5
     assert episodes[0]["glucose_summary"]["peak_value"] == 9.8
     assert episodes[0]["total_carbs_g"] == 68
+
+
+def test_timeline_excludes_corrupt_sensor_glucose(
+    api_client: TestClient,
+) -> None:
+    """History graphs must not show CGM points from excluded sensor sessions."""
+    meal = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-05-29T19:30:00",
+            "title": "Ужин",
+            "source": "manual",
+            "status": "accepted",
+            "items": [_manual_item(name="Ужин", carbs_g=40, kcal=420)],
+        },
+    )
+    assert meal.status_code == 201
+
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        session.add_all(
+            [
+                SensorSession(
+                    owner_id=owner_id,
+                    started_at=datetime(2026, 5, 28, 3, 35, tzinfo=UTC),
+                    ended_at=datetime(2026, 5, 28, 13, 30, 25, tzinfo=UTC),
+                    excluded_from_analytics=True,
+                    exclusion_reason="corrupt",
+                ),
+                SensorSession(
+                    owner_id=owner_id,
+                    started_at=datetime(2026, 5, 29, 19, 28, tzinfo=UTC),
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key="corrupt-history",
+                    timestamp=datetime(2026, 5, 28, 12, 0, tzinfo=UTC),
+                    value_mmol_l=22.0,
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key="replacement-start",
+                    timestamp=datetime(2026, 5, 29, 19, 28, 14, tzinfo=UTC),
+                    value_mmol_l=7.4,
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key="replacement-latest",
+                    timestamp=datetime(2026, 5, 29, 19, 48, 14, tzinfo=UTC),
+                    value_mmol_l=8.7,
+                ),
+            ]
+        )
+        session.commit()
+
+    timeline = api_client.get(
+        "/timeline",
+        params={
+            "from": "2026-05-28T11:00:00",
+            "to": "2026-05-29T20:00:00",
+        },
+    )
+
+    assert timeline.status_code == 200
+    episodes = timeline.json()["episodes"]
+    assert len(episodes) == 1
+    glucose_values = [entry["value"] for entry in episodes[0]["glucose"]]
+    assert glucose_values == [7.4, 8.7]
+    assert episodes[0]["glucose_summary"]["peak_value"] == 8.7
 
 
 def test_timeline_groups_aware_nightscout_events_with_wall_clock_meals(

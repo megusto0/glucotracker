@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, not_, select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.api.schemas import (
@@ -32,6 +32,7 @@ from glucotracker.infra.db.models import (
     NightscoutGlucoseEntry,
     NightscoutImportState,
     NightscoutInsulinEvent,
+    SensorSession,
     utc_now,
 )
 from glucotracker.infra.nightscout.client import (
@@ -403,6 +404,15 @@ class FoodEpisodeService:
     ) -> list[NightscoutGlucoseEntry]:
         utc_from = utc_instant_from_local_wall(from_datetime)
         utc_to = utc_instant_from_local_wall(to_datetime)
+        excluded_glucose = exists(
+            select(1).where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.excluded_from_analytics.is_(True),
+                SensorSession.started_at <= NightscoutGlucoseEntry.timestamp,
+                (SensorSession.ended_at.is_(None))
+                | (SensorSession.ended_at >= NightscoutGlucoseEntry.timestamp),
+            )
+        )
         # Future: history should stay on raw CGM by default; normalized display
         # data needs an explicit opt-in path and clear UI labeling.
         return list(
@@ -412,6 +422,7 @@ class FoodEpisodeService:
                     NightscoutGlucoseEntry.timestamp >= utc_from,
                     NightscoutGlucoseEntry.timestamp <= utc_to,
                     NightscoutGlucoseEntry.owner_id == self.user_id,
+                    not_(excluded_glucose),
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
             )

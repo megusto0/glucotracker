@@ -169,6 +169,101 @@ def test_sensor_and_fingerstick_crud(api_client: TestClient) -> None:
     assert patched["meter_name"] == "Contour Next"
 
 
+def test_excluded_sensor_infers_end_and_hides_glucose_data(
+    api_client: TestClient,
+) -> None:
+    """Corrupt sensors are closed at their last detected CGM point and excluded."""
+    start = datetime.fromisoformat("2026-04-28T08:00:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        values=[(10, 6.0), (40, 6.4), (60, 6.8), (130, 7.1)],
+        prefix="corrupt",
+    )
+    sensor = _create_sensor(
+        api_client,
+        started_at="2026-04-28T08:00:00",
+        ended_at="2026-04-28T12:00:00",
+    )
+    replacement = _create_sensor(
+        api_client,
+        started_at="2026-04-28T09:00:00",
+    )
+
+    patch_response = api_client.patch(
+        f"/sensors/{sensor['id']}",
+        json={
+            "excluded_from_analytics": True,
+            "exclusion_reason": "corrupt",
+        },
+    )
+
+    assert patch_response.status_code == 200
+    patched = patch_response.json()
+    assert patched["excluded_from_analytics"] is True
+    assert patched["exclusion_reason"] == "corrupt"
+    assert patched["ended_at"].startswith("2026-04-28T08:40:00")
+
+    dashboard = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T08:00:00",
+            "to": "2026-04-28T08:59:00",
+        },
+    )
+
+    assert dashboard.status_code == 200
+    body = dashboard.json()
+    assert body["points"] == []
+    assert body["current_sensor"] is None
+
+    replacement_dashboard = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T09:00:00",
+            "to": "2026-04-28T10:30:00",
+        },
+    )
+
+    assert replacement_dashboard.status_code == 200
+    replacement_body = replacement_dashboard.json()
+    assert [point["raw_value"] for point in replacement_body["points"]] == [6.8, 7.1]
+    assert replacement_body["current_sensor"]["id"] == replacement["id"]
+
+
+def test_excluded_sensor_keeps_sibling_sensor_data(
+    api_client: TestClient,
+) -> None:
+    """Exclusion is scoped to the corrupt sensor interval only."""
+    _create_sensor(
+        api_client,
+        started_at="2026-04-28T08:00:00",
+        ended_at="2026-04-28T09:00:00",
+        excluded_from_analytics=True,
+        exclusion_reason="corrupt",
+    )
+    active = _create_sensor(api_client, started_at="2026-04-28T10:00:00")
+    _seed_cgm(
+        api_client,
+        start=datetime.fromisoformat("2026-04-28T08:00:00"),
+        values=[(30, 6.0), (150, 7.0)],
+        prefix="sibling",
+    )
+
+    dashboard = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T08:00:00",
+            "to": "2026-04-28T11:00:00",
+        },
+    )
+
+    assert dashboard.status_code == 200
+    body = dashboard.json()
+    assert [point["raw_value"] for point in body["points"]] == [7.0]
+    assert body["current_sensor"]["id"] == active["id"]
+
+
 def test_dashboard_normalizes_display_without_overwriting_raw_cgm(
     api_client: TestClient,
 ) -> None:

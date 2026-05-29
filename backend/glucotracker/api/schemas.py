@@ -1317,6 +1317,8 @@ class SensorSessionBase(BaseModel):
     started_at: datetime
     ended_at: datetime | None = None
     expected_life_days: float = Field(default=15, gt=0)
+    excluded_from_analytics: bool = False
+    exclusion_reason: str | None = None
     notes: str | None = None
 
 
@@ -1334,6 +1336,8 @@ class SensorSessionPatch(BaseModel):
     started_at: datetime | None = None
     ended_at: datetime | None = None
     expected_life_days: float | None = Field(default=None, gt=0)
+    excluded_from_analytics: bool | None = None
+    exclusion_reason: str | None = None
     notes: str | None = None
 
 

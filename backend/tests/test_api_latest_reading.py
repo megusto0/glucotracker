@@ -111,6 +111,39 @@ class TestLatestReadingEndpoint:
         data = response.json()
         assert data["sensor_id"] == sensor_id
 
+    def test_ignores_readings_from_excluded_sensor(self, api_client, db_engine):
+        session_factory = api_client.app_state["session_factory"]
+        session = session_factory()
+
+        excluded_sensor_start = datetime.now(UTC) - timedelta(hours=4)
+        excluded_sensor_end = datetime.now(UTC) - timedelta(hours=1)
+        _insert_sensor(
+            session,
+            started_at=excluded_sensor_start,
+            ended_at=excluded_sensor_end,
+            excluded_from_analytics=True,
+            exclusion_reason="corrupt",
+        )
+        _insert_glucose_entry(
+            session,
+            source_key="excluded-latest",
+            timestamp=datetime.now(UTC) - timedelta(hours=2),
+            value_mmol_l=12.0,
+        )
+        _insert_glucose_entry(
+            session,
+            source_key="usable-old",
+            timestamp=datetime.now(UTC) - timedelta(hours=5),
+            value_mmol_l=6.2,
+        )
+        session.close()
+
+        response = api_client.get("/nightscout/latest-reading")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["value_mmol_l"] == 6.2
+        assert data["total_entries"] == 1
+
 
 class TestSyncScenarios:
     def test_normal_update_cycle(self, api_client, db_engine):

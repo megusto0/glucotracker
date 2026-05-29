@@ -9,7 +9,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
@@ -147,6 +147,8 @@ class GlucoseDashboardService:
             if field in {"started_at", "ended_at"} and value is not None:
                 value = _local_wall_time(value)
             setattr(row, field, value)
+        if row.excluded_from_analytics:
+            self._infer_sensor_end_from_latest_data(row)
         row.updated_at = utc_now()
         self.session.commit()
         self.session.refresh(row)
@@ -347,9 +349,17 @@ class GlucoseDashboardService:
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
+        excluded_intervals = self._excluded_sensor_intervals(
+            _local_wall_time(from_datetime),
+            _local_wall_time(to_datetime),
+        )
         return [
             RawPoint(_local_wall_time(row.timestamp), row.value_mmol_l)
             for row in rows
+            if not _inside_any_interval(
+                _local_wall_time(row.timestamp),
+                excluded_intervals,
+            )
         ]
 
     def _fingerstick_rows(
@@ -381,12 +391,72 @@ class GlucoseDashboardService:
                 .where(
                     SensorSession.started_at <= to_datetime,
                     SensorSession.owner_id == self.user_id,
+                    SensorSession.excluded_from_analytics.is_(False),
                     (SensorSession.ended_at.is_(None))
                     | (SensorSession.ended_at >= from_datetime),
                 )
                 .order_by(SensorSession.started_at.desc())
             )
         )
+
+    def _excluded_sensor_intervals(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[tuple[datetime, datetime]]:
+        rows = self.session.scalars(
+            select(SensorSession).where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.excluded_from_analytics.is_(True),
+                SensorSession.started_at <= to_datetime,
+                (SensorSession.ended_at.is_(None))
+                | (SensorSession.ended_at >= from_datetime),
+            )
+        ).all()
+        return [
+            (
+                _local_wall_time(row.started_at),
+                _local_wall_time(row.ended_at or to_datetime),
+            )
+            for row in rows
+        ]
+
+    def _infer_sensor_end_from_latest_data(self, sensor: SensorSession) -> None:
+        upper_bound, is_next_sensor_start = self._sensor_data_upper_bound(sensor)
+        upper_filter = (
+            NightscoutGlucoseEntry.timestamp < upper_bound
+            if is_next_sensor_start
+            else NightscoutGlucoseEntry.timestamp <= upper_bound
+        )
+        latest = self.session.scalar(
+            select(func.max(NightscoutGlucoseEntry.timestamp)).where(
+                NightscoutGlucoseEntry.owner_id == self.user_id,
+                NightscoutGlucoseEntry.timestamp >= sensor.started_at,
+                upper_filter,
+            )
+        )
+        inferred_end = min(latest or sensor.started_at, upper_bound)
+        if sensor.ended_at is None or sensor.ended_at > inferred_end:
+            sensor.ended_at = inferred_end
+
+    def _sensor_data_upper_bound(self, sensor: SensorSession) -> tuple[datetime, bool]:
+        next_started_at = self.session.scalar(
+            select(func.min(SensorSession.started_at)).where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.id != sensor.id,
+                SensorSession.started_at > sensor.started_at,
+            )
+        )
+        candidates = []
+        if sensor.ended_at is not None:
+            candidates.append((sensor.ended_at, False))
+        if next_started_at is not None:
+            candidates.append((next_started_at, True))
+        if candidates:
+            return min(candidates)
+        if sensor.started_at.tzinfo is None:
+            return (_now_local(), False)
+        return (utc_now(), False)
 
     def _food_events(
         self,
@@ -1517,6 +1587,13 @@ def _sensor_phase(sensor_age_days: float | None) -> SensorPhase | None:
     if sensor_age_days >= 12:
         return "end_of_life"
     return "stable"
+
+
+def _inside_any_interval(
+    value: datetime,
+    intervals: list[tuple[datetime, datetime]],
+) -> bool:
+    return any(start <= value <= end for start, end in intervals)
 
 
 def _nearest_index(points: list[RawPoint], target: datetime) -> int | None:
