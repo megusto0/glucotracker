@@ -20,6 +20,7 @@ from glucotracker.infra.db.models import (
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
+    SensorSession,
     TwinParams,
 )
 
@@ -245,6 +246,53 @@ def test_twin_data_summary_counts_scoped_fit_sources(api_client: TestClient) -> 
     assert data["insulin_count"] == 1
     assert data["ready_for_fit"] is False
     assert "cgm_count<200" in data["fit_blockers"]
+
+
+def test_twin_data_summary_excludes_corrupt_sensor_cgm(
+    api_client: TestClient,
+) -> None:
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        session.add_all(
+            [
+                SensorSession(
+                    owner_id=user_id,
+                    started_at=datetime(2026, 4, 28, 8, 0),
+                    ended_at=datetime(2026, 4, 28, 9, 0),
+                    excluded_from_analytics=True,
+                    exclusion_reason="corrupt",
+                ),
+                SensorSession(
+                    owner_id=user_id,
+                    started_at=datetime(2026, 4, 28, 9, 30),
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=user_id,
+                    source_key="twin-corrupt",
+                    timestamp=datetime(2026, 4, 28, 8, 30),
+                    value_mmol_l=20.0,
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=user_id,
+                    source_key="twin-visible",
+                    timestamp=datetime(2026, 4, 28, 9, 45),
+                    value_mmol_l=7.0,
+                ),
+            ]
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/twin/data/summary",
+        params={
+            "from": "2026-04-28T08:00:00",
+            "to": "2026-04-28T10:00:00",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cgm_count"] == 1
 
 
 def test_twin_fit_empty_db_returns_insufficient_cgm(api_client: TestClient) -> None:

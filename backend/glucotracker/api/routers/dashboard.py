@@ -28,6 +28,7 @@ from glucotracker.api.schemas import (
     DashboardTopPatternResponse,
     LowConfidenceItemResponse,
 )
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.time import local_day_bounds, local_now, local_wall_time
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import ItemSourceKind, MealStatus
@@ -250,7 +251,10 @@ def _latest_glucose(
     """Return the latest local glucose cache row for dashboard context."""
     return session.scalar(
         select(NightscoutGlucoseEntry)
-        .where(NightscoutGlucoseEntry.owner_id == user_id)
+        .where(
+            NightscoutGlucoseEntry.owner_id == user_id,
+            visible_glucose_filter(user_id),
+        )
         .order_by(NightscoutGlucoseEntry.timestamp.desc())
         .limit(1)
     )

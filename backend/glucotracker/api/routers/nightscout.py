@@ -31,6 +31,7 @@ from glucotracker.api.schemas import (
     TimelineFoodResponse,
     TimelineResponse,
 )
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.insulin_links import InsulinLinkDayService
 from glucotracker.application.nightscout_context import (
     FoodEpisodeService,
@@ -259,24 +260,15 @@ def get_nightscout_latest_reading(
     current_user: CurrentUserDep,
 ) -> NightscoutLatestReadingResponse:
     """Return the latest glucose reading from the local Nightscout cache."""
-    from sqlalchemy import exists, func, not_, select
+    from sqlalchemy import func, select
 
     from glucotracker.infra.db.models import NightscoutGlucoseEntry, SensorSession
 
-    excluded_glucose = exists(
-        select(1).where(
-            SensorSession.owner_id == current_user.id,
-            SensorSession.excluded_from_analytics.is_(True),
-            SensorSession.started_at <= NightscoutGlucoseEntry.timestamp,
-            (SensorSession.ended_at.is_(None))
-            | (SensorSession.ended_at >= NightscoutGlucoseEntry.timestamp),
-        )
-    )
     glucose_stmt = (
         select(NightscoutGlucoseEntry)
         .where(
             NightscoutGlucoseEntry.owner_id == current_user.id,
-            not_(excluded_glucose),
+            visible_glucose_filter(current_user.id),
         )
         .order_by(NightscoutGlucoseEntry.timestamp.desc())
         .limit(1)
@@ -291,7 +283,7 @@ def get_nightscout_latest_reading(
         .select_from(NightscoutGlucoseEntry)
         .where(
             NightscoutGlucoseEntry.owner_id == current_user.id,
-            not_(excluded_glucose),
+            visible_glucose_filter(current_user.id),
         )
     )
     total = session.execute(count_stmt).scalar() or 0

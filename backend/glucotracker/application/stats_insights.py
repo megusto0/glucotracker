@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.product_categories import is_sweet_text
 from glucotracker.application.time import (
     local_day_bounds,
@@ -232,6 +233,7 @@ class StatsInsightsRepository:
                 NightscoutGlucoseEntry.owner_id == self.user_id,
                 NightscoutGlucoseEntry.timestamp >= utc_start,
                 NightscoutGlucoseEntry.timestamp < utc_end,
+                visible_glucose_filter(self.user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()

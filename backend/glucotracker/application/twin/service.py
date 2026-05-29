@@ -23,6 +23,7 @@ from glucotracker.api.schemas import (
     TwinParamsPatch,
     TwinParamsRead,
 )
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.twin.estimator import (
     BGAnchor,
     CarbEvent,
@@ -400,6 +401,7 @@ class TwinService:
                 NightscoutGlucoseEntry.owner_id == self.user_id,
                 NightscoutGlucoseEntry.timestamp >= from_datetime,
                 NightscoutGlucoseEntry.timestamp <= to_datetime,
+                visible_glucose_filter(self.user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()

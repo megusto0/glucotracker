@@ -33,6 +33,7 @@ from glucotracker.api.schemas import (
     SensorSessionResponse,
     SensorWarmupMetricsResponse,
 )
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.sensor_lifecycle import close_previous_open_sensors
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
@@ -346,20 +347,13 @@ class GlucoseDashboardService:
                 NightscoutGlucoseEntry.timestamp >= _local_wall_time(from_datetime),
                 NightscoutGlucoseEntry.timestamp <= _local_wall_time(to_datetime),
                 NightscoutGlucoseEntry.owner_id == self.user_id,
+                visible_glucose_filter(self.user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
-        excluded_intervals = self._excluded_sensor_intervals(
-            _local_wall_time(from_datetime),
-            _local_wall_time(to_datetime),
-        )
         return [
             RawPoint(_local_wall_time(row.timestamp), row.value_mmol_l)
             for row in rows
-            if not _inside_any_interval(
-                _local_wall_time(row.timestamp),
-                excluded_intervals,
-            )
         ]
 
     def _fingerstick_rows(
@@ -398,28 +392,6 @@ class GlucoseDashboardService:
                 .order_by(SensorSession.started_at.desc())
             )
         )
-
-    def _excluded_sensor_intervals(
-        self,
-        from_datetime: datetime,
-        to_datetime: datetime,
-    ) -> list[tuple[datetime, datetime]]:
-        rows = self.session.scalars(
-            select(SensorSession).where(
-                SensorSession.owner_id == self.user_id,
-                SensorSession.excluded_from_analytics.is_(True),
-                SensorSession.started_at <= to_datetime,
-                (SensorSession.ended_at.is_(None))
-                | (SensorSession.ended_at >= from_datetime),
-            )
-        ).all()
-        return [
-            (
-                _local_wall_time(row.started_at),
-                _local_wall_time(row.ended_at or to_datetime),
-            )
-            for row in rows
-        ]
 
     def _infer_sensor_end_from_latest_data(self, sensor: SensorSession) -> None:
         upper_bound, is_next_sensor_start = self._sensor_data_upper_bound(sensor)
@@ -1587,13 +1559,6 @@ def _sensor_phase(sensor_age_days: float | None) -> SensorPhase | None:
     if sensor_age_days >= 12:
         return "end_of_life"
     return "stable"
-
-
-def _inside_any_interval(
-    value: datetime,
-    intervals: list[tuple[datetime, datetime]],
-) -> bool:
-    return any(start <= value <= end for start, end in intervals)
 
 
 def _nearest_index(points: list[RawPoint], target: datetime) -> int | None:

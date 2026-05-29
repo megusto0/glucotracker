@@ -144,6 +144,38 @@ class TestLatestReadingEndpoint:
         assert data["value_mmol_l"] == 6.2
         assert data["total_entries"] == 1
 
+    def test_today_dashboard_ignores_excluded_sensor_latest(self, api_client):
+        session_factory = api_client.app_state["session_factory"]
+        session = session_factory()
+
+        excluded_sensor_start = datetime.now(UTC) - timedelta(hours=4)
+        excluded_sensor_end = datetime.now(UTC) - timedelta(hours=1)
+        _insert_sensor(
+            session,
+            started_at=excluded_sensor_start,
+            ended_at=excluded_sensor_end,
+            excluded_from_analytics=True,
+            exclusion_reason="corrupt",
+        )
+        _insert_glucose_entry(
+            session,
+            source_key="dashboard-excluded-latest",
+            timestamp=datetime.now(UTC) - timedelta(hours=2),
+            value_mmol_l=15.0,
+        )
+        _insert_glucose_entry(
+            session,
+            source_key="dashboard-usable-old",
+            timestamp=datetime.now(UTC) - timedelta(hours=5),
+            value_mmol_l=6.2,
+        )
+        session.close()
+
+        response = api_client.get("/dashboard/today")
+
+        assert response.status_code == 200
+        assert response.json()["current_glucose"] == 6.2
+ 
 
 class TestSyncScenarios:
     def test_normal_update_cycle(self, api_client, db_engine):

@@ -15,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.postprandial import thresholds as T
 from glucotracker.domain.entities import (
     GlycemicResponse,
@@ -48,6 +49,7 @@ def _cgm_readings(
                 NightscoutGlucoseEntry.owner_id == user_id,
                 NightscoutGlucoseEntry.timestamp >= start,
                 NightscoutGlucoseEntry.timestamp <= end,
+                visible_glucose_filter(user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp)
         )
