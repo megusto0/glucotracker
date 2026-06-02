@@ -1,7 +1,7 @@
 # Testing And Verification
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: local verification
 
 Use checks that match the change. For docs-only changes, run link checks and
@@ -27,9 +27,14 @@ High-risk focused tests:
 - meals/photos/Gemini: `tests/test_api_meals.py`,
   `tests/test_api_photo_capture.py`, `tests/test_api_photos_gemini.py`
 - Nightscout/glucose: `tests/test_api_glucose.py`,
-  `tests/test_api_nightscout_dashboard.py`, `tests/test_nightscout_background.py`
+  `tests/test_api_latest_reading.py`, `tests/test_api_nightscout_dashboard.py`,
+  `tests/test_nightscout_background.py`
 - categorization/postprandial: `tests/test_categorization.py`,
   `tests/test_postprandial.py`
+- insulin links: `tests/test_insulin_links.py`
+- digital twin: `tests/api/test_twin_params.py`,
+  `tests/application/twin/test_repository_isolation.py`,
+  `tests/application/twin/test_estimator.py`, `tests/application/twin/test_fitter.py`
 - reports: `tests/test_api_reports.py`
 
 ## Desktop
@@ -66,7 +71,11 @@ From `android-concept/`:
 
 Food flavor checks are especially important because the APK must not expose
 glucose classes or strings. Current Gradle tasks include food class/resource
-scans and Tarelka color-scope checks.
+scans and Tarelka color-scope checks:
+
+```powershell
+.\gradlew.bat verifyFoodDebugNoGlucoseClasses verifyTarelkaColorScope verifyFoodHasNoGlucose
+```
 
 ## OpenAPI
 
@@ -78,8 +87,16 @@ cd desktop
 npm run api:types
 ```
 
-Use Git Bash or WSL if `bash` is not available in PowerShell. The script updates
-both `docs/openapi.json` and `docs/openapi.yaml`.
+If `bash` is not available in PowerShell, export directly:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -c "import json, yaml; from pathlib import Path; from glucotracker.main import app; schema = app.openapi(); Path('../docs/openapi.json').write_text(json.dumps(schema, indent=2, sort_keys=True) + '\n', encoding='utf-8'); Path('../docs/openapi.yaml').write_text(yaml.safe_dump(schema, allow_unicode=True, sort_keys=True), encoding='utf-8')"
+cd ..\desktop
+npm run api:types
+```
+
+Both paths update `docs/openapi.json` and `docs/openapi.yaml`.
 
 ## Documentation
 

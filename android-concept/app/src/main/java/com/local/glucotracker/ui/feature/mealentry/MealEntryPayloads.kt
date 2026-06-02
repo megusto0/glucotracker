@@ -45,6 +45,7 @@ internal fun Product.toProductMealKind(
         eatenAt = now,
         source = source,
         items = listOf(item),
+        idempotencyKey = UUID.randomUUID().toString(),
     )
 }
 
@@ -82,6 +83,7 @@ internal fun Template.toTemplateMealKind(
         eatenAt = now,
         source = "pattern",
         items = listOf(item),
+        idempotencyKey = UUID.randomUUID().toString(),
     )
 }
 

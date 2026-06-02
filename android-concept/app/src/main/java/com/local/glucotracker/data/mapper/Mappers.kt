@@ -207,6 +207,7 @@ fun CachedMealEntity.toDomain(): Meal =
         postprandialResponse = postprandialJson.toPostprandialResponse(),
         estimateStatus = estimateStatus,
         estimateError = estimateError,
+        photoIdempotencyKey = photoIdempotencyKey,
     )
 
 private fun String?.toPostprandialResponse(): PostprandialResponse? {

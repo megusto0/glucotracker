@@ -103,7 +103,17 @@ class SettingsStore @Inject constructor(
             dailyProteinG?.let { preferences[Keys.DailyProteinG] = it }
             dailyCarbsG?.let { preferences[Keys.DailyCarbsG] = it }
             dailyFatG?.let { preferences[Keys.DailyFatG] = it }
-            preferences[Keys.GoalsSetupCompleted] = goalsSetupCompleted
+            val hasRemoteDailyGoal = listOf(
+                dailyKcal,
+                dailyProteinG,
+                dailyCarbsG,
+                dailyFatG,
+            ).any { goal -> goal != null && goal > 0 }
+            val setupCompleted =
+                goalsSetupCompleted ||
+                hasRemoteDailyGoal ||
+                (preferences[Keys.GoalsSetupCompleted] ?: false)
+            preferences[Keys.GoalsSetupCompleted] = setupCompleted
         }
     }
 

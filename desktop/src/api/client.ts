@@ -629,6 +629,11 @@ export const apiClient = {
       body,
     }),
 
+  deleteProduct: (config: ApiConfig, productId: string) =>
+    apiRequest<{ deleted: boolean }>(`/products/${productId}`, config, {
+      method: "DELETE",
+    }),
+
   uploadProductImage: (config: ApiConfig, productId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);

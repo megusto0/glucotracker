@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from glucotracker.config import get_settings
+from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db.models import (
     DailyTotal,
     Meal,
@@ -17,7 +18,9 @@ from glucotracker.infra.db.models import (
     MealItem,
     Photo,
     Product,
+    User,
 )
+from glucotracker.infra.security import hash_password, issue_access_token
 
 
 def meal_payload(**overrides: object) -> dict:
@@ -99,6 +102,90 @@ def test_full_crud_lifecycle_for_meals(api_client: TestClient) -> None:
     assert delete_response.status_code == 200
     assert delete_response.json() == {"deleted": True}
     assert api_client.get(f"/meals/{meal_id}").status_code == 404
+
+
+def test_create_manual_meal_is_idempotent_for_user(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Manual meal retries with the same key return one accepted server meal."""
+    key = "11111111-2222-3333-4444-555555555555"
+    first = api_client.post(
+        "/meals",
+        json=meal_payload(idempotency_key=key),
+    )
+    assert first.status_code == 201
+    first_body = first.json()
+
+    second = api_client.post(
+        "/meals",
+        json=meal_payload(
+            idempotency_key=key,
+            title="Retry should not overwrite",
+            items=[
+                {
+                    "name": "Duplicate toast",
+                    "grams": 100,
+                    "carbs_g": 40,
+                    "protein_g": 5,
+                    "fat_g": 5,
+                    "fiber_g": 2,
+                    "kcal": 250,
+                    "source_kind": "manual",
+                }
+            ],
+        ),
+    )
+    assert second.status_code == 200
+    second_body = second.json()
+    assert second_body["id"] == first_body["id"]
+    assert second_body["title"] == "Breakfast"
+    assert second_body["photo_idempotency_key"] == key
+    assert second_body["total_kcal"] == 128
+
+    lookup = api_client.get("/meals", params={"idempotency_key": key})
+    assert lookup.status_code == 200
+    assert lookup.json()["total"] == 1
+
+    with Session(db_engine) as session:
+        assert session.scalar(
+            select(func.count())
+            .select_from(Meal)
+            .where(Meal.photo_idempotency_key == key)
+        ) == 1
+        assert session.scalar(
+            select(func.count())
+            .select_from(MealItem)
+            .join(Meal, Meal.id == MealItem.meal_id)
+            .where(Meal.photo_idempotency_key == key)
+        ) == 1
+
+
+def test_create_manual_meal_idempotency_is_scoped_by_user(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """The same manual idempotency key is unique per user, not globally."""
+    key = "66666666-7777-8888-9999-000000000000"
+    first = api_client.post("/meals", json=meal_payload(idempotency_key=key))
+    assert first.status_code == 201
+
+    with Session(db_engine) as session:
+        other = User(
+            username="other-manual",
+            password_hash=hash_password("other-password"),
+            role=UserRole.gluco,
+        )
+        session.add(other)
+        session.commit()
+        other_id = UUID(str(other.id))
+
+    api_client.headers["Authorization"] = (
+        "Bearer " + issue_access_token(other_id, UserRole.gluco)
+    )
+    second = api_client.post("/meals", json=meal_payload(idempotency_key=key))
+    assert second.status_code == 201
+    assert second.json()["id"] != first.json()["id"]
 
 
 def test_product_database_item_recalculates_macros_for_client_weight(

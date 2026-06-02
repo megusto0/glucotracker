@@ -12,6 +12,9 @@ fun OutboxKind.CreateMeal.hasRestaurantSource(): Boolean =
     items.any { item -> item.sourceKind.equals("restaurant_db", ignoreCase = true) }
 
 fun Meal.matchesCreateMeal(createMeal: OutboxKind.CreateMeal): Boolean {
+    createMeal.idempotencyKey?.let { key ->
+        return photoIdempotencyKey == key
+    }
     if (!source.equals(createMeal.source, ignoreCase = true)) return false
     if (!eatenAt.sameLocalMinute(createMeal.eatenAt)) return false
     if (!title.sameText(createMeal.payload.title)) return false

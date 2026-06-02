@@ -17,8 +17,6 @@ class AuthRepository @Inject constructor(
     private val tokenStore: TokenStore,
     private val authApi: AuthApi,
 ) {
-    private val refreshMutex = Mutex()
-
     fun observeSession(): Flow<AuthSession?> =
         tokenStore.observeSession()
 
@@ -60,7 +58,7 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun refreshIfNeeded(force: Boolean = false): Result<Unit> =
-        refreshMutex.withLock {
+        RefreshMutex.withLock {
             runCatching {
                 val session = tokenStore.readSession() ?: throw AuthException("No auth session.")
                 if (!force && !session.needsRefresh()) return@runCatching
@@ -69,16 +67,23 @@ class AuthRepository @Inject constructor(
                     RefreshRequest(refreshToken = session.refreshToken),
                 )
                 if (!response.success) {
+                    if (tokenStore.hasFreshReplacementFor(session)) return@runCatching
                     tokenStore.clear()
                     throw AuthException("Refresh failed.")
                 }
 
                 val issued = response.body()
+                val refreshedSession = AuthSession(
+                    accessToken = issued.access,
+                    refreshToken = issued.refresh,
+                    accessExpiresAt = issued.accessExpiresAt,
+                    userId = session.userId,
+                    role = session.role,
+                )
+                tokenStore.save(refreshedSession)
+
                 val me = authApi.getAuthMe(authorization = issued.authorizationHeader())
-                if (!me.success) {
-                    tokenStore.clear()
-                    throw AuthException("Could not load current user.")
-                }
+                if (!me.success) return@runCatching
 
                 val user = me.body()
                 tokenStore.save(
@@ -96,11 +101,20 @@ class AuthRepository @Inject constructor(
     suspend fun clearLocalSession() {
         tokenStore.clear()
     }
+
+    private companion object {
+        val RefreshMutex = Mutex()
+    }
 }
 
 private fun AuthSession.needsRefresh(): Boolean {
     val nowWithSkew = Clock.System.now().toEpochMilliseconds() + RefreshSkewMillis
     return accessExpiresAt.toEpochMilliseconds() <= nowWithSkew
+}
+
+private suspend fun TokenStore.hasFreshReplacementFor(previous: AuthSession): Boolean {
+    val latest = readSession() ?: return false
+    return latest.refreshToken != previous.refreshToken && !latest.needsRefresh()
 }
 
 private fun IssuedTokensResponse.authorizationHeader(): String =

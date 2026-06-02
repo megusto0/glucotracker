@@ -128,6 +128,7 @@ class MoreViewModel @Inject constructor(
     fun updateGoal(field: String, value: String) {
         viewModelScope.launch {
             settingsStore.updateGoal(field, value)
+            settingsStore.completeGoalsSetup()
             pushGoalsToBackend()
         }
     }
@@ -191,7 +192,7 @@ class MoreViewModel @Inject constructor(
                 proteinGoalGPerDay = goals.dailyProteinG,
                 carbGoalGPerDay = goals.dailyCarbsG,
                 fatGoalGPerDay = goals.dailyFatG,
-                goalsSetupCompleted = null,
+                goalsSetupCompleted = true,
             )
         }
     }

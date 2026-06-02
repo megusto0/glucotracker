@@ -15,6 +15,7 @@ import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.hasRestaurantSource
 import com.local.glucotracker.domain.model.matchesCreateMeal
 import com.local.glucotracker.domain.repository.OutboxRepository
+import com.local.glucotracker.domain.repository.MealRepository
 import com.local.glucotracker.domain.repository.TodayRepository
 import com.local.glucotracker.ui.format.RowState
 import com.local.glucotracker.ui.format.computeRowState
@@ -99,6 +100,7 @@ enum class MealCardStatusHint {
 class MealStackViewModel @Inject constructor(
     private val todayRepository: TodayRepository,
     private val outboxRepository: OutboxRepository,
+    private val mealRepository: MealRepository,
     connectivityObserver: ConnectivityObserver,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -206,8 +208,14 @@ class MealStackViewModel @Inject constructor(
 
     fun retryCurrent() {
         val card = currentCard() ?: return
-        val outboxId = card.outboxId ?: return
-        viewModelScope.launch { outboxRepository.retry(outboxId) }
+        viewModelScope.launch {
+            val outboxId = card.outboxId
+            if (outboxId != null) {
+                outboxRepository.retry(outboxId)
+            } else if (card.state == MealCardState.Stuck && card.source == MealCardSource.Photo) {
+                card.serverId?.let { mealRepository.retryPhotoEstimate(it) }
+            }
+        }
     }
 
     private fun currentCard(): MealCard? =
@@ -284,7 +292,7 @@ private fun Meal.toMealCard(
     val itemPatch = (activeItem?.kind as? OutboxKind.PatchMealItem)?.patch
     val primaryItem = items.firstOrNull()
     val hint = activeItem?.toStatusHint(isOnline)
-        ?: backendDraftHint()
+        ?: (if (isBackendDraft) backendDraftHint() else null)
         ?: MealCardStatusHint.None
     return MealCard(
         id = id,
@@ -305,7 +313,7 @@ private fun Meal.toMealCard(
         confidence = confidence,
         state = hint.toCardState(isBackendDraft = isBackendDraft),
         statusHint = hint,
-        errorMessage = activeItem?.errorMessage ?: estimateError,
+        errorMessage = activeItem?.errorMessage ?: estimateError.takeIf { isBackendDraft },
     )
 }
 

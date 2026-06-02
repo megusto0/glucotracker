@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.feature.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.data.api.GoalsApi
 import com.local.glucotracker.data.api.ScheduleApi
 import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.data.sync.ConnectivityObserver
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -120,6 +122,7 @@ class TodayViewModel @Inject constructor(
     private val outboxRepository: OutboxRepository,
     private val syncRepository: SyncRepository,
     private val statsRepository: StatsRepository,
+    private val goalsApi: GoalsApi,
     private val scheduleApi: ScheduleApi,
     private val settingsStore: SettingsStore,
     private val connectivityObserver: ConnectivityObserver,
@@ -252,18 +255,33 @@ class TodayViewModel @Inject constructor(
             carbs?.let { settingsStore.updateGoal("dailyCarbsG", it.toString()) }
             fat?.let { settingsStore.updateGoal("dailyFatG", it.toString()) }
             settingsStore.completeGoalsSetup()
+            pushGoalsSetupToBackend()
         }
     }
 
     fun skipGoalsOnboarding() {
         viewModelScope.launch {
             settingsStore.completeGoalsSetup()
+            pushGoalsSetupToBackend()
         }
     }
 
     private fun requestSyncInBackground() {
         viewModelScope.launch {
             runCatching { syncRepository.requestSync() }
+        }
+    }
+
+    private suspend fun pushGoalsSetupToBackend() {
+        val goals = settingsStore.userGoals.firstOrNull()
+        runCatching {
+            goalsApi.updateGoals(
+                kcalGoalPerDay = goals?.dailyKcal,
+                proteinGoalGPerDay = goals?.dailyProteinG,
+                carbGoalGPerDay = goals?.dailyCarbsG,
+                fatGoalGPerDay = goals?.dailyFatG,
+                goalsSetupCompleted = true,
+            )
         }
     }
 }

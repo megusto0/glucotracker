@@ -352,6 +352,76 @@ export const mealWeightLabel = (meal: MealResponse) => {
   return total > 0 ? `${formatMacroValue(total)} г всего` : null;
 };
 
+const roundedOneDecimal = (value: number | null | undefined) =>
+  value === null || value === undefined ? null : Math.round(value * 10) / 10;
+
+const roundedKcal = (value: number | null | undefined) =>
+  value === null || value === undefined ? null : Math.round(value);
+
+const per100Value = (servingValue: number | null, servingGrams: number | null) =>
+  servingValue !== null && servingGrams !== null && servingGrams > 0
+    ? roundedOneDecimal((servingValue * 100) / servingGrams)
+    : null;
+
+const stripQuantitySuffix = (value: string) =>
+  value.replace(/\s*[xX×]\s*\d+(?:[.,]\d+)?\s*$/u, "").trim();
+
+const uniqueAliases = (values: Array<string | null | undefined>) =>
+  Array.from(
+    new Set(
+      values
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
+export const favoriteProductPayload = (
+  meal: MealResponse,
+  item: MealItem,
+  quantity: QuantityInfo | null,
+): ProductCreate => {
+  const itemQuantity =
+    quantity && quantity.item.id === item.id && quantity.quantity > 0
+      ? quantity.quantity
+      : 1;
+  const servingGrams =
+    quantity && quantity.item.id === item.id
+      ? quantity.perUnitWeightG
+      : item.grams ?? null;
+  const servingCarbs = roundedOneDecimal(item.carbs_g / itemQuantity);
+  const servingProtein = roundedOneDecimal(item.protein_g / itemQuantity);
+  const servingFat = roundedOneDecimal(item.fat_g / itemQuantity);
+  const servingFiber = roundedOneDecimal(item.fiber_g / itemQuantity);
+  const servingKcal = roundedKcal(item.kcal / itemQuantity);
+  const rawTitle = meal.title?.trim() || item.name;
+  const name = stripQuantitySuffix(rawTitle) || item.name;
+
+  return {
+    aliases: uniqueAliases([name, item.name, meal.title]),
+    barcode: null,
+    brand: item.brand,
+    carbs_per_100g: per100Value(servingCarbs, servingGrams),
+    protein_per_100g: per100Value(servingProtein, servingGrams),
+    fat_per_100g: per100Value(servingFat, servingGrams),
+    fiber_per_100g: per100Value(servingFiber, servingGrams),
+    kcal_per_100g: per100Value(servingKcal, servingGrams),
+    carbs_per_serving: servingCarbs,
+    protein_per_serving: servingProtein,
+    fat_per_serving: servingFat,
+    fiber_per_serving: servingFiber,
+    kcal_per_serving: servingKcal,
+    default_grams: servingGrams,
+    default_serving_text: servingGrams
+      ? `${formatMacroValue(servingGrams)} г`
+      : item.serving_text,
+    image_url: item.image_url ?? item.source_image_url ?? meal.thumbnail_url ?? null,
+    name,
+    nutrients_json: {},
+    source_kind: "manual",
+    source_url: null,
+  };
+};
+
 const factBasisLabel = (basis: unknown) => {
   if (basis === "per_100g") {
     return "/ 100 г";
@@ -809,6 +879,7 @@ export function SelectedMealPanel({
   updateTimePending?: boolean;
 }) {
   const config = useApiConfig();
+  const queryClient = useQueryClient();
   const firstPhoto = meal.photos?.[0];
   const imageUrl = remoteMealThumbnail(meal);
   const primaryItem = meal.items?.[0];
@@ -914,7 +985,10 @@ export function SelectedMealPanel({
   const canRepeatByWeight = Boolean(onCreateFromWeight && primaryItem);
   const currentWeightChipValue =
     primaryItem?.grams && primaryItem.grams > 0 ? primaryItem.grams : null;
-  const [favorite, setFavorite] = useState(false);
+  const [favoriteProductId, setFavoriteProductId] = useState<string | null>(
+    () => primaryItem?.product_id ?? null,
+  );
+  const favorite = Boolean(favoriteProductId);
   const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
@@ -926,20 +1000,47 @@ export function SelectedMealPanel({
     enabled: Boolean(config.token.trim()),
     refetchInterval: 2 * 60 * 1000,
   });
+  const favoriteProduct = useMutation({
+    mutationFn: async () => {
+      if (!primaryItem) {
+        throw new Error("У записи нет позиции для сохранения в базу.");
+      }
+      if (favoriteProductId) {
+        await apiClient.deleteProduct(config, favoriteProductId);
+        return null;
+      }
+
+      const product = await apiClient.createProduct(
+        config,
+        favoriteProductPayload(meal, primaryItem, quantity),
+      );
+      await apiClient.updateMealItem(config, primaryItem.id, {
+        product_id: product.id,
+      });
+      return product.id;
+    },
+    onSuccess: (productId) => {
+      setFavoriteProductId(productId);
+      [
+        ["autocomplete"],
+        ["database"],
+        ["database-items"],
+        ["feed-meals"],
+        ["meals"],
+        ["products"],
+      ].forEach((queryKey) => {
+        queryClient.invalidateQueries({ queryKey });
+      });
+    },
+  });
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("favorite-meal-ids");
-      const ids = stored ? (JSON.parse(stored) as string[]) : [];
-      setFavorite(ids.includes(meal.id));
-    } catch {
-      setFavorite(false);
-    }
+    setFavoriteProductId(primaryItem?.product_id ?? null);
     setModelDetailsOpen(false);
     setComponentsOpen(false);
     setAssumptionsOpen(false);
     setRawDataOpen(false);
     setNightscoutOpen(false);
-  }, [meal.id]);
+  }, [meal.id, primaryItem?.product_id]);
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = nameValue.trim();
@@ -1370,17 +1471,9 @@ export function SelectedMealPanel({
       <div className="selected-panel-actions" data-testid="panel-actions">
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
           <Button
+            disabled={favoriteProduct.isPending || !primaryItem}
             icon={<Star size={15} />}
-            onClick={() => {
-              const nextFavorite = !favorite;
-              setFavorite(nextFavorite);
-              const stored = localStorage.getItem("favorite-meal-ids");
-              const ids = stored ? (JSON.parse(stored) as string[]) : [];
-              const nextIds = nextFavorite
-                ? Array.from(new Set([...ids, meal.id]))
-                : ids.filter((id) => id !== meal.id);
-              localStorage.setItem("favorite-meal-ids", JSON.stringify(nextIds));
-            }}
+            onClick={() => favoriteProduct.mutate()}
             variant={favorite ? "primary" : "quiet"}
           >
             {favorite ? "В избранном" : "В избранное"}

@@ -372,6 +372,13 @@ class TestPrivateProductIsolation:
         )
         assert r.status_code == 404
 
+    def test_bob_cannot_delete_alice_product(self):
+        r = self.client.delete(
+            f"/products/{self.alice_product_id}",
+            headers=self.env["bob_headers"],
+        )
+        assert r.status_code == 404
+
     def test_bob_cannot_see_alice_product_by_barcode(self):
         r = self.client.get(
             "/products/search",

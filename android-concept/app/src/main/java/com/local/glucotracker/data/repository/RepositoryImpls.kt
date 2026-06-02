@@ -26,6 +26,7 @@ import com.local.glucotracker.data.sync.ConnectivityObserver
 import com.local.glucotracker.data.sync.MealReconciler
 import com.local.glucotracker.data.sync.OutboxFlushScheduler
 import com.local.glucotracker.data.sync.OutboxProcessor
+import com.local.glucotracker.generated.api.PhotosApi
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayState
 import com.local.glucotracker.domain.model.DayTotals
@@ -54,6 +55,8 @@ import com.local.glucotracker.domain.repository.SyncRepository
 import com.local.glucotracker.domain.repository.TodayRepository
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.MealStatus
+import com.local.glucotracker.generated.model.EstimateMealRequest
+import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
@@ -71,6 +74,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration.Companion.minutes
 
 @Singleton
 class TodayRepositoryImpl @Inject constructor(
@@ -80,9 +84,12 @@ class TodayRepositoryImpl @Inject constructor(
     private val todayApi: TodayApi,
     private val statsApi: StatsApi,
     private val mealApi: MealApi,
+    private val photosApi: PhotosApi,
     private val reconciler: MealReconciler,
     @Named("apiBaseUrl") private val baseUrl: String,
 ) : TodayRepository {
+    private val autoRetryBackoffUntilByMealId = mutableMapOf<String, Instant>()
+
     override fun observeDay(date: LocalDate): Flow<CachedView<DayState>> =
         localFirst(
             cache = {
@@ -95,11 +102,18 @@ class TodayRepositoryImpl @Inject constructor(
             },
             refresh = {
                 val fetchedAt = Clock.System.now()
-                val total = fetchTotalsForDate(date, fetchedAt)
-                val rawMeals = mealApi.listMealsForLocalDays(
+                var total = fetchTotalsForDate(date, fetchedAt)
+                var rawMeals = mealApi.listMealsForLocalDays(
                     fromDay = date,
                     toDay = date,
                 )
+                if (autoRetryFailedPhotoEstimates(rawMeals)) {
+                    total = fetchTotalsForDate(date, fetchedAt)
+                    rawMeals = mealApi.listMealsForLocalDays(
+                        fromDay = date,
+                        toDay = date,
+                    )
+                }
                 reconciler.reconcileBatch(rawMeals)
                 val meals = rawMeals.map { it.toCachedEntity(fetchedAt, baseUrl = baseUrl) }
 
@@ -109,6 +123,37 @@ class TodayRepositoryImpl @Inject constructor(
                 }
             },
         )
+
+    private suspend fun autoRetryFailedPhotoEstimates(meals: List<MealResponse>): Boolean {
+        var repaired = false
+        val now = Clock.System.now()
+        meals
+            .filter { meal -> meal.shouldAutoRetryPhotoEstimate(now) }
+            .forEach { meal ->
+                val retryResult = runCatching {
+                    photosApi.estimateAndSaveMealDraft(
+                        mealId = meal.id,
+                        estimateMealRequest = EstimateMealRequest(),
+                    )
+                }
+                if (retryResult.isSuccess) {
+                    autoRetryBackoffUntilByMealId.remove(meal.id.toString())
+                    repaired = true
+                } else {
+                    autoRetryBackoffUntilByMealId[meal.id.toString()] = now + 15.minutes
+                }
+            }
+        return repaired
+    }
+
+    private fun MealResponse.shouldAutoRetryPhotoEstimate(now: Instant): Boolean {
+        val mealId = id.toString()
+        val retryAfter = autoRetryBackoffUntilByMealId[mealId]
+        if (retryAfter != null && retryAfter > now) return false
+        return status == MealStatus.DRAFT &&
+            source.value.lowercase() in PhotoMealSources &&
+            estimateStatus?.lowercase() in RetryablePhotoEstimateStatuses
+    }
 
     private suspend fun fetchTotalsForDate(
         date: LocalDate,
@@ -133,6 +178,9 @@ class TodayRepositoryImpl @Inject constructor(
         }
     }
 }
+
+private val PhotoMealSources = setOf("photo", "photo_estimate", "gallery")
+private val RetryablePhotoEstimateStatuses = setOf("failed", "timeout", "error")
 
 @Singleton
 class StatsRepositoryImpl @Inject constructor(
@@ -397,6 +445,7 @@ private val Product.brandSlug: String
 class MealRepositoryImpl @Inject constructor(
     private val mealDao: CachedMealDao,
     private val mealApi: MealApi,
+    private val photosApi: PhotosApi,
     @Named("apiBaseUrl") private val baseUrl: String,
 ) : MealRepository {
     override fun observeMeal(id: String): Flow<CachedView<Meal>> =
@@ -407,6 +456,20 @@ class MealRepositoryImpl @Inject constructor(
                 mealDao.upsertAll(listOf(mealApi.getMeal(UUID.fromString(id)).toCachedEntity(fetchedAt, baseUrl = baseUrl)))
             },
         )
+
+    override suspend fun retryPhotoEstimate(id: String) {
+        val mealId = UUID.fromString(id)
+        val response = photosApi.estimateAndSaveMealDraft(
+            mealId = mealId,
+            estimateMealRequest = EstimateMealRequest(),
+        )
+        if (!response.success) {
+            throw IOException("Photo estimate retry failed: HTTP ${response.status}")
+        }
+        response.body()
+        val fetchedAt = Clock.System.now()
+        mealDao.upsertAll(listOf(mealApi.getMeal(mealId).toCachedEntity(fetchedAt, baseUrl = baseUrl)))
+    }
 }
 
 @Singleton

@@ -1,11 +1,13 @@
 # Documentation Audit
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: documentation inventory and unresolved issues
 
 This audit was produced from `docs/`, root README/docs-like files, ADR files,
 OpenAPI artifacts, and code inspection across backend, desktop, and Android.
+The 2026-05-31 refresh also compared the current backend models/routes,
+desktop routes, Android Gradle flavor checks, and current OpenAPI artifacts.
 
 ## Current Source-Of-Truth Documents
 
@@ -89,6 +91,21 @@ The ADR text itself was not rewritten.
 7. `mockup/` and `mockup-prototype/` remain outside `docs/archive/` because they
    are runnable/historical prototype folders rather than standalone docs. Treat
    them as historical references only.
+8. The current checked-out branch has partial corrupt-sensor exclusion. The
+   merged branch includes `e2bb814`, while `origin/main` currently has
+   `1540611 fix(glucose): hide excluded cgm everywhere` that was not merged
+   during this docs audit. Stats/raw report paths on this branch still need
+   direct verification because some code reads `nightscout_glucose_entries`
+   without the shared exclusion filter.
+9. Digital twin research mode exists in code (`/twin/*`, desktop `/twin`, and
+   twin tables) but does not have a dedicated ADR. Treat model/safety changes as
+   needing a new ADR.
+10. `docs/openapi.json` and `docs/openapi.yaml` were already modified in the
+    working tree before this docs refresh. Verify them by regenerating from the
+    FastAPI app before committing API artifacts.
+11. Windows PowerShell environments may not have `bash`. Current docs include a
+    direct FastAPI OpenAPI export fallback so both JSON and YAML artifacts can be
+    regenerated without Git Bash/WSL.
 
 ## Missing Documents Created
 
@@ -102,6 +119,8 @@ The ADR text itself was not rewritten.
 - `adr/README.md`
 - `archive/README.md`
 - `archive/2026-05-docs-cleanup/README.md`
+
+No additional documents were moved to archive during the 2026-05-31 refresh.
 
 ## Link Check
 

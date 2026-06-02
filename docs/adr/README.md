@@ -1,7 +1,7 @@
 # ADR Index
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: architecture decision records
 
 ADR files are accepted historical decisions unless noted. Do not rewrite accepted
@@ -51,3 +51,8 @@ changes.
   desktop/mobile surface complete.
 - Repository-only scoping is a prompt-level invariant but not uniformly reflected
   in current implementation; see [`../doc-audit.md`](../doc-audit.md).
+- Digital twin research mode is implemented without a dedicated accepted ADR.
+  Add one before changing its modeling or safety boundary.
+- Corrupt-sensor exclusion is implemented in the current glucose visibility
+  paths, but raw aggregation consumers should be audited before the ADR index
+  claims every stats/report path excludes those intervals.

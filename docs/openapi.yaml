@@ -2539,6 +2539,28 @@ components:
       - reason
       title: InsulinLinkEventResponse
       type: object
+    InsulinLinkGlucoseAnchorResponse:
+      description: CGM value sampled around a food/insulin episode.
+      properties:
+        source:
+          enum:
+          - actual
+          - interpolated
+          title: Source
+          type: string
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+        value:
+          title: Value
+          type: number
+      required:
+      - value
+      - timestamp
+      - source
+      title: InsulinLinkGlucoseAnchorResponse
+      type: object
     InsulinLinkMealResponse:
       description: Compact food event for one-day insulin review.
       properties:
@@ -2546,6 +2568,14 @@ components:
           format: date-time
           title: Eaten At
           type: string
+        glucose_minus_30:
+          anyOf:
+          - $ref: '#/components/schemas/InsulinLinkGlucoseAnchorResponse'
+          - type: 'null'
+        glucose_plus_2h:
+          anyOf:
+          - $ref: '#/components/schemas/InsulinLinkGlucoseAnchorResponse'
+          - type: 'null'
         id:
           format: uuid
           title: Id
@@ -2604,15 +2634,15 @@ components:
       type: string
     KcalBalanceDay:
       properties:
-        bmr_available:
-          default: false
-          title: Bmr Available
-          type: boolean
         activity_source:
           anyOf:
           - type: string
           - type: 'null'
           title: Activity Source
+        bmr_available:
+          default: false
+          title: Bmr Available
+          type: boolean
         date:
           format: date
           title: Date
@@ -2652,15 +2682,15 @@ components:
       type: object
     KcalBalanceResponse:
       properties:
-        bmr_available:
-          default: false
-          title: Bmr Available
-          type: boolean
         activity_source:
           anyOf:
           - type: string
           - type: 'null'
           title: Activity Source
+        bmr_available:
+          default: false
+          title: Bmr Available
+          type: boolean
         date:
           format: date
           title: Date
@@ -2773,6 +2803,7 @@ components:
       description: Create a meal with optional inline items.
       examples:
       - eaten_at: '2026-04-28T08:30:00'
+        idempotency_key: 11111111-1111-1111-1111-111111111111
         items:
         - carbs_g: 8
           fat_g: 4
@@ -2790,6 +2821,13 @@ components:
           format: date-time
           title: Eaten At
           type: string
+        idempotency_key:
+          anyOf:
+          - maxLength: 64
+            minLength: 1
+            type: string
+          - type: 'null'
+          title: Idempotency Key
         items:
           items:
             $ref: '#/components/schemas/MealItemCreate'
@@ -5952,6 +5990,15 @@ components:
             type: string
           - type: 'null'
           title: Ended At
+        excluded_from_analytics:
+          default: false
+          title: Excluded From Analytics
+          type: boolean
+        exclusion_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exclusion Reason
         expected_life_days:
           default: 15
           exclusiveMinimum: 0.0
@@ -6006,6 +6053,16 @@ components:
             type: string
           - type: 'null'
           title: Ended At
+        excluded_from_analytics:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Excluded From Analytics
+        exclusion_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exclusion Reason
         expected_life_days:
           anyOf:
           - exclusiveMinimum: 0.0
@@ -6058,6 +6115,15 @@ components:
             type: string
           - type: 'null'
           title: Ended At
+        excluded_from_analytics:
+          default: false
+          title: Excluded From Analytics
+          type: boolean
+        exclusion_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exclusion Reason
         expected_life_days:
           default: 15
           exclusiveMinimum: 0.0
@@ -10309,6 +10375,45 @@ paths:
       - products
       x-glucotracker-scoped: true
   /products/{product_id}:
+    delete:
+      description: Delete a personal saved product and unlink it from the user's meal
+        items.
+      operationId: deleteProduct
+      parameters:
+      - in: path
+        name: product_id
+        required: true
+        schema:
+          format: uuid
+          title: Product Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Delete Product
+      tags:
+      - products
+      x-glucotracker-scoped: true
     get:
       description: Return a saved product.
       operationId: getProduct

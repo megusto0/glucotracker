@@ -108,6 +108,7 @@ data class Meal(
     val postprandialResponse: PostprandialResponse? = null,
     val estimateStatus: String? = null,
     val estimateError: String? = null,
+    val photoIdempotencyKey: String? = null,
 )
 
 @Serializable
@@ -261,6 +262,7 @@ sealed interface OutboxKind {
         val eatenAt: Instant,
         val source: String,
         val items: List<MealItemPayload> = emptyList(),
+        val idempotencyKey: String? = null,
     ) : OutboxKind
 
     @Serializable
@@ -334,7 +336,11 @@ data class OutboxItem(
         get() = linkedMealId != null
 
     val idempotencyKey: String?
-        get() = (kind as? OutboxKind.CapturedMeal)?.idempotencyKey
+        get() = when (val itemKind = kind) {
+            is OutboxKind.CapturedMeal -> itemKind.idempotencyKey
+            is OutboxKind.CreateMeal -> itemKind.idempotencyKey
+            else -> null
+        }
 }
 
 data class SyncStatus(

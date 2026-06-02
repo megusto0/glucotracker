@@ -1,7 +1,7 @@
 # Sync And Reconciliation
 
 Status: source of truth
-Last updated: 2026-05-16
+Last updated: 2026-05-31
 Owner/area: Android outbox, backend sync, Nightscout
 
 Glucotracker uses local-first Android reads/mutations and backend-owned accepted
@@ -69,10 +69,11 @@ Idempotency prevents duplicate server meals when a client loses the response.
 Android reconciliation links local outbox items to server meals by idempotency
 where possible, then marks local rows confirmed.
 
-`needs verification`: ADR-011 specified a dedicated idempotency lookup. Current
-OpenAPI does not show a separate `GET /meals?idempotency_key=...` parameter in
-the visible endpoint list; current Android code reconciles from cached meals with
-`photoIdempotencyKey`. Verify before depending on a server-side lookup contract.
+Manual `POST /meals` may send an optional `idempotency_key`. The backend stores
+that key on `meals.photo_idempotency_key`, scoped by `current_user.id`, and
+`GET /meals?idempotency_key=...` returns the matching meal for exact Android
+reconciliation. New Android manual rows generate one key when the outbox row is
+created and reuse it for every retry.
 
 ## Nightscout
 
@@ -91,6 +92,18 @@ Backend owns:
 Imported Nightscout insulin is read-only context. Glucotracker does not create
 insulin dose recommendations.
 
+Sensor sessions are explicit lifecycle records. Imported CGM gaps do not close a
+sensor by themselves; a user action or a new manual sensor session is needed.
+Creating a new manual sensor closes any previous open session for that user.
+When a sensor is marked corrupt/excluded, the exclusion window is persisted on
+the sensor session and applies to backend glucose visibility paths that route
+through the current dashboard/timeline filtering logic.
+
+The `/timeline/insulin-links` day-review workflow persists episode snapshots.
+When CGM data exists for an episode, the snapshot stores glucose around the food
+episode at `-30m` and `+2h` together with the rest of the assembled food/insulin
+context.
+
 ## Cache And Prune
 
 Android cache pruning runs daily:
@@ -106,3 +119,9 @@ Android cache pruning runs daily:
 - Backend accepted data wins over pending local data.
 - Gemini failure is a backend meal estimate status, not an Android outbox state.
 - Stuck rows need explicit user recovery actions.
+
+## Needs Verification
+
+- On the current checked-out branch, some raw aggregation paths still read CGM
+  rows directly. Verify corrupt-sensor exclusion before claiming every stats or
+  report path hides excluded sensor data.

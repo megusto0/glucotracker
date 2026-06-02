@@ -1,7 +1,7 @@
 # UX
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: interaction model, UI states, copy rules
 
 Glucotracker is a repeated-use food diary, not a marketing surface and not a
@@ -25,6 +25,9 @@ animation.
 - Journal empty day: show a short Russian prompt to use capture/text entry.
 - Stats with fewer than 3 valid tracked days: show a summary/low-data state, not
   full trend claims.
+- Excluded/corrupt sensor data: show explicit sensor/data-quality state and
+  scoped empty/low-data views rather than backfilling charts from excluded raw
+  points.
 - Glucose without CGM data: show `Нет данных...` copy, not fake chart points.
 - Missing goals: show `цель не задана`, not failure language.
 - Missing optional nutrients: render an em dash or omit the optional line; do not

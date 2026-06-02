@@ -449,7 +449,7 @@ private fun PendingOverlay(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        if (card.state == MealCardState.Stuck && card.outboxId != null) {
+        if (card.state == MealCardState.Stuck && (card.outboxId != null || card.serverId != null)) {
             GTOutlineButton(
                 text = stringResource(R.string.outbox_retry),
                 onClick = onRetry,

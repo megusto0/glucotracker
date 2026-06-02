@@ -31,8 +31,13 @@ class MealReconciler @Inject constructor(
                     markReconciled(item, meal.id.toString())
                 }
                 is OutboxKind.CreateMeal -> {
-                    if (item.attempts <= 0) continue@loop
-                    val meal = meals.firstOrNull { meal -> meal.matchesCreateMeal(kind) } ?: continue@loop
+                    val key = kind.idempotencyKey
+                    val meal = if (key != null) {
+                        meals.firstOrNull { meal -> meal.photoIdempotencyKey == key }
+                    } else {
+                        if (item.attempts <= 0) continue@loop
+                        meals.firstOrNull { meal -> meal.matchesCreateMeal(kind) }
+                    } ?: continue@loop
                     markReconciled(item, meal.id.toString())
                 }
                 else -> Unit
@@ -44,8 +49,7 @@ class MealReconciler @Inject constructor(
         val pending = pendingItems()
         loop@ for (item in pending) {
             val kind = item.decodeKind() ?: continue@loop
-            val itemKey = (kind as? OutboxKind.CapturedMeal)
-                ?.idempotencyKey ?: continue@loop
+            val itemKey = kind.reconciliationKey ?: continue@loop
             if (itemKey != idempotencyKey) continue@loop
             markReconciled(item, mealId)
         }
@@ -75,7 +79,17 @@ class MealReconciler @Inject constructor(
     }
 }
 
+private val OutboxKind.reconciliationKey: String?
+    get() = when (this) {
+        is OutboxKind.CapturedMeal -> this.idempotencyKey
+        is OutboxKind.CreateMeal -> this.idempotencyKey
+        else -> null
+    }
+
 private fun MealResponse.matchesCreateMeal(createMeal: OutboxKind.CreateMeal): Boolean {
+    createMeal.idempotencyKey?.let { key ->
+        return photoIdempotencyKey == key
+    }
     if (status?.value?.equals("accepted", ignoreCase = true) == false) return false
     if (!source.value.equals(createMeal.source, ignoreCase = true)) return false
     if (!eatenAt.sameLocalMinute(createMeal.eatenAt)) return false

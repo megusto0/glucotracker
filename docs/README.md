@@ -1,7 +1,7 @@
 # Glucotracker Documentation
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: project documentation
 
 This directory is the entry point for current project knowledge. Historical notes,
@@ -37,7 +37,8 @@ OpenAPI TypeScript generation.
 
 [`openapi.yaml`](openapi.yaml) is a generated compatibility artifact currently
 used by the Android OpenAPI generator. Keep it in sync with `openapi.json` via
-`scripts/export-openapi.sh`.
+`scripts/export-openapi.sh` or the PowerShell fallback in the root
+[`README.md`](../README.md).
 
 Do not document new endpoints unless they exist in `openapi.json`.
 

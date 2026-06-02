@@ -55,7 +55,7 @@ class OutboxProcessorImpl @Inject constructor(
             when (val kind = item.kind) {
                 is OutboxKind.CapturedMeal -> processCapturedMeal(item, kind)
                 is OutboxKind.CopyMealItemWeight -> sendMutation(item) { remote.copyMealItemWeight(kind) }
-                is OutboxKind.CreateMeal -> sendMutation(item) { remote.createMeal(kind) }
+                is OutboxKind.CreateMeal -> processCreateMeal(item, kind)
                 is OutboxKind.EditMeal -> sendMutation(item) { remote.editMeal(kind) }
                 is OutboxKind.DeleteMeal -> sendMutation(item) { remote.deleteMeal(kind) }
                 is OutboxKind.PatchMealItem -> sendMutation(item) { remote.patchMealItem(kind) }
@@ -98,6 +98,22 @@ class OutboxProcessorImpl @Inject constructor(
         outboxRepository.markUploading(item.id)
         val serverId = remote.captureMeal(kind)
         outboxRepository.markConfirmed(item.id, serverId)
+    }
+
+    private suspend fun processCreateMeal(
+        item: OutboxItem,
+        kind: OutboxKind.CreateMeal,
+    ) {
+        val key = kind.idempotencyKey
+        if (key != null) {
+            val existing = runCatching { mealApi.getByIdempotencyKey(key) }.getOrNull()
+            if (existing != null) {
+                reconciler.reconcileByKey(key, existing.id.toString())
+                outboxRepository.markConfirmed(item.id, existing.id.toString())
+                return
+            }
+        }
+        sendMutation(item) { remote.createMeal(kind) }
     }
 
     private suspend fun sendMutation(
@@ -144,6 +160,11 @@ class RoomOutboxQueueStore @Inject constructor(
 ) : OutboxQueueStore {
     override suspend fun queued(): List<OutboxItem> =
         Clock.System.now().let { now ->
+            outboxDao.markTimedOutActiveRows(
+                staleBefore = now - ActiveRowWatchdogDelay,
+                now = now,
+                errorCode = WatchdogErrorCode,
+            )
             outboxDao.retryableItems(
                 now = now,
                 staleBefore = now - InFlightRecoveryDelay,
@@ -189,6 +210,8 @@ private enum class ItemProcessResult {
 }
 
 private val InFlightRecoveryDelay = 2.minutes
+private val ActiveRowWatchdogDelay = 12.minutes
+private const val WatchdogErrorCode = "sync_timeout"
 private const val MaxAttempts = 5
 
 private fun backoffFor(attempts: Int) =

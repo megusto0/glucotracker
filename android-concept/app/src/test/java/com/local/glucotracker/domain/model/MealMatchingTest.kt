@@ -26,6 +26,37 @@ class MealMatchingTest {
     }
 
     @Test
+    fun createMealWithIdempotencyKeyMatchesOnlySameServerKey() {
+        val createMeal = createMeal(
+            patternId = "9a9470db-0bdb-4b3b-8290-d0e1749c9ad1",
+            idempotencyKey = "manual-key-1",
+        )
+        val matching = acceptedMeal(
+            photoIdempotencyKey = "manual-key-1",
+            item = MealItem(
+                id = "item-1",
+                mealId = "meal-1",
+                name = "РќР°РіРіРµС‚СЃС‹ 9 С€С‚",
+                sourceKind = "restaurant_db",
+                patternId = "different-pattern",
+            ),
+        )
+        val sameContentDifferentKey = acceptedMeal(
+            photoIdempotencyKey = "manual-key-2",
+            item = MealItem(
+                id = "item-1",
+                mealId = "meal-1",
+                name = "РќР°РіРіРµС‚СЃС‹ 9 С€С‚",
+                sourceKind = "restaurant_db",
+                patternId = "9a9470db-0bdb-4b3b-8290-d0e1749c9ad1",
+            ),
+        )
+
+        assertTrue(matching.matchesCreateMeal(createMeal))
+        assertFalse(sameContentDifferentKey.matchesCreateMeal(createMeal))
+    }
+
+    @Test
     fun createMealDoesNotMatchBeforeItWasAttemptedElsewhere() {
         val createMeal = createMeal(patternId = "9a9470db-0bdb-4b3b-8290-d0e1749c9ad1")
         val meal = acceptedMeal(
@@ -41,7 +72,10 @@ class MealMatchingTest {
         assertFalse(meal.matchesCreateMeal(createMeal))
     }
 
-    private fun createMeal(patternId: String): OutboxKind.CreateMeal =
+    private fun createMeal(
+        patternId: String,
+        idempotencyKey: String? = null,
+    ): OutboxKind.CreateMeal =
         OutboxKind.CreateMeal(
             payload = MealDraft(
                 id = "draft-1",
@@ -70,9 +104,13 @@ class MealMatchingTest {
                     patternId = patternId,
                 ),
             ),
+            idempotencyKey = idempotencyKey,
         )
 
-    private fun acceptedMeal(item: MealItem): Meal =
+    private fun acceptedMeal(
+        item: MealItem,
+        photoIdempotencyKey: String? = null,
+    ): Meal =
         Meal(
             id = "meal-1",
             eatenAt = Instant.parse("2026-05-13T18:52:30Z"),
@@ -89,5 +127,6 @@ class MealMatchingTest {
             totalFiberG = 0.0,
             updatedAt = Instant.parse("2026-05-13T18:53:00Z"),
             items = listOf(item),
+            photoIdempotencyKey = photoIdempotencyKey,
         )
 }

@@ -157,8 +157,8 @@ fun estimateStuckState(): PhotoProcessingUiState =
     PhotoProcessingUiState(
         stage = PhotoProcessingStage.Stuck,
         title = "Фото",
-        statusText = "оценка не пришла · можно повторить",
-        helperText = "откройте очередь, чтобы повторить",
+        statusText = "оценка не пришла · исправляем",
+        helperText = "при обновлении повторим оценку автоматически",
         queuePositionText = null,
         uploadProgress = null,
         estimateElapsedSeconds = null,

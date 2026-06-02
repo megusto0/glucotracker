@@ -7,8 +7,9 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import and_, extract, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
@@ -91,6 +92,22 @@ def _get_meal(session: SessionDep, user_id: UUID, meal_id: UUID) -> Meal:
             detail="Meal not found.",
         )
     return meal
+
+
+def _get_meal_by_idempotency_key(
+    session: SessionDep,
+    user_id: UUID,
+    idempotency_key: str,
+) -> Meal | None:
+    """Fetch a user-scoped meal by client idempotency key."""
+    return session.scalar(
+        select(Meal)
+        .where(
+            Meal.owner_id == user_id,
+            Meal.photo_idempotency_key == idempotency_key,
+        )
+        .options(*_meal_options())
+    )
 
 
 def _get_item(session: SessionDep, user_id: UUID, item_id: UUID) -> MealItem:
@@ -911,6 +928,14 @@ def _default_status(source: MealSource, requested: MealStatus | None) -> MealSta
     return MealStatus.draft
 
 
+def _normalize_idempotency_key(value: str | None) -> str | None:
+    """Normalize optional client idempotency keys."""
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 def _as_float(value: object) -> float | None:
     """Normalize a JSON value into a float while preserving unknown as null."""
     if value is None:
@@ -929,12 +954,24 @@ def _as_float(value: object) -> float | None:
 )
 async def create_meal(
     payload: MealCreate,
+    response: Response,
     session: SessionDep,
     current_user: CurrentUserDep,
     client: NightscoutDep,
 ) -> Meal:
     """Create a meal with optional inline items."""
     nightscout_sync = _nightscout_sync_service(session, current_user, client)
+    idempotency_key = _normalize_idempotency_key(payload.idempotency_key)
+    if idempotency_key is not None:
+        existing = _get_meal_by_idempotency_key(
+            session,
+            current_user.id,
+            idempotency_key,
+        )
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return existing
+
     meal = Meal(
         owner_id=current_user.id,
         eaten_at=local_wall_time(payload.eaten_at),
@@ -942,6 +979,7 @@ async def create_meal(
         note=payload.note,
         source=payload.source,
         status=_default_status(payload.source, payload.status),
+        photo_idempotency_key=idempotency_key,
     )
     session.add(meal)
     session.flush()
@@ -953,12 +991,33 @@ async def create_meal(
     for item in meal.items:
         _increment_usage_counters(session, current_user.id, item)
     _recalculate_meal(meal)
-    _audit_meal(session, current_user.id, "created", meal, {"via": "create_meal"})
+    _audit_meal(
+        session,
+        current_user.id,
+        "created",
+        meal,
+        {"via": "create_meal", "idempotency_key": idempotency_key},
+    )
     DailyTotalsService(session, current_user.id).schedule_for_meal_times(
         [meal.eaten_at]
     )
 
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        if idempotency_key is None:
+            raise
+        session.rollback()
+        existing = _get_meal_by_idempotency_key(
+            session,
+            current_user.id,
+            idempotency_key,
+        )
+        if existing is None:
+            raise
+        response.status_code = status.HTTP_200_OK
+        return existing
+
     if meal.status == MealStatus.accepted:
         await _autosync_new_meal(nightscout_sync, meal.id)
     return _meal_response(session, current_user.id, meal.id)

@@ -327,6 +327,7 @@ class MealCreate(MealBase):
     """Create a meal with optional inline items."""
 
     items: list[MealItemCreate] = Field(default_factory=list)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -336,6 +337,7 @@ class MealCreate(MealBase):
                     "title": "Breakfast",
                     "note": "Manual entry",
                     "source": "manual",
+                    "idempotency_key": "11111111-1111-1111-1111-111111111111",
                     "items": [
                         {
                             "name": "Greek yogurt",

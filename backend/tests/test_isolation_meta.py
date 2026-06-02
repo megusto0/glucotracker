@@ -104,6 +104,7 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "GET /products/search",
     "GET /products/{product_id}",
     "PATCH /products/{product_id}",
+    "DELETE /products/{product_id}",
     "POST /products/{product_id}/image",
     "GET /products/{product_id}/image/file",
 }

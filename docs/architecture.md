@@ -1,7 +1,7 @@
 # Architecture
 
 Status: source of truth
-Last updated: 2026-05-16
+Last updated: 2026-05-31
 Owner/area: backend, desktop, Android architecture
 
 Glucotracker is a three-client-family repository around one backend:
@@ -27,13 +27,17 @@ The backend is the product authority. It owns:
 - photo upload, Gemini calls, AI run audit, and photo draft acceptance;
 - Nightscout settings, read-only CGM/insulin cache, meal sync to Nightscout, and
   background imports;
-- glucose dashboard, fingersticks, sensors, postprandial analysis, and report
-  aggregation;
+- glucose dashboard, fingersticks, sensor sessions, display-only calibration,
+  corrupt-sensor exclusion, postprandial analysis, and report aggregation;
+- food/insulin link review episodes and persisted glucose snapshots around
+  meals when CGM data exists;
+- digital twin research-mode parameter fitting and reconstructed curves;
 - OpenAPI generation.
 
 Key entry points:
 
-- `backend/glucotracker/main.py` registers routers and starts background workers.
+- `backend/glucotracker/main.py` registers routers and may start the Nightscout
+  importer, anchor recompute worker, and postprandial sweeper when enabled.
 - `backend/glucotracker/api/routers/` exposes REST endpoints.
 - `backend/glucotracker/api/openapi.py` annotates OpenAPI with auth, scoped, and
   role metadata.
@@ -85,9 +89,9 @@ artifacts after backend route/schema changes:
 bash scripts/export-openapi.sh
 ```
 
-If PowerShell cannot execute the shell script, use Git Bash or WSL. Android
-currently consumes [`openapi.yaml`](openapi.yaml); desktop consumes
-`openapi.json`.
+If PowerShell cannot execute the shell script, use the direct FastAPI export
+fallback in the root [`README.md`](../README.md). Android currently consumes
+[`openapi.yaml`](openapi.yaml); desktop consumes `openapi.json`.
 
 ## Desktop
 
@@ -96,7 +100,7 @@ Desktop is a replaceable client over the backend API.
 Key files:
 
 - `desktop/src/app/routes.tsx` - `/login`, `/`, `/feed`, `/stats`, `/glucose`,
-  `/database`, `/settings`.
+  `/twin`, `/insulin-links`, `/database`, `/settings`.
 - `desktop/src/app/Shell.tsx` - shell and navigation.
 - `desktop/src/api/client.ts` - handwritten wrapper over generated OpenAPI
   types.
@@ -115,7 +119,8 @@ Android is local-first and flavor-aware:
 - shared code lives in `android-concept/app/src/main/`;
 - glucose code lives in `src/gluco/`;
 - Tarelka/food flavor branding and no-op glucose bindings live in `src/food/`;
-- generated OpenAPI clients land under `build/generated/openapi*`;
+- generated OpenAPI clients land under `build/generated/openapi*`; the food
+  generated client is pruned of glucose-related symbols during Gradle codegen;
 - Room caches meals, day totals, products, templates, outbox rows, and gluco-only
   CGM cache;
 - WorkManager handles outbox and cache pruning.

@@ -1,7 +1,7 @@
 # Data Model
 
 Status: source of truth
-Last updated: 2026-05-16
+Last updated: 2026-05-31
 Owner/area: backend persistence and Android local cache
 
 This is a practical map, not a full schema dump. Use
@@ -16,7 +16,7 @@ Defined primarily in `backend/glucotracker/infra/db/models.py`.
 | --- | --- | --- |
 | `users` | shared account table | `role` is `gluco` or `food`; stores goals and day-anchor fields. |
 | `refresh_tokens` | user-owned | Server stores token hashes only; logout/refresh revoke rows. |
-| `meals` | user-owned | Main accepted/draft food record. Contains totals, status, source, Nightscout sync fields, AI categories, postprandial response, photo idempotency key. |
+| `meals` | user-owned | Main accepted/draft food record. Contains totals, status, source, Nightscout sync fields, AI categories, postprandial response, client idempotency key (`photo_idempotency_key`). |
 | `meal_items` | user-owned through meal | Item-level nutrients and product/photo links. |
 | `meal_item_nutrients` | user-owned through item | Optional detailed nutrients. Unknown values stay `null`. |
 | `photos` | user-owned | Private uploaded image metadata and path. |
@@ -25,13 +25,18 @@ Defined primarily in `backend/glucotracker/infra/db/models.py`.
 | `products`, `product_aliases` | shared or private | `owner_id IS NULL` means global; `owner_id = user` means private. |
 | `daily_totals` | user-owned | Backend-owned daily nutrition totals. |
 | `meal_audit_events` | user-owned | Meal mutation/audit history. |
+| `meal_insulin_links` | user-owned, gluco-only | Manual/auto links between meals and imported insulin context. |
+| `meal_insulin_link_reviews` | user-owned, gluco-only | Marks insulin events that have been manually reviewed in the day-link workflow. |
+| `meal_insulin_episode_snapshots` | user-owned, gluco-only | Persisted review episodes with food, insulin, link pairs, totals, and optional `-30m`/`+2h` glucose anchors plus snapshot JSON. |
 | `nightscout_settings` | user-owned, gluco-only | Masked settings response; secret is write-only. |
 | `nightscout_glucose_entries` | user-owned, gluco-only | Read-only imported CGM cache. Raw values are immutable. |
 | `nightscout_insulin_events` | user-owned, gluco-only | Read-only imported insulin treatment context. |
 | `nightscout_import_state` | user-owned, gluco-only | Import watermark. |
-| `sensor_sessions` | user-owned, gluco-only | Sensor lifecycle and calibration context. |
+| `sensor_sessions` | user-owned, gluco-only | Sensor lifecycle, calibration context, and `excluded_from_analytics`/`exclusion_reason` for corrupt sensors. |
 | `fingerstick_readings` | user-owned, gluco-only | Manual glucose readings. |
-| `cgm_calibration_models` | gluco-only | Display/normalization support. |
+| `cgm_calibration_models` | user-owned through sensor session, gluco-only | Display/normalization support. |
+| `twin_params` | user-owned, gluco-only | Per-user informational digital twin parameters and last fit metrics. |
+| `twin_fit_log` | user-owned, gluco-only | Append-only history for twin parameter changes and fitting runs. |
 | `user_profile`, `daily_activity` | user-owned | Activity/TDEE context for calorie balance. |
 | `non_typical_periods`, `day_anchor_history` | user-owned | Adaptive day-rhythm learning and overrides. |
 
@@ -103,5 +108,6 @@ Cache budgets:
 
 Migrations are forward-only and non-destructive by project invariant. The current
 Alembic history includes auth, owner scoping, Nightscout cache/settings, sensor
-tables, user profile/activity, photo idempotency, meal categorization, user
-goals, day anchors, and postprandial response.
+tables and exclusion flags, CGM calibration, user profile/activity, photo
+idempotency, meal categorization, user goals, day anchors, postprandial
+response, meal-insulin link snapshots, and digital twin tables.

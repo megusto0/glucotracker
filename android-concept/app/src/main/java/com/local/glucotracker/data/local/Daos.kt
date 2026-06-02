@@ -87,6 +87,27 @@ interface OutboxDao {
     @Query("UPDATE outbox SET state = 'Queued', nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :queuedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE state = 'Uploading' AND (lastAttemptAt IS NULL OR lastAttemptAt <= :staleBefore)")
     suspend fun revertStaleUploadingToQueued(staleBefore: Instant, queuedAt: Instant): Int
 
+    @Query(
+        """
+        UPDATE outbox
+        SET state = 'Stuck',
+            nextAttemptAt = NULL,
+            errorMessage = NULL,
+            enteredCurrentStateAt = :now,
+            lastErrorCode = :errorCode,
+            lastErrorMessage = NULL
+        WHERE state IN ('Queued', 'Uploading')
+          AND attempts > 0
+          AND enteredCurrentStateAt <= :staleBefore
+          AND (nextAttemptAt IS NULL OR nextAttemptAt <= :now)
+        """,
+    )
+    suspend fun markTimedOutActiveRows(
+        staleBefore: Instant,
+        now: Instant,
+        errorCode: String,
+    ): Int
+
     @Query("SELECT localPhotoPath FROM outbox WHERE localPhotoPath IS NOT NULL")
     suspend fun referencedPhotoPaths(): List<String>
 

@@ -133,6 +133,37 @@ export function App() {
   const [queryClient] = useState(createQueryClient);
 
   useEffect(() => {
+    let refreshAccessTokenPromise: Promise<string | null> | null = null;
+
+    const refreshAccessTokenOnce = async () => {
+      const settings = useSettingsStore.getState();
+      const refreshToken = settings.refreshToken.trim();
+      const currentUser = settings.currentUser;
+      if (!refreshToken || !currentUser) {
+        return null;
+      }
+
+      try {
+        const tokens = await apiClient.refreshAuthToken(
+          { baseUrl: settings.baseUrl, token: "" },
+          { refresh_token: refreshToken },
+        );
+        useSettingsStore.getState().setAuthSession(tokens, currentUser);
+        return tokens.access;
+      } catch {
+        const latest = useSettingsStore.getState();
+        if (
+          latest.refreshToken.trim() &&
+          latest.refreshToken.trim() !== refreshToken &&
+          latest.token.trim()
+        ) {
+          return latest.token.trim();
+        }
+        useSettingsStore.getState().clearAuthSession();
+        return null;
+      }
+    };
+
     connectionManager.init(() => selectApiConfig(useSettingsStore.getState()));
 
     setConnectionNotifier({
@@ -143,28 +174,12 @@ export function App() {
     setAuthSessionManager({
       clearAuthSession: () => useSettingsStore.getState().clearAuthSession(),
       refreshAccessToken: async () => {
-        const settings = useSettingsStore.getState();
-        if (!settings.refreshToken.trim()) {
-          return null;
+        if (!refreshAccessTokenPromise) {
+          refreshAccessTokenPromise = refreshAccessTokenOnce().finally(() => {
+            refreshAccessTokenPromise = null;
+          });
         }
-
-        try {
-          const tokens = await apiClient.refreshAuthToken(
-            { baseUrl: settings.baseUrl, token: "" },
-            { refresh_token: settings.refreshToken },
-          );
-          const user =
-            settings.currentUser ??
-            (await apiClient.me({
-              baseUrl: settings.baseUrl,
-              token: tokens.access,
-            }));
-          useSettingsStore.getState().setAuthSession(tokens, user);
-          return tokens.access;
-        } catch {
-          useSettingsStore.getState().clearAuthSession();
-          return null;
-        }
+        return refreshAccessTokenPromise;
       },
     });
 

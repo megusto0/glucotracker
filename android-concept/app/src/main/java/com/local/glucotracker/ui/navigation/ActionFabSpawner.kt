@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.local.glucotracker.R
@@ -208,7 +210,8 @@ private fun BoxScope.OptionCircle(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .navigationBarsPadding()
-            .offset(x = offsetX, y = offsetY + 50.dp)
+            .offset(x = offsetX, y = offsetY + 24.dp)
+            .width(128.dp)
             .graphicsLayer { this.alpha = labelAlpha },
         color = GT.colors.surface2,
         style = GT.type.kicker.copy(
@@ -218,6 +221,7 @@ private fun BoxScope.OptionCircle(
                 blurRadius = 2f,
             ),
         ),
+        textAlign = TextAlign.Center,
         maxLines = 1,
     )
 }

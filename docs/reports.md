@@ -1,7 +1,7 @@
 # Reports And Export
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: endocrinologist PDF, TXT food diary
 
 Reports are backend-owned aggregations rendered/saved by desktop.
@@ -20,6 +20,10 @@ Backend aggregation lives in
 `backend/glucotracker/application/endocrinologist_report.py`. Desktop rendering
 lives in `desktop/src/features/reports/EndocrinologistReportPdf.tsx` and
 `desktop/src/features/settings/EndocrinologistReportSection.tsx`.
+
+`glucose_mode=raw` returns imported CGM values as read-only context.
+`glucose_mode=normalized` uses display-only normalization/calibration logic.
+Neither mode mutates raw CGM rows.
 
 ## Report Windows
 
@@ -71,3 +75,6 @@ macros and period totals.
 
 - Exact PDF visual layout should be verified with a generated sample after report
   schema changes.
+- On the current checked-out branch, the raw report aggregation path reads
+  `nightscout_glucose_entries` directly. Verify corrupt-sensor exclusion before
+  documenting that raw reports hide every excluded sensor interval.

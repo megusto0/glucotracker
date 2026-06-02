@@ -56,8 +56,13 @@ class OutboxStartupReconciler : Initializer<Unit> {
                     mealsByKey[key]
                 }
                 is OutboxKind.CreateMeal -> {
-                    if (item.attempts <= 0) continue@loop
-                    acceptedMeals.firstOrNull { meal -> meal.matchesCreateMeal(kind) }?.id
+                    val key = kind.idempotencyKey
+                    if (key != null) {
+                        mealsByKey[key]
+                    } else {
+                        if (item.attempts <= 0) continue@loop
+                        acceptedMeals.firstOrNull { meal -> meal.matchesCreateMeal(kind) }?.id
+                    }
                 }
                 else -> null
             } ?: continue@loop

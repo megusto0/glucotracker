@@ -1,7 +1,7 @@
 # UI Rulebook
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: visual system and components
 
 The visual source of truth is the warm editorial design system shared by desktop

@@ -222,6 +222,9 @@ class PhotoEstimationService:
                 photos=ordered_photos,
                 session=self.session,
             )
+            if created_drafts:
+                meal.estimate_status = "succeeded"
+                meal.estimate_error = None
             DailyTotalsService(self.session, self.user_id).schedule_for_meal_times(
                 [meal.eaten_at]
             )

@@ -43,6 +43,7 @@ interface ProductsRepository {
 
 interface MealRepository {
     fun observeMeal(id: String): Flow<CachedView<Meal>>
+    suspend fun retryPhotoEstimate(id: String)
 }
 
 interface OutboxRepository {

@@ -114,13 +114,15 @@ fun TodayRoute(
         delay(1_800)
         onQueuedOutboxConsumed(outboxId)
     }
-    val goalsSetupCompleted = when (val s = state) {
-        is TodayState.Day -> s.goals.goalsSetupCompleted
-        else -> true
+    val needsGoalsOnboarding = when (val s = state) {
+        is TodayState.Day -> !s.goals.goalsSetupCompleted && !s.goals.hasAnyDailyTarget()
+        else -> false
     }
-    LaunchedEffect(brandAccentColor, goalsSetupCompleted) {
-        if (brandAccentColor != null && !goalsSetupCompleted) {
+    LaunchedEffect(brandAccentColor, needsGoalsOnboarding) {
+        if (brandAccentColor != null && needsGoalsOnboarding) {
             showGoalsOnboarding = true
+        } else {
+            showGoalsOnboarding = false
         }
     }
     if (showGoalsOnboarding) {
@@ -768,10 +770,20 @@ private fun photoProcessingSummary(rows: List<TodayMealRowUi>): PhotoProcessingS
     val states = rows
         .mapNotNull { row -> row.photoProcessing }
         .filterNot { state -> state.stage == PhotoProcessingStage.Done }
-    val stuckCount = states.count { state -> state.stage == PhotoProcessingStage.Stuck }
-    if (stuckCount > 0) {
+    val estimateStuckCount = states.count { state ->
+        state.stage == PhotoProcessingStage.Stuck &&
+            state.failureStep == PhotoProcessingFailureStep.Estimate
+    }
+    if (estimateStuckCount > 0) {
         return PhotoProcessingSummary(
-            title = "$stuckCount не отправилось · посмотреть",
+            title = "$estimateStuckCount фото без оценки · исправляем",
+            helper = "Обновление запустит восстановление",
+        )
+    }
+    val uploadStuckCount = states.count { state -> state.stage == PhotoProcessingStage.Stuck }
+    if (uploadStuckCount > 0) {
+        return PhotoProcessingSummary(
+            title = "$uploadStuckCount не отправилось · посмотреть",
             helper = "Нажмите, чтобы посмотреть очередь",
         )
     }
@@ -1156,6 +1168,10 @@ private fun rowStateToText(state: RowState): String = when (state) {
         ?: stringResource(R.string.today_status_estimate_stuck)
     is RowState.WaitingNetwork -> stringResource(R.string.today_status_waiting_network)
 }
+
+private fun UserGoals.hasAnyDailyTarget(): Boolean =
+    listOf(dailyKcal, dailyProteinG, dailyCarbsG, dailyFatG)
+        .any { goal -> goal != null && goal > 0 }
 
 private fun TodayMealStatus.toOutboxState(): OutboxState = when (this) {
     TodayMealStatus.Queued -> OutboxState.Queued

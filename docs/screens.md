@@ -1,7 +1,7 @@
 # Screens And Routes
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: desktop routes, Android navigation
 
 All user-facing copy is Russian. Where a feature is absent on mobile, render the
@@ -18,7 +18,9 @@ Routes are defined in `desktop/src/app/routes.tsx`.
 | `/` | `ChatPage` | Journal: selected day, meal entry, photo/Gemini draft review, accepted/draft rows, selected-meal panel. |
 | `/feed` | `FeedPage` | History/timeline projection of accepted food episodes and context events. |
 | `/stats` | `StatsPage` | Nutrition, day rhythm, insights, sparse-data summaries, calorie/TDEE context. |
-| `/glucose` | `GlucosePage` | Glucose dashboard, CGM ranges, sensor/fingerstick context. Gluco-only feature. |
+| `/glucose` | `GlucosePage` | Glucose dashboard, CGM ranges, sensor start/edit/end/exclude actions, and fingerstick context. Gluco-only feature. |
+| `/twin` | `TwinPage` | Informational digital twin research mode: fitted parameters, reconstructed curves, and data sufficiency warnings. Gluco-only feature. |
+| `/insulin-links` | `InsulinLinksPage` | Day review for food/insulin context links, episode snapshots, and optional `-30m`/`+2h` CGM anchors. Gluco-only feature. |
 | `/database` | `DatabasePage` | Product/template browsing, saved products, local product actions. |
 | `/settings` | `SettingsPage` | Backend connection, Nightscout settings, activity/profile, PDF report, TXT export. |
 
@@ -79,7 +81,11 @@ Food flavor has no glucose tab and receives no real Nightscout/glucose surfaces.
 - Stats uses sparse-data summaries when there are too few tracked days.
 - History is a projection over meals/context; do not merge accepted meals to
   manufacture history rows.
-- Glucose surfaces are display-only over immutable raw CGM.
+- Glucose surfaces are display-only over immutable raw CGM. Excluded/corrupt
+  sensor state must be visible as sensor/data-quality status, not silently
+  invented chart data.
+- Digital twin screens are research/informational only and must not present
+  reconstructed curves or fit parameters as CGM truth or treatment guidance.
 - Settings is the desktop owner for Nightscout URL/secret, OpenAPI, PDF, and TXT
   exports.
 

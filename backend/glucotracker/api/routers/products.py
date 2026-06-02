@@ -17,6 +17,7 @@ from glucotracker.api.routers.autocomplete import (
     _text_match_rank,
 )
 from glucotracker.api.schemas import (
+    DeleteResponse,
     ProductCreate,
     ProductFromLabelRequest,
     ProductPageResponse,
@@ -24,7 +25,7 @@ from glucotracker.api.schemas import (
     ProductResponse,
 )
 from glucotracker.domain.nutrients import normalize_nutrients_object
-from glucotracker.infra.db.models import Product, ProductAlias, utc_now
+from glucotracker.infra.db.models import Meal, MealItem, Product, ProductAlias, utc_now
 from glucotracker.infra.db.product_merge import (
     collapse_duplicate_source_photo_products,
     merge_duplicate_source_photo_products,
@@ -324,6 +325,37 @@ def patch_product(
 
     session.commit()
     return _product_response(_get_product(session, current_user.id, product.id))
+
+
+@router.delete(
+    "/products/{product_id}",
+    response_model=DeleteResponse,
+    operation_id="deleteProduct",
+)
+def delete_product(
+    product_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> DeleteResponse:
+    """Delete a personal saved product and unlink it from the user's meal items."""
+    product = _get_product(session, current_user.id, product_id)
+    if product.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only personal products can be deleted.",
+        )
+
+    linked_items = session.scalars(
+        select(MealItem)
+        .join(Meal, Meal.id == MealItem.meal_id)
+        .where(MealItem.product_id == product.id, Meal.owner_id == current_user.id)
+    ).all()
+    for item in linked_items:
+        item.product_id = None
+
+    session.delete(product)
+    session.commit()
+    return DeleteResponse(deleted=True)
 
 
 @router.post(

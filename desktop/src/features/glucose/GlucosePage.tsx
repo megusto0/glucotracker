@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Save,
   RotateCcw,
+  Square,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -312,12 +313,17 @@ const sensorDurationLabel = (sensor?: SensorSessionResponse | null) => {
   return `${formatNumber(days, days < 10 ? 1 : 0)} дн`;
 };
 
-const sensorStatusLabel = (sensor?: SensorSessionResponse | null) =>
-  sensor?.excluded_from_analytics
-    ? "исключён"
-    : sensor?.ended_at
-      ? "завершён"
-      : "актив.";
+const isOpenSensor = (sensor?: SensorSessionResponse | null) =>
+  Boolean(sensor && !sensor.ended_at);
+
+const isActiveSensor = (sensor?: SensorSessionResponse | null) =>
+  isOpenSensor(sensor) && !sensor?.excluded_from_analytics;
+
+const sensorStatusLabel = (sensor?: SensorSessionResponse | null) => {
+  if (!sensor) return "нет";
+  if (sensor.excluded_from_analytics) return "исключён";
+  return isOpenSensor(sensor) ? "актив." : "завершён";
+};
 
 const currentCorrection = (point?: DashboardPoint | null) => {
   if (!point) return null;
@@ -482,19 +488,13 @@ export function GlucosePage() {
   const [editingFingerstickId, setEditingFingerstickId] = useState<string | null>(null);
   const [showFingerstickForm, setShowFingerstickForm] = useState(false);
   const [showSensorEdit, setShowSensorEdit] = useState(false);
-  const [editingSensor, setEditingSensor] = useState<SensorSessionResponse | null>(null);
   const [showSensorPanel, setShowSensorPanel] = useState(false);
+  const [editingSensorId, setEditingSensorId] = useState<string | null>(null);
   const [sensorForm, setSensorForm] = useState<SensorForm>(() => emptySensorForm());
   const [kcalBalance, setKcalBalance] = useState<KcalBalanceResponse | null>(null);
   const [glucoseClientCache, setGlucoseClientCache] = useState<GlucoseClientCache>(
     () => emptyGlucoseClientCache(),
   );
-  const openSensorEditor = useCallback((sensor?: SensorSessionResponse | null) => {
-    const selectedSensor = sensor ?? null;
-    setEditingSensor(selectedSensor);
-    setSensorForm(selectedSensor ? sensorToForm(selectedSensor) : emptySensorForm());
-    setShowSensorEdit(true);
-  }, []);
 
   useEffect(() => {
     if (!config.token.trim()) return;
@@ -609,6 +609,49 @@ export function GlucosePage() {
   );
   const recentFingersticks = (data?.fingersticks ?? []).slice(-4).reverse();
 
+  const closeSensorForm = useCallback(() => {
+    setShowSensorEdit(false);
+  }, []);
+
+  const openExistingSensorForm = useCallback((sensor?: SensorSessionResponse | null) => {
+    const selectedSensor = sensor ?? currentSensor ?? null;
+    setEditingSensorId(selectedSensor?.id ?? null);
+    setSensorForm(selectedSensor ? sensorToForm(selectedSensor) : emptySensorForm());
+    setShowSensorEdit(true);
+  }, [currentSensor]);
+
+  const openNewSensorForm = useCallback(() => {
+    const next = emptySensorForm();
+    if (currentSensor) {
+      next.expected_life_days = String(currentSensor.expected_life_days ?? 15);
+      next.model = currentSensor.model ?? "";
+      next.vendor = currentSensor.vendor ?? "";
+    }
+    setEditingSensorId(null);
+    setSensorForm(next);
+    setShowSensorEdit(true);
+    setShowSensorPanel(true);
+  }, [currentSensor]);
+
+  const endCurrentSensor = useCallback(() => {
+    if (!currentSensor?.id || !isOpenSensor(currentSensor)) return;
+    if (!confirm("Завершить текущий сенсор сейчас?")) return;
+    saveSensor.mutate(
+      {
+        sensorId: currentSensor.id,
+        body: {
+          ended_at: toApiDateTime(toDateTimeInput(new Date())),
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingSensorId(null);
+          setShowSensorEdit(false);
+        },
+      },
+    );
+  }, [currentSensor, saveSensor]);
+
   useEffect(() => {
     if (
       selectedEpisodeId &&
@@ -628,10 +671,14 @@ export function GlucosePage() {
   ].find(Boolean);
 
   useEffect(() => {
-    if (!showSensorEdit || editingSensor?.id !== currentSensor?.id) return;
-    setEditingSensor(currentSensor);
+    if (!showSensorEdit) {
+      setSensorForm(currentSensor ? sensorToForm(currentSensor) : emptySensorForm());
+      setEditingSensorId(currentSensor?.id ?? null);
+      return;
+    }
+    if (editingSensorId !== currentSensor?.id) return;
     setSensorForm(currentSensor ? sensorToForm(currentSensor) : emptySensorForm());
-  }, [currentSensor, currentSensor?.id, currentSensor?.updated_at, editingSensor?.id, showSensorEdit]);
+  }, [currentSensor, currentSensor?.id, currentSensor?.updated_at, editingSensorId, showSensorEdit]);
 
   const applyPreset = (value: RangePreset) => {
     const next = presetRange(value);
@@ -744,7 +791,7 @@ export function GlucosePage() {
     const expectedLife = Number(sensorForm.expected_life_days);
     saveSensor.mutate(
       {
-        sensorId: editingSensor?.id,
+        sensorId: editingSensorId ?? undefined,
         body: {
           ended_at: sensorForm.ended_at ? toApiDateTime(sensorForm.ended_at) : null,
           excluded_from_analytics: sensorForm.excluded_from_analytics,
@@ -761,8 +808,8 @@ export function GlucosePage() {
       },
       {
         onSuccess: () => {
-          setShowSensorEdit(false);
-          setEditingSensor(null);
+          setEditingSensorId(null);
+          closeSensorForm();
         },
       },
     );
@@ -818,7 +865,9 @@ export function GlucosePage() {
             quality={quality}
             sensor={currentSensor}
             tir={tirStats}
-            onEditSensor={() => openSensorEditor(currentSensor)}
+            onEditSensor={() => openExistingSensorForm()}
+            onEndSensor={endCurrentSensor}
+            onNewSensor={openNewSensorForm}
             onOpenSensorPanel={() => setShowSensorPanel(true)}
           />
 
@@ -941,7 +990,9 @@ export function GlucosePage() {
             recentFingersticks={recentFingersticks}
             sensorList={sensorHistory}
             openNewFingerstickForm={openNewFingerstickForm}
-            openSensorEditor={openSensorEditor}
+            openExistingSensorForm={openExistingSensorForm}
+            openNewSensorForm={openNewSensorForm}
+            onEndSensor={endCurrentSensor}
             recalculate={recalculate}
             recalculatePending={recalculate.isPending}
             editFingerstick={editFingerstick}
@@ -970,9 +1021,9 @@ export function GlucosePage() {
       ) : null}
 
       {showSensorEdit ? (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => { setShowSensorEdit(false); setEditingSensor(null); }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={closeSensorForm}>
           <form className="card" style={{ padding: 24, width: 420, maxHeight: "90vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()} onSubmit={submitSensor}>
-            <h3 style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 500, margin: "0 0 16px" }}>{editingSensor ? "Параметры сенсора" : "Новый сенсор"}</h3>
+            <h3 style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 500, margin: "0 0 16px" }}>{editingSensorId ? "Параметры сенсора" : "Новый сенсор"}</h3>
             <div className="col gap-16">
               <div className="row gap-16">
                 <label className="field" style={{ flex: 1 }}><span>производитель</span><input value={sensorForm.vendor} onChange={(e) => setSensorForm(s => ({ ...s, vendor: e.target.value }))} /></label>
@@ -993,11 +1044,11 @@ export function GlucosePage() {
               ) : null}
               <label className="field"><span>заметки</span><textarea value={sensorForm.notes} onChange={(e) => setSensorForm(s => ({ ...s, notes: e.target.value }))} rows={3} /></label>
               <div className="row gap-8">
-                <button className="btn dark" type="submit" disabled={saveSensor.isPending || !sensorForm.started_at}><Save size={14} />Сохранить сенсор</button>
-                {editingSensor && !sensorForm.ended_at ? (
-                  <button className="btn" type="button" onClick={() => setSensorForm(s => ({ ...s, ended_at: toDateTimeInput(new Date()) }))}>Завершить сейчас</button>
+                <button className="btn dark" type="submit" disabled={saveSensor.isPending || !sensorForm.started_at}><Save size={14} />{editingSensorId ? "Сохранить сенсор" : "Начать сенсор"}</button>
+                {editingSensorId && !sensorForm.ended_at ? (
+                  <button className="btn" type="button" onClick={() => setSensorForm(s => ({ ...s, ended_at: toDateTimeInput(new Date()) }))}><Square size={13} /> Завершить сейчас</button>
                 ) : null}
-                <button className="btn" type="button" onClick={() => { setShowSensorEdit(false); setEditingSensor(null); }}>Отмена</button>
+                <button className="btn" type="button" onClick={closeSensorForm}>Отмена</button>
               </div>
             </div>
           </form>
@@ -1012,6 +1063,8 @@ function HeroCard({
   latestPoint,
   latestReading,
   onEditSensor,
+  onEndSensor,
+  onNewSensor,
   onOpenSensorPanel,
   previousPoint,
   quality,
@@ -1022,6 +1075,8 @@ function HeroCard({
   latestPoint: DashboardPoint | null;
   latestReading?: NightscoutLatestReadingResponse;
   onEditSensor: () => void;
+  onEndSensor: () => void;
+  onNewSensor: () => void;
   onOpenSensorPanel: () => void;
   previousPoint: DashboardPoint | null;
   quality?: GlucoseDashboardResponse["quality"];
@@ -1084,7 +1139,7 @@ function HeroCard({
         <div className="glucose-hero-sensor">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
             <span className="lbl">сенсор {sensorName(sensor)}</span>
-            <span className="tag good">актив.</span>
+            <span className={`tag ${isActiveSensor(sensor) ? "good" : ""}`}>{sensorStatusLabel(sensor)}</span>
           </div>
           <div className="row gap-6" style={{ alignItems: "baseline", marginTop: 6 }}>
             <span className="mono" style={{ fontSize: 26, fontWeight: 500 }}>{formatNumber(quality?.sensor_age_days)}</span>
@@ -1099,7 +1154,13 @@ function HeroCard({
           </div>
           <div className="row gap-6" style={{ marginTop: 10, flexWrap: "wrap" }}>
             <button className="btn" onClick={onOpenSensorPanel} type="button">подробно</button>
-            <button className="btn" onClick={onEditSensor} type="button">править</button>
+            <button className="btn" onClick={onNewSensor} type="button"><Plus size={13} /> новый</button>
+            {sensor ? (
+              <button className="btn" onClick={onEditSensor} type="button">править</button>
+            ) : null}
+            {isOpenSensor(sensor) ? (
+              <button className="btn" onClick={onEndSensor} type="button"><Square size={12} /> завершить</button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1384,7 +1445,9 @@ function SensorPanel({
   recentFingersticks,
   sensorList,
   openNewFingerstickForm,
-  openSensorEditor,
+  openExistingSensorForm,
+  openNewSensorForm,
+  onEndSensor,
   recalculate,
   recalculatePending,
   editFingerstick,
@@ -1397,7 +1460,9 @@ function SensorPanel({
   recentFingersticks: Fingerstick[];
   sensorList: SensorSessionResponse[];
   openNewFingerstickForm: () => void;
-  openSensorEditor: (sensor?: SensorSessionResponse | null) => void;
+  openExistingSensorForm: (sensor?: SensorSessionResponse | null) => void;
+  openNewSensorForm: () => void;
+  onEndSensor: () => void;
   recalculate: ReturnType<typeof useRecalculateSensorCalibration>;
   recalculatePending: boolean;
   editFingerstick: (row: Fingerstick) => void;
@@ -1407,7 +1472,7 @@ function SensorPanel({
       <div className="lbl">текущий сенсор</div>
       <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between", marginTop: 4 }}>
         <h2 style={{ margin: 0, fontFamily: "var(--serif)", fontSize: 24, fontWeight: 500 }}>{sensorName(currentSensor)}</h2>
-        <span className={`tag ${currentSensor?.ended_at ? "" : "good"}`}>{sensorStatusLabel(currentSensor)}</span>
+        <span className={`tag ${isActiveSensor(currentSensor) ? "good" : ""}`}>{sensorStatusLabel(currentSensor)}</span>
       </div>
       <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
         <span className="mono">{currentSensor?.model || "—"}</span> · носится <span className="mono">{sensorDurationLabel(currentSensor)}</span> из <span className="mono">{formatNumber(currentSensor?.expected_life_days, 0)}</span> дн
@@ -1473,11 +1538,16 @@ function SensorPanel({
 
       <div className="col gap-8" style={{ marginTop: 18 }}>
         <button className="btn dark" onClick={openNewFingerstickForm}><Plus size={13} /> Запись из пальца</button>
-        <button className="btn" onClick={() => openSensorEditor(currentSensor)}><Activity size={13} /> {currentSensor ? "Редактировать сенсор" : "Создать сенсор"}</button>
+        <button className="btn" onClick={openNewSensorForm}><Plus size={13} /> Новый сенсор</button>
+        {currentSensor ? (
+          <button className="btn" onClick={() => openExistingSensorForm()}><Activity size={13} /> Редактировать</button>
+        ) : null}
+        {isOpenSensor(currentSensor) ? (
+          <button className="btn" onClick={onEndSensor}><Square size={13} /> Завершить сейчас</button>
+        ) : null}
         {currentSensor?.id ? (
           <button className="btn" disabled={recalculatePending} onClick={() => recalculate.mutate(currentSensor.id)}><RefreshCw size={13} /> Пересчитать</button>
         ) : null}
-        <button className="btn" onClick={() => openSensorEditor(null)}><Plus size={13} /> Новый сенсор</button>
       </div>
 
       <div style={{ marginTop: 22 }}>
@@ -1512,7 +1582,7 @@ function SensorPanel({
                   <div className="mono" style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{formatDateTime(s.started_at)}–{formatDateTime(s.ended_at)} · {sensorDurationLabel(s)} из {formatNumber(s.expected_life_days, 0)} дн</div>
                 </div>
                 {s.excluded_from_analytics ? <span className="tag">исключён</span> : null}
-                <button className="btn" type="button" onClick={() => openSensorEditor(s)} style={{ height: 26, padding: "0 8px", fontSize: 10 }}>Править</button>
+                <button className="btn" type="button" onClick={() => openExistingSensorForm(s)} style={{ height: 26, padding: "0 8px", fontSize: 10 }}>Править</button>
               </div>
             ))
           ) : (

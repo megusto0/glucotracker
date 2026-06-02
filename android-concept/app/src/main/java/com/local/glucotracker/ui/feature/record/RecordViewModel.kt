@@ -208,8 +208,15 @@ class RecordViewModel @Inject constructor(
     }
 
     fun retryStuck() {
-        val item = (state.value as? RecordState.Loaded)?.outboxItem ?: return
-        viewModelScope.launch { outboxRepository.retry(item.id) }
+        val loaded = state.value as? RecordState.Loaded ?: return
+        val item = loaded.outboxItem
+        viewModelScope.launch {
+            if (item != null) {
+                outboxRepository.retry(item.id)
+            } else if (loaded.record.photoProcessing?.canRetry == true) {
+                loaded.record.serverId?.let { mealRepository.retryPhotoEstimate(it) }
+            }
+        }
     }
 }
 

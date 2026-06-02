@@ -1,7 +1,7 @@
 # AI And Deterministic Logic
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: Gemini usage and deterministic boundaries
 
 Gemini is backend-only. No frontend or Android flavor may hold Gemini API keys,
@@ -34,9 +34,14 @@ The backend, not the LLM, owns:
 - postprandial CGM analysis thresholds and coverage flags;
 - stats insight ranking/templates;
 - report aggregation and doctor-facing labels.
+- digital twin parameter fitting and reconstructed glucose curves.
 
 LLM output is evidence/input. It is not accepted nutrition truth until backend
 normalization and user acceptance.
+
+The digital twin is deterministic research-mode math, not Gemini output. It must
+stay labeled as informational/reconstructed context and must not be used for
+dosing, correction, or treatment advice.
 
 ## Audit And Privacy
 

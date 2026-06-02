@@ -1,11 +1,13 @@
 """Product REST API tests."""
 
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from glucotracker.infra.db.models import Product, ProductAlias
+from glucotracker.infra.db.models import MealItem, Product, ProductAlias
 
 
 def product_payload(**overrides: object) -> dict:
@@ -135,6 +137,48 @@ def test_product_image_upload_updates_product_and_linked_meal_thumbnail(
     meal = meal_response.json()
     assert meal["thumbnail_url"] == image_url
     assert meal["items"][0]["source_image_url"] == image_url
+
+
+def test_product_delete_removes_product_and_unlinks_meal_items(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Deleting a personal product removes it from the DB without deleting meals."""
+    created_response = api_client.post("/products", json=product_payload())
+    assert created_response.status_code == 201
+    product_id = created_response.json()["id"]
+
+    meal_response = api_client.post(
+        "/meals",
+        json={
+            "title": "Seed crackers",
+            "source": "manual",
+            "items": [
+                {
+                    "name": "Seed crackers",
+                    "carbs_g": 18.6,
+                    "protein_g": 3.3,
+                    "fat_g": 2.7,
+                    "fiber_g": 2.1,
+                    "kcal": 123,
+                    "source_kind": "product_db",
+                    "product_id": product_id,
+                }
+            ],
+        },
+    )
+    assert meal_response.status_code == 201
+    item_id = meal_response.json()["items"][0]["id"]
+
+    delete_response = api_client.delete(f"/products/{product_id}")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"deleted": True}
+    assert api_client.get(f"/products/{product_id}").status_code == 404
+    with Session(db_engine) as session:
+        item = session.get(MealItem, UUID(item_id))
+        assert item is not None
+        assert item.product_id is None
 
 
 def test_product_patch_merges_duplicate_photo_label_products(

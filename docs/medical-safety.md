@@ -1,7 +1,7 @@
 # Medical Safety
 
 Status: source of truth
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 Owner/area: medical and feature-gating boundaries
 
 Glucotracker is informational only. It is a diary and context tool, not a medical
@@ -29,6 +29,8 @@ The app may show observed facts:
 - read-only insulin events imported from Nightscout;
 - TIR and glucose summaries computed by backend;
 - observed ratios in reports when labelled as observed/informational;
+- digital twin parameters and reconstructed curves when clearly labelled as
+  informational research output, not CGM truth;
 - sparse-data and data-quality warnings.
 
 ## Nightscout
@@ -58,6 +60,12 @@ Role-specific response variants:
 Doctor reports are informational and must use observed wording. The report may
 include CGM, TIR, insulin event history, and observed carb/insulin ratios, but it
 must not say or imply "recommended ratio" or dosing advice.
+
+## Digital Twin
+
+Digital twin output is allowed only as informational/reconstructed context. It
+must not be described as live CGM, a medical model, or a basis for insulin,
+correction, target, meal, or treatment decisions.
 
 ## Copy Review Checklist
 

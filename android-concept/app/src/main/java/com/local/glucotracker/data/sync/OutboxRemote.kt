@@ -53,6 +53,7 @@ class KtorOutboxRemote @Inject constructor(
                 title = kind.payload.title,
                 note = kind.payload.note,
                 items = kind.items.map { it.toGenerated() }.ifEmpty { null },
+                idempotencyKey = kind.idempotencyKey,
             ),
         ).bodyOrThrow()
         return meal.id.toString()
