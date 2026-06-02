@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from glucotracker.application.categorization.rules import compute_meal_window
 from glucotracker.application.categorization.window import compute_user_anchors
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import AnchorBasis, MealStatus
 from glucotracker.infra.db.models import (
@@ -342,6 +343,7 @@ class EndocrinologistReportService:
                     NightscoutGlucoseEntry.timestamp >= from_datetime,
                     NightscoutGlucoseEntry.timestamp <= to_datetime,
                     NightscoutGlucoseEntry.owner_id == self.user_id,
+                    visible_glucose_filter(self.user_id),
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
             )

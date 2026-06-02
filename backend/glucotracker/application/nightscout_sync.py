@@ -24,6 +24,7 @@ from glucotracker.api.schemas import (
     NightscoutSyncTodayResponse,
     NightscoutTestResponse,
 )
+from glucotracker.application.glucose_visibility import is_glucose_timestamp_visible
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus, NightscoutSyncStatus
 from glucotracker.infra.db.models import Meal, MealItem, NightscoutSettings, utc_now
@@ -463,7 +464,13 @@ class NightscoutSyncService:
             rows = await nightscout.fetch_glucose_entries(from_datetime, to_datetime)
         except Exception as exc:
             raise self.map_error(exc) from exc
-        return [_glucose_response(row) for row in rows if _glucose_response(row)]
+        responses = (_glucose_response(row) for row in rows)
+        return [
+            row
+            for row in responses
+            if row is not None
+            and is_glucose_timestamp_visible(self.session, self.user_id, row.timestamp)
+        ]
 
     async def insulin(
         self,

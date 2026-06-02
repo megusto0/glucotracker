@@ -885,6 +885,55 @@ def test_timeline_excludes_corrupt_sensor_glucose(
     assert episodes[0]["glucose_summary"]["peak_value"] == 8.7
 
 
+def test_nightscout_glucose_endpoint_excludes_corrupt_sensor_data(
+    api_client: TestClient,
+) -> None:
+    """Direct Nightscout glucose context must hide excluded sensor intervals."""
+    fake = FakeNightscoutClient(
+        glucose_rows=[
+            {
+                "dateString": "2026-05-28T12:00:00Z",
+                "sgv": 396,
+                "direction": "Flat",
+                "device": "CGM",
+                "_id": "corrupt-live",
+            },
+            {
+                "dateString": "2026-05-29T19:48:14Z",
+                "sgv": 157,
+                "direction": "Flat",
+                "device": "CGM",
+                "_id": "visible-live",
+            },
+        ],
+    )
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        session.add(
+            SensorSession(
+                owner_id=owner_id,
+                started_at=datetime(2026, 5, 28, 3, 35, tzinfo=UTC),
+                ended_at=datetime(2026, 5, 28, 13, 30, 25, tzinfo=UTC),
+                excluded_from_analytics=True,
+                exclusion_reason="corrupt",
+            )
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/nightscout/glucose",
+        params={
+            "from": "2026-05-28T00:00:00Z",
+            "to": "2026-05-29T20:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [row["value"] for row in response.json()] == [8.7]
+
+
 def test_timeline_groups_aware_nightscout_events_with_wall_clock_meals(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

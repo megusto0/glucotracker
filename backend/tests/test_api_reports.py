@@ -214,6 +214,60 @@ def test_endocrinologist_report_handles_empty_period(
     assert body["daily_rows"][0]["date"] == str(date(2026, 4, 28))
 
 
+def test_endocrinologist_report_excludes_corrupt_sensor_glucose(
+    api_client: TestClient,
+) -> None:
+    """Doctor reports must not include readings from excluded sensors."""
+    _create_meal(
+        api_client,
+        eaten_at="2026-04-28T08:00:00",
+        carbs_g=42,
+    )
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        session.add_all(
+            [
+                SensorSession(
+                    owner_id=owner_id,
+                    started_at=datetime.fromisoformat("2026-04-28T07:00:00"),
+                    ended_at=datetime.fromisoformat("2026-04-28T08:30:00"),
+                    excluded_from_analytics=True,
+                    exclusion_reason="corrupt",
+                ),
+                SensorSession(
+                    owner_id=owner_id,
+                    started_at=datetime.fromisoformat("2026-04-28T09:00:00"),
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key="report-corrupt",
+                    timestamp=datetime.fromisoformat("2026-04-28T07:40:00"),
+                    value_mmol_l=22.0,
+                    source="CGM",
+                ),
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key="report-visible",
+                    timestamp=datetime.fromisoformat("2026-04-28T10:00:00"),
+                    value_mmol_l=8.0,
+                    source="CGM",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/reports/endocrinologist",
+        params={"from": "2026-04-28", "to": "2026-04-28"},
+    )
+
+    assert response.status_code == 200
+    kpis = {row["label"]: row for row in response.json()["kpis"]}
+    assert kpis["САХАР ДО ЕДЫ"]["value"] == "—"
+    assert kpis["САХАР ПОСЛЕ ЕДЫ"]["value"] == "8,0"
+
+
 def test_endocrinologist_report_can_use_normalized_glucose(
     api_client: TestClient,
 ) -> None:
