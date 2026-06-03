@@ -147,6 +147,7 @@ fun MainScaffold(
     var lastQueuedOutboxId by rememberSaveable { mutableStateOf<String?>(null) }
     var historySearchRequestCounter by rememberSaveable { mutableStateOf(0) }
     var todayStatsRequestCounter by rememberSaveable { mutableStateOf(0) }
+    var todayPagerPage by rememberSaveable { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val resolvedCaptureViewModel: CaptureViewModel? = captureViewModel ?: if (navHost == null) {
         hiltViewModel()
@@ -204,6 +205,7 @@ fun MainScaffold(
                             hasBrand = true,
                             onHistorySearchClick = { historySearchRequestCounter += 1 },
                             onTodayStatsClick = { todayStatsRequestCounter += 1 },
+                            todayPagerPage = todayPagerPage,
                         )
                     },
                 )
@@ -250,6 +252,7 @@ fun MainScaffold(
                         todayStatsRequestCounter = todayStatsRequestCounter,
                         navConfig = navConfig,
                         flavorNavGraph = flavorNavGraph,
+                        onTodayPagerPageChange = { todayPagerPage = it },
                         modifier = contentModifier,
                     )
                 } else {
@@ -302,6 +305,7 @@ fun GTNavHost(
     todayStatsRequestCounter: Int = 0,
     navConfig: NavConfig = DefaultNavConfig,
     flavorNavGraph: FlavorNavGraph = NoopFlavorNavGraph,
+    onTodayPagerPageChange: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val glucoseRoute = navConfig.tabs.firstOrNull { it.icon == NavIcon.Trend }?.route
@@ -336,6 +340,7 @@ fun GTNavHost(
                     }
                 },
                 todayStatsRequestCounter = todayStatsRequestCounter,
+                onPageChanged = onTodayPagerPageChange,
             )
         }
         composable(
@@ -362,6 +367,7 @@ fun GTNavHost(
                     }
                 },
                 todayStatsRequestCounter = todayStatsRequestCounter,
+                onPageChanged = onTodayPagerPageChange,
             )
         }
         with(flavorNavGraph) {
@@ -416,6 +422,7 @@ fun GTNavHost(
                     }
                 },
                 onOpenOutbox = { navController.navigate(Route.OutboxInspector.route) },
+                brandAccentColor = navConfig.brand?.activeIndicatorColor,
             )
         }
         composable(
@@ -553,6 +560,7 @@ private fun TodayStatsPager(
     initialDate: LocalDate? = null,
     onOpenMore: () -> Unit = {},
     todayStatsRequestCounter: Int = 0,
+    onPageChanged: (Int) -> Unit = {},
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val pagerScope = rememberCoroutineScope()
@@ -560,6 +568,9 @@ private fun TodayStatsPager(
         if (todayStatsRequestCounter > 0) {
             pagerScope.launch { pagerState.animateScrollToPage(1) }
         }
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        onPageChanged(pagerState.currentPage)
     }
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
@@ -666,13 +677,19 @@ private fun BrandRightSlot(
     hasBrand: Boolean = false,
     onHistorySearchClick: () -> Unit = {},
     onTodayStatsClick: () -> Unit = {},
+    todayPagerPage: Int = 0,
 ) {
     val text = when {
+        selectedRoute == Route.Today.route && hasBrand -> null
         selectedRoute == Route.Today.route -> stringResource(R.string.today_stats_action)
         selectedRoute == Route.History.route -> stringResource(R.string.history_search_hint)
         selectedRoute == Route.Base.route -> stringResource(R.string.nav_base)
         selectedRoute == Route.More.route -> stringResource(R.string.nav_more)
         else -> null
+    }
+    if (selectedRoute == Route.Today.route && hasBrand) {
+        PagerDots(currentPage = todayPagerPage)
+        return
     }
     if (text != null) {
         val clickModifier = when {
@@ -687,6 +704,25 @@ private fun BrandRightSlot(
             style = GT.type.kicker,
             maxLines = 1,
         )
+    }
+}
+
+@Composable
+private fun PagerDots(currentPage: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(2) { index ->
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(
+                        color = if (index == currentPage) GT.colors.ink else GT.colors.hairline2,
+                        shape = CircleShape,
+                    ),
+            )
+        }
     }
 }
 

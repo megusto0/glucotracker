@@ -61,6 +61,99 @@ class StatsInsightsResponse(BaseModel):
     insights: list[StatsInsightResponse]
 
 
+class StatsOverviewLeadResponse(BaseModel):
+    """Backend-rendered editorial lead for mobile stats."""
+
+    kicker: str
+    descriptor: str
+    detail: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewDayResponse(BaseModel):
+    """One day in the mobile stats kcal chart."""
+
+    date: date_type
+    kcal: float | None = None
+    meal_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewMacroResponse(BaseModel):
+    """Average macro row for the selected stats period."""
+
+    key: Literal["protein", "fat", "carbs"]
+    label: str
+    grams: float | None = None
+    percent: float | None = None
+    target_percent: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewHourlyBucketResponse(BaseModel):
+    """One 24-hour meal-density bucket."""
+
+    hour: int
+    meal_count: int
+    share: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewTopProductResponse(BaseModel):
+    """Frequently repeated food item or product."""
+
+    rank: int
+    name: str
+    count: int
+    kcal_per_100g: float | None = None
+    protein_per_100g: float | None = None
+    fat_per_100g: float | None = None
+    carbs_per_100g: float | None = None
+    image_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewAnomalyResponse(BaseModel):
+    """Day whose kcal total differs strongly from the period rhythm."""
+
+    date: date_type
+    direction: Literal["up", "down"]
+    reason: str
+    kcal: float
+    delta_kcal: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatsOverviewResponse(BaseModel):
+    """Structured mobile stats aggregate."""
+
+    period: Literal["7d", "14d", "30d"]
+    days: int
+    start_date: date_type
+    end_date: date_type
+    tracked_days: int
+    sparse: bool
+    average_kcal: float | None = None
+    rhythm_delta_kcal: float | None = None
+    spread_kcal: float | None = None
+    normal_kcal_low: float | None = None
+    normal_kcal_high: float | None = None
+    lead: StatsOverviewLeadResponse
+    daily: list[StatsOverviewDayResponse]
+    macros: list[StatsOverviewMacroResponse]
+    hourly: list[StatsOverviewHourlyBucketResponse]
+    top_products: list[StatsOverviewTopProductResponse]
+    anomalies: list[StatsOverviewAnomalyResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserGoalsResponse(BaseModel):
     kcal_goal_per_day: int | None = None
     protein_goal_g_per_day: int | None = None

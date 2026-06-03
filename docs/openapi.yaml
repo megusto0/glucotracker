@@ -6275,6 +6275,262 @@ components:
       - insights
       title: StatsInsightsResponse
       type: object
+    StatsOverviewAnomalyResponse:
+      description: Day whose kcal total differs strongly from the period rhythm.
+      properties:
+        date:
+          format: date
+          title: Date
+          type: string
+        delta_kcal:
+          title: Delta Kcal
+          type: number
+        direction:
+          enum:
+          - up
+          - down
+          title: Direction
+          type: string
+        kcal:
+          title: Kcal
+          type: number
+        reason:
+          title: Reason
+          type: string
+      required:
+      - date
+      - direction
+      - reason
+      - kcal
+      - delta_kcal
+      title: StatsOverviewAnomalyResponse
+      type: object
+    StatsOverviewDayResponse:
+      description: One day in the mobile stats kcal chart.
+      properties:
+        date:
+          format: date
+          title: Date
+          type: string
+        kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Kcal
+        meal_count:
+          title: Meal Count
+          type: integer
+      required:
+      - date
+      - meal_count
+      title: StatsOverviewDayResponse
+      type: object
+    StatsOverviewHourlyBucketResponse:
+      description: One 24-hour meal-density bucket.
+      properties:
+        hour:
+          title: Hour
+          type: integer
+        meal_count:
+          title: Meal Count
+          type: integer
+        share:
+          title: Share
+          type: number
+      required:
+      - hour
+      - meal_count
+      - share
+      title: StatsOverviewHourlyBucketResponse
+      type: object
+    StatsOverviewLeadResponse:
+      description: Backend-rendered editorial lead for mobile stats.
+      properties:
+        descriptor:
+          title: Descriptor
+          type: string
+        detail:
+          title: Detail
+          type: string
+        kicker:
+          title: Kicker
+          type: string
+      required:
+      - kicker
+      - descriptor
+      - detail
+      title: StatsOverviewLeadResponse
+      type: object
+    StatsOverviewMacroResponse:
+      description: Average macro row for the selected stats period.
+      properties:
+        grams:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Grams
+        key:
+          enum:
+          - protein
+          - fat
+          - carbs
+          title: Key
+          type: string
+        label:
+          title: Label
+          type: string
+        percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Percent
+        target_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Target Percent
+      required:
+      - key
+      - label
+      title: StatsOverviewMacroResponse
+      type: object
+    StatsOverviewResponse:
+      description: Structured mobile stats aggregate.
+      properties:
+        anomalies:
+          items:
+            $ref: '#/components/schemas/StatsOverviewAnomalyResponse'
+          title: Anomalies
+          type: array
+        average_kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Average Kcal
+        daily:
+          items:
+            $ref: '#/components/schemas/StatsOverviewDayResponse'
+          title: Daily
+          type: array
+        days:
+          title: Days
+          type: integer
+        end_date:
+          format: date
+          title: End Date
+          type: string
+        hourly:
+          items:
+            $ref: '#/components/schemas/StatsOverviewHourlyBucketResponse'
+          title: Hourly
+          type: array
+        lead:
+          $ref: '#/components/schemas/StatsOverviewLeadResponse'
+        macros:
+          items:
+            $ref: '#/components/schemas/StatsOverviewMacroResponse'
+          title: Macros
+          type: array
+        normal_kcal_high:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Normal Kcal High
+        normal_kcal_low:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Normal Kcal Low
+        period:
+          enum:
+          - 7d
+          - 14d
+          - 30d
+          title: Period
+          type: string
+        rhythm_delta_kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Rhythm Delta Kcal
+        sparse:
+          title: Sparse
+          type: boolean
+        spread_kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Spread Kcal
+        start_date:
+          format: date
+          title: Start Date
+          type: string
+        top_products:
+          items:
+            $ref: '#/components/schemas/StatsOverviewTopProductResponse'
+          title: Top Products
+          type: array
+        tracked_days:
+          title: Tracked Days
+          type: integer
+      required:
+      - period
+      - days
+      - start_date
+      - end_date
+      - tracked_days
+      - sparse
+      - lead
+      - daily
+      - macros
+      - hourly
+      - top_products
+      - anomalies
+      title: StatsOverviewResponse
+      type: object
+    StatsOverviewTopProductResponse:
+      description: Frequently repeated food item or product.
+      properties:
+        carbs_per_100g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Carbs Per 100G
+        count:
+          title: Count
+          type: integer
+        fat_per_100g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fat Per 100G
+        image_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Image Url
+        kcal_per_100g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Kcal Per 100G
+        name:
+          title: Name
+          type: string
+        protein_per_100g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Protein Per 100G
+        rank:
+          title: Rank
+          type: integer
+      required:
+      - rank
+      - name
+      - count
+      title: StatsOverviewTopProductResponse
+      type: object
     TimelineFoodResponse:
       description: Food-only history timeline response.
       properties:
@@ -11068,6 +11324,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Stats Insights
+      tags:
+      - stats
+  /stats/overview:
+    get:
+      description: Return structured deterministic nutrition stats for mobile rendering.
+      operationId: getStatsOverview
+      parameters:
+      - in: query
+        name: period
+        required: false
+        schema:
+          default: 30d
+          enum:
+          - 7d
+          - 14d
+          - 30d
+          title: Period
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsOverviewResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Stats Overview
       tags:
       - stats
   /timeline:

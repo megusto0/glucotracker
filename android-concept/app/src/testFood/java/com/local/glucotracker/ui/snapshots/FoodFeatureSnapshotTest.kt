@@ -129,7 +129,7 @@ class FoodFeatureSnapshotTest {
     }
 
     @Test fun more() = paparazzi.snapshotThemed("food_more") {
-        MoreSnapshot()
+        MoreSnapshot(brandAccentColor = FoodBrandTokens.Tangerine)
     }
 
     @Test fun outboxInspector() = paparazzi.snapshotThemed("food_outbox_inspector") {

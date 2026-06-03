@@ -236,12 +236,16 @@ internal fun LoginSnapshot() {
 }
 
 @Composable
-internal fun MoreSnapshot() {
+internal fun MoreSnapshot(brandAccentColor: Color? = null) {
     MoreScreen(
         state = MoreState(
             goals = UserGoals(dailyKcal = 2100, dailyProteinG = 120, dailyCarbsG = 220, dailyFatG = 70, weightKg = 72.4),
             uiPrefs = UiPrefs(glucoseMode = "raw", useCompactRows = false),
             cacheSizeLabel = "18 МБ",
+            productCount = 312,
+            templateCount = 18,
+            outboxCount = 2,
+            outboxStuckCount = 1,
             notifications = NotificationToggles(
                 mealReminder = true,
                 nsFail = false,
@@ -253,11 +257,12 @@ internal fun MoreSnapshot() {
         onOpenBase = {},
         onOpenOutbox = {},
         onClearCache = {},
-        onUpdateGoal = { _, _ -> },
+        onSaveGoals = { _, _, _, _, _ -> },
         onToggleNotification = {},
         onSetRhythmOverride = {},
         onClearRhythmOverride = {},
         onLogout = {},
+        brandAccentColor = brandAccentColor,
     )
 }
 

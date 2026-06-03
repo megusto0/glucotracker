@@ -3,6 +3,7 @@
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -34,6 +38,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -221,8 +227,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
 
     @Composable
     override fun MoreNightscoutSection() {
-        MoreNightscoutSurface()
-        GTHairlineDivider()
+        MoreGlucoseSettingsSurface()
     }
 }
 
@@ -682,48 +687,373 @@ private fun MiniGlucoseSurface(
 }
 
 @Composable
-private fun MoreNightscoutSurface(
+private fun MoreGlucoseSettingsSurface(
     viewModel: MoreNightscoutViewModel = hiltViewModel(),
+    settingsViewModel: MoreGlucoseSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Column {
-        GTKicker(text = stringResource(R.string.more_section_nightscout))
+    val alarms by settingsViewModel.alarmToggles.collectAsStateWithLifecycle()
+    val connected = state.status.connectionState == NightscoutConnectionState.Connected
+    val statusLabel = when {
+        state.isRefreshing -> stringResource(R.string.more_ns_checking)
+        connected -> stringResource(R.string.more_ns_connected)
+        else -> stringResource(R.string.more_ns_disconnected)
+    }
+    val nightscoutDescription = state.status.lastSyncAt?.let { lastSync ->
+        stringResource(R.string.more_gluco_nightscout_desc, statusLabel, lastSync.timeText())
+    } ?: stringResource(R.string.more_gluco_nightscout_no_sync, statusLabel)
+
+    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        GlucoSettingsSection(
+            title = stringResource(R.string.more_gluco_sensor_section),
+            note = stringResource(R.string.more_gluco_sensor_note),
+        ) {
+            GlucoSettingsGroup {
+                GlucoSettingsRow(
+                    title = stringResource(R.string.more_section_nightscout),
+                    description = nightscoutDescription,
+                    action = {
+                        GTOutlineButton(
+                            text = if (state.isRefreshing) {
+                                stringResource(R.string.more_ns_checking)
+                            } else {
+                                stringResource(R.string.more_ns_sync_now)
+                            },
+                            onClick = viewModel::syncNow,
+                            enabled = !state.isRefreshing,
+                        )
+                    },
+                )
+                if (state.status.queueDepth > 0) {
+                    GTHairlineDivider()
+                    GlucoSettingsRow(
+                        title = stringResource(
+                            R.string.more_ns_unsynced,
+                            state.status.queueDepth,
+                        ),
+                        description = stringResource(R.string.more_ns_hint),
+                        locked = true,
+                    )
+                }
+                GTHairlineDivider()
+                GlucoSettingsRow(
+                    title = stringResource(R.string.more_gluco_calibration_title),
+                    description = stringResource(R.string.more_gluco_calibration_desc),
+                    locked = true,
+                    action = { GlucoDesktopPill() },
+                )
+            }
+        }
+
+        GlucoTirSection()
+
+        GlucoSettingsSection(
+            title = stringResource(R.string.more_gluco_alarms_section),
+            note = stringResource(R.string.more_gluco_alarms_note),
+        ) {
+            GlucoSettingsGroup {
+                GlucoAlarmRow(
+                    title = stringResource(R.string.more_gluco_alarm_low_title),
+                    description = stringResource(R.string.more_gluco_alarm_low_desc),
+                    checked = alarms.low,
+                    tone = GT.colors.warn,
+                    onToggle = { settingsViewModel.toggleAlarm("low") },
+                )
+                GTHairlineDivider()
+                GlucoAlarmRow(
+                    title = stringResource(R.string.more_gluco_alarm_high_title),
+                    description = stringResource(R.string.more_gluco_alarm_high_desc),
+                    checked = alarms.high,
+                    tone = GT.colors.info,
+                    onToggle = { settingsViewModel.toggleAlarm("high") },
+                )
+                GTHairlineDivider()
+                GlucoAlarmRow(
+                    title = stringResource(R.string.more_gluco_alarm_signal_title),
+                    description = stringResource(R.string.more_gluco_alarm_signal_desc),
+                    checked = alarms.sensorSignalLoss,
+                    tone = GT.colors.info,
+                    onToggle = { settingsViewModel.toggleAlarm("sensor_signal_loss") },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlucoTirSection() {
+    GlucoSettingsSection(
+        title = stringResource(R.string.more_gluco_tir_section),
+        note = stringResource(R.string.more_gluco_tir_note),
+    ) {
+        GlucoSettingsGroup {
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.more_gluco_tir_desc),
+                    color = GT.colors.muted,
+                    style = GT.type.sansLabel.copy(fontSize = 11.sp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(7.dp)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(18f)
+                            .height(14.dp)
+                            .background(GT.colors.warn),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(52f)
+                            .height(14.dp)
+                            .background(GT.colors.accent),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(30f)
+                            .height(14.dp)
+                            .background(GT.colors.info),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.more_gluco_tir_scale),
+                        color = GT.colors.muted,
+                        style = GT.type.monoLabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    GlucoTirLegendItem(
+                        label = stringResource(R.string.glucose_tir_low),
+                        color = GT.colors.warn,
+                    )
+                    GlucoTirLegendItem(
+                        label = stringResource(R.string.glucose_tir_range),
+                        color = GT.colors.accent,
+                    )
+                    GlucoTirLegendItem(
+                        label = stringResource(R.string.glucose_tir_high),
+                        color = GT.colors.info,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlucoTirLegendItem(
+    label: String,
+    color: Color,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, GT.shapes.iconButton),
+        )
+        Text(
+            text = label,
+            modifier = Modifier.padding(start = 5.dp),
+            color = GT.colors.ink2,
+            style = GT.type.sansLabel.copy(fontSize = 11.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun GlucoAlarmRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    tone: Color,
+    onToggle: () -> Unit,
+) {
+    GlucoSettingsRow(
+        title = title,
+        description = description,
+        leading = {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .border(GT.space.hairline, tone, GT.shapes.iconButton),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "!",
+                    color = tone,
+                    style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                )
+            }
+        },
+        action = {
+            GlucoSettingsSwitch(
+                checked = checked,
+                accent = GT.colors.info,
+                onToggle = onToggle,
+            )
+        },
+        onClick = onToggle,
+    )
+}
+
+@Composable
+private fun GlucoSettingsSection(
+    title: String,
+    note: String? = null,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Row(
-            modifier = Modifier.padding(top = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val connected = state.status.connectionState == NightscoutConnectionState.Connected
+            GTKicker(text = title)
+            if (note != null) {
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = note,
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        content()
+    }
+}
+
+@Composable
+private fun GlucoSettingsGroup(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface2, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .clip(GT.shapes.card),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun GlucoSettingsRow(
+    title: String,
+    description: String? = null,
+    locked: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val rowModifier = if (onClick == null) Modifier else Modifier.clickable(
+        role = Role.Button,
+        onClick = onClick,
+    )
+    Row(
+        modifier = rowModifier
+            .fillMaxWidth()
+            .heightIn(min = 58.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            Box(
+                modifier = Modifier.width(30.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                leading()
+            }
+            Spacer(Modifier.width(12.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = when {
-                    state.isRefreshing -> stringResource(R.string.more_ns_checking)
-                    connected -> stringResource(R.string.more_ns_connected)
-                    else -> stringResource(R.string.more_ns_disconnected)
-                },
-                color = GT.colors.ink2,
-                style = GT.type.sansBody,
-                modifier = Modifier.weight(1f),
+                text = title,
+                color = if (locked) GT.colors.muted else GT.colors.ink,
+                style = GT.type.sansBody.copy(fontSize = 14.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            GTOutlineButton(
-                text = if (state.isRefreshing) {
-                    stringResource(R.string.more_ns_checking)
-                } else {
-                    stringResource(R.string.more_ns_sync_now)
-                },
-                onClick = viewModel::syncNow,
-                enabled = !state.isRefreshing,
+            if (description != null) {
+                Text(
+                    text = description,
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.sansLabel.copy(fontSize = 11.sp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (action != null) {
+            Spacer(Modifier.width(10.dp))
+            action()
+        }
+    }
+}
+
+@Composable
+private fun GlucoSettingsSwitch(
+    checked: Boolean,
+    accent: Color,
+    onToggle: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .heightIn(min = GT.space.touch)
+            .width(50.dp)
+            .clickable(role = Role.Switch, onClick = onToggle),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(46.dp)
+                .height(28.dp)
+                .background(
+                    color = if (checked) accent else GT.colors.hairline2,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                .padding(3.dp),
+            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .background(GT.colors.surface2, CircleShape),
             )
         }
-        if (state.status.queueDepth > 0) {
-            Text(
-                text = stringResource(R.string.more_ns_unsynced, state.status.queueDepth),
-                modifier = Modifier.padding(top = 6.dp),
-                color = GT.colors.warn,
-                style = GT.type.monoLabel,
-            )
-        }
-        GTHintBox(
-            text = stringResource(R.string.more_ns_hint),
-            modifier = Modifier.padding(top = 10.dp),
+    }
+}
+
+@Composable
+private fun GlucoDesktopPill() {
+    Box(
+        modifier = Modifier
+            .height(22.dp)
+            .background(GT.colors.surface, GT.shapes.tag)
+            .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.tag)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.more_desktop_pill),
+            color = GT.colors.muted,
+            style = GT.type.sansLabel.copy(fontSize = 9.sp),
+            maxLines = 1,
         )
     }
 }

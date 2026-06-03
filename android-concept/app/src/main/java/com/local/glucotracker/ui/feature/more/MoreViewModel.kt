@@ -11,6 +11,7 @@ import com.local.glucotracker.data.local.PhotoStorage
 import com.local.glucotracker.data.settings.NotificationToggles
 import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.domain.model.OutboxKind
+import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.UiPrefs
 import com.local.glucotracker.domain.model.UserGoals
 import com.local.glucotracker.domain.repository.OutboxRepository
@@ -36,6 +37,10 @@ data class MoreState(
     val goals: UserGoals,
     val uiPrefs: UiPrefs,
     val cacheSizeLabel: String,
+    val productCount: Int,
+    val templateCount: Int,
+    val outboxCount: Int,
+    val outboxStuckCount: Int,
     val notifications: NotificationToggles,
     val rhythm: RhythmUi?,
 )
@@ -66,9 +71,17 @@ class MoreViewModel @Inject constructor(
 
     private val photoDir = File(context.filesDir, "photos")
     private val rhythm = MutableStateFlow<RhythmUi?>(null)
+    private val cacheSizeRefresh = MutableStateFlow(0)
 
-    private val cacheSizeFlow = settingsStore.uiPrefs.map {
+    private val cacheSizeFlow = cacheSizeRefresh.map {
         computeCacheSizeLabel()
+    }
+
+    private val outboxSummaryFlow = outboxRepository.observe().map { items ->
+        OutboxSummary(
+            count = items.size,
+            stuckCount = items.count { item -> item.state == OutboxState.Stuck },
+        )
     }
 
     val state = combine(
@@ -77,14 +90,22 @@ class MoreViewModel @Inject constructor(
         settingsStore.notificationToggles,
         cacheSizeFlow,
         rhythm,
+        database.cachedProductDao().observeAll().map { products -> products.size },
+        database.cachedTemplateDao().observeAll().map { templates -> templates.size },
+        outboxSummaryFlow,
     ) { args: Array<Any?> ->
         @Suppress("UNCHECKED_CAST")
+        val outboxSummary = args[7] as OutboxSummary
         MoreState(
             goals = args[0] as UserGoals,
             uiPrefs = args[1] as UiPrefs,
             notifications = args[2] as NotificationToggles,
             cacheSizeLabel = args[3] as String,
             rhythm = args[4] as RhythmUi?,
+            productCount = args[5] as Int,
+            templateCount = args[6] as Int,
+            outboxCount = outboxSummary.count,
+            outboxStuckCount = outboxSummary.stuckCount,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,6 +114,10 @@ class MoreViewModel @Inject constructor(
             goals = UserGoals(dailyKcal = null, dailyProteinG = null, dailyCarbsG = null, dailyFatG = null, weightKg = null),
             uiPrefs = UiPrefs(glucoseMode = "raw", useCompactRows = false),
             cacheSizeLabel = "—",
+            productCount = 0,
+            templateCount = 0,
+            outboxCount = 0,
+            outboxStuckCount = 0,
             notifications = NotificationToggles(
                 mealReminder = false,
                 nsFail = false,
@@ -122,12 +147,33 @@ class MoreViewModel @Inject constructor(
                 }
             }.toSet()
             PhotoStorage.sweepOrphans(photoDir, referenced)
+            cacheSizeRefresh.value += 1
         }
     }
 
     fun updateGoal(field: String, value: String) {
         viewModelScope.launch {
             settingsStore.updateGoal(field, value)
+            settingsStore.completeGoalsSetup()
+            pushGoalsToBackend()
+        }
+    }
+
+    fun saveGoals(
+        dailyKcal: String,
+        dailyProteinG: String,
+        dailyCarbsG: String,
+        dailyFatG: String,
+        weightKg: String,
+    ) {
+        viewModelScope.launch {
+            settingsStore.updateGoals(
+                dailyKcal = dailyKcal,
+                dailyProteinG = dailyProteinG,
+                dailyCarbsG = dailyCarbsG,
+                dailyFatG = dailyFatG,
+                weightKg = weightKg,
+            )
             settingsStore.completeGoalsSetup()
             pushGoalsToBackend()
         }
@@ -146,14 +192,33 @@ class MoreViewModel @Inject constructor(
     }
 
     fun setRhythmOverride(value: String) {
-        val parts = value.trim().split(':')
-        val hour = parts.getOrNull(0)?.toIntOrNull()?.takeIf { it in 0..23 } ?: return
-        val minute = parts.getOrNull(1)?.toIntOrNull()?.takeIf { it in 0..59 } ?: return
+        val minutes = parseClockMinutes(value) ?: return
         viewModelScope.launch {
             rhythm.value = runCatching {
-                scheduleApi.setOverride(hour * 60 + minute).toRhythmUi()
+                scheduleApi.setOverride(minutes).toRhythmUi()
             }.getOrNull() ?: rhythm.value
         }
+    }
+
+    private fun parseClockMinutes(value: String): Int? {
+        val trimmed = value.trim()
+        val (hour, minute) = if (trimmed.contains(':')) {
+            val parts = trimmed.split(':')
+            if (parts.size != 2) return null
+            parts[0].toIntOrNull() to parts[1].toIntOrNull()
+        } else {
+            val digits = trimmed.filter { it.isDigit() }
+            if (digits.isEmpty()) return null
+            when (digits.length) {
+                1, 2 -> digits.toIntOrNull() to 0
+                3 -> digits.take(1).toIntOrNull() to digits.takeLast(2).toIntOrNull()
+                4 -> digits.take(2).toIntOrNull() to digits.takeLast(2).toIntOrNull()
+                else -> return null
+            }
+        }
+        val safeHour = hour?.takeIf { it in 0..23 } ?: return null
+        val safeMinute = minute?.takeIf { it in 0..59 } ?: return null
+        return safeHour * 60 + safeMinute
     }
 
     fun clearRhythmOverride() {
@@ -218,6 +283,11 @@ class MoreViewModel @Inject constructor(
         flow.firstOrNull()
 
 }
+
+private data class OutboxSummary(
+    val count: Int,
+    val stuckCount: Int,
+)
 
 private fun com.local.glucotracker.generated.model.ScheduleResponse.toRhythmUi(): RhythmUi =
     RhythmUi(

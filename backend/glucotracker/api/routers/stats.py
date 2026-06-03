@@ -5,11 +5,12 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep
-from glucotracker.api.schemas import StatsInsightsResponse
+from glucotracker.api.schemas import StatsInsightsResponse, StatsOverviewResponse
 from glucotracker.application.stats_insights import (
     InsightPeriod,
     InsightSlot,
     generate_insights,
+    generate_overview,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -35,4 +36,21 @@ def stats_insights(
             slot,
             current_user.role,
         )
+    )
+
+
+@router.get(
+    "/overview",
+    response_model=StatsOverviewResponse,
+    operation_id="getStatsOverview",
+)
+def stats_overview(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    period: InsightPeriod = "30d",
+) -> StatsOverviewResponse:
+    """Return structured deterministic nutrition stats for mobile rendering."""
+    return StatsOverviewResponse.model_validate(
+        generate_overview(session, current_user.id, period, current_user.role),
+        from_attributes=True,
     )

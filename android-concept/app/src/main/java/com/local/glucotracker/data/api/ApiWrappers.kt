@@ -24,6 +24,7 @@ import com.local.glucotracker.generated.model.ProductResponse
 import com.local.glucotracker.generated.model.ScheduleOverrideRequest
 import com.local.glucotracker.generated.model.ScheduleResponse
 import com.local.glucotracker.generated.model.StatsInsightResponse
+import com.local.glucotracker.generated.model.StatsOverviewResponse
 import com.local.glucotracker.generated.model.UserGoalsUpdate as GeneratedUserGoalsUpdate
 import javax.inject.Inject
 import kotlinx.datetime.DatePeriod
@@ -181,6 +182,9 @@ class StatsApi @Inject constructor(
 
     suspend fun insights(period: String, slot: String): List<StatsInsightResponse> =
         statsApi.getStatsInsights(period = period, slot = slot).body().insights
+
+    suspend fun overview(period: String): StatsOverviewResponse =
+        statsApi.getStatsOverview(period = period).body()
 }
 
 class ScheduleApi @Inject constructor(

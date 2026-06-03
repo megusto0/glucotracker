@@ -43,6 +43,13 @@ import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.Source
 import com.local.glucotracker.domain.model.StatsInsight
+import com.local.glucotracker.domain.model.StatsOverview
+import com.local.glucotracker.domain.model.StatsOverviewAnomaly
+import com.local.glucotracker.domain.model.StatsOverviewDay
+import com.local.glucotracker.domain.model.StatsOverviewHourlyBucket
+import com.local.glucotracker.domain.model.StatsOverviewLead
+import com.local.glucotracker.domain.model.StatsOverviewMacro
+import com.local.glucotracker.domain.model.StatsOverviewTopProduct
 import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.domain.model.SyncStatus
 import com.local.glucotracker.domain.model.Template
@@ -56,6 +63,7 @@ import com.local.glucotracker.domain.repository.TodayRepository
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.MealStatus
 import com.local.glucotracker.generated.model.EstimateMealRequest
+import com.local.glucotracker.generated.model.StatsOverviewResponse
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
@@ -209,6 +217,9 @@ class StatsRepositoryImpl @Inject constructor(
             )
         }
 
+    override suspend fun getOverview(period: StatsPeriod): StatsOverview =
+        statsApi.overview(period = period.apiValue).toDomain(fallbackPeriod = period)
+
     private suspend fun fetchTotalsForDate(
         day: LocalDate,
         fetchedAt: Instant,
@@ -232,6 +243,70 @@ class StatsRepositoryImpl @Inject constructor(
         }
     }
 }
+
+private fun StatsOverviewResponse.toDomain(fallbackPeriod: StatsPeriod): StatsOverview =
+    StatsOverview(
+        period = StatsPeriod.entries.firstOrNull { it.apiValue == period.value } ?: fallbackPeriod,
+        days = days,
+        startDate = startDate,
+        endDate = endDate,
+        trackedDays = trackedDays,
+        sparse = sparse,
+        averageKcal = averageKcal?.toDouble(),
+        rhythmDeltaKcal = rhythmDeltaKcal?.toDouble(),
+        spreadKcal = spreadKcal?.toDouble(),
+        normalKcalLow = normalKcalLow?.toDouble(),
+        normalKcalHigh = normalKcalHigh?.toDouble(),
+        lead = StatsOverviewLead(
+            kicker = lead.kicker,
+            descriptor = lead.descriptor,
+            detail = lead.detail,
+        ),
+        daily = daily.map { day ->
+            StatsOverviewDay(
+                date = day.date,
+                kcal = day.kcal?.toDouble(),
+                mealCount = day.mealCount,
+            )
+        },
+        macros = macros.map { macro ->
+            StatsOverviewMacro(
+                key = macro.key.value,
+                label = macro.label,
+                grams = macro.grams?.toDouble(),
+                percent = macro.percent?.toDouble(),
+                targetPercent = macro.targetPercent?.toDouble(),
+            )
+        },
+        hourly = hourly.map { bucket ->
+            StatsOverviewHourlyBucket(
+                hour = bucket.hour,
+                mealCount = bucket.mealCount,
+                share = bucket.share.toDouble(),
+            )
+        },
+        topProducts = topProducts.map { product ->
+            StatsOverviewTopProduct(
+                rank = product.rank,
+                name = product.name,
+                count = product.count,
+                kcalPer100g = product.kcalPer100g?.toDouble(),
+                proteinPer100g = product.proteinPer100g?.toDouble(),
+                fatPer100g = product.fatPer100g?.toDouble(),
+                carbsPer100g = product.carbsPer100g?.toDouble(),
+                imageUrl = product.imageUrl,
+            )
+        },
+        anomalies = anomalies.map { anomaly ->
+            StatsOverviewAnomaly(
+                date = anomaly.date,
+                direction = anomaly.direction.value,
+                reason = anomaly.reason,
+                kcal = anomaly.kcal.toDouble(),
+                deltaKcal = anomaly.deltaKcal.toDouble(),
+            )
+        },
+    )
 
 @Singleton
 class HistoryRepositoryImpl @Inject constructor(

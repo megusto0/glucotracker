@@ -55,6 +55,71 @@ data class StatsInsight(
     val supportingNumbers: Map<String, String> = emptyMap(),
 )
 
+data class StatsOverview(
+    val period: StatsPeriod,
+    val days: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val trackedDays: Int,
+    val sparse: Boolean,
+    val averageKcal: Double?,
+    val rhythmDeltaKcal: Double?,
+    val spreadKcal: Double?,
+    val normalKcalLow: Double?,
+    val normalKcalHigh: Double?,
+    val lead: StatsOverviewLead,
+    val daily: List<StatsOverviewDay>,
+    val macros: List<StatsOverviewMacro>,
+    val hourly: List<StatsOverviewHourlyBucket>,
+    val topProducts: List<StatsOverviewTopProduct>,
+    val anomalies: List<StatsOverviewAnomaly>,
+)
+
+data class StatsOverviewLead(
+    val kicker: String,
+    val descriptor: String,
+    val detail: String,
+)
+
+data class StatsOverviewDay(
+    val date: LocalDate,
+    val kcal: Double?,
+    val mealCount: Int,
+)
+
+data class StatsOverviewMacro(
+    val key: String,
+    val label: String,
+    val grams: Double?,
+    val percent: Double?,
+    val targetPercent: Double?,
+)
+
+data class StatsOverviewHourlyBucket(
+    val hour: Int,
+    val mealCount: Int,
+    val share: Double,
+)
+
+data class StatsOverviewTopProduct(
+    val rank: Int,
+    val name: String,
+    val count: Int,
+    val kcalPer100g: Double?,
+    val proteinPer100g: Double?,
+    val fatPer100g: Double?,
+    val carbsPer100g: Double?,
+    val imageUrl: String?,
+)
+
+data class StatsOverviewAnomaly(
+    val date: LocalDate,
+    val direction: String,
+    val reason: String,
+    val kcal: Double,
+    val deltaKcal: Double,
+)
+
 @Serializable
 data class PostprandialPoint(
     val offsetMinutes: Int,

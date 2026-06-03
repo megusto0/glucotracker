@@ -65,7 +65,7 @@ class PhotoProcessingUiStateTest {
         )
 
         assertEquals(PhotoProcessingStage.Stuck, state.stage)
-        assertEquals("оценка не пришла · можно повторить", state.statusText)
+        assertEquals("оценка не пришла · исправляем", state.statusText)
         assertFalse(state.statusText.contains("UPDATE statement"))
     }
 

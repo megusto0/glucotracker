@@ -65,4 +65,23 @@
     <string name="more_ns_hint">Изменить URL — в десктоп-версии</string>
     <string name="more_notif_ns_fail">Сбой синхронизации Nightscout</string>
     <string name="more_about_body">Glucotracker · дневник питания и Nightscout</string>
+    <string name="more_about_flavor">medical</string>
+    <string name="more_gluco_sensor_section">Сенсор и источник</string>
+    <string name="more_gluco_sensor_note">CGM</string>
+    <string name="more_gluco_nightscout_desc">%1$s · последняя синхр. %2$s</string>
+    <string name="more_gluco_nightscout_no_sync">%1$s · синхронизации ещё нет</string>
+    <string name="more_gluco_calibration_title">Калибровка и raw-данные</string>
+    <string name="more_gluco_calibration_desc">Тонкая настройка сенсора — в десктоп-версии.</string>
+    <string name="more_gluco_tir_section">Целевой диапазон</string>
+    <string name="more_gluco_tir_note">TIR</string>
+    <string name="more_gluco_tir_desc">Время в диапазоне считается по этим границам.</string>
+    <string name="more_gluco_tir_scale">3.0 · 3.9 · 10.0 · 13.0 ммоль/л</string>
+    <string name="more_gluco_alarms_section">Тревоги</string>
+    <string name="more_gluco_alarms_note">звук + вибрация</string>
+    <string name="more_gluco_alarm_low_title">Низкий уровень · &lt; 3.9</string>
+    <string name="more_gluco_alarm_low_desc">Срочная тревога, нельзя отключить полностью</string>
+    <string name="more_gluco_alarm_high_title">Высокий уровень · &gt; 13.0</string>
+    <string name="more_gluco_alarm_high_desc">Уведомление при выходе за верхнюю границу</string>
+    <string name="more_gluco_alarm_signal_title">Потеря сигнала сенсора</string>
+    <string name="more_gluco_alarm_signal_desc">Если данные не приходят больше 20 мин</string>
 </resources>

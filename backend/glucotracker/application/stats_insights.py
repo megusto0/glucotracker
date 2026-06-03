@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_type
+from math import isfinite
 from statistics import median, pstdev
 from typing import Literal
 from uuid import UUID
@@ -90,6 +91,31 @@ WINDOW_LABELS = {
     "night_cap": "ночью",
 }
 
+MONTH_GENITIVE = {
+    1: "января",
+    2: "февраля",
+    3: "марта",
+    4: "апреля",
+    5: "мая",
+    6: "июня",
+    7: "июля",
+    8: "августа",
+    9: "сентября",
+    10: "октября",
+    11: "ноября",
+    12: "декабря",
+}
+
+WEEKDAY_NOMINATIVE = {
+    0: "понедельник",
+    1: "вторник",
+    2: "среда",
+    3: "четверг",
+    4: "пятница",
+    5: "суббота",
+    6: "воскресенье",
+}
+
 BANNED_COPY = (
     "молодец",
     "лень",
@@ -145,9 +171,20 @@ class InsightMealItem:
 
     name: str
     kcal: float
+    grams: float | None
+    carbs_g: float
+    protein_g: float
+    fat_g: float
     product_category: str | None
+    product_id: UUID | None
     product_name: str | None
     product_brand: str | None
+    product_owner_id: UUID | None
+    product_image_url: str | None
+    product_kcal_per_100g: float | None
+    product_carbs_per_100g: float | None
+    product_protein_per_100g: float | None
+    product_fat_per_100g: float | None
 
 
 @dataclass(frozen=True)
@@ -188,7 +225,97 @@ class InsightContext:
     glucose_points: list[InsightGlucosePoint]
     days: int
     anchor_minutes: int | None
+    kcal_goal_per_day: int | None
+    protein_goal_g_per_day: int | None
+    carb_goal_g_per_day: int | None
+    fat_goal_g_per_day: int | None
     computed_at: datetime
+
+
+@dataclass(frozen=True)
+class StatsOverviewLead:
+    """Editorial stats lead rendered by the backend."""
+
+    kicker: str
+    descriptor: str
+    detail: str
+
+
+@dataclass(frozen=True)
+class StatsOverviewDay:
+    """One day in the stats overview chart."""
+
+    date: date_type
+    kcal: float | None
+    meal_count: int
+
+
+@dataclass(frozen=True)
+class StatsOverviewMacro:
+    """Average macro row for the selected period."""
+
+    key: Literal["protein", "fat", "carbs"]
+    label: str
+    grams: float | None
+    percent: float | None
+    target_percent: float | None
+
+
+@dataclass(frozen=True)
+class StatsOverviewHourlyBucket:
+    """One 24-hour meal density bucket."""
+
+    hour: int
+    meal_count: int
+    share: float
+
+
+@dataclass(frozen=True)
+class StatsOverviewTopProduct:
+    """Frequently repeated food item or product."""
+
+    rank: int
+    name: str
+    count: int
+    kcal_per_100g: float | None
+    protein_per_100g: float | None
+    fat_per_100g: float | None
+    carbs_per_100g: float | None
+    image_url: str | None
+
+
+@dataclass(frozen=True)
+class StatsOverviewAnomaly:
+    """Day whose kcal total differs strongly from the period rhythm."""
+
+    date: date_type
+    direction: Literal["up", "down"]
+    reason: str
+    kcal: float
+    delta_kcal: float
+
+
+@dataclass(frozen=True)
+class StatsOverview:
+    """Structured stats aggregate for mobile rendering."""
+
+    period: InsightPeriod
+    days: int
+    start_date: date_type
+    end_date: date_type
+    tracked_days: int
+    sparse: bool
+    average_kcal: float | None
+    rhythm_delta_kcal: float | None
+    spread_kcal: float | None
+    normal_kcal_low: float | None
+    normal_kcal_high: float | None
+    lead: StatsOverviewLead
+    daily: list[StatsOverviewDay]
+    macros: list[StatsOverviewMacro]
+    hourly: list[StatsOverviewHourlyBucket]
+    top_products: list[StatsOverviewTopProduct]
+    anomalies: list[StatsOverviewAnomaly]
 
 
 @dataclass(frozen=True)
@@ -248,6 +375,12 @@ class StatsInsightsRepository:
                 if user is not None
                 else None
             ),
+            kcal_goal_per_day=user.kcal_goal_per_day if user is not None else None,
+            protein_goal_g_per_day=(
+                user.protein_goal_g_per_day if user is not None else None
+            ),
+            carb_goal_g_per_day=user.carb_goal_g_per_day if user is not None else None,
+            fat_goal_g_per_day=user.fat_goal_g_per_day if user is not None else None,
             computed_at=datetime.now(UTC),
         )
 
@@ -274,6 +407,88 @@ def generate_insights(
         insights=insights,
     )
     return insights
+
+
+def generate_overview(
+    session: Session,
+    user_id: UUID,
+    period: InsightPeriod,
+    role: UserRole = UserRole.gluco,
+) -> StatsOverview:
+    """Return deterministic structured aggregates for the mobile stats page."""
+    del role  # The aggregate is food-only data; glucose is intentionally absent.
+    days = PERIOD_DAYS[period]
+    context = StatsInsightsRepository(session, user_id).context_for_period(days)
+    start_date, end_date = _overview_period_range(days)
+    all_days = _date_list(start_date, end_date)
+    meals_by_day: dict[date_type, list[InsightMeal]] = {
+        day: [meal for meal in context.meals if meal.local_date == day]
+        for day in all_days
+    }
+    daily = [
+        StatsOverviewDay(
+            date=day,
+            kcal=_sum_or_none(meal.total_kcal for meal in meals_by_day[day]),
+            meal_count=len(meals_by_day[day]),
+        )
+        for day in all_days
+    ]
+    kcal_values = [
+        day.kcal
+        for day in daily
+        if day.kcal is not None and day.meal_count > 0
+    ]
+    tracked_days = len(kcal_values)
+    average_kcal = _average_float(kcal_values)
+    spread_kcal = (
+        pstdev(kcal_values)
+        if len(kcal_values) > 1
+        else (0.0 if kcal_values else None)
+    )
+    rhythm = median(kcal_values) if kcal_values else None
+    rhythm_delta = (
+        average_kcal - rhythm
+        if average_kcal is not None and rhythm is not None and tracked_days >= 3
+        else None
+    )
+    normal_low = (
+        max(0.0, rhythm - (spread_kcal or 0.0))
+        if rhythm is not None and spread_kcal is not None and tracked_days >= 3
+        else None
+    )
+    normal_high = (
+        rhythm + (spread_kcal or 0.0)
+        if rhythm is not None and spread_kcal is not None and tracked_days >= 3
+        else None
+    )
+    return StatsOverview(
+        period=period,
+        days=days,
+        start_date=start_date,
+        end_date=end_date,
+        tracked_days=tracked_days,
+        sparse=tracked_days < 3,
+        average_kcal=average_kcal,
+        rhythm_delta_kcal=rhythm_delta,
+        spread_kcal=spread_kcal,
+        normal_kcal_low=normal_low,
+        normal_kcal_high=normal_high,
+        lead=_overview_lead(
+            days=days,
+            start_date=start_date,
+            end_date=end_date,
+            tracked_days=tracked_days,
+            average_kcal=average_kcal,
+            rhythm_delta=rhythm_delta,
+            context=context,
+            meals_by_day=meals_by_day,
+        ),
+        daily=daily,
+        macros=_overview_macros(context, tracked_days),
+        hourly=_overview_hourly(context.meals),
+        top_products=_overview_top_products(context.meals, user_id),
+        anomalies=_overview_anomalies(daily, meals_by_day, average_kcal, spread_kcal),
+    )
 
 
 def _generate_uncached(
@@ -310,6 +525,340 @@ def _generate_uncached(
         if kind in allowed and c is not None
     ]
     return _wrap_candidates(candidates, context, 3)
+
+
+def _overview_period_range(days: int) -> tuple[date_type, date_type]:
+    today = local_now().date()
+    return today - timedelta(days=days - 1), today
+
+
+def _date_list(start: date_type, end: date_type) -> list[date_type]:
+    result: list[date_type] = []
+    current = start
+    while current <= end:
+        result.append(current)
+        current += timedelta(days=1)
+    return result
+
+
+def _sum_or_none(values: object) -> float | None:
+    numbers = [float(value) for value in values if _finite(value)]
+    return sum(numbers) if numbers else None
+
+
+def _average_float(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _finite(value: object) -> bool:
+    return isinstance(value, int | float) and isfinite(float(value))
+
+
+def _overview_lead(
+    *,
+    days: int,
+    start_date: date_type,
+    end_date: date_type,
+    tracked_days: int,
+    average_kcal: float | None,
+    rhythm_delta: float | None,
+    context: InsightContext,
+    meals_by_day: dict[date_type, list[InsightMeal]],
+) -> StatsOverviewLead:
+    label = "НЕДЕЛЯ" if days == 7 else "14 ДНЕЙ" if days == 14 else "30 ДНЕЙ"
+    kicker = (
+        f"{label} · {_format_period_date(start_date)}"
+        f" — {_format_period_date(end_date)}"
+    )
+    if average_kcal is None or tracked_days < 3:
+        return StatsOverviewLead(
+            kicker=kicker,
+            descriptor="данных мало",
+            detail="Нужно минимум 3 дня с записями для сравнения с твоим ритмом.",
+        )
+
+    if rhythm_delta is None or abs(rhythm_delta) < 80:
+        descriptor = "рядом с обычным"
+        detail = "Похоже на твой обычный ритм за выбранный период."
+    elif rhythm_delta > 0:
+        descriptor = "плотнее обычного"
+        detail = f"На +{_format_int(rhythm_delta)} ккал выше твоего ритма."
+    else:
+        descriptor = "легче обычного"
+        detail = f"На {_format_int(abs(rhythm_delta))} ккал ниже твоего ритма."
+
+    factors = _lead_factors(context, average_kcal, meals_by_day)
+    if factors:
+        detail = f"{detail} Тянут {', '.join(factors)}."
+    return StatsOverviewLead(kicker=kicker, descriptor=descriptor, detail=detail)
+
+
+def _lead_factors(
+    context: InsightContext,
+    average_kcal: float,
+    meals_by_day: dict[date_type, list[InsightMeal]],
+) -> list[str]:
+    factors: list[str] = []
+    weekday_kcal: dict[int, list[float]] = defaultdict(list)
+    for day, meals in meals_by_day.items():
+        if meals:
+            weekday_kcal[day.weekday()].append(sum(meal.total_kcal for meal in meals))
+    candidates = [
+        (weekday, sum(values) / len(values), len(values))
+        for weekday, values in weekday_kcal.items()
+        if len(values) >= 2
+    ]
+    if candidates:
+        weekday, weekday_avg, _ = max(candidates, key=lambda row: (row[1], -row[0]))
+        if weekday_avg >= average_kcal * 1.1:
+            factors.append(_weekday_factor_label(weekday))
+
+    meals = [meal for meal in context.meals if meal.total_kcal > 0]
+    if meals:
+        late_count = sum(1 for meal in meals if meal.hour >= 21 or meal.hour < 5)
+        if late_count / len(meals) >= 0.25:
+            factors.append("поздние ужины")
+    return factors[:2]
+
+
+def _weekday_factor_label(weekday: int) -> str:
+    if weekday == 4:
+        return "пятницы"
+    if weekday in {5, 6}:
+        return "выходные"
+    return WEEKDAY_NOMINATIVE[weekday]
+
+
+def _format_period_date(day: date_type) -> str:
+    return f"{day.day} {MONTH_GENITIVE[day.month]}".upper()
+
+
+def _overview_macros(
+    context: InsightContext,
+    tracked_days: int,
+) -> list[StatsOverviewMacro]:
+    if tracked_days <= 0:
+        return [
+            StatsOverviewMacro("protein", "Белки", None, None, None),
+            StatsOverviewMacro("fat", "Жиры", None, None, None),
+            StatsOverviewMacro("carbs", "Углеводы", None, None, None),
+        ]
+    protein_g = sum(meal.total_protein_g for meal in context.meals) / tracked_days
+    fat_g = sum(meal.total_fat_g for meal in context.meals) / tracked_days
+    carbs_g = sum(meal.total_carbs_g for meal in context.meals) / tracked_days
+    protein_kcal = protein_g * 4
+    fat_kcal = fat_g * 9
+    carbs_kcal = carbs_g * 4
+    total_macro_kcal = protein_kcal + fat_kcal + carbs_kcal
+    targets = _target_macro_percents(context)
+
+    def percent(value: float) -> float | None:
+        return value / total_macro_kcal if total_macro_kcal > 0 else None
+
+    return [
+        StatsOverviewMacro(
+            "protein",
+            "Белки",
+            protein_g,
+            percent(protein_kcal),
+            targets.get("protein"),
+        ),
+        StatsOverviewMacro("fat", "Жиры", fat_g, percent(fat_kcal), targets.get("fat")),
+        StatsOverviewMacro(
+            "carbs",
+            "Углеводы",
+            carbs_g,
+            percent(carbs_kcal),
+            targets.get("carbs"),
+        ),
+    ]
+
+
+def _target_macro_percents(context: InsightContext) -> dict[str, float]:
+    goals = {
+        "protein": context.protein_goal_g_per_day,
+        "fat": context.fat_goal_g_per_day,
+        "carbs": context.carb_goal_g_per_day,
+    }
+    if any(value is None or value <= 0 for value in goals.values()):
+        return {}
+    protein_kcal = float(goals["protein"] or 0) * 4
+    fat_kcal = float(goals["fat"] or 0) * 9
+    carbs_kcal = float(goals["carbs"] or 0) * 4
+    total = protein_kcal + fat_kcal + carbs_kcal
+    if total <= 0:
+        return {}
+    return {
+        "protein": protein_kcal / total,
+        "fat": fat_kcal / total,
+        "carbs": carbs_kcal / total,
+    }
+
+
+def _overview_hourly(meals: list[InsightMeal]) -> list[StatsOverviewHourlyBucket]:
+    counts = Counter(meal.hour for meal in meals if meal.total_kcal > 0)
+    max_count = max(counts.values(), default=0)
+    return [
+        StatsOverviewHourlyBucket(
+            hour=hour,
+            meal_count=counts.get(hour, 0),
+            share=(counts.get(hour, 0) / max_count if max_count else 0.0),
+        )
+        for hour in range(24)
+    ]
+
+
+def _overview_top_products(
+    meals: list[InsightMeal],
+    user_id: UUID,
+) -> list[StatsOverviewTopProduct]:
+    groups: dict[str, dict[str, object]] = {}
+    for meal in meals:
+        for item in meal.items:
+            safe_product = item.product_owner_id in {None, user_id}
+            name = (item.product_name if safe_product else None) or item.name
+            name = name.strip()
+            if not name:
+                continue
+            key = (
+                f"product:{item.product_id}"
+                if safe_product and item.product_id is not None
+                else f"name:{name.casefold()}"
+            )
+            group = groups.setdefault(
+                key,
+                {
+                    "name": name,
+                    "count": 0,
+                    "image_url": item.product_image_url if safe_product else None,
+                    "kcal": [],
+                    "protein": [],
+                    "fat": [],
+                    "carbs": [],
+                },
+            )
+            group["count"] = int(group["count"]) + 1
+            _append_per_100(
+                group["kcal"],
+                item.product_kcal_per_100g,
+                item.kcal,
+                item.grams,
+            )
+            _append_per_100(
+                group["protein"],
+                item.product_protein_per_100g,
+                item.protein_g,
+                item.grams,
+            )
+            _append_per_100(
+                group["fat"],
+                item.product_fat_per_100g,
+                item.fat_g,
+                item.grams,
+            )
+            _append_per_100(
+                group["carbs"],
+                item.product_carbs_per_100g,
+                item.carbs_g,
+                item.grams,
+            )
+
+    sorted_groups = sorted(
+        groups.values(),
+        key=lambda group: (-int(group["count"]), str(group["name"]).casefold()),
+    )
+    return [
+        StatsOverviewTopProduct(
+            rank=index + 1,
+            name=str(group["name"]),
+            count=int(group["count"]),
+            kcal_per_100g=_average_float(group["kcal"]),
+            protein_per_100g=_average_float(group["protein"]),
+            fat_per_100g=_average_float(group["fat"]),
+            carbs_per_100g=_average_float(group["carbs"]),
+            image_url=(
+                group["image_url"] if isinstance(group["image_url"], str) else None
+            ),
+        )
+        for index, group in enumerate(sorted_groups[:5])
+    ]
+
+
+def _append_per_100(
+    values: object,
+    product_per_100g: float | None,
+    item_value: float,
+    grams: float | None,
+) -> None:
+    if not isinstance(values, list):
+        return
+    if _finite(product_per_100g):
+        values.append(float(product_per_100g))
+    elif _finite(grams) and float(grams or 0) > 0 and _finite(item_value):
+        values.append(float(item_value) / float(grams or 1) * 100)
+
+
+def _overview_anomalies(
+    daily: list[StatsOverviewDay],
+    meals_by_day: dict[date_type, list[InsightMeal]],
+    average_kcal: float | None,
+    spread_kcal: float | None,
+) -> list[StatsOverviewAnomaly]:
+    values = [day.kcal for day in daily if day.kcal is not None and day.meal_count > 0]
+    if average_kcal is None or len(values) < 3:
+        return []
+    threshold = max(250.0, (spread_kcal or 0.0) * 1.2, average_kcal * 0.18)
+    candidates: list[StatsOverviewAnomaly] = []
+    meal_counts = [day.meal_count for day in daily if day.meal_count > 0]
+    typical_meal_count = median(meal_counts) if meal_counts else 0
+    for day in daily:
+        if day.kcal is None:
+            continue
+        delta = day.kcal - average_kcal
+        if abs(delta) < threshold:
+            continue
+        direction: Literal["up", "down"] = "up" if delta > 0 else "down"
+        candidates.append(
+            StatsOverviewAnomaly(
+                date=day.date,
+                direction=direction,
+                reason=_anomaly_reason(
+                    direction,
+                    meals_by_day[day.date],
+                    typical_meal_count,
+                ),
+                kcal=day.kcal,
+                delta_kcal=delta,
+            )
+        )
+    return sorted(candidates, key=lambda item: (-abs(item.delta_kcal), item.date))[:3]
+
+
+def _anomaly_reason(
+    direction: Literal["up", "down"],
+    meals: list[InsightMeal],
+    typical_meal_count: float,
+) -> str:
+    if direction == "up":
+        total = sum(meal.total_kcal for meal in meals)
+        late = sum(
+            meal.total_kcal
+            for meal in meals
+            if meal.hour >= 21 or meal.hour < 5
+        )
+        if total > 0 and late / total >= 0.3:
+            return "поздний ужин"
+        if any(_sweet_kcal(meal) > 0 for meal in meals):
+            return "сладкое"
+        if len(meals) > typical_meal_count:
+            return "больше приёмов"
+    else:
+        has_morning = any(6 <= meal.hour < 11 for meal in meals)
+        if not has_morning:
+            return "без утреннего приёма"
+        if len(meals) < typical_meal_count:
+            return "меньше приёмов"
+    return "отличается от ритма"
 
 
 def _wrap_candidates(
@@ -360,9 +909,36 @@ def _meal_feature(meal: Meal) -> InsightMeal:
             InsightMealItem(
                 name=item.name,
                 kcal=float(item.kcal or 0),
+                grams=float(item.grams) if item.grams is not None else None,
+                carbs_g=float(item.carbs_g or 0),
+                protein_g=float(item.protein_g or 0),
+                fat_g=float(item.fat_g or 0),
                 product_category=item.product.category if item.product else None,
+                product_id=item.product.id if item.product else None,
                 product_name=item.product.name if item.product else None,
                 product_brand=item.product.brand if item.product else None,
+                product_owner_id=item.product.owner_id if item.product else None,
+                product_image_url=item.product.image_url if item.product else None,
+                product_kcal_per_100g=(
+                    float(item.product.kcal_per_100g)
+                    if item.product and item.product.kcal_per_100g is not None
+                    else None
+                ),
+                product_carbs_per_100g=(
+                    float(item.product.carbs_per_100g)
+                    if item.product and item.product.carbs_per_100g is not None
+                    else None
+                ),
+                product_protein_per_100g=(
+                    float(item.product.protein_per_100g)
+                    if item.product and item.product.protein_per_100g is not None
+                    else None
+                ),
+                product_fat_per_100g=(
+                    float(item.product.fat_per_100g)
+                    if item.product and item.product.fat_per_100g is not None
+                    else None
+                ),
             )
             for item in meal.items
         ),

@@ -10,6 +10,7 @@ import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.StatsInsight
+import com.local.glucotracker.domain.model.StatsOverview
 import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.domain.model.SyncStatus
 import com.local.glucotracker.domain.model.Template
@@ -25,6 +26,7 @@ interface TodayRepository {
 interface StatsRepository {
     fun observeDayTotals(day: LocalDate): Flow<CachedView<DayTotals>>
     suspend fun getInsights(period: StatsPeriod, slot: String): List<StatsInsight>
+    suspend fun getOverview(period: StatsPeriod): StatsOverview
 }
 
 interface HistoryRepository {

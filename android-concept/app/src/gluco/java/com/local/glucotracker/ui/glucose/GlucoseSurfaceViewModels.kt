@@ -2,6 +2,8 @@ package com.local.glucotracker.ui.glucose
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.data.settings.GlucoAlarmToggles
+import com.local.glucotracker.data.settings.GlucoSettingsStore
 import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
@@ -149,6 +151,23 @@ class MoreNightscoutViewModel @Inject constructor(
                     .getOrElse { current.copy(connectionState = NightscoutConnectionState.Disconnected) }
             }
         mutableState.value = MoreNightscoutState(status = status, isRefreshing = false)
+    }
+}
+
+@HiltViewModel
+class MoreGlucoseSettingsViewModel @Inject constructor(
+    private val settingsStore: GlucoSettingsStore,
+) : ViewModel() {
+    val alarmToggles = settingsStore.alarmToggles.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = GlucoAlarmToggles(),
+    )
+
+    fun toggleAlarm(key: String) {
+        viewModelScope.launch {
+            settingsStore.toggleAlarm(key)
+        }
     }
 }
 

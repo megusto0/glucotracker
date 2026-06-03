@@ -1535,6 +1535,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stats/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats Overview
+         * @description Return structured deterministic nutrition stats for mobile rendering.
+         */
+        get: operations["getStatsOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/timeline": {
         parameters: {
             query?: never;
@@ -5738,6 +5758,156 @@ export interface components {
             insights: components["schemas"]["StatsInsightResponse"][];
         };
         /**
+         * StatsOverviewAnomalyResponse
+         * @description Day whose kcal total differs strongly from the period rhythm.
+         */
+        StatsOverviewAnomalyResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Delta Kcal */
+            delta_kcal: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down";
+            /** Kcal */
+            kcal: number;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * StatsOverviewDayResponse
+         * @description One day in the mobile stats kcal chart.
+         */
+        StatsOverviewDayResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Kcal */
+            kcal?: number | null;
+            /** Meal Count */
+            meal_count: number;
+        };
+        /**
+         * StatsOverviewHourlyBucketResponse
+         * @description One 24-hour meal-density bucket.
+         */
+        StatsOverviewHourlyBucketResponse: {
+            /** Hour */
+            hour: number;
+            /** Meal Count */
+            meal_count: number;
+            /** Share */
+            share: number;
+        };
+        /**
+         * StatsOverviewLeadResponse
+         * @description Backend-rendered editorial lead for mobile stats.
+         */
+        StatsOverviewLeadResponse: {
+            /** Descriptor */
+            descriptor: string;
+            /** Detail */
+            detail: string;
+            /** Kicker */
+            kicker: string;
+        };
+        /**
+         * StatsOverviewMacroResponse
+         * @description Average macro row for the selected stats period.
+         */
+        StatsOverviewMacroResponse: {
+            /** Grams */
+            grams?: number | null;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "protein" | "fat" | "carbs";
+            /** Label */
+            label: string;
+            /** Percent */
+            percent?: number | null;
+            /** Target Percent */
+            target_percent?: number | null;
+        };
+        /**
+         * StatsOverviewResponse
+         * @description Structured mobile stats aggregate.
+         */
+        StatsOverviewResponse: {
+            /** Anomalies */
+            anomalies: components["schemas"]["StatsOverviewAnomalyResponse"][];
+            /** Average Kcal */
+            average_kcal?: number | null;
+            /** Daily */
+            daily: components["schemas"]["StatsOverviewDayResponse"][];
+            /** Days */
+            days: number;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Hourly */
+            hourly: components["schemas"]["StatsOverviewHourlyBucketResponse"][];
+            lead: components["schemas"]["StatsOverviewLeadResponse"];
+            /** Macros */
+            macros: components["schemas"]["StatsOverviewMacroResponse"][];
+            /** Normal Kcal High */
+            normal_kcal_high?: number | null;
+            /** Normal Kcal Low */
+            normal_kcal_low?: number | null;
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "7d" | "14d" | "30d";
+            /** Rhythm Delta Kcal */
+            rhythm_delta_kcal?: number | null;
+            /** Sparse */
+            sparse: boolean;
+            /** Spread Kcal */
+            spread_kcal?: number | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** Top Products */
+            top_products: components["schemas"]["StatsOverviewTopProductResponse"][];
+            /** Tracked Days */
+            tracked_days: number;
+        };
+        /**
+         * StatsOverviewTopProductResponse
+         * @description Frequently repeated food item or product.
+         */
+        StatsOverviewTopProductResponse: {
+            /** Carbs Per 100G */
+            carbs_per_100g?: number | null;
+            /** Count */
+            count: number;
+            /** Fat Per 100G */
+            fat_per_100g?: number | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Kcal Per 100G */
+            kcal_per_100g?: number | null;
+            /** Name */
+            name: string;
+            /** Protein Per 100G */
+            protein_per_100g?: number | null;
+            /** Rank */
+            rank: number;
+        };
+        /**
          * TimelineFoodResponse
          * @description Food-only history timeline response.
          */
@@ -9358,6 +9528,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatsInsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStatsOverview: {
+        parameters: {
+            query?: {
+                period?: "7d" | "14d" | "30d";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsOverviewResponse"];
                 };
             };
             /** @description Validation Error */

@@ -85,6 +85,28 @@ class SettingsStore @Inject constructor(
         }
     }
 
+    suspend fun updateGoals(
+        dailyKcal: String,
+        dailyProteinG: String,
+        dailyCarbsG: String,
+        dailyFatG: String,
+        weightKg: String,
+    ) {
+        dataStore.edit { preferences ->
+            preferences.writeIntOrClear(Keys.DailyKcal, dailyKcal)
+            preferences.writeIntOrClear(Keys.DailyProteinG, dailyProteinG)
+            preferences.writeIntOrClear(Keys.DailyCarbsG, dailyCarbsG)
+            preferences.writeIntOrClear(Keys.DailyFatG, dailyFatG)
+            val normalizedWeight = weightKg.trim().replace(',', '.')
+            val parsedWeight = normalizedWeight.toDoubleOrNull()
+            if (weightKg.isBlank()) {
+                preferences.remove(Keys.WeightKg)
+            } else if (parsedWeight != null && parsedWeight > 0.0) {
+                preferences[Keys.WeightKg] = parsedWeight
+            }
+        }
+    }
+
     suspend fun completeGoalsSetup() {
         dataStore.edit { preferences ->
             preferences[Keys.GoalsSetupCompleted] = true
@@ -158,5 +180,20 @@ class SettingsStore @Inject constructor(
         val NotifOutboxStuck = booleanPreferencesKey("notif_outbox_stuck")
         val StatsPeriod = stringPreferencesKey("stats_period")
         val ComposeSheetOpenCount = intPreferencesKey("compose_sheet_open_count")
+    }
+}
+
+private fun androidx.datastore.preferences.core.MutablePreferences.writeIntOrClear(
+    key: androidx.datastore.preferences.core.Preferences.Key<Int>,
+    value: String,
+) {
+    val trimmed = value.trim()
+    if (trimmed.isBlank()) {
+        remove(key)
+        return
+    }
+    val parsed = trimmed.toIntOrNull()
+    if (parsed != null && parsed > 0) {
+        this[key] = parsed
     }
 }

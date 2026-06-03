@@ -1,7 +1,7 @@
 package com.local.glucotracker.ui.snapshots
 
 import app.cash.paparazzi.Paparazzi
-import com.local.glucotracker.ui.design.FoodBrandTokens
+import com.local.glucotracker.ui.design.GT
 import kotlinx.datetime.LocalTime
 import org.junit.Rule
 import org.junit.Test
@@ -15,7 +15,7 @@ class FeatureSnapshotTest {
         paparazzi.snapshotThemed("food_today_over_goal") {
             TodaySnapshot(
                 state = foodTodayOverGoalState(),
-                brandAccentColor = FoodBrandTokens.Tangerine,
+                brandAccentColor = GT.colors.warn,
                 now = LocalTime(18, 0),
             )
         }
@@ -26,7 +26,7 @@ class FeatureSnapshotTest {
         paparazzi.snapshotThemed("food_today_under_goal") {
             TodaySnapshot(
                 state = foodTodayUnderGoalState(),
-                brandAccentColor = FoodBrandTokens.Tangerine,
+                brandAccentColor = GT.colors.warn,
                 now = LocalTime(18, 0),
             )
         }
@@ -37,7 +37,7 @@ class FeatureSnapshotTest {
         paparazzi.snapshotThemed("food_today_on_target") {
             TodaySnapshot(
                 state = foodTodayOnTargetState(),
-                brandAccentColor = FoodBrandTokens.Tangerine,
+                brandAccentColor = GT.colors.warn,
                 now = LocalTime(18, 0),
             )
         }
@@ -48,7 +48,7 @@ class FeatureSnapshotTest {
         paparazzi.snapshotThemed("food_today_early_morning") {
             TodaySnapshot(
                 state = foodTodayOverGoalState(),
-                brandAccentColor = FoodBrandTokens.Tangerine,
+                brandAccentColor = GT.colors.warn,
                 now = LocalTime(8, 30),
             )
         }
@@ -59,7 +59,7 @@ class FeatureSnapshotTest {
         paparazzi.snapshotThemed("food_today_no_goal") {
             TodaySnapshot(
                 state = foodTodayNoGoalState(),
-                brandAccentColor = FoodBrandTokens.Tangerine,
+                brandAccentColor = GT.colors.warn,
                 now = LocalTime(18, 0),
             )
         }

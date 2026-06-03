@@ -7,6 +7,7 @@ import com.local.glucotracker.data.sync.ConnectivityObserver
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayTotals
 import com.local.glucotracker.domain.model.StatsInsight
+import com.local.glucotracker.domain.model.StatsOverview
 import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.domain.repository.StatsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,7 @@ sealed interface StatsState {
         val staleCacheAt: Instant?,
         val period: StatsPeriod = StatsPeriod.Week,
         val insights: List<StatsInsight> = emptyList(),
+        val overview: StatsOverview? = null,
     ) : StatsState
 }
 
@@ -94,11 +96,15 @@ class StatsViewModel @Inject constructor(
                     .getOrDefault(emptyList()),
             )
         }
+        val overviewFlow = flow {
+            emit(runCatching { statsRepository.getOverview(period) }.getOrNull())
+        }
         combine(
             periodTotalsFlow,
             insightsFlow,
+            overviewFlow,
             connectivityObserver.observe(),
-        ) { views, insights, network ->
+        ) { views, insights, overview, network ->
             val totalsByDate = views.mapNotNull(CachedView<DayTotals>::value).associateBy { it.date }
             val totals = days.map { day -> StatsDay(date = day, totals = totalsByDate[day]) }
             val trackedDays = totals.count { it.totals?.mealCount ?: 0 > 0 }
@@ -115,6 +121,7 @@ class StatsViewModel @Inject constructor(
                     staleCacheAt = totals.mapNotNull(StatsDay::totals).staleCacheAt(network.isConnected),
                     period = period,
                     insights = insights,
+                    overview = overview,
                 )
             }
         }

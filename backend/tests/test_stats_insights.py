@@ -171,6 +171,90 @@ def test_stats_insights_returns_empty_when_data_is_sparse(
     assert response.json() == {"insights": []}
 
 
+def test_stats_overview_returns_structured_period_aggregate(
+    api_client: TestClient,
+) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    user = session.get(User, user_id)
+    assert user is not None
+    user.protein_goal_g_per_day = 100
+    user.fat_goal_g_per_day = 80
+    user.carb_goal_g_per_day = 250
+    _seed_meals(session, user_id, 7, hour=19)
+    session.close()
+
+    response = api_client.get("/stats/overview", params={"period": "7d"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["period"] == "7d"
+    assert payload["days"] == 7
+    assert payload["tracked_days"] == 7
+    assert payload["sparse"] is False
+    assert len(payload["daily"]) == 7
+    assert payload["average_kcal"] == pytest.approx(1970)
+    assert payload["normal_kcal_low"] is not None
+    assert [row["key"] for row in payload["macros"]] == ["protein", "fat", "carbs"]
+    assert all(row["target_percent"] is not None for row in payload["macros"])
+    assert len(payload["hourly"]) == 24
+    assert payload["hourly"][19]["meal_count"] == 7
+    assert payload["top_products"][0]["name"] == "обед"
+    assert payload["top_products"][0]["count"] == 7
+    assert payload["lead"]["kicker"].startswith("НЕДЕЛЯ")
+    assert "глюк" not in response.text.casefold()
+
+
+def test_stats_overview_uses_low_data_state_for_sparse_period(
+    api_client: TestClient,
+) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_meals(session, user_id, 2)
+    session.close()
+
+    response = api_client.get("/stats/overview", params={"period": "14d"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tracked_days"] == 2
+    assert payload["sparse"] is True
+    assert payload["anomalies"] == []
+    assert "3 дня" in payload["lead"]["detail"]
+
+
+@pytest.mark.parametrize("role", [UserRole.gluco, UserRole.food])
+def test_stats_overview_is_scoped_to_current_user(
+    api_client: TestClient,
+    role: UserRole,
+) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    session = session_factory()
+    alice = _create_user(session, f"overview-alice-{role.value}", role)
+    bob = _create_user(session, f"overview-bob-{role.value}", role)
+    session.commit()
+    alice_id = alice.id
+    bob_id = bob.id
+    _seed_meals(session, alice_id, 7, kcal=1970, hour=12)
+    _seed_meals(session, bob_id, 7, kcal=900, hour=22)
+    session.close()
+
+    response = api_client.get(
+        "/stats/overview",
+        params={"period": "7d"},
+        headers=_auth_headers(alice_id, role),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["average_kcal"] == pytest.approx(1970)
+    assert payload["hourly"][12]["meal_count"] == 7
+    assert payload["hourly"][22]["meal_count"] == 0
+    assert "900" not in response.text
+
+
 def test_stats_insights_work_with_thirteen_tracked_days(
     api_client: TestClient,
 ) -> None:

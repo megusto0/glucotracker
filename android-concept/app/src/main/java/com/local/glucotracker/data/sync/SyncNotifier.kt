@@ -1,16 +1,18 @@
 package com.local.glucotracker.data.sync
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
-import java.lang.SecurityException
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.ForegroundInfo
 import com.local.glucotracker.MainActivity
 import com.local.glucotracker.R
@@ -84,7 +86,21 @@ class AndroidSyncNotifier @Inject constructor(
         lastStuckNotificationAt = now
 
         ensureChannel()
-        val outboxIntent = Intent(Intent.ACTION_VIEW, Uri.parse(Route.OutboxInspector.DeepLinkUri), context, MainActivity::class.java)
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val outboxIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(Route.OutboxInspector.DeepLinkUri),
+            context,
+            MainActivity::class.java,
+        )
         val outboxPendingIntent = PendingIntent.getActivity(
             context,
             OutboxStuckNotificationId,

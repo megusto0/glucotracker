@@ -17,18 +17,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -36,21 +42,27 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.DayTotals
 import com.local.glucotracker.domain.model.StatsInsight
+import com.local.glucotracker.domain.model.StatsOverview
+import com.local.glucotracker.domain.model.StatsOverviewAnomaly
+import com.local.glucotracker.domain.model.StatsOverviewDay
+import com.local.glucotracker.domain.model.StatsOverviewHourlyBucket
+import com.local.glucotracker.domain.model.StatsOverviewMacro
+import com.local.glucotracker.domain.model.StatsOverviewTopProduct
 import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.ui.design.GT
-import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTKicker
-import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
-import com.local.glucotracker.ui.format.formatSignedKcal
+import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.format.truncateToLines
-import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
-import java.time.format.DateTimeFormatter
+import java.time.DayOfWeek
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
@@ -65,11 +77,7 @@ fun StatsRoute(
     brandAccentColor: Color? = null,
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
-    val state by if (brandAccentColor != null) {
-        viewModel.foodState.collectAsStateWithLifecycle()
-    } else {
-        viewModel.state.collectAsStateWithLifecycle()
-    }
+    val state by viewModel.foodState.collectAsStateWithLifecycle()
     StatsScreen(
         state = state,
         brandAccentColor = brandAccentColor,
@@ -84,157 +92,37 @@ fun StatsScreen(
     brandAccentColor: Color? = null,
     onPeriodSelected: (StatsPeriod) -> Unit = {},
 ) {
+    val accent = brandAccentColor ?: GT.colors.accent
     when (state) {
         StatsState.Loading -> Box(
             modifier = modifier
                 .fillMaxSize()
                 .background(GT.colors.bg),
         )
+
         is StatsState.Sparse -> SparseStats(
             state = state,
+            accent = accent,
+            onPeriodSelected = onPeriodSelected,
             modifier = modifier,
-            food = brandAccentColor != null,
         )
-        is StatsState.Charts -> if (brandAccentColor != null) {
-            FoodStatsCharts(
-                state = state,
-                accent = brandAccentColor,
-                onPeriodSelected = onPeriodSelected,
-                modifier = modifier,
-            )
-        } else {
-            StatsCharts(state = state, modifier = modifier)
-        }
+
+        is StatsState.Charts -> NutritionStatsCharts(
+            state = state,
+            accent = accent,
+            onPeriodSelected = onPeriodSelected,
+            modifier = modifier,
+        )
     }
 }
 
 @Composable
 private fun SparseStats(
     state: StatsState.Sparse,
-    modifier: Modifier = Modifier,
-    food: Boolean = false,
-) {
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(GT.colors.bg)
-            .padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            if (food) {
-                Text(
-                    text = stringResource(R.string.stats_empty_title),
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = GT.colors.ink,
-                    style = GT.type.serifTitle,
-                )
-            } else {
-                StatsHero(
-                    date = state.date,
-                    surplusText = stringResource(R.string.stats_surplus_unknown),
-                    staleText = null,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-            }
-        }
-        item {
-            Text(
-                text = stringResource(R.string.stats_sparse),
-                color = GT.colors.ink2,
-                style = GT.type.sansBody,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatsCharts(
-    state: StatsState.Charts,
-    modifier: Modifier = Modifier,
-) {
-    val days = state.days
-    val completedBalances = days
-        .filter { it.date < state.date }
-        .mapNotNull { it.totals?.netBalanceKcal }
-    val balanceTotal = completedBalances.takeIf { it.isNotEmpty() }?.sum()
-    val surplusText = when {
-        balanceTotal == null -> stringResource(R.string.stats_surplus_unknown)
-        balanceTotal >= 0.0 -> stringResource(R.string.stats_surplus, formatKcal(balanceTotal))
-        else -> stringResource(R.string.stats_deficit, formatKcal(abs(balanceTotal)))
-    }
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(GT.colors.bg)
-            .padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            StatsHero(
-                date = state.date,
-                surplusText = surplusText,
-                staleText = state.staleCacheAt?.let {
-                    stringResource(R.string.stats_stale_cache, it.toStatsCacheStamp())
-                },
-                modifier = Modifier.padding(top = 6.dp),
-            )
-        }
-        item {
-            StatsKpiGrid(days = days)
-        }
-        item {
-            ChartCard(
-                title = stringResource(R.string.stats_chart_carbs),
-                caption = stringResource(R.string.stats_chart_carbs_caption),
-                bars = days.map { it.toChartBar { totals -> totals.carbsG } },
-                color = GT.colors.accent,
-                valueText = ::formatGrams,
-            )
-        }
-        item {
-            ChartCard(
-                title = stringResource(R.string.stats_chart_balance),
-                caption = stringResource(R.string.stats_chart_balance_caption),
-                bars = days.map { it.toChartBar { totals -> totals.netBalanceKcal } },
-                color = GT.colors.warn,
-                negativeColor = GT.colors.bad,
-                signed = true,
-                valueText = { formatSignedKcal(it.roundToLong()) },
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                LocalGlucoseSurfaces.current.StatsTirSection()
-                LocalGlucoseSurfaces.current.StatsDaypartSection()
-                GTHintBox(text = stringResource(R.string.stats_heatmap_hint))
-            }
-        }
-        item {
-            Spacer(Modifier.height(10.dp))
-        }
-    }
-}
-
-@Composable
-private fun FoodStatsCharts(
-    state: StatsState.Charts,
     accent: Color,
     onPeriodSelected: (StatsPeriod) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val days = state.days
-    val availableDays = days.mapNotNull { it.totals }
-    val averageKcal = availableDays
-        .takeIf { it.isNotEmpty() }
-        ?.sumOf { it.kcal }
-        ?.div(availableDays.size)
-        ?: 0.0
-    val totalDaysInPeriod = days.size
-    val daysWithData = availableDays.size
-    val leadInsight = state.insights.firstOrNull { it.weight == "primary" && it.kind == "consistent" }
-    val cardInsights = state.insights.filter { it.kind != "consistent" }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -244,19 +132,20 @@ private fun FoodStatsCharts(
     ) {
         item {
             GTKicker(
-                text = state.period.toPeriodKicker(
-                    days = days,
-                    label = stringResource(state.period.kickerRes()),
-                ),
+                text = stringResource(state.period.kickerRes()),
                 modifier = Modifier.padding(top = 8.dp),
             )
-        }
-        item {
-            StatsLeadStatement(
-                averageKcal = averageKcal,
-                daysWithData = daysWithData,
-                totalDays = totalDaysInPeriod,
-                insight = leadInsight,
+            Text(
+                text = stringResource(R.string.stats_empty_title),
+                modifier = Modifier.padding(top = 6.dp),
+                color = GT.colors.ink,
+                style = GT.type.serifTitle,
+            )
+            Text(
+                text = stringResource(R.string.stats_sparse),
+                modifier = Modifier.padding(top = 8.dp),
+                color = GT.colors.ink2,
+                style = GT.type.sansBody,
             )
         }
         item {
@@ -266,50 +155,118 @@ private fun FoodStatsCharts(
                 onSelected = onPeriodSelected,
             )
         }
-        if (cardInsights.isNotEmpty()) {
+    }
+}
+
+@Composable
+private fun NutritionStatsCharts(
+    state: StatsState.Charts,
+    accent: Color,
+    onPeriodSelected: (StatsPeriod) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val overview = state.overview
+    val fallbackDays = state.days.toOverviewDays()
+    val chartDays = overview?.daily?.takeIf { it.isNotEmpty() } ?: fallbackDays
+    val averageKcal = overview?.averageKcal ?: fallbackDays.averageKcal()
+    val spreadKcal = overview?.spreadKcal
+    val insights = state.insights.displayNutritionInsights()
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(GT.colors.bg)
+            .padding(horizontal = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            StatsLeadStatement(
+                overview = overview,
+                averageKcal = averageKcal,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            state.staleCacheAt?.let {
+                Text(
+                    text = stringResource(R.string.stats_stale_cache, it.toStatsCacheStamp()),
+                    modifier = Modifier.padding(top = 4.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel,
+                )
+            }
+        }
+        item {
+            StatsPeriodSegmentedControl(
+                selected = state.period,
+                accent = accent,
+                onSelected = onPeriodSelected,
+            )
+        }
+        if (insights.isNotEmpty()) {
             item {
-                InsightCard(insights = cardInsights, accent = accent)
+                InsightStrip(insights = insights, accent = accent)
             }
         }
         item {
             StatCard(
                 title = stringResource(R.string.stats_kcal_by_day_title),
+                meta = kcalMeta(averageKcal, spreadKcal),
                 contentDescription = stringResource(
                     R.string.stats_kcal_by_day_description,
-                    formatKcal(averageKcal),
+                    averageKcal?.let(::formatKcal) ?: stringResource(R.string.value_empty),
                 ),
             ) {
-                KcalByDayBars(
-                    days = days,
+                KcalByDayOverviewChart(
+                    days = chartDays,
+                    today = state.date,
+                    normalLow = overview?.normalKcalLow,
+                    normalHigh = overview?.normalKcalHigh,
                     accent = accent,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(148.dp),
+                        .height(158.dp),
                 )
             }
         }
         item {
             StatCard(
                 title = stringResource(R.string.stats_macro_stack_title),
+                meta = null,
                 contentDescription = stringResource(R.string.stats_macro_stack_description),
             ) {
-                MacroStackBar(days = days)
+                MacroAverageRows(macros = overview?.macros ?: state.days.toMacroRows())
             }
         }
         item {
             StatCard(
                 title = stringResource(R.string.stats_time_histogram_title),
+                meta = stringResource(R.string.stats_time_histogram_meta, state.period.days),
                 contentDescription = stringResource(R.string.stats_time_histogram_description),
             ) {
-                TimeOfDayHistogram(
-                    insight = state.insights.firstOrNull {
-                        it.kind == "time_of_day_eating"
-                    },
+                HourlyDensity(
+                    buckets = overview?.hourly.orEmpty(),
                     accent = accent,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(130.dp),
+                        .height(132.dp),
                 )
+            }
+        }
+        item {
+            StatCard(
+                title = stringResource(R.string.stats_top_products_title),
+                meta = stringResource(R.string.stats_top_products_meta, state.period.days),
+                contentDescription = stringResource(R.string.stats_top_products_title),
+            ) {
+                TopProductsList(products = overview?.topProducts.orEmpty())
+            }
+        }
+        item {
+            StatCard(
+                title = stringResource(R.string.stats_anomalies_title),
+                meta = stringResource(R.string.stats_anomalies_meta),
+                contentDescription = stringResource(R.string.stats_anomalies_title),
+            ) {
+                AnomalyList(anomalies = overview?.anomalies.orEmpty())
             }
         }
         item {
@@ -319,34 +276,35 @@ private fun FoodStatsCharts(
 }
 
 @Composable
-fun StatsLeadStatement(
-    averageKcal: Double,
-    daysWithData: Int,
-    totalDays: Int,
-    insight: StatsInsight?,
+private fun StatsLeadStatement(
+    overview: StatsOverview?,
+    averageKcal: Double?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
+        GTKicker(text = overview?.lead?.kicker ?: stringResource(R.string.stats_period_kicker_month))
         Text(
-            text = stringResource(R.string.stats_lead_average, formatKcal(averageKcal)),
+            text = if (averageKcal != null) {
+                stringResource(
+                    R.string.stats_lead_sentence,
+                    formatKcal(averageKcal),
+                    overview?.lead?.descriptor ?: stringResource(R.string.value_empty_label),
+                )
+            } else {
+                stringResource(R.string.stats_empty_title)
+            },
+            modifier = Modifier.padding(top = 6.dp),
             color = GT.colors.ink,
             style = GT.type.serifTitle,
         )
-        if (daysWithData < totalDays && daysWithData > 0) {
+        overview?.lead?.detail?.let { detail ->
             Text(
-                text = stringResource(R.string.stats_lead_coverage, daysWithData, totalDays),
-                modifier = Modifier.padding(top = 2.dp),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-            )
-        }
-        if (insight != null) {
-            Text(
-                text = insight.text,
-                modifier = Modifier.padding(top = 4.dp),
-                color = GT.colors.muted,
-                style = GT.type.serifSection,
-                maxLines = 2,
+                text = detail,
+                modifier = Modifier.padding(top = 8.dp),
+                color = GT.colors.ink2,
+                style = GT.type.sansBody,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -362,7 +320,7 @@ private fun StatsPeriodSegmentedControl(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp)
-            .border(GT.space.hairline, GT.colors.hairline, RoundedCornerShape(8.dp))
+            .background(GT.colors.hairline, RoundedCornerShape(10.dp))
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -374,14 +332,14 @@ private fun StatsPeriodSegmentedControl(
                     .height(38.dp)
                     .background(
                         color = if (active) accent.copy(alpha = 0.18f) else Color.Transparent,
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                     )
                     .clickable { onSelected(period) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = stringResource(period.labelRes()),
-                    color = if (active) GT.colors.ink else GT.colors.ink2,
+                    color = if (active) GT.colors.ink else GT.colors.muted,
                     style = GT.type.sansLabel,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -392,51 +350,35 @@ private fun StatsPeriodSegmentedControl(
 }
 
 @Composable
-fun InsightCard(
+private fun InsightStrip(
     insights: List<StatsInsight>,
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    val primary = insights.firstOrNull { it.weight == "primary" }
-        ?: insights.firstOrNull()
-        ?: return
-    val secondary = insights
-        .filter { it.weight == "secondary" }
-        .take(2)
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(GT.colors.surface2, RoundedCornerShape(12.dp))
-            .border(GT.space.hairline, GT.colors.hairline, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = stringResource(R.string.stats_insight_kicker),
-            color = accent,
-            style = GT.type.monoLabel,
-        )
-        Text(
-            text = truncateToLines(primary.text, maxLines = 3, charsPerLine = 40),
-            modifier = Modifier.padding(top = 8.dp),
-            color = GT.colors.ink2,
-            style = GT.type.sansBody,
-            maxLines = 3,
-        )
-        if (secondary.isNotEmpty()) {
-            Box(
+        items(insights.take(3), key = { it.id }) { insight ->
+            Column(
                 modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .fillMaxWidth()
-                    .height(GT.space.hairline)
-                    .background(GT.colors.hairline),
-            )
-            secondary.forEach { insight ->
+                    .width(244.dp)
+                    .background(GT.colors.surface, RoundedCornerShape(10.dp))
+                    .border(GT.space.hairline, GT.colors.hairline2, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+            ) {
                 Text(
-                    text = insight.text,
+                    text = stringResource(R.string.stats_insight_kicker),
+                    color = accent,
+                    style = GT.type.kicker,
+                )
+                Text(
+                    text = truncateToLines(insight.text, maxLines = 3, charsPerLine = 34),
+                    modifier = Modifier.padding(top = 5.dp),
                     color = GT.colors.ink2,
-                    style = GT.type.sansLabel,
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 4.dp),
+                    style = GT.type.sansBody,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -446,6 +388,7 @@ fun InsightCard(
 @Composable
 private fun StatCard(
     title: String,
+    meta: String?,
     contentDescription: String,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -458,58 +401,493 @@ private fun StatCard(
             .semantics { this.contentDescription = contentDescription }
             .padding(14.dp),
     ) {
-        GTKicker(text = title)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            GTKicker(text = title, modifier = Modifier.weight(1f))
+            if (meta != null) {
+                Text(
+                    text = meta,
+                    color = GT.colors.ink2,
+                    style = GT.type.monoLabel,
+                    textAlign = TextAlign.End,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
         content()
     }
 }
 
 @Composable
-fun KcalByDayBars(
-    days: List<StatsDay>,
+private fun KcalByDayOverviewChart(
+    days: List<StatsOverviewDay>,
+    today: LocalDate,
+    normalLow: Double?,
+    normalHigh: Double?,
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    val graphite = GT.colors.ink.copy(alpha = 0.72f)
-    val hairline = GT.colors.hairline2
-    val muted = GT.colors.muted
-    val values = days.map { it.totals?.kcal ?: 0.0 }
-    val maxValue = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-    val topDays = values
-        .withIndex()
-        .sortedByDescending { it.value }
-        .take(2)
-        .map { it.index }
-        .toSet()
-    Canvas(modifier = modifier) {
-        val labelHeight = 18.dp.toPx()
-        val chartHeight = size.height - labelHeight
-        val gap = 5.dp.toPx()
-        val barWidth = ((size.width - gap * (days.size - 1)) / days.size).coerceAtLeast(2.dp.toPx())
-        drawLine(
-            color = hairline,
-            start = Offset(0f, chartHeight * 0.34f),
-            end = Offset(size.width, chartHeight * 0.34f),
-            strokeWidth = 0.5.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())),
+    val values = days.mapNotNull { it.kcal }
+    if (days.isEmpty() || values.isEmpty()) {
+        Text(
+            text = stringResource(R.string.value_empty_label),
+            color = GT.colors.muted,
+            style = GT.type.sansBody,
         )
-        values.forEachIndexed { index, value ->
-            val barHeight = (value / maxValue * chartHeight).toFloat().coerceAtLeast(2.dp.toPx())
-            drawRect(
-                color = if (index in topDays) accent else graphite,
-                topLeft = Offset(index * (barWidth + gap), chartHeight - barHeight),
-                size = Size(barWidth, barHeight),
-            )
+        return
+    }
+    val graphite = GT.colors.ink.copy(alpha = 0.72f)
+    val weekend = GT.colors.ink.copy(alpha = 0.32f)
+    val hairline = GT.colors.hairline
+    val hairlineWidth = GT.space.hairline
+    val rangeColor = GT.colors.warn
+    val maxValue = listOfNotNull(values.maxOrNull(), normalHigh)
+        .maxOrNull()
+        ?.coerceAtLeast(1.0)
+        ?: 1.0
+    Column(modifier = modifier) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
+            val chartHeight = size.height
+            val gap = 2.dp.toPx()
+            val barWidth = ((size.width - gap * (days.size - 1)) / days.size)
+                .coerceAtLeast(2.dp.toPx())
+            if (normalLow != null && normalHigh != null && normalHigh > normalLow) {
+                val top = chartHeight - (normalHigh / maxValue * chartHeight).toFloat()
+                val bottom = chartHeight - (normalLow / maxValue * chartHeight).toFloat()
+                drawRect(
+                    color = rangeColor.copy(alpha = 0.08f),
+                    topLeft = Offset(0f, top.coerceIn(0f, chartHeight)),
+                    size = Size(size.width, (bottom - top).coerceAtLeast(1.dp.toPx())),
+                )
+                val dash = PathEffect.dashPathEffect(
+                    floatArrayOf(4.dp.toPx(), 4.dp.toPx()),
+                )
+                listOf(top, bottom).forEach { y ->
+                    drawLine(
+                        color = rangeColor.copy(alpha = 0.42f),
+                        start = Offset(0f, y.coerceIn(0f, chartHeight)),
+                        end = Offset(size.width, y.coerceIn(0f, chartHeight)),
+                        strokeWidth = hairlineWidth.toPx(),
+                        pathEffect = dash,
+                    )
+                }
+            }
+            days.forEachIndexed { index, day ->
+                if (day.date.isMonday()) {
+                    val x = index * (barWidth + gap)
+                    drawLine(
+                        color = hairline,
+                        start = Offset(x, 0f),
+                        end = Offset(x, chartHeight),
+                        strokeWidth = hairlineWidth.toPx(),
+                    )
+                }
+                val kcal = day.kcal ?: return@forEachIndexed
+                val barHeight = (kcal / maxValue * chartHeight)
+                    .toFloat()
+                    .coerceAtLeast(2.dp.toPx())
+                val color = when {
+                    day.date == today -> accent
+                    day.date.isWeekend() -> weekend
+                    else -> graphite
+                }
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(index * (barWidth + gap), chartHeight - barHeight),
+                    size = Size(barWidth, barHeight),
+                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx()),
+                )
+            }
+        }
+        Text(
+            text = stringResource(R.string.stats_kcal_range_label),
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 2.dp),
+            color = GT.colors.warn,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp),
+        ) {
+            days.forEach { day ->
+                Text(
+                    text = if (day.date.isMonday() || day.date == today) {
+                        day.date.dayOfMonth.toString()
+                    } else {
+                        ""
+                    },
+                    modifier = Modifier.weight(1f),
+                    color = if (day.date == today) accent else GT.colors.muted,
+                    style = GT.type.monoLabel,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun MacroAverageRows(
+    macros: List<StatsOverviewMacro>,
+    modifier: Modifier = Modifier,
+) {
+    val ordered = listOf("protein", "fat", "carbs").mapNotNull { key ->
+        macros.firstOrNull { it.key == key }
+    }
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ordered.forEach { macro ->
+            MacroRow(macro = macro)
+        }
+    }
+}
+
+@Composable
+private fun MacroRow(macro: StatsOverviewMacro) {
+    val color = macroColor(macro.key)
+    val barTrackColor = GT.colors.hairline
+    val targetColor = GT.colors.ink2
+    val percent = macro.percent?.coerceIn(0.0, 1.0) ?: 0.0
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        days.forEach { day ->
+        Column(modifier = Modifier.width(92.dp)) {
             Text(
-                text = day.date.toChartDayLabel(),
-                color = muted,
+                text = macro.label,
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = macro.grams?.let { formatGrams(it) } ?: stringResource(R.string.value_empty),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+                maxLines = 1,
+            )
+        }
+        Canvas(
+            modifier = Modifier
+                .weight(1f)
+                .height(22.dp),
+        ) {
+            val barTop = size.height / 2 - 3.dp.toPx()
+            drawRoundRect(
+                color = barTrackColor,
+                topLeft = Offset(0f, barTop),
+                size = Size(size.width, 6.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+            )
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(0f, barTop),
+                size = Size(size.width * percent.toFloat(), 6.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+            )
+            macro.targetPercent?.coerceIn(0.0, 1.0)?.let { target ->
+                val x = size.width * target.toFloat()
+                drawLine(
+                    color = targetColor,
+                    start = Offset(x, barTop - 3.dp.toPx()),
+                    end = Offset(x, barTop + 9.dp.toPx()),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
+            }
+        }
+        Text(
+            text = macro.percent?.let { formatPercent(it * 100) } ?: stringResource(R.string.value_empty),
+            color = GT.colors.ink,
+            style = GT.type.monoLabel,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(40.dp),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun HourlyDensity(
+    buckets: List<StatsOverviewHourlyBucket>,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val normalized = (0..23).map { hour ->
+        buckets.firstOrNull { it.hour == hour } ?: StatsOverviewHourlyBucket(hour, 0, 0.0)
+    }
+    val hasData = normalized.any { it.mealCount > 0 }
+    val hairline = GT.colors.hairline
+    val hairlineWidth = GT.space.hairline
+    val areaColor = GT.colors.ink.copy(alpha = 0.08f)
+    val lineColor = GT.colors.ink
+    if (!hasData) {
+        Text(
+            text = stringResource(R.string.value_empty_label),
+            color = GT.colors.muted,
+            style = GT.type.sansBody,
+        )
+        return
+    }
+    Column(modifier = modifier) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
+            val baseline = size.height - 12.dp.toPx()
+            val topPad = 4.dp.toPx()
+            val step = size.width / 23f
+            val points = normalized.map { bucket ->
+                val x = bucket.hour * step
+                val y = baseline - (baseline - topPad) * bucket.share.toFloat().coerceIn(0f, 1f)
+                Offset(x, y)
+            }
+            drawLine(
+                color = hairline,
+                start = Offset(0f, baseline),
+                end = Offset(size.width, baseline),
+                strokeWidth = hairlineWidth.toPx(),
+            )
+            listOf(6, 12, 18).forEach { hour ->
+                val x = hour * step
+                drawLine(
+                    color = hairline,
+                    start = Offset(x, topPad),
+                    end = Offset(x, baseline),
+                    strokeWidth = hairlineWidth.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(3.dp.toPx(), 4.dp.toPx()),
+                    ),
+                )
+            }
+            val area = Path().apply {
+                moveTo(0f, baseline)
+                points.forEachIndexed { index, point ->
+                    if (index == 0) lineTo(point.x, point.y) else lineTo(point.x, point.y)
+                }
+                lineTo(size.width, baseline)
+                close()
+            }
+            drawPath(area, color = areaColor)
+            val line = Path().apply {
+                points.forEachIndexed { index, point ->
+                    if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
+                }
+            }
+            drawPath(
+                path = line,
+                color = lineColor,
+                style = Stroke(width = 1.4.dp.toPx()),
+            )
+            normalized.peaks().forEach { bucket ->
+                val x = bucket.hour * step
+                val y = baseline - (baseline - topPad) * bucket.share.toFloat()
+                drawCircle(
+                    color = accent,
+                    radius = 3.dp.toPx(),
+                    center = Offset(x, y),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf("00", "06", "12", "18", "24").forEach { label ->
+                Text(text = label, color = GT.colors.muted, style = GT.type.monoLabel)
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            normalized.peaks().forEach { peak ->
+                Text(
+                    text = stringResource(
+                        R.string.stats_hour_peak,
+                        "${peak.hour.toString().padStart(2, '0')}:00",
+                        stringResource(peak.hour.roleLabelRes()),
+                    ),
+                    color = GT.colors.ink2,
+                    style = GT.type.monoLabel,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopProductsList(products: List<StatsOverviewTopProduct>) {
+    if (products.isEmpty()) {
+        Text(
+            text = stringResource(R.string.value_empty_label),
+            color = GT.colors.muted,
+            style = GT.type.sansBody,
+        )
+        return
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        products.forEachIndexed { index, product ->
+            if (index > 0) HairlineSpacer()
+            TopProductRow(product = product)
+        }
+    }
+}
+
+@Composable
+private fun TopProductRow(product: StatsOverviewTopProduct) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = product.rank.toString().padStart(2, '0'),
+            color = GT.colors.muted,
+            style = GT.type.monoLabel,
+            modifier = Modifier.width(24.dp),
+        )
+        ProductThumb(product.imageUrl)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = product.name,
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(
+                    R.string.stats_top_product_meta,
+                    product.kcalPer100g.formatNullableKcal(),
+                    product.proteinPer100g.formatNullableGrams(),
+                    product.fatPer100g.formatNullableGrams(),
+                    product.carbsPer100g.formatNullableGrams(),
+                ),
+                modifier = Modifier.padding(top = 2.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = stringResource(R.string.stats_top_product_count, product.count),
+            color = GT.colors.ink2,
+            style = GT.type.monoLabel,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun ProductThumb(imageUrl: String?) {
+    if (imageUrl == null) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(GT.colors.hairline, RoundedCornerShape(6.dp))
+                .border(GT.space.hairline, GT.colors.hairline2, RoundedCornerShape(6.dp)),
+        )
+        return
+    }
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(6.dp)),
+    )
+}
+
+@Composable
+private fun AnomalyList(anomalies: List<StatsOverviewAnomaly>) {
+    if (anomalies.isEmpty()) {
+        Text(
+            text = stringResource(R.string.stats_anomalies_empty),
+            color = GT.colors.muted,
+            style = GT.type.sansBody,
+        )
+        return
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        anomalies.forEachIndexed { index, anomaly ->
+            if (index > 0) HairlineSpacer()
+            AnomalyRow(anomaly = anomaly)
+        }
+    }
+}
+
+@Composable
+private fun AnomalyRow(anomaly: StatsOverviewAnomaly) {
+    val up = anomaly.direction == "up"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .background(if (up) GT.colors.warn else GT.colors.info, RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (up) "↑" else "↓",
+                color = GT.colors.surface2,
+                style = GT.type.monoLabel,
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = anomaly.date.toAnomalyDate(),
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+            )
+            Text(
+                text = anomaly.reason,
+                modifier = Modifier.padding(top = 1.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = formatKcal(anomaly.kcal),
+                color = GT.colors.ink,
+                style = GT.type.monoLabel,
+                maxLines = 1,
+            )
+            Text(
+                text = anomaly.deltaKcal.formatDeltaKcal(),
+                color = if (up) GT.colors.warn else GT.colors.info,
                 style = GT.type.monoLabel,
                 maxLines = 1,
             )
@@ -518,365 +896,121 @@ fun KcalByDayBars(
 }
 
 @Composable
-fun MacroStackBar(
-    days: List<StatsDay>,
-    modifier: Modifier = Modifier,
-) {
-    val totals = days.mapNotNull { it.totals }
-    val proteinKcal = totals.sumOf { it.proteinG } * 4.0
-    val fatKcal = totals.sumOf { it.fatG } * 9.0
-    val carbsKcal = totals.sumOf { it.carbsG } * 4.0
-    val total = (proteinKcal + fatKcal + carbsKcal).coerceAtLeast(1.0)
-    val segments = listOf(
-        Triple(stringResource(R.string.today_kpi_protein), proteinKcal / total, Color(0xFF6B7A92)),
-        Triple(stringResource(R.string.today_kpi_fat), fatKcal / total, Color(0xFFC98A55)),
-        Triple(stringResource(R.string.today_kpi_carbs), carbsKcal / total, Color(0xFF5E6F3A)),
-    )
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(18.dp)
-                .background(GT.colors.hairline, RoundedCornerShape(9.dp)),
-        ) {
-            segments.forEach { (_, percent, color) ->
-                Box(
-                    modifier = Modifier
-                        .weight(percent.toFloat().coerceAtLeast(0.01f))
-                        .height(18.dp)
-                        .background(color),
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            segments.forEach { (label, percent, color) ->
-                Text(
-                    text = stringResource(R.string.stats_macro_legend, label, (percent * 100).roundToLong()),
-                    color = color,
-                    style = GT.type.monoLabel,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TimeOfDayHistogram(
-    insight: StatsInsight?,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    val supporting = insight?.supportingNumbers.orEmpty()
-    val bucketHours = listOf(0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
-    val maxCount = bucketHours
-        .mapNotNull { h -> supporting["h${h.toString().padStart(2, '0')}"]?.toIntOrNull() }
-        .maxOrNull()?.coerceAtLeast(1) ?: 0
-    val values = bucketHours.map { hour ->
-        val count = supporting["h${hour.toString().padStart(2, '0')}"]?.toIntOrNull() ?: 0
-        if (maxCount == 0) 0.08f else (count.toFloat() / maxCount).coerceIn(0.08f, 1f)
-    }
-    val hasData = values.any { it > 0.08f }
-    if (!hasData) return
-    Canvas(modifier = modifier) {
-        val labelHeight = 18.dp.toPx()
-        val chartHeight = size.height - labelHeight
-        val gap = 6.dp.toPx()
-        val barWidth = ((size.width - gap * (values.size - 1)) / values.size).coerceAtLeast(4.dp.toPx())
-        values.forEachIndexed { index, value ->
-            val height = chartHeight * value
-            drawRect(
-                color = accent.copy(alpha = 0.18f),
-                topLeft = Offset(index * (barWidth + gap), chartHeight - height),
-                size = Size(barWidth, height),
-            )
-        }
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        bucketHours.forEach { hour ->
-            Text(
-                text = "${hour}",
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatsHero(
-    date: LocalDate,
-    surplusText: String,
-    staleText: String?,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.stats_date_with_suffix, date.toHeroDate()),
-            color = GT.colors.ink,
-            style = GT.type.serifTitle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = surplusText,
-            modifier = Modifier.padding(top = 2.dp),
-            color = GT.colors.ink2,
-            style = GT.type.serifSection,
-        )
-        if (staleText != null) {
-            Text(
-                text = staleText,
-                modifier = Modifier.padding(top = 4.dp),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatsKpiGrid(days: List<StatsDay>) {
-    val availableDays = days.mapNotNull { it.totals }
-    val divisor = max(availableDays.size, 1)
-    val carbs = availableDays.sumOf { it.carbsG }
-    val kcal = availableDays.sumOf { it.kcal }
-    val protein = availableDays.sumOf { it.proteinG }
-    val fat = availableDays.sumOf { it.fatG }
-    val carbsAverage = carbs / divisor
-    val kcalAverage = kcal / divisor
-    val healthConnectKcalGoal = availableDays
-        .mapNotNull { it.healthConnectTdeeKcal() }
-        .takeIf { it.isNotEmpty() }
-        ?.sum()
-    Column {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GTKpiCard(
-                label = stringResource(R.string.stats_kpi_carbs),
-                value = formatGrams(carbs),
-                sub = stringResource(R.string.stats_kpi_week_sub),
-                progress = 0f,
-                progressColor = GT.colors.accent.copy(alpha = 0.68f),
-                extra = stringResource(R.string.stats_kpi_avg_sub, formatGrams(carbsAverage)),
-                modifier = Modifier.weight(1f),
-            )
-            GTKpiCard(
-                label = stringResource(R.string.stats_kpi_kcal),
-                value = formatKcal(kcal),
-                sub = healthConnectKcalGoal
-                    ?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it.toDouble())) }
-                    ?: stringResource(R.string.stats_kpi_week_sub),
-                progress = healthConnectKcalGoal?.let { progressOf(kcal, it) } ?: 0f,
-                progressColor = GT.colors.good.copy(alpha = 0.65f),
-                extra = stringResource(R.string.stats_kpi_avg_sub, formatKcal(kcalAverage)),
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            modifier = Modifier.padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            GTKpiCard(
-                label = stringResource(R.string.stats_kpi_gi),
-                value = "—",
-                sub = stringResource(R.string.desktop_only_hint),
-                progress = 0f,
-                progressColor = GT.colors.info.copy(alpha = 0.65f),
-                modifier = Modifier.weight(1f),
-            )
-            GTKpiCard(
-                label = stringResource(R.string.stats_kpi_macro),
-                value = stringResource(R.string.stats_kpi_macro_value, formatGrams(protein)),
-                sub = stringResource(R.string.stats_kpi_week_sub),
-                progress = 0f,
-                progressColor = GT.colors.bad.copy(alpha = 0.55f),
-                extra = stringResource(R.string.stats_kpi_macro_extra, formatGrams(fat), formatGrams(carbs)),
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-private fun DayTotals.healthConnectTdeeKcal(): Int? =
-    tdeeKcal
-        ?.takeIf { activitySource in HealthConnectGoalSources && it > 0.0 }
-        ?.roundToLong()
-        ?.toInt()
-
-private fun progressOf(value: Double, goal: Int): Float =
-    if (goal <= 0) 0f else (value / goal).toFloat().coerceIn(0f, 1f)
-
-private val HealthConnectGoalSources = setOf(
-    "health_connect_total",
-    "health_connect_total_calories",
-    "health_connect_active",
-    "health_connect_steps",
-)
-
-@Composable
-private fun ChartCard(
-    title: String,
-    caption: String,
-    bars: List<ChartBar>,
-    color: Color,
-    negativeColor: Color = color,
-    signed: Boolean = false,
-    valueText: (Double) -> String,
-) {
-    val hasValues = bars.any { it.value != null }
-    Column(
+private fun HairlineSpacer() {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(206.dp)
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(14.dp),
-    ) {
-        GTKicker(text = title)
-        Text(
-            text = caption,
-            modifier = Modifier.padding(top = 6.dp),
-            color = GT.colors.muted,
-            style = GT.type.sansLabel,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (!hasValues) {
-            Text(
-                text = stringResource(R.string.value_empty_label),
-                modifier = Modifier.padding(top = 18.dp),
-                color = GT.colors.muted,
-                style = GT.type.sansBody,
-            )
-        } else {
-            BarChart(
-                bars = bars,
-                color = color,
-                negativeColor = negativeColor,
-                signed = signed,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(top = 12.dp),
-            )
-            ChartLabels(
-                bars = bars,
-                signed = signed,
-                valueText = valueText,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-        }
-    }
+            .height(GT.space.hairline)
+            .background(GT.colors.hairline),
+    )
 }
 
 @Composable
-private fun BarChart(
-    bars: List<ChartBar>,
-    color: Color,
-    negativeColor: Color,
-    signed: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val hairline = GT.colors.hairline2
-    Canvas(modifier = modifier) {
-        val values = bars.mapNotNull { it.value }
-        if (values.isEmpty()) return@Canvas
-        val rawMin = values.minOrNull() ?: return@Canvas
-        val rawMax = values.maxOrNull() ?: return@Canvas
-        var min = if (signed) minOf(0.0, rawMin) else 0.0
-        var max = if (signed) maxOf(0.0, rawMax) else rawMax
-        if (signed && min == 0.0 && max > 0.0) min = -max * 0.18
-        if (signed && max == 0.0 && min < 0.0) max = abs(min) * 0.18
-        if (max <= min) return@Canvas
-
-        fun yFor(value: Double): Float =
-            (size.height - ((value - min) / (max - min) * size.height)).toFloat()
-
-        val gap = 6.dp.toPx()
-        val barWidth = ((size.width - gap * (bars.size - 1)) / bars.size)
-            .coerceAtLeast(1.dp.toPx())
-        val baseline = if (signed) yFor(0.0).coerceIn(0f, size.height) else size.height
-        drawLine(
-            color = hairline,
-            start = Offset(0f, baseline),
-            end = Offset(size.width, baseline),
-            strokeWidth = 1.dp.toPx(),
-        )
-        bars.forEachIndexed { index, bar ->
-            val value = bar.value ?: return@forEachIndexed
-            val valueY = yFor(value).coerceIn(0f, size.height)
-            val top = if (value >= 0.0 || !signed) valueY else baseline
-            val bottom = if (value >= 0.0 || !signed) baseline else valueY
-            val barHeight = abs(bottom - top).coerceAtLeast(1.dp.toPx())
-            drawRect(
-                color = (if (signed && value < 0.0) negativeColor else color).copy(alpha = 0.68f),
-                topLeft = Offset(index * (barWidth + gap), minOf(top, bottom)),
-                size = Size(barWidth, barHeight),
-            )
-        }
-    }
+private fun macroColor(key: String): Color = when (key) {
+    "protein" -> GT.colors.info
+    "fat" -> GT.colors.warn
+    "carbs" -> GT.colors.accent
+    else -> GT.colors.ink2
 }
 
 @Composable
-private fun ChartLabels(
-    bars: List<ChartBar>,
-    signed: Boolean,
-    valueText: (Double) -> String,
-    modifier: Modifier = Modifier,
-) {
-    val empty = stringResource(R.string.value_empty)
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        bars.forEach { bar ->
-            val value = bar.value
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = bar.date.toChartDayLabel(),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = value?.let(valueText) ?: empty,
-                    color = when {
-                        signed && value != null && value < 0.0 -> GT.colors.bad
-                        signed && value != null && value > 0.0 -> GT.colors.warn
-                        else -> GT.colors.ink2
-                    },
-                    style = GT.type.monoLabel,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
+private fun kcalMeta(averageKcal: Double?, spreadKcal: Double?): String? {
+    if (averageKcal == null || spreadKcal == null) return null
+    return stringResource(
+        R.string.stats_kcal_by_day_meta,
+        formatKcal(averageKcal),
+        formatKcal(spreadKcal),
+    )
 }
 
-private data class ChartBar(
-    val date: LocalDate,
-    val value: Double?,
-)
+private fun List<StatsDay>.toOverviewDays(): List<StatsOverviewDay> =
+    map { day ->
+        StatsOverviewDay(
+            date = day.date,
+            kcal = day.totals?.kcal?.takeIf { day.totals.mealCount > 0 },
+            mealCount = day.totals?.mealCount ?: 0,
+        )
+    }
 
-private fun StatsDay.toChartBar(value: (DayTotals) -> Double?): ChartBar =
-    ChartBar(date = date, value = totals?.let(value))
+private fun List<StatsOverviewDay>.averageKcal(): Double? {
+    val values = mapNotNull { day -> day.kcal?.takeIf { day.mealCount > 0 } }
+    return values.takeIf { it.isNotEmpty() }?.average()
+}
 
-private fun LocalDate.toHeroDate(): String =
-    toJavaLocalDate().format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+@Composable
+private fun List<StatsDay>.toMacroRows(): List<StatsOverviewMacro> {
+    val totals = mapNotNull { it.totals }.filter { it.mealCount > 0 }
+    if (totals.isEmpty()) {
+        return listOf(
+            StatsOverviewMacro("protein", stringResource(R.string.today_kpi_protein), null, null, null),
+            StatsOverviewMacro("fat", stringResource(R.string.today_kpi_fat), null, null, null),
+            StatsOverviewMacro("carbs", stringResource(R.string.today_kpi_carbs), null, null, null),
+        )
+    }
+    val divisor = totals.size
+    val protein = totals.sumOf(DayTotals::proteinG) / divisor
+    val fat = totals.sumOf(DayTotals::fatG) / divisor
+    val carbs = totals.sumOf(DayTotals::carbsG) / divisor
+    val proteinKcal = protein * 4
+    val fatKcal = fat * 9
+    val carbsKcal = carbs * 4
+    val total = max(1.0, proteinKcal + fatKcal + carbsKcal)
+    return listOf(
+        StatsOverviewMacro(
+            "protein",
+            stringResource(R.string.today_kpi_protein),
+            protein,
+            proteinKcal / total,
+            null,
+        ),
+        StatsOverviewMacro("fat", stringResource(R.string.today_kpi_fat), fat, fatKcal / total, null),
+        StatsOverviewMacro(
+            "carbs",
+            stringResource(R.string.today_kpi_carbs),
+            carbs,
+            carbsKcal / total,
+            null,
+        ),
+    )
+}
 
-private fun LocalDate.toChartDayLabel(): String =
-    toJavaLocalDate().format(DateTimeFormatter.ofPattern("EE", Locale("ru")))
+private fun List<StatsInsight>.displayNutritionInsights(): List<StatsInsight> {
+    val blockedKinds = setOf(
+        "consistent",
+        "weekday_pattern_sweet",
+        "meal_predictability",
+        "evening_lows",
+        "hypo_recovery_pattern",
+        "late_meal_glucose_footprint",
+    )
+    return filterNot { it.kind in blockedKinds }
+        .distinctBy { it.text.trim().lowercase(Locale.ROOT) }
+        .take(3)
+}
+
+private fun List<StatsOverviewHourlyBucket>.peaks(): List<StatsOverviewHourlyBucket> =
+    filter { it.mealCount > 0 }
+        .sortedWith(compareByDescending<StatsOverviewHourlyBucket> { it.mealCount }.thenBy { it.hour })
+        .take(4)
+        .sortedBy { it.hour }
+
+private fun Int.roleLabelRes(): Int = when (this) {
+    in 5..10 -> R.string.stats_hour_breakfast
+    in 11..16 -> R.string.stats_hour_lunch
+    in 17..21 -> R.string.stats_hour_dinner
+    else -> R.string.stats_hour_tail
+}
+
+private fun LocalDate.isWeekend(): Boolean {
+    val day = toJavaLocalDate().dayOfWeek
+    return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY
+}
+
+private fun LocalDate.isMonday(): Boolean =
+    toJavaLocalDate().dayOfWeek == DayOfWeek.MONDAY
+
+private fun LocalDate.toAnomalyDate(): String =
+    toJavaLocalDate().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
 
 private fun Instant.toStatsCacheStamp(): String =
     DateTimeFormatter.ofPattern("d MMM HH:mm", Locale("ru"))
@@ -895,9 +1029,16 @@ private fun StatsPeriod.kickerRes(): Int = when (this) {
     StatsPeriod.Month -> R.string.stats_period_kicker_month
 }
 
-private fun StatsPeriod.toPeriodKicker(days: List<StatsDay>, label: String): String {
-    val first = days.firstOrNull()?.date ?: return ""
-    val last = days.lastOrNull()?.date ?: first
-    val month = last.toJavaLocalDate().format(DateTimeFormatter.ofPattern("MMMM", Locale("ru")))
-    return "$label · ${first.dayOfMonth}-${last.dayOfMonth} ${month.uppercase(Locale("ru"))}"
+@Composable
+private fun Double?.formatNullableKcal(): String =
+    this?.let { formatKcal(it) } ?: stringResource(R.string.value_empty)
+
+@Composable
+private fun Double?.formatNullableGrams(): String =
+    this?.let { formatGrams(it) } ?: stringResource(R.string.value_empty)
+
+private fun Double.formatDeltaKcal(): String {
+    val rounded = roundToLong()
+    val value = formatKcal(abs(rounded))
+    return if (rounded >= 0) "+$value" else "−$value"
 }
