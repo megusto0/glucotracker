@@ -116,14 +116,15 @@ class OutboxWorker(
             val mealApi = MealApi(MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig))
             val telemetryClient = PhotoEstimateTelemetryClient(baseUrl, httpClient)
             val telemetryFlusher = PhotoEstimateTelemetryFlusher(photoLogDao, telemetryClient)
+            val baseRemote = KtorOutboxRemote(
+                mealsApi = MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
+                photosApi = PhotosApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
+                photoUploadClient = PhotoUploadClient(baseUrl, httpClient),
+            )
             val processor = OutboxProcessorImpl(
                 queueStore = RoomOutboxQueueStore(database, outboxDao),
                 outboxRepository = repository,
-                remote = KtorOutboxRemote(
-                    mealsApi = MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
-                    photosApi = PhotosApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig),
-                    photoUploadClient = PhotoUploadClient(baseUrl, httpClient),
-                ),
+                remote = createOutboxRemote(baseRemote, baseUrl, authRepository),
                 notifier = notifier,
                 reconciler = reconciler,
                 mealApi = mealApi,
@@ -154,6 +155,31 @@ class OutboxWorker(
 
     private fun isActiveNetworkMetered(): Boolean =
         applicationContext.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered
+
+    private fun createOutboxRemote(
+        baseRemote: KtorOutboxRemote,
+        baseUrl: String,
+        authRepository: AuthRepository,
+    ): OutboxRemote {
+        val factoryClass = try {
+            Class.forName("com.local.glucotracker.data.sync.FlavorOutboxRemoteFactory")
+        } catch (_: ClassNotFoundException) {
+            return baseRemote
+        }
+
+        return runCatching {
+            val method = factoryClass.getMethod(
+                "create",
+                KtorOutboxRemote::class.java,
+                String::class.java,
+                AuthRepository::class.java,
+            )
+            method.invoke(null, baseRemote, baseUrl, authRepository) as OutboxRemote
+        }.getOrElse { throwable ->
+            Log.w(Tag, "Flavor outbox remote factory failed; using base outbox remote.", throwable)
+            baseRemote
+        }
+    }
 
     companion object {
         const val InputForegroundPhotoUpload = "foreground_photo_upload"
