@@ -1,6 +1,7 @@
 package com.local.glucotracker.data.sync
 
 import com.local.glucotracker.data.api.PhotoUploadClient
+import com.local.glucotracker.data.api.PhotoCaptureResponse
 import com.local.glucotracker.domain.model.MealItemPayload
 import com.local.glucotracker.domain.model.MealPatchPayload
 import com.local.glucotracker.domain.model.OutboxKind
@@ -34,7 +35,7 @@ interface OutboxRemote {
     suspend fun deleteMeal(kind: OutboxKind.DeleteMeal): String
     suspend fun patchMealItem(kind: OutboxKind.PatchMealItem): String
     suspend fun copyMealItemWeight(kind: OutboxKind.CopyMealItemWeight): String
-    suspend fun captureMeal(kind: OutboxKind.CapturedMeal): String
+    suspend fun captureMeal(kind: OutboxKind.CapturedMeal): PhotoCaptureResponse
     suspend fun processFlavorKind(kind: OutboxKind): String
 }
 
@@ -91,16 +92,15 @@ class KtorOutboxRemote @Inject constructor(
         return meal.id.toString()
     }
 
-    override suspend fun captureMeal(kind: OutboxKind.CapturedMeal): String {
+    override suspend fun captureMeal(kind: OutboxKind.CapturedMeal): PhotoCaptureResponse {
         val path = kind.localPhotoPath ?: throw IOException("Captured meal has no local photo")
-        val capture = photoUploadClient.createMealFromPhoto(
+        return photoUploadClient.createMealFromPhoto(
             localPhotoPath = path,
             capturedAt = kind.capturedAt,
             source = kind.source,
             idempotencyKey = kind.captureIdempotencyKey(),
             context = kind.optimisticName,
         )
-        return capture.mealId
     }
 
     override suspend fun processFlavorKind(kind: OutboxKind): String {

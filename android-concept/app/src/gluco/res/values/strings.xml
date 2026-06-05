@@ -50,6 +50,12 @@
     <string name="record_glucose_at">около %1$s</string>
     <string name="stack_glucose_meta_value">около %1$s →</string>
     <string name="stack_meta_insulin">инсулин</string>
+    <string name="fab_option_insulin">ИНСУЛИН</string>
+    <string name="insulin_entry_title">Инсулин</string>
+    <string name="insulin_entry_label">ЕД</string>
+    <string name="insulin_entry_submit">Записать</string>
+    <string name="insulin_entry_cancel">Отмена</string>
+    <string name="insulin_entry_placeholder">0,0</string>
     <string name="insulin_units_short">ЕД</string>
     <string name="insulin_correction">коррекция</string>
     <string name="insulin_source_nightscout">Nightscout</string>

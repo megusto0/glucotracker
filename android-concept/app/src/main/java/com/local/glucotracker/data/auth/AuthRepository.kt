@@ -68,7 +68,6 @@ class AuthRepository @Inject constructor(
                 )
                 if (!response.success) {
                     if (tokenStore.hasFreshReplacementFor(session)) return@runCatching
-                    tokenStore.clear()
                     throw AuthException("Refresh failed.")
                 }
 
@@ -97,10 +96,6 @@ class AuthRepository @Inject constructor(
                 )
             }
         }
-
-    suspend fun clearLocalSession() {
-        tokenStore.clear()
-    }
 
     private companion object {
         val RefreshMutex = Mutex()

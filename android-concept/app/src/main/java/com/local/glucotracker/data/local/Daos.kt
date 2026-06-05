@@ -156,6 +156,21 @@ interface OutboxDao {
 }
 
 @Dao
+interface PhotoEstimateLogDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(event: PhotoEstimateLogEntity)
+
+    @Query("SELECT * FROM photo_estimate_logs WHERE sentAt IS NULL ORDER BY eventAt ASC LIMIT :limit")
+    suspend fun pending(limit: Int): List<PhotoEstimateLogEntity>
+
+    @Query("UPDATE photo_estimate_logs SET sentAt = :sentAt WHERE id IN (:ids)")
+    suspend fun markSent(ids: List<String>, sentAt: Instant)
+
+    @Query("DELETE FROM photo_estimate_logs WHERE sentAt IS NOT NULL AND sentAt <= :before")
+    suspend fun deleteSentBefore(before: Instant)
+}
+
+@Dao
 abstract class CachedMealDao {
     @Query("SELECT * FROM cached_meals WHERE eatenAtDay = :day ORDER BY eatenAt DESC")
     abstract fun observeForDay(day: LocalDate): Flow<List<CachedMealEntity>>
@@ -423,13 +438,15 @@ abstract class CachedTemplateDao {
         CachedTemplateEntity::class,
         CachedTemplateFtsEntity::class,
         OutboxEntity::class,
+        PhotoEstimateLogEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)
 abstract class GlucotrackerDatabase : RoomDatabase() {
     abstract fun outboxDao(): OutboxDao
+    abstract fun photoEstimateLogDao(): PhotoEstimateLogDao
     abstract fun cachedMealDao(): CachedMealDao
     abstract fun cachedDayTotalsDao(): CachedDayTotalsDao
     abstract fun cachedProductDao(): CachedProductDao

@@ -171,6 +171,9 @@ private fun NutritionStatsCharts(
     val averageKcal = overview?.averageKcal ?: fallbackDays.averageKcal()
     val spreadKcal = overview?.spreadKcal
     val insights = state.insights.displayNutritionInsights()
+    val hourly = overview?.hourly ?: state.localHourly
+    val topProducts = overview?.topProducts ?: state.localTopProducts
+    val anomalies = overview?.anomalies ?: state.localAnomalies
 
     LazyColumn(
         modifier = modifier
@@ -243,7 +246,7 @@ private fun NutritionStatsCharts(
                 contentDescription = stringResource(R.string.stats_time_histogram_description),
             ) {
                 HourlyDensity(
-                    buckets = overview?.hourly.orEmpty(),
+                    buckets = hourly,
                     accent = accent,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,7 +260,7 @@ private fun NutritionStatsCharts(
                 meta = stringResource(R.string.stats_top_products_meta, state.period.days),
                 contentDescription = stringResource(R.string.stats_top_products_title),
             ) {
-                TopProductsList(products = overview?.topProducts.orEmpty())
+                TopProductsList(products = topProducts)
             }
         }
         item {
@@ -266,7 +269,7 @@ private fun NutritionStatsCharts(
                 meta = stringResource(R.string.stats_anomalies_meta),
                 contentDescription = stringResource(R.string.stats_anomalies_title),
             ) {
-                AnomalyList(anomalies = overview?.anomalies.orEmpty())
+                AnomalyList(anomalies = anomalies)
             }
         }
         item {
@@ -509,34 +512,51 @@ private fun KcalByDayOverviewChart(
             }
         }
         Text(
-            text = stringResource(R.string.stats_kcal_range_label),
             modifier = Modifier
-                .align(Alignment.End)
+                .fillMaxWidth()
                 .padding(top = 2.dp),
-            color = GT.colors.warn,
+            text = stringResource(
+                R.string.stats_kcal_period_label,
+                days.first().date.toStatsShortDate(),
+                days.last().date.toStatsShortDate(),
+            ),
+            color = GT.colors.muted,
             style = GT.type.monoLabel,
             maxLines = 1,
         )
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
+            modifier = Modifier.padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            days.forEach { day ->
-                Text(
-                    text = if (day.date.isMonday() || day.date == today) {
-                        day.date.dayOfMonth.toString()
-                    } else {
-                        ""
-                    },
-                    modifier = Modifier.weight(1f),
-                    color = if (day.date == today) accent else GT.colors.muted,
-                    style = GT.type.monoLabel,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
-            }
+            KcalLegendItem(color = graphite, label = stringResource(R.string.stats_kcal_legend_weekday))
+            KcalLegendItem(color = weekend, label = stringResource(R.string.stats_kcal_legend_weekend))
+            KcalLegendItem(color = accent, label = stringResource(R.string.stats_kcal_legend_today))
+            KcalLegendItem(color = rangeColor, label = stringResource(R.string.stats_kcal_range_label))
         }
+    }
+}
+
+@Composable
+private fun KcalLegendItem(
+    color: Color,
+    label: String,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 10.dp, height = 6.dp)
+                .background(color, GT.shapes.tag),
+        )
+        Text(
+            text = label,
+            color = GT.colors.muted,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+        )
     }
 }
 
@@ -714,16 +734,24 @@ private fun HourlyDensity(
                 Text(text = label, color = GT.colors.muted, style = GT.type.monoLabel)
             }
         }
-        Row(
+        val peaks = normalized.peaks()
+        Column(
             modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            normalized.peaks().forEach { peak ->
+            Text(
+                text = stringResource(R.string.stats_hour_peaks_label),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+            )
+            peaks.forEach { peak ->
                 Text(
                     text = stringResource(
                         R.string.stats_hour_peak,
                         "${peak.hour.toString().padStart(2, '0')}:00",
                         stringResource(peak.hour.roleLabelRes()),
+                        peak.mealCount,
                     ),
                     color = GT.colors.ink2,
                     style = GT.type.monoLabel,
@@ -843,6 +871,7 @@ private fun AnomalyList(anomalies: List<StatsOverviewAnomaly>) {
 @Composable
 private fun AnomalyRow(anomaly: StatsOverviewAnomaly) {
     val up = anomaly.direction == "up"
+    val reason = anomaly.reasonText()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -870,7 +899,7 @@ private fun AnomalyRow(anomaly: StatsOverviewAnomaly) {
                 maxLines = 1,
             )
             Text(
-                text = anomaly.reason,
+                text = reason,
                 modifier = Modifier.padding(top = 1.dp),
                 color = GT.colors.muted,
                 style = GT.type.monoLabel,
@@ -894,6 +923,16 @@ private fun AnomalyRow(anomaly: StatsOverviewAnomaly) {
         }
     }
 }
+
+@Composable
+private fun StatsOverviewAnomaly.reasonText(): String =
+    when (reason) {
+        LOCAL_REASON_MORE_MEALS -> stringResource(R.string.stats_anomaly_reason_more_meals)
+        LOCAL_REASON_LESS_MEALS -> stringResource(R.string.stats_anomaly_reason_less_meals)
+        LOCAL_REASON_NO_MORNING -> stringResource(R.string.stats_anomaly_reason_no_morning)
+        LOCAL_REASON_RHYTHM -> stringResource(R.string.stats_anomaly_reason_rhythm)
+        else -> reason
+    }
 
 @Composable
 private fun HairlineSpacer() {
@@ -1011,6 +1050,9 @@ private fun LocalDate.isMonday(): Boolean =
 
 private fun LocalDate.toAnomalyDate(): String =
     toJavaLocalDate().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
+
+private fun LocalDate.toStatsShortDate(): String =
+    toJavaLocalDate().format(DateTimeFormatter.ofPattern("d MMM", Locale("ru")))
 
 private fun Instant.toStatsCacheStamp(): String =
     DateTimeFormatter.ofPattern("d MMM HH:mm", Locale("ru"))

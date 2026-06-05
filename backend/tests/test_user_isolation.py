@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -48,6 +48,7 @@ from glucotracker.infra.db.models import (
     UserProfile,
 )
 from glucotracker.infra.db.session import GlucotrackerSession
+from glucotracker.infra.nightscout.client import get_nightscout_client
 from glucotracker.infra.security import hash_password, issue_access_token
 from glucotracker.main import app
 
@@ -1367,6 +1368,54 @@ class TestMutationIsolation:
         s = sf()
         reading = s.get(FingerstickReading, reading_id)
         assert str(reading.owner_id) == str(self.bob)
+        s.close()
+
+    def test_create_nightscout_insulin_ownership(self):
+        class FakeNightscoutClient:
+            configured = True
+
+            async def post_insulin_treatment(
+                self,
+                *,
+                insulin_units: float,
+                recorded_at: datetime,
+                idempotency_key: str | None = None,
+            ) -> dict:
+                return {"_id": f"ns-{idempotency_key}"}
+
+            async def find_insulin_treatment(
+                self,
+                *,
+                insulin_units: float,
+                recorded_at: datetime,
+                idempotency_key: str | None = None,
+            ) -> dict | None:
+                return None
+
+        app.dependency_overrides[get_nightscout_client] = FakeNightscoutClient
+        try:
+            r = self.client.post(
+                "/nightscout/insulin",
+                json={
+                    "recorded_at": "2026-04-01T10:00:00Z",
+                    "insulin_units": 1.5,
+                    "idempotency_key": "bob-manual-insulin",
+                },
+                headers=self.bob_headers,
+            )
+        finally:
+            app.dependency_overrides.pop(get_nightscout_client, None)
+
+        assert r.status_code == 200
+        sf = self.env["session_factory"]
+        s = sf()
+        row = s.scalar(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.nightscout_id == "ns-bob-manual-insulin"
+            )
+        )
+        assert row is not None
+        assert str(row.owner_id) == str(self.bob)
         s.close()
 
     def test_create_sensor_ownership(self):

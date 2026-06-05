@@ -117,6 +117,34 @@ def _meal_treatment_payload(meal: Meal) -> dict[str, Any]:
     }
 
 
+def _manual_insulin_treatment_payload(
+    *,
+    insulin_units: float,
+    recorded_at: datetime,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Build a neutral Nightscout insulin treatment from a user-entered number."""
+    identifier = (
+        f"glucotracker:manual-insulin:{idempotency_key}"
+        if idempotency_key
+        else f"glucotracker:manual-insulin:{_nightscout_mills(recorded_at)}:{insulin_units:g}"
+    )
+    payload: dict[str, Any] = {
+        "eventType": "Insulin",
+        "created_at": _nightscout_created_at(recorded_at),
+        "date": _nightscout_mills(recorded_at),
+        "utcOffset": _nightscout_utc_offset_minutes(recorded_at),
+        "insulin": insulin_units,
+        "enteredBy": "glucotracker",
+        "notes": "glucotracker manual insulin entry",
+        "identifier": identifier,
+        "source": "glucotracker",
+    }
+    if idempotency_key:
+        payload["glucotracker_insulin_entry_id"] = idempotency_key
+    return payload
+
+
 def _date_query(from_datetime: datetime, to_datetime: datetime) -> dict[str, str]:
     """Return Nightscout range query params using ISO dateString bounds."""
     return {
@@ -243,6 +271,49 @@ class NightscoutClient:
             json_payload=_meal_treatment_payload(meal),
         )
 
+    async def post_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Post a neutral insulin treatment from a user-entered amount."""
+        return await self._request(
+            "POST",
+            "/api/v1/treatments",
+            json_payload=_manual_insulin_treatment_payload(
+                insulin_units=insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+            ),
+        )
+
+    async def find_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Find a just-posted manual insulin treatment when POST omits id."""
+        payload = _manual_insulin_treatment_payload(
+            insulin_units=insulin_units,
+            recorded_at=recorded_at,
+            idempotency_key=idempotency_key,
+        )
+        event_time = _meal_datetime(recorded_at)
+        from_datetime = event_time - timedelta(minutes=10)
+        to_datetime = event_time + timedelta(minutes=10)
+        for attempt in range(3):
+            treatments = await self.fetch_treatments(from_datetime, to_datetime)
+            matched = _matching_insulin_treatment(treatments, payload)
+            if matched is not None:
+                return matched
+            if attempt < 2:
+                await asyncio.sleep(0.25)
+        return None
+
     async def find_meal_treatment(self, meal: Meal) -> dict[str, Any] | None:
         """Find a just-posted meal treatment when Nightscout omits id in POST."""
         payload = _meal_treatment_payload(meal)
@@ -356,6 +427,26 @@ def _matching_meal_treatment(
     return None
 
 
+def _matching_insulin_treatment(
+    treatments: list[dict[str, Any]],
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    identifier = str(payload.get("identifier") or "")
+    for treatment in treatments:
+        if str(treatment.get("identifier") or "") == identifier:
+            return treatment
+        if str(treatment.get("glucotracker_insulin_entry_id") or "") == str(
+            payload.get("glucotracker_insulin_entry_id") or ""
+        ) and payload.get("glucotracker_insulin_entry_id"):
+            return treatment
+
+    for treatment in treatments:
+        if not _same_insulin_treatment_shape(treatment, payload):
+            continue
+        return treatment
+    return None
+
+
 def _same_treatment_shape(
     treatment: dict[str, Any],
     payload: dict[str, Any],
@@ -368,6 +459,25 @@ def _same_treatment_shape(
     if str(treatment.get("source") or "") not in {"", payload["source"]}:
         return False
     if not _numbers_close(treatment.get("carbs"), payload["carbs"]):
+        return False
+
+    same_created_at = treatment.get("created_at") == payload["created_at"]
+    same_date = _numbers_close(treatment.get("date"), payload["date"])
+    same_notes = treatment.get("notes") == payload["notes"]
+    return bool(same_notes and (same_created_at or same_date))
+
+
+def _same_insulin_treatment_shape(
+    treatment: dict[str, Any],
+    payload: dict[str, Any],
+) -> bool:
+    if str(treatment.get("eventType") or "") != payload["eventType"]:
+        return False
+    if str(treatment.get("enteredBy") or "") != payload["enteredBy"]:
+        return False
+    if str(treatment.get("source") or "") not in {"", payload["source"]}:
+        return False
+    if not _numbers_close(treatment.get("insulin"), payload["insulin"]):
         return False
 
     same_created_at = treatment.get("created_at") == payload["created_at"]

@@ -2143,7 +2143,7 @@
             "type": "string"
           },
           "glucose_mode_label": {
-            "default": "\u0438\u0441\u0445\u043e\u0434\u043d\u0430\u044f CGM",
+            "default": "исходная CGM",
             "title": "Glucose Mode Label",
             "type": "string"
           },
@@ -2621,7 +2621,7 @@
         "description": "Optional local context to include in a photo estimation request.",
         "examples": [
           {
-            "context_note": "100 \u0433 \u0432\u0430\u0440\u0451\u043d\u043e\u0433\u043e \u0440\u0438\u0441\u0430 \u043d\u0430 \u0442\u0430\u0440\u0435\u043b\u043a\u0435",
+            "context_note": "100 г варёного риса на тарелке",
             "model": "default",
             "scenario_hint": "PLATED",
             "use_patterns": [],
@@ -5662,6 +5662,310 @@
         "title": "MealTotalsResponse",
         "type": "object"
       },
+      "MobilePhotoEstimateLogEvent": {
+        "description": "One Android-side photo estimation pipeline diagnostic event.",
+        "properties": {
+          "android_sdk": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Android Sdk"
+          },
+          "app_flavor": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Flavor"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "attempt": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt"
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "device_model": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Model"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "estimate_status": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Status"
+          },
+          "event_at": {
+            "format": "date-time",
+            "title": "Event At",
+            "type": "string"
+          },
+          "event_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Event Type",
+            "type": "string"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "maximum": 599.0,
+                "minimum": 100.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "outbox_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outbox Id"
+          },
+          "queued_delay_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued Delay Ms"
+          },
+          "retry_delay_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Delay Ms"
+          },
+          "server_meal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Meal Id"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "total_elapsed_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Elapsed Ms"
+          },
+          "trace_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "upload_duration_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Duration Ms"
+          }
+        },
+        "required": [
+          "event_id",
+          "trace_id",
+          "event_type",
+          "event_at"
+        ],
+        "title": "MobilePhotoEstimateLogEvent",
+        "type": "object"
+      },
+      "MobilePhotoEstimateLogRequest": {
+        "description": "Batch of mobile photo-estimation diagnostic events.",
+        "properties": {
+          "client_sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Sent At"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MobilePhotoEstimateLogEvent"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "MobilePhotoEstimateLogRequest",
+        "type": "object"
+      },
+      "MobilePhotoEstimateLogResponse": {
+        "description": "Server-side log ingest acknowledgement.",
+        "properties": {
+          "accepted_count": {
+            "title": "Accepted Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted_count"
+        ],
+        "title": "MobilePhotoEstimateLogResponse",
+        "type": "object"
+      },
       "NightscoutDayStatusResponse": {
         "description": "Nightscout sync status for one diary day.",
         "properties": {
@@ -5872,6 +6176,47 @@
           "insulin_total"
         ],
         "title": "NightscoutImportResponse",
+        "type": "object"
+      },
+      "NightscoutInsulinEntryCreate": {
+        "description": "Manual insulin amount to write as a Nightscout treatment.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "insulin_units": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Insulin Units",
+            "type": "number"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          }
+        },
+        "required": [
+          "insulin_units"
+        ],
+        "title": "NightscoutInsulinEntryCreate",
         "type": "object"
       },
       "NightscoutInsulinEventResponse": {
@@ -6680,8 +7025,8 @@
         "examples": [
           {
             "aliases": [
-              "\u0432\u043e\u043f\u043f\u0435\u0440",
-              "\u0432\u043e\u043f\u0435\u0440",
+              "воппер",
+              "вопер",
               "whopper"
             ],
             "default_carbs_g": 51,
@@ -6700,7 +7045,7 @@
           "aliases": {
             "examples": [
               [
-                "\u0432\u043e\u043f\u043f\u0435\u0440"
+                "воппер"
               ]
             ],
             "items": {
@@ -9136,7 +9481,7 @@
           "aliases": {
             "examples": [
               [
-                "\u0441\u044b\u0440\u043e\u043a"
+                "сырок"
               ]
             ],
             "items": {
@@ -15774,6 +16119,71 @@
         "x-glucotracker-scoped": true
       }
     },
+    "/mobile/photo-estimate-logs": {
+      "post": {
+        "description": "Append Android photo-estimation diagnostics to a server JSONL log file.",
+        "operationId": "submitMobilePhotoEstimateLogs",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobilePhotoEstimateLogRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobilePhotoEstimateLogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Submit Mobile Photo Estimate Logs",
+        "tags": [
+          "mobile"
+        ]
+      }
+    },
     "/nightscout/day_status": {
       "get": {
         "description": "Return Nightscout manual-sync counters for a selected day.",
@@ -16144,6 +16554,72 @@
           }
         ],
         "summary": "Get Nightscout Insulin",
+        "tags": [
+          "nightscout"
+        ],
+        "x-glucotracker-required-feature": "nightscout",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      },
+      "post": {
+        "description": "Write a user-entered insulin amount to Nightscout.",
+        "operationId": "createNightscoutInsulin",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NightscoutInsulinEntryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutInsulinEventResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Create Nightscout Insulin",
         "tags": [
           "nightscout"
         ],

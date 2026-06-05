@@ -885,6 +885,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mobile/photo-estimate-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Mobile Photo Estimate Logs
+         * @description Append Android photo-estimation diagnostics to a server JSONL log file.
+         */
+        post: operations["submitMobilePhotoEstimateLogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nightscout/day_status": {
         parameters: {
             query?: never;
@@ -978,7 +998,11 @@ export interface paths {
          */
         get: operations["getNightscoutInsulin"];
         put?: never;
-        post?: never;
+        /**
+         * Create Nightscout Insulin
+         * @description Write a user-entered insulin amount to Nightscout.
+         */
+        post: operations["createNightscoutInsulin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4056,6 +4080,81 @@ export interface components {
             total_protein_g: number;
         };
         /**
+         * MobilePhotoEstimateLogEvent
+         * @description One Android-side photo estimation pipeline diagnostic event.
+         */
+        MobilePhotoEstimateLogEvent: {
+            /** Android Sdk */
+            android_sdk?: number | null;
+            /** App Flavor */
+            app_flavor?: string | null;
+            /** App Version */
+            app_version?: string | null;
+            /** Attempt */
+            attempt?: number | null;
+            /** Captured At */
+            captured_at?: string | null;
+            /** Detail */
+            detail?: {
+                [key: string]: unknown;
+            };
+            /** Device Model */
+            device_model?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Estimate Status */
+            estimate_status?: string | null;
+            /**
+             * Event At
+             * Format: date-time
+             */
+            event_at: string;
+            /** Event Id */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Http Status */
+            http_status?: number | null;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+            /** Outbox Id */
+            outbox_id?: string | null;
+            /** Queued Delay Ms */
+            queued_delay_ms?: number | null;
+            /** Retry Delay Ms */
+            retry_delay_ms?: number | null;
+            /** Server Meal Id */
+            server_meal_id?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Total Elapsed Ms */
+            total_elapsed_ms?: number | null;
+            /** Trace Id */
+            trace_id: string;
+            /** Upload Duration Ms */
+            upload_duration_ms?: number | null;
+        };
+        /**
+         * MobilePhotoEstimateLogRequest
+         * @description Batch of mobile photo-estimation diagnostic events.
+         */
+        MobilePhotoEstimateLogRequest: {
+            /** Client Sent At */
+            client_sent_at?: string | null;
+            /** Events */
+            events: components["schemas"]["MobilePhotoEstimateLogEvent"][];
+        };
+        /**
+         * MobilePhotoEstimateLogResponse
+         * @description Server-side log ingest acknowledgement.
+         */
+        MobilePhotoEstimateLogResponse: {
+            /** Accepted Count */
+            accepted_count: number;
+        };
+        /**
          * NightscoutDayStatusResponse
          * @description Nightscout sync status for one diary day.
          */
@@ -4163,6 +4262,18 @@ export interface components {
              * Format: date-time
              */
             to_datetime: string;
+        };
+        /**
+         * NightscoutInsulinEntryCreate
+         * @description Manual insulin amount to write as a Nightscout treatment.
+         */
+        NightscoutInsulinEntryCreate: {
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+            /** Insulin Units */
+            insulin_units: number;
+            /** Recorded At */
+            recorded_at?: string | null;
         };
         /**
          * NightscoutInsulinEventResponse
@@ -8187,6 +8298,41 @@ export interface operations {
             };
         };
     };
+    submitMobilePhotoEstimateLogs: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobilePhotoEstimateLogRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobilePhotoEstimateLogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getNightscoutDayStatus: {
         parameters: {
             query: {
@@ -8344,6 +8490,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NightscoutInsulinEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createNightscoutInsulin: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NightscoutInsulinEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NightscoutInsulinEventResponse"];
                 };
             };
             /** @description Validation Error */

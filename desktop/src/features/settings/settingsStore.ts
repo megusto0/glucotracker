@@ -51,14 +51,14 @@ export const useSettingsStore = create<SettingsState>()(
           token: "",
         }),
       clearUiSettings: () =>
-        set({
-          accessExpiresAt: null,
+        set((state) => ({
+          accessExpiresAt: state.accessExpiresAt,
           baseUrl: defaultBackendUrl,
-          currentUser: null,
-          refreshExpiresAt: null,
-          refreshToken: "",
-          token: "",
-        }),
+          currentUser: state.currentUser,
+          refreshExpiresAt: state.refreshExpiresAt,
+          refreshToken: state.refreshToken,
+          token: state.token,
+        })),
       setAuthSession: (tokens, user) =>
         set({
           accessExpiresAt: tokens.access_expires_at,

@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
-import { apiClient } from "../api/client";
+import { ApiError, apiClient, setAuthSessionManager } from "../api/client";
+import { defaultBackendUrl, useSettingsStore } from "../features/settings/settingsStore";
 import { server } from "./msw";
 
 test("API client attaches bearer token", async () => {
@@ -119,4 +120,75 @@ test("API client sends endocrinologist report glucose mode", async () => {
   );
 
   expect(glucoseMode).toBe("normalized");
+});
+
+test("API client does not clear auth session when refresh fails", async () => {
+  const currentUser = {
+    id: "user-1",
+    username: "admin",
+    role: "gluco" as const,
+    created_at: "2026-06-03T00:00:00Z",
+    last_login_at: null,
+    features: ["glucose"],
+    feature_flags: {},
+  };
+  useSettingsStore.setState({
+    accessExpiresAt: "2026-06-03T00:00:00Z",
+    baseUrl: "http://api.test",
+    currentUser,
+    refreshExpiresAt: "2026-07-03T00:00:00Z",
+    refreshToken: "refresh-token",
+    token: "stale-token",
+  });
+
+  server.use(
+    http.get("http://api.test/meals", () =>
+      HttpResponse.json({ detail: "expired" }, { status: 401 }),
+    ),
+  );
+
+  setAuthSessionManager({
+    refreshAccessToken: async () => null,
+  });
+
+  try {
+    await expect(
+      apiClient.listMeals(
+        { baseUrl: "http://api.test", token: "stale-token" },
+        { limit: 20 },
+      ),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(useSettingsStore.getState().token).toBe("stale-token");
+    expect(useSettingsStore.getState().refreshToken).toBe("refresh-token");
+    expect(useSettingsStore.getState().currentUser).toEqual(currentUser);
+  } finally {
+    setAuthSessionManager(null);
+  }
+});
+
+test("clearing UI settings keeps the auth session", () => {
+  const currentUser = {
+    id: "user-1",
+    username: "admin",
+    role: "gluco" as const,
+    created_at: "2026-06-03T00:00:00Z",
+    last_login_at: null,
+    features: ["glucose"],
+    feature_flags: {},
+  };
+  useSettingsStore.setState({
+    accessExpiresAt: "2026-06-03T00:00:00Z",
+    baseUrl: "http://api.test",
+    currentUser,
+    refreshExpiresAt: "2026-07-03T00:00:00Z",
+    refreshToken: "refresh-token",
+    token: "access-token",
+  });
+
+  useSettingsStore.getState().clearUiSettings();
+
+  expect(useSettingsStore.getState().baseUrl).toBe(defaultBackendUrl);
+  expect(useSettingsStore.getState().token).toBe("access-token");
+  expect(useSettingsStore.getState().refreshToken).toBe("refresh-token");
+  expect(useSettingsStore.getState().currentUser).toEqual(currentUser);
 });

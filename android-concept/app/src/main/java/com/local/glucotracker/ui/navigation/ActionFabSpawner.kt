@@ -49,6 +49,8 @@ fun ActionFabSpawner(
     onCameraTap: () -> Unit,
     onGalleryTap: () -> Unit,
     modifier: Modifier = Modifier,
+    extraActionLabel: String? = null,
+    onExtraActionTap: (() -> Unit)? = null,
 ) {
     val scrimAlpha by animateFloatAsState(
         targetValue = if (isOpen) 0.42f else 0f,
@@ -58,6 +60,7 @@ fun ActionFabSpawner(
     if (scrimAlpha <= 0.01f && !isOpen) return
 
     Box(modifier = modifier.fillMaxSize()) {
+        val hasExtraAction = extraActionLabel != null && onExtraActionTap != null
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -68,33 +71,45 @@ fun ActionFabSpawner(
                     onClick = onDismiss,
                 ),
         )
+        if (hasExtraAction) {
+            OptionCircle(
+                kind = ActionOptionKind.Number,
+                label = extraActionLabel.orEmpty(),
+                offsetX = (-96).dp,
+                offsetY = (-86).dp,
+                isVisible = isOpen,
+                openDelayMillis = 30,
+                closeDelayMillis = 180,
+                onClick = { onExtraActionTap?.invoke() },
+            )
+        }
         OptionCircle(
             kind = ActionOptionKind.Pen,
             label = stringResource(R.string.fab_option_manual),
-            offsetX = (-60).dp,
-            offsetY = (-90).dp,
+            offsetX = if (hasExtraAction) (-34).dp else (-60).dp,
+            offsetY = if (hasExtraAction) (-122).dp else (-90).dp,
             isVisible = isOpen,
-            openDelayMillis = 40,
-            closeDelayMillis = 160,
+            openDelayMillis = if (hasExtraAction) 80 else 40,
+            closeDelayMillis = if (hasExtraAction) 120 else 160,
             onClick = onPenTap,
         )
         OptionCircle(
             kind = ActionOptionKind.Camera,
             label = stringResource(R.string.fab_option_photo),
-            offsetX = 0.dp,
-            offsetY = (-120).dp,
+            offsetX = if (hasExtraAction) 34.dp else 0.dp,
+            offsetY = if (hasExtraAction) (-122).dp else (-120).dp,
             isVisible = isOpen,
-            openDelayMillis = 100,
-            closeDelayMillis = 80,
+            openDelayMillis = if (hasExtraAction) 130 else 100,
+            closeDelayMillis = if (hasExtraAction) 70 else 80,
             onClick = onCameraTap,
         )
         OptionCircle(
             kind = ActionOptionKind.Gallery,
             label = stringResource(R.string.fab_option_gallery),
-            offsetX = 60.dp,
-            offsetY = (-90).dp,
+            offsetX = if (hasExtraAction) 96.dp else 60.dp,
+            offsetY = if (hasExtraAction) (-86).dp else (-90).dp,
             isVisible = isOpen,
-            openDelayMillis = 160,
+            openDelayMillis = if (hasExtraAction) 180 else 160,
             closeDelayMillis = 0,
             onClick = onGalleryTap,
         )
@@ -227,6 +242,7 @@ private fun BoxScope.OptionCircle(
 }
 
 private enum class ActionOptionKind {
+    Number,
     Pen,
     Camera,
     Gallery,
@@ -238,6 +254,7 @@ private fun OptionGlyph(kind: ActionOptionKind) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
         when (kind) {
+            ActionOptionKind.Number -> Unit
             ActionOptionKind.Pen -> {
                 drawLine(color, Offset(6.dp.toPx(), 18.dp.toPx()), Offset(17.dp.toPx(), 7.dp.toPx()), stroke.width, StrokeCap.Round)
                 drawLine(color, Offset(15.dp.toPx(), 5.dp.toPx()), Offset(19.dp.toPx(), 9.dp.toPx()), stroke.width, StrokeCap.Round)
@@ -268,6 +285,14 @@ private fun OptionGlyph(kind: ActionOptionKind) {
                 drawCircle(color, 1.4.dp.toPx(), Offset(9.dp.toPx(), 9.dp.toPx()))
             }
         }
+    }
+    if (kind == ActionOptionKind.Number) {
+        Text(
+            text = "1.0",
+            color = color,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+        )
     }
 }
 

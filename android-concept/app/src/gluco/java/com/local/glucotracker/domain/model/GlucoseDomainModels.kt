@@ -35,6 +35,14 @@ data class CreateFingerstickOutboxKind(
     val notes: String? = null,
 ) : OutboxKind
 
+@Serializable
+@SerialName("create_nightscout_insulin")
+data class CreateNightscoutInsulinOutboxKind(
+    val recordedAt: Instant,
+    val insulinUnits: Double,
+    val idempotencyKey: String,
+) : OutboxKind
+
 enum class NightscoutConnectionState {
     Unknown,
     Connected,

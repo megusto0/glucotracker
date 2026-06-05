@@ -25,6 +25,10 @@ import com.local.glucotracker.data.auth.installAuthPlugin
 import com.local.glucotracker.data.di.DatabaseModule
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.repository.OutboxRepositoryImpl
+import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryClient
+import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryFlusher
+import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryLogger
+import com.local.glucotracker.data.telemetry.PhotoEstimateVisibilityTracker
 import com.local.glucotracker.generated.api.AuthApi
 import com.local.glucotracker.generated.api.MealsApi
 import com.local.glucotracker.generated.api.PhotosApi
@@ -105,8 +109,13 @@ class OutboxWorker(
 
         return try {
             val outboxDao = database.outboxDao()
+            val photoLogDao = database.photoEstimateLogDao()
             val repository = OutboxRepositoryImpl(database, outboxDao, NoOpOutboxFlushScheduler)
             val reconciler = MealReconciler(outboxDao)
+            val telemetryLogger = PhotoEstimateTelemetryLogger(photoLogDao)
+            val mealApi = MealApi(MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig))
+            val telemetryClient = PhotoEstimateTelemetryClient(baseUrl, httpClient)
+            val telemetryFlusher = PhotoEstimateTelemetryFlusher(photoLogDao, telemetryClient)
             val processor = OutboxProcessorImpl(
                 queueStore = RoomOutboxQueueStore(database, outboxDao),
                 outboxRepository = repository,
@@ -117,12 +126,21 @@ class OutboxWorker(
                 ),
                 notifier = notifier,
                 reconciler = reconciler,
-                mealApi = MealApi(MealsApi(baseUrl = baseUrl, httpClientConfig = authenticatedConfig)),
+                mealApi = mealApi,
+                photoTelemetryLogger = telemetryLogger,
+                photoVisibilityTracker = PhotoEstimateVisibilityTracker(
+                    database = database,
+                    mealDao = database.cachedMealDao(),
+                    mealApi = mealApi,
+                    telemetryLogger = telemetryLogger,
+                    baseUrl = baseUrl,
+                ),
             )
             val result = OutboxWorkerProcessLock.mutex.withLock {
                 processor.processOnce()
             }
-            if (result.shouldRetry) Result.retry() else Result.success()
+            val telemetryResult = telemetryFlusher.flushOnce()
+            if (result.shouldRetry || telemetryResult.shouldRetry) Result.retry() else Result.success()
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: Throwable) {

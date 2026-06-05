@@ -75,8 +75,10 @@ class FakeNightscoutClient:
         self.sensor_event_rows = sensor_event_rows or []
         self.treatment_rows = treatment_rows or []
         self.posted_meals = []
+        self.posted_insulin = []
         self.updated_meals = []
         self.lookup_meals = []
+        self.lookup_insulin = []
         self.deleted_ids = []
 
     async def get_status(self) -> dict[str, Any]:
@@ -100,6 +102,29 @@ class FakeNightscoutClient:
         self.posted_meals.append(meal)
         return {"_id": f"ns-{len(self.posted_meals)}", **self.post_response}
 
+    async def post_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Record and return fake manual insulin treatment creation."""
+        if self.post_errors:
+            error = self.post_errors.pop(0)
+            if error is not None:
+                raise error
+        if self.post_error is not None:
+            raise self.post_error
+        payload = {
+            "eventType": "Insulin",
+            "insulin": insulin_units,
+            "recorded_at": recorded_at,
+            "identifier": f"glucotracker:manual-insulin:{idempotency_key}",
+        }
+        self.posted_insulin.append(payload)
+        return {"_id": f"ns-insulin-{len(self.posted_insulin)}", **self.post_response}
+
     async def delete_treatment(self, nightscout_id: str) -> dict[str, Any]:
         """Record and return fake treatment deletion."""
         if self.delete_error is not None:
@@ -122,6 +147,27 @@ class FakeNightscoutClient:
         meal_id = str(getattr(meal, "id", ""))
         for row in self.treatment_rows:
             if str(row.get("glucotracker_meal_id")) == meal_id:
+                return row
+        return self.treatment_rows[0] if self.treatment_rows else None
+
+    async def find_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Return a matching fake manual insulin treatment row."""
+        self.lookup_insulin.append(
+            {
+                "insulin_units": insulin_units,
+                "recorded_at": recorded_at,
+                "idempotency_key": idempotency_key,
+            }
+        )
+        identifier = f"glucotracker:manual-insulin:{idempotency_key}"
+        for row in self.treatment_rows:
+            if str(row.get("identifier")) == identifier:
                 return row
         return self.treatment_rows[0] if self.treatment_rows else None
 
@@ -714,6 +760,90 @@ def test_nightscout_read_glucose_and_insulin_events(api_client: TestClient) -> N
     assert events.status_code == 200
     assert events.json()["glucose"][0]["value"] == 6.1
     assert events.json()["insulin"][0]["nightscout_id"] == "insulin-1"
+
+
+def test_create_nightscout_insulin_entry_posts_and_caches(
+    api_client: TestClient,
+) -> None:
+    """Manual insulin entry writes one neutral treatment and caches it locally."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-1"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+
+    response = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 2.5,
+            "recorded_at": "2026-04-28T08:10:00Z",
+            "idempotency_key": "manual-insulin-key-1",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insulin_units"] == 2.5
+    assert body["eventType"] == "Insulin"
+    assert body["enteredBy"] == "glucotracker"
+    assert body["nightscout_id"] == "manual-insulin-1"
+    assert fake.posted_insulin
+    assert fake.posted_insulin[0]["insulin"] == 2.5
+    assert fake.posted_insulin[0]["identifier"] == (
+        "glucotracker:manual-insulin:manual-insulin-key-1"
+    )
+
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        row = session.scalar(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.owner_id == owner_id,
+                NightscoutInsulinEvent.source_key
+                == "manual_insulin:manual-insulin-key-1",
+            )
+        )
+        assert row is not None
+        assert row.nightscout_id == "manual-insulin-1"
+        assert row.insulin_units == 2.5
+
+
+def test_create_nightscout_insulin_entry_is_idempotent(
+    api_client: TestClient,
+) -> None:
+    """Retrying the same outbox entry must not create duplicate Nightscout rows."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-2"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    payload = {
+        "insulin_units": 1.25,
+        "recorded_at": "2026-04-28T09:10:00Z",
+        "idempotency_key": "manual-insulin-key-2",
+    }
+
+    first = api_client.post("/nightscout/insulin", json=payload)
+    second = api_client.post("/nightscout/insulin", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["nightscout_id"] == "manual-insulin-2"
+    assert len(fake.posted_insulin) == 1
+
+
+def test_create_nightscout_insulin_entry_rejects_non_positive_units(
+    api_client: TestClient,
+) -> None:
+    """Insulin entries are only literal positive unit amounts."""
+    fake = FakeNightscoutClient()
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+
+    response = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 0,
+            "recorded_at": "2026-04-28T08:10:00Z",
+            "idempotency_key": "manual-insulin-key-3",
+        },
+    )
+
+    assert response.status_code == 422
+    assert fake.posted_insulin == []
 
 
 def test_nightscout_import_preserves_utc_instants(

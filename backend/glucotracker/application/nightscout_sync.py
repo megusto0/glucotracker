@@ -15,6 +15,7 @@ from glucotracker.api.schemas import (
     NightscoutDayStatusResponse,
     NightscoutEventsResponse,
     NightscoutGlucoseEntryResponse,
+    NightscoutInsulinEntryCreate,
     NightscoutInsulinEventResponse,
     NightscoutSettingsPatch,
     NightscoutSettingsResponse,
@@ -27,7 +28,13 @@ from glucotracker.api.schemas import (
 from glucotracker.application.glucose_visibility import is_glucose_timestamp_visible
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus, NightscoutSyncStatus
-from glucotracker.infra.db.models import Meal, MealItem, NightscoutSettings, utc_now
+from glucotracker.infra.db.models import (
+    Meal,
+    MealItem,
+    NightscoutInsulinEvent,
+    NightscoutSettings,
+    utc_now,
+)
 from glucotracker.infra.nightscout.client import (
     NIGHTSCOUT_NOT_CONFIGURED,
     NightscoutClient,
@@ -496,6 +503,79 @@ class NightscoutSyncService:
             insulin=await self.insulin(from_datetime, to_datetime),
         )
 
+    async def create_insulin_entry(
+        self,
+        payload: NightscoutInsulinEntryCreate,
+    ) -> NightscoutInsulinEventResponse:
+        """Write a user-entered insulin amount to Nightscout and cache it locally."""
+        nightscout = self._require_client()
+        recorded_at = _absolute_timestamp(payload.recorded_at)
+        idempotency_key = (
+            payload.idempotency_key.strip() if payload.idempotency_key else None
+        )
+        source_key = _manual_insulin_source_key(
+            recorded_at,
+            payload.insulin_units,
+            idempotency_key,
+        )
+        existing = self.session.scalar(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.owner_id == self.user_id,
+                NightscoutInsulinEvent.source_key == source_key,
+            )
+        )
+        if existing is not None and existing.nightscout_id:
+            return _cached_insulin_response(existing)
+
+        self._release_connection()
+        try:
+            response = await nightscout.post_insulin_treatment(
+                insulin_units=payload.insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+            )
+            response = await self._insulin_response_with_remote_id(
+                nightscout,
+                insulin_units=payload.insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+                response=response,
+            )
+        except Exception as exc:
+            raise self.map_error(exc) from exc
+
+        remote_id = self._nightscout_id(response)
+        if remote_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Nightscout response did not include treatment id.",
+            )
+
+        row = existing or NightscoutInsulinEvent(
+            owner_id=self.user_id,
+            source_key=source_key,
+        )
+        row.nightscout_id = remote_id
+        row.timestamp = recorded_at
+        row.insulin_units = payload.insulin_units
+        row.event_type = "Insulin"
+        row.insulin_type = None
+        row.entered_by = "glucotracker"
+        row.notes = "glucotracker manual insulin entry"
+        row.raw_json = {
+            "request": {
+                "insulin_units": payload.insulin_units,
+                "recorded_at": recorded_at.isoformat(),
+                "idempotency_key": idempotency_key,
+            },
+            "response": response,
+        }
+        row.fetched_at = utc_now()
+        row.updated_at = utc_now()
+        self.session.add(row)
+        self.session.commit()
+        return _cached_insulin_response(row)
+
     def _get_meal(self, meal_id: UUID) -> Meal:
         meal = self.session.get(
             Meal,
@@ -593,6 +673,37 @@ class NightscoutSyncService:
             return response
         try:
             matched = await nightscout.find_meal_treatment(meal)
+        except Exception:
+            return response
+        if not isinstance(matched, dict):
+            return response
+        remote_id = self._nightscout_id(matched)
+        if remote_id is None:
+            return response
+        enriched = dict(response)
+        enriched["_id"] = remote_id
+        enriched["matched_treatment"] = matched
+        return enriched
+
+    async def _insulin_response_with_remote_id(
+        self,
+        nightscout: NightscoutClient,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None,
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        if self._nightscout_id(response) is not None:
+            return response
+        if not hasattr(nightscout, "find_insulin_treatment"):
+            return response
+        try:
+            matched = await nightscout.find_insulin_treatment(
+                insulin_units=insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+            )
         except Exception:
             return response
         if not isinstance(matched, dict):
@@ -728,6 +839,38 @@ def _detail_to_text(detail: Any) -> str:
         message = detail.get("message")
         return str(message if message is not None else detail)
     return str(detail)
+
+
+def _absolute_timestamp(value: datetime | None) -> datetime:
+    if value is None:
+        return utc_now()
+    if value.tzinfo is None:
+        return value.replace(tzinfo=get_settings().local_zoneinfo).astimezone(UTC)
+    return value.astimezone(UTC)
+
+
+def _manual_insulin_source_key(
+    recorded_at: datetime,
+    insulin_units: float,
+    idempotency_key: str | None,
+) -> str:
+    if idempotency_key:
+        return f"manual_insulin:{idempotency_key}"
+    return f"manual_insulin:{recorded_at.isoformat()}:{insulin_units:g}"
+
+
+def _cached_insulin_response(
+    row: NightscoutInsulinEvent,
+) -> NightscoutInsulinEventResponse:
+    return NightscoutInsulinEventResponse(
+        timestamp=row.timestamp,
+        insulin_units=row.insulin_units,
+        eventType=row.event_type,
+        insulin_type=row.insulin_type,
+        enteredBy=row.entered_by,
+        notes=row.notes,
+        nightscout_id=row.nightscout_id,
+    )
 
 
 def _status_server_name(payload: dict[str, Any]) -> str | None:

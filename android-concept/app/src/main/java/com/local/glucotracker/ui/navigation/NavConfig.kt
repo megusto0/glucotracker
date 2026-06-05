@@ -10,6 +10,8 @@ import com.local.glucotracker.R
 interface NavConfig {
     val tabs: List<TabSpec>
     val captureSheetEntries: List<CaptureEntrySpec>
+    val captureFabExtraAction: CaptureFabExtraActionSpec?
+        get() = null
     val brand: BrandSpec?
 }
 
@@ -29,6 +31,11 @@ data class CaptureEntrySpec(
     val kind: CaptureEntryKind,
     @StringRes val title: Int,
     @StringRes val subtitle: Int,
+)
+
+data class CaptureFabExtraActionSpec(
+    @StringRes val label: Int,
+    val route: String,
 )
 
 enum class NavIcon {

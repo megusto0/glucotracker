@@ -21,6 +21,7 @@ import com.local.glucotracker.domain.repository.NightscoutRepository
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.ui.feature.glucose.GlucoseRoute
+import com.local.glucotracker.ui.feature.insulin.InsulinEntryRoute
 import com.local.glucotracker.ui.glucose.GlucoseSurfaces
 import com.local.glucotracker.ui.glucose.GlucoseSurfacesReal
 import dagger.Module
@@ -33,6 +34,7 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val GlucoseRoutePath = "glucose"
+private const val QuickNumberRoutePath = "quick_number"
 
 object GlucoNavConfig : NavConfig {
     override val tabs = listOf(
@@ -42,6 +44,10 @@ object GlucoNavConfig : NavConfig {
         TabSpec(Route.More.route, R.string.nav_more, NavIcon.More),
     )
     override val captureSheetEntries = DefaultCaptureSheetEntries
+    override val captureFabExtraAction = CaptureFabExtraActionSpec(
+        label = R.string.fab_option_insulin,
+        route = QuickNumberRoutePath,
+    )
     override val brand: BrandSpec? = null
 }
 
@@ -49,6 +55,9 @@ class GlucoFlavorNavGraph : FlavorNavGraph {
     override fun NavGraphBuilder.registerFlavorRoutes(navController: NavHostController) {
         composable(GlucoseRoutePath) {
             GlucoseRoute()
+        }
+        composable(QuickNumberRoutePath) {
+            InsulinEntryRoute(onClose = { navController.popBackStack() })
         }
     }
 }

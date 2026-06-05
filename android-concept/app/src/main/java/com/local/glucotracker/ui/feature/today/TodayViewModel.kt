@@ -153,6 +153,7 @@ class TodayViewModel @Inject constructor(
 
     private val softObservation = refreshTick.flatMapLatest {
         flow {
+            emit(null)
             val text = runCatching {
                 statsRepository.getInsights(StatsPeriod.Fortnight, slot = "today")
                     .firstOrNull()
@@ -164,6 +165,7 @@ class TodayViewModel @Inject constructor(
 
     private val nonTypicalPeriods = refreshTick.flatMapLatest {
         flow {
+            emit(emptyList())
             emit(
                 runCatching {
                     scheduleApi.getSchedule().nonTypicalPeriods.orEmpty()
@@ -334,17 +336,13 @@ private fun toTodayState(
     val effectiveGoals = goals.withHealthConnectKcalGoal(totals)
 
     if (day == null && rows.isEmpty()) {
-        return if (cachedDay.isRefreshing) {
-            TodayState.Loading
-        } else {
-            TodayState.Empty(
-                date = date,
-                syncStatus = visibleSyncStatus,
-                isRefreshing = cachedDay.isRefreshing,
-                canGoNext = date < currentLocalDate(),
-                softObservation = softObservation,
-            )
-        }
+        return TodayState.Empty(
+            date = date,
+            syncStatus = visibleSyncStatus,
+            isRefreshing = cachedDay.isRefreshing,
+            canGoNext = date < currentLocalDate(),
+            softObservation = softObservation,
+        )
     }
 
     return TodayState.Day(

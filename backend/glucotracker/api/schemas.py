@@ -1243,6 +1243,14 @@ class NightscoutInsulinEventResponse(BaseModel):
     nightscout_id: str | None = None
 
 
+class NightscoutInsulinEntryCreate(BaseModel):
+    """Manual insulin amount to write as a Nightscout treatment."""
+
+    insulin_units: float = Field(gt=0, le=100)
+    recorded_at: datetime | None = None
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class NightscoutEventsResponse(BaseModel):
     """Combined read-only Nightscout context events."""
 

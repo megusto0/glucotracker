@@ -159,7 +159,6 @@ export function App() {
         ) {
           return latest.token.trim();
         }
-        useSettingsStore.getState().clearAuthSession();
         return null;
       }
     };
@@ -172,7 +171,6 @@ export function App() {
     });
 
     setAuthSessionManager({
-      clearAuthSession: () => useSettingsStore.getState().clearAuthSession(),
       refreshAccessToken: async () => {
         if (!refreshAccessTokenPromise) {
           refreshAccessTokenPromise = refreshAccessTokenOnce().finally(() => {

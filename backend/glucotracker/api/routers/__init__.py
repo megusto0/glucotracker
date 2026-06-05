@@ -9,6 +9,7 @@ from glucotracker.api.routers.database import router as database_router
 from glucotracker.api.routers.glucose import router as glucose_router
 from glucotracker.api.routers.goals import router as goals_router
 from glucotracker.api.routers.meals import router as meals_router
+from glucotracker.api.routers.mobile_logs import router as mobile_logs_router
 from glucotracker.api.routers.nightscout import router as nightscout_router
 from glucotracker.api.routers.nutrients import router as nutrients_router
 from glucotracker.api.routers.patterns import router as patterns_router
@@ -29,6 +30,7 @@ __all__ = [
     "glucose_router",
     "goals_router",
     "meals_router",
+    "mobile_logs_router",
     "nightscout_router",
     "nutrients_router",
     "patterns_router",

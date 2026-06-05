@@ -38,7 +38,11 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   useSettingsStore.setState({
+    accessExpiresAt: null,
     baseUrl: "http://127.0.0.1:8000",
+    currentUser: null,
+    refreshExpiresAt: null,
+    refreshToken: "",
     token: "",
   });
   window.history.pushState({}, "", "/");

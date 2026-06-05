@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.data.local.PhotoStorage
 import com.local.glucotracker.data.repository.BrandPrefix
 import com.local.glucotracker.data.settings.SettingsStore
+import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryLogger
 import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.MealItemPayload
 import com.local.glucotracker.domain.model.OutboxKind
@@ -33,6 +34,7 @@ class CaptureViewModel @Inject constructor(
     private val productsRepository: ProductsRepository,
     private val photoStorage: PhotoStorage,
     private val settingsStore: SettingsStore,
+    private val photoTelemetryLogger: PhotoEstimateTelemetryLogger,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     val composeSheetOpenCount = settingsStore.composeSheetOpenCount
@@ -52,6 +54,9 @@ class CaptureViewModel @Inject constructor(
                     idempotencyKey = UUID.randomUUID().toString(),
                 ),
             )
+            (item.kind as? OutboxKind.CapturedMeal)?.let { kind ->
+                photoTelemetryLogger.captureQueued(item.id, kind)
+            }
             onQueued(item.id)
         }
     }
@@ -73,6 +78,9 @@ class CaptureViewModel @Inject constructor(
                     idempotencyKey = UUID.randomUUID().toString(),
                 ),
             )
+            (item.kind as? OutboxKind.CapturedMeal)?.let { kind ->
+                photoTelemetryLogger.captureQueued(item.id, kind)
+            }
             onQueued(item.id)
         }
     }

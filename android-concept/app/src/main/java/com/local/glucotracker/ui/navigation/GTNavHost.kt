@@ -263,6 +263,7 @@ fun MainScaffold(
             }
         }
         if (!fullScreenDetail) {
+            val extraFabAction = navConfig.captureFabExtraAction
             ActionFabSpawner(
                 isOpen = actionOptionsOpen,
                 openAccentColor = navConfig.brand?.activeIndicatorColor ?: GT.colors.accent,
@@ -283,6 +284,13 @@ fun MainScaffold(
                     galleryLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
+                },
+                extraActionLabel = extraFabAction?.let { stringResource(it.label) },
+                onExtraActionTap = extraFabAction?.let { action ->
+                    {
+                        actionOptionsOpen = false
+                        navController.navigate(action.route)
+                    }
                 },
             )
         }

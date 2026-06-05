@@ -190,3 +190,33 @@ data class OutboxEntity(
     val linkedMealId: String? = null,
     val reconciledAt: Instant? = null,
 )
+
+@Entity(
+    tableName = "photo_estimate_logs",
+    indices = [
+        Index(value = ["sentAt"]),
+        Index(value = ["traceId"]),
+    ],
+)
+data class PhotoEstimateLogEntity(
+    @PrimaryKey val id: String,
+    val traceId: String,
+    val outboxId: String?,
+    val idempotencyKey: String?,
+    val source: String?,
+    val eventType: String,
+    val eventAt: Instant,
+    val capturedAt: Instant?,
+    val serverMealId: String?,
+    val estimateStatus: String?,
+    val attempt: Int?,
+    val totalElapsedMs: Long?,
+    val queuedDelayMs: Long?,
+    val uploadDurationMs: Long?,
+    val retryDelayMs: Long?,
+    val httpStatus: Int?,
+    val errorCode: String?,
+    val errorMessage: String?,
+    val detailJson: String?,
+    val sentAt: Instant?,
+)

@@ -1,6 +1,7 @@
 package com.local.glucotracker.data.sync
 
 import com.local.glucotracker.data.api.OpenApiJson
+import com.local.glucotracker.data.api.PhotoCaptureResponse
 import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.MealPatchPayload
 import com.local.glucotracker.domain.model.OutboxItem
@@ -29,7 +30,7 @@ class OutboxProcessorTest {
         )
         val repository = FakeOutboxRepository(items)
         val remote = FakeOutboxRemote()
-        val processor = OutboxProcessorImpl(FakeQueueStore(repository), repository, remote, FakeSyncNotifier, TODO("stub"), TODO("stub"))
+        val processor = OutboxProcessorImpl(FakeQueueStore(repository), repository, remote, FakeSyncNotifier, TODO("stub"), TODO("stub"), TODO("stub"), TODO("stub"))
 
         processor.processOnce()
 
@@ -68,6 +69,8 @@ class OutboxProcessorTest {
             FakeSyncNotifier,
             TODO("stub"),
             TODO("stub"),
+            TODO("stub"),
+            TODO("stub"),
         )
 
         processor.processOnce()
@@ -92,7 +95,7 @@ class OutboxProcessorTest {
         val estimateItem = outboxItem("photo", decoded)
         val repository = FakeOutboxRepository(listOf(estimateItem))
         val remote = FakeOutboxRemote()
-        val processor = OutboxProcessorImpl(FakeQueueStore(repository), repository, remote, FakeSyncNotifier, TODO("stub"), TODO("stub"))
+        val processor = OutboxProcessorImpl(FakeQueueStore(repository), repository, remote, FakeSyncNotifier, TODO("stub"), TODO("stub"), TODO("stub"), TODO("stub"))
 
         processor.processOnce()
 
@@ -116,6 +119,8 @@ class OutboxProcessorTest {
             repository,
             FakeOutboxRemote(failPhotoEstimate = true),
             FakeSyncNotifier,
+            TODO("stub"),
+            TODO("stub"),
             TODO("stub"),
             TODO("stub"),
         )
@@ -146,6 +151,8 @@ class OutboxProcessorTest {
             repository,
             FakeOutboxRemote(cancelPhotoEstimate = true),
             FakeSyncNotifier,
+            TODO("stub"),
+            TODO("stub"),
             TODO("stub"),
             TODO("stub"),
         )
@@ -329,11 +336,16 @@ private class FakeOutboxRemote(
         return kind.mealId
     }
 
-    override suspend fun captureMeal(kind: OutboxKind.CapturedMeal): String {
+    override suspend fun captureMeal(kind: OutboxKind.CapturedMeal): PhotoCaptureResponse {
         if (failPhotoEstimate) throw java.io.IOException("offline")
         if (cancelPhotoEstimate) throw kotlinx.coroutines.CancellationException("cancelled")
         photoCapturedAt = kind.capturedAt
-        return "server-photo"
+        return PhotoCaptureResponse(
+            mealId = "server-photo",
+            estimateStatus = "estimating",
+            capturedAt = kind.capturedAt,
+            photoUrl = "/photos/server-photo/file",
+        )
     }
 
     override suspend fun processFlavorKind(kind: OutboxKind): String {

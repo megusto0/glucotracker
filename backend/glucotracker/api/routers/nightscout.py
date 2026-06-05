@@ -19,6 +19,7 @@ from glucotracker.api.schemas import (
     NightscoutGlucoseEntryResponse,
     NightscoutImportRequest,
     NightscoutImportResponse,
+    NightscoutInsulinEntryCreate,
     NightscoutInsulinEventResponse,
     NightscoutLatestReadingResponse,
     NightscoutSettingsPatch,
@@ -227,6 +228,26 @@ async def get_nightscout_insulin(
         from_datetime,
         to_datetime,
     )
+
+
+@router.post(
+    "/nightscout/insulin",
+    response_model=NightscoutInsulinEventResponse,
+    operation_id="createNightscoutInsulin",
+    dependencies=[Depends(require_feature("nightscout"))],
+)
+async def create_nightscout_insulin(
+    payload: NightscoutInsulinEntryCreate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    client: NightscoutDep,
+) -> NightscoutInsulinEventResponse:
+    """Write a user-entered insulin amount to Nightscout."""
+    return await NightscoutSyncService(
+        session,
+        current_user.id,
+        client,
+    ).create_insulin_entry(payload)
 
 
 @router.get(

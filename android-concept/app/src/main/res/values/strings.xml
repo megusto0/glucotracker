@@ -178,6 +178,10 @@
     <string name="stats_kcal_by_day_title">ККАЛ ПО ДНЯМ</string>
     <string name="stats_kcal_by_day_meta">средн. %1$s · разброс ±%2$s</string>
     <string name="stats_kcal_range_label">обычный диапазон</string>
+    <string name="stats_kcal_period_label">с %1$s по %2$s</string>
+    <string name="stats_kcal_legend_weekday">будни</string>
+    <string name="stats_kcal_legend_weekend">выходные</string>
+    <string name="stats_kcal_legend_today">сегодня</string>
     <string name="stats_kcal_by_day_description">Калории по дням, в среднем %1$s ккал.</string>
     <string name="stats_macro_stack_title">БЖУ В СРЕДНЕМ ЗА ДЕНЬ</string>
     <string name="stats_macro_stack_description">Доля белков, жиров и углеводов за период.</string>
@@ -185,7 +189,8 @@
     <string name="stats_time_histogram_title">КОГДА ЕШЬ</string>
     <string name="stats_time_histogram_meta">плотность по часам · %1$d дней</string>
     <string name="stats_time_histogram_description">Распределение записей по времени дня.</string>
-    <string name="stats_hour_peak">%1$s · %2$s</string>
+    <string name="stats_hour_peaks_label">оранжевые точки — самые частые часы</string>
+    <string name="stats_hour_peak">%1$s · %2$s · %3$d раз</string>
     <string name="stats_hour_breakfast">завтрак</string>
     <string name="stats_hour_lunch">обед</string>
     <string name="stats_hour_dinner">ужин</string>
@@ -197,6 +202,10 @@
     <string name="stats_anomalies_title">ИСКЛЮЧЕНИЯ</string>
     <string name="stats_anomalies_meta">сильно отличаются от ритма</string>
     <string name="stats_anomalies_empty">Выраженных отклонений нет.</string>
+    <string name="stats_anomaly_reason_more_meals">больше приёмов</string>
+    <string name="stats_anomaly_reason_less_meals">меньше приёмов</string>
+    <string name="stats_anomaly_reason_no_morning">без утреннего приёма</string>
+    <string name="stats_anomaly_reason_rhythm">отличается от ритма</string>
     <string name="stats_date_with_suffix">%1$s г.</string>
     <string name="stats_surplus">Баланс +%1$s ккал за завершённые дни</string>
     <string name="stats_deficit">Дефицит %1$s ккал за завершённые дни</string>

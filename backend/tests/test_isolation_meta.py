@@ -71,6 +71,7 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "GET /nightscout/day_status",
     "GET /nightscout/glucose",
     "GET /nightscout/insulin",
+    "POST /nightscout/insulin",
     "GET /nightscout/events",
     "GET /nightscout/latest-reading",
     "POST /nightscout/import",

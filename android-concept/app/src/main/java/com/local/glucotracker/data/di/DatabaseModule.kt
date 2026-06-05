@@ -11,6 +11,7 @@ import com.local.glucotracker.data.local.CachedProductDao
 import com.local.glucotracker.data.local.CachedTemplateDao
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.local.OutboxDao
+import com.local.glucotracker.data.local.PhotoEstimateLogDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,11 +48,16 @@ object DatabaseModule {
             Migration10To11,
             Migration11To12,
             Migration12To13,
+            Migration13To14,
         ).build()
 
     @Provides
     fun provideOutboxDao(database: GlucotrackerDatabase): OutboxDao =
         database.outboxDao()
+
+    @Provides
+    fun providePhotoEstimateLogDao(database: GlucotrackerDatabase): PhotoEstimateLogDao =
+        database.photoEstimateLogDao()
 
     @Provides
     fun provideCachedMealDao(database: GlucotrackerDatabase): CachedMealDao =
@@ -155,6 +161,39 @@ object DatabaseModule {
     private val Migration12To13 = object : Migration(12, 13) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE cached_day_totals ADD COLUMN activitySource TEXT")
+        }
+    }
+
+    private val Migration13To14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS photo_estimate_logs (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    traceId TEXT NOT NULL,
+                    outboxId TEXT,
+                    idempotencyKey TEXT,
+                    source TEXT,
+                    eventType TEXT NOT NULL,
+                    eventAt INTEGER NOT NULL,
+                    capturedAt INTEGER,
+                    serverMealId TEXT,
+                    estimateStatus TEXT,
+                    attempt INTEGER,
+                    totalElapsedMs INTEGER,
+                    queuedDelayMs INTEGER,
+                    uploadDurationMs INTEGER,
+                    retryDelayMs INTEGER,
+                    httpStatus INTEGER,
+                    errorCode TEXT,
+                    errorMessage TEXT,
+                    detailJson TEXT,
+                    sentAt INTEGER
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_photo_estimate_logs_sentAt ON photo_estimate_logs(sentAt)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_photo_estimate_logs_traceId ON photo_estimate_logs(traceId)")
         }
     }
 

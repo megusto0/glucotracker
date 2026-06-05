@@ -41,6 +41,24 @@ class FeatureGateNightscoutClient:
     ) -> list[dict[str, Any]]:
         return []
 
+    async def post_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"_id": f"ns-{idempotency_key or 'manual-insulin'}"}
+
+    async def find_insulin_treatment(
+        self,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        return None
+
 
 def _create_user(api_client: TestClient, role: UserRole) -> UUID:
     session_factory = api_client.app_state["session_factory"]
@@ -189,6 +207,17 @@ NIGHTSCOUT_FORBIDDEN_REQUESTS = [
         },
     ),
     (
+        "POST",
+        "/nightscout/insulin",
+        {
+            "json": {
+                "insulin_units": 1.0,
+                "recorded_at": "2026-04-28T08:00:00",
+                "idempotency_key": "feature-gate-insulin",
+            }
+        },
+    ),
+    (
         "GET",
         "/nightscout/events",
         {
@@ -314,6 +343,17 @@ def test_gluco_user_can_read_feature_endpoints(api_client: TestClient) -> None:
                     "params": {
                         "from": "2026-04-28T08:00:00",
                         "to": "2026-04-28T10:00:00",
+                    }
+                },
+            ),
+            (
+                "POST",
+                "/nightscout/insulin",
+                {
+                    "json": {
+                        "insulin_units": 1.0,
+                        "recorded_at": "2026-04-28T08:00:00",
+                        "idempotency_key": "feature-gate-insulin",
                     }
                 },
             ),

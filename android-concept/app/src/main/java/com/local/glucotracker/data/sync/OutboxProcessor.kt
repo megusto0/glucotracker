@@ -6,6 +6,9 @@ import com.local.glucotracker.data.error.ErrorTranslator
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.local.OutboxDao
 import com.local.glucotracker.data.mapper.toDomain
+import com.local.glucotracker.data.telemetry.PhotoEstimateFailedException
+import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryLogger
+import com.local.glucotracker.data.telemetry.PhotoEstimateVisibilityTracker
 import com.local.glucotracker.data.sync.MealReconciler
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
@@ -36,6 +39,8 @@ class OutboxProcessorImpl @Inject constructor(
     private val notifier: SyncNotifier,
     private val reconciler: MealReconciler,
     private val mealApi: MealApi,
+    private val photoTelemetryLogger: PhotoEstimateTelemetryLogger,
+    private val photoVisibilityTracker: PhotoEstimateVisibilityTracker,
     private val errorTranslator: ErrorTranslator = ErrorTranslator(),
 ) : OutboxProcessor {
     override suspend fun processOnce(): OutboxProcessResult {
@@ -67,6 +72,18 @@ class OutboxProcessorImpl @Inject constructor(
             outboxRepository.markConfirmed(item.id, alreadySynced.serverId)
         } catch (conflict: OutboxConflictException) {
             markStuck(item, errorTranslator.translate(OutboxHttpException(409, "Conflict")))
+        } catch (estimateFailed: PhotoEstimateFailedException) {
+            (item.kind as? OutboxKind.CapturedMeal)?.let { kind ->
+                photoTelemetryLogger.estimateFailed(
+                    item = item,
+                    kind = kind,
+                    serverMealId = estimateFailed.serverMealId,
+                    estimateStatus = estimateFailed.estimateStatus,
+                    errorCode = "estimate_failed",
+                    errorMessage = estimateFailed.message,
+                )
+            }
+            markStuck(item, errorTranslator.translate(estimateFailed))
         } catch (http: OutboxHttpException) {
             val userError = errorTranslator.translate(http)
             if (http.status in 400..499) {
@@ -76,6 +93,7 @@ class OutboxProcessorImpl @Inject constructor(
                 return ItemProcessResult.TransientFailure
             }
         } catch (throwable: Throwable) {
+            photoTelemetryLogger.workerError(item, throwable)
             handleTransientFailure(item, errorTranslator.translate(throwable))
             return ItemProcessResult.TransientFailure
         }
@@ -90,13 +108,37 @@ class OutboxProcessorImpl @Inject constructor(
         if (key != null) {
             val existing = runCatching { mealApi.getByIdempotencyKey(key) }.getOrNull()
             if (existing != null) {
+                val visible = photoVisibilityTracker.waitUntilVisible(
+                    item = item,
+                    kind = kind,
+                    serverMealId = existing.id.toString(),
+                )
+                photoTelemetryLogger.estimateVisible(item, kind, visible)
                 reconciler.reconcileByKey(key, existing.id.toString())
                 outboxRepository.markConfirmed(item.id, existing.id.toString())
                 return
             }
         }
+        val attempt = item.attempts + 1
+        photoTelemetryLogger.uploadStarted(item, kind, attempt)
         outboxRepository.markUploading(item.id)
-        val serverId = remote.captureMeal(kind)
+        val uploadStartedAt = Clock.System.now()
+        val capture = remote.captureMeal(kind)
+        photoTelemetryLogger.uploadAccepted(
+            item = item,
+            kind = kind,
+            serverMealId = capture.mealId,
+            estimateStatus = capture.estimateStatus,
+            attempt = attempt,
+            uploadStartedAt = uploadStartedAt,
+        )
+        val visible = photoVisibilityTracker.waitUntilVisible(
+            item = item,
+            kind = kind,
+            serverMealId = capture.mealId,
+        )
+        photoTelemetryLogger.estimateVisible(item, kind, visible)
+        val serverId = capture.mealId
         outboxRepository.markConfirmed(item.id, serverId)
     }
 
@@ -131,9 +173,16 @@ class OutboxProcessorImpl @Inject constructor(
             markStuck(item, userError)
             return
         }
+        val nextAttemptAt = Clock.System.now() + backoffFor(attemptsAfterThisRun)
+        photoTelemetryLogger.retryScheduled(
+            item = item,
+            errorCode = userError.code,
+            errorMessage = userError.message,
+            nextAttemptAt = nextAttemptAt,
+        )
         queueStore.requeue(
             id = item.id,
-            nextAttemptAt = Clock.System.now() + backoffFor(attemptsAfterThisRun),
+            nextAttemptAt = nextAttemptAt,
             errorCode = userError.code,
             errorMessage = userError.message,
         )
@@ -143,6 +192,7 @@ class OutboxProcessorImpl @Inject constructor(
         item: OutboxItem,
         userError: com.local.glucotracker.domain.model.UserError,
     ) {
+        photoTelemetryLogger.stuck(item, userError.code, userError.message)
         outboxRepository.markStuck(item.id, userError.code, userError.message)
         notifier.notifyOutboxStuck()
     }

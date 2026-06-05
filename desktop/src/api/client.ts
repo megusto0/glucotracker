@@ -316,7 +316,6 @@ let _connectionManagerNotify: {
 
 let _authSessionManager: {
   refreshAccessToken: () => Promise<string | null>;
-  clearAuthSession: () => void;
 } | null = null;
 
 export function setConnectionNotifier(notifier: {
@@ -328,7 +327,6 @@ export function setConnectionNotifier(notifier: {
 
 export function setAuthSessionManager(manager: {
   refreshAccessToken: () => Promise<string | null>;
-  clearAuthSession: () => void;
 } | null) {
   _authSessionManager = manager;
 }
@@ -400,7 +398,6 @@ export async function apiRequest<T>(
         }
         return result;
       }
-      _authSessionManager.clearAuthSession();
     }
 
     if (_connectionManagerNotify && path !== "/health") {
@@ -453,7 +450,6 @@ async function apiBlobRequest(
       if (refreshedToken) {
         return apiBlobRequest(path, config, options, refreshedToken);
       }
-      _authSessionManager.clearAuthSession();
     }
 
     if (!response.ok) {
