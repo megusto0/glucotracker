@@ -54,7 +54,7 @@ from glucotracker.application.photo_estimation import (
     PhotoEstimationDependencies,
     PhotoEstimationService,
 )
-from glucotracker.application.time import local_wall_time
+from glucotracker.application.time import local_wall_time, utc_instant_from_local_wall
 from glucotracker.domain.entities import (
     ItemSourceKind,
     MealSource,
@@ -1347,7 +1347,7 @@ def _photo_capture_response(meal: Meal) -> PhotoCaptureResponse:
     return PhotoCaptureResponse(
         meal_id=meal.id,
         estimate_status=status_value,
-        captured_at=meal.eaten_at,
+        captured_at=utc_instant_from_local_wall(meal.eaten_at),
         photo_url=f"/photos/{photo.id}/file",
     )
 
@@ -1524,7 +1524,7 @@ def create_meal_from_photo(
     return PhotoCaptureResponse(
         meal_id=meal.id,
         estimate_status="estimating",
-        captured_at=meal.eaten_at,
+        captured_at=utc_instant_from_local_wall(meal.eaten_at),
         photo_url=f"/photos/{photo_row.id}/file",
     )
 

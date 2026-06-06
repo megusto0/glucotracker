@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
+from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db.models import User
 from glucotracker.infra.security import hash_password, issue_access_token
@@ -69,6 +71,39 @@ def test_create_meal_from_photo_is_idempotent_per_user(
     )
     assert third.status_code == 202
     assert third.json()["meal_id"] != first_body["meal_id"]
+
+
+def test_create_meal_from_photo_returns_captured_at_as_utc_instant(
+    api_client: TestClient,
+    monkeypatch,
+) -> None:
+    """Mobile clients parse photo capture timestamps as instants."""
+    from glucotracker.api.routers import photos as photos_router
+
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        photos_router,
+        "_run_single_call_photo_estimate",
+        lambda *_args, **_kwargs: None,
+    )
+
+    response = api_client.post(
+        "/meals/from-photo",
+        data={
+            "captured_at": "2026-05-10T03:17:13Z",
+            "source": "camera",
+            "idempotency_key": "12121212-1212-1212-1212-121212121212",
+        },
+        files={"photo": ("meal.jpg", b"fake jpeg", "image/jpeg")},
+    )
+
+    assert response.status_code == 202
+    captured_at = datetime.fromisoformat(
+        response.json()["captured_at"].replace("Z", "+00:00")
+    )
+    assert captured_at.utcoffset() == timedelta(0)
+    assert captured_at.isoformat() == "2026-05-10T03:17:13+00:00"
 
 
 def test_list_meals_by_idempotency_key(
