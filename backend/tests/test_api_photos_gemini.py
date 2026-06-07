@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from glucotracker.infra.db.models import AIRun, DailyTotal, MealItem
+from glucotracker.infra.db.models import AIRun, DailyTotal, Meal, MealItem
 from glucotracker.infra.gemini.client import (
     GeminiClientError,
     PhotoInput,
@@ -747,6 +747,87 @@ def test_multi_photo_estimate_keeps_per_item_photo_identity(
         assert daily is not None
         assert daily.meal_count == 2
         assert daily.carbs_g == pytest.approx(34)
+
+
+def test_estimate_and_save_draft_is_idempotent_for_repeated_save(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """Repeated save requests update the same accepted rows instead of duplicating."""
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"])
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Sweet roll",
+                    display_name_ru="Рулет с маком",
+                    scenario="PLATED",
+                    grams_mid=100,
+                    carbs_g_mid=45,
+                    protein_g_mid=7,
+                    fat_g_mid=9,
+                    kcal_mid=300,
+                    confidence=0.74,
+                    confidence_reason="Visible pastry.",
+                    assumptions=["Вес оценён визуально."],
+                    evidence=["Виден рулет."],
+                ),
+                EstimatedItem(
+                    name="Coffee with milk",
+                    display_name_ru="Кофе с молоком",
+                    scenario="PLATED",
+                    grams_mid=250,
+                    carbs_g_mid=8,
+                    protein_g_mid=5,
+                    fat_g_mid=4,
+                    kcal_mid=90,
+                    confidence=0.7,
+                    confidence_reason="Visible drink.",
+                    assumptions=["Молоко оценено визуально."],
+                    evidence=["Видна чашка кофе."],
+                ),
+            ],
+            overall_notes="Two items detected.",
+        )
+    )
+
+    first = api_client.post(
+        f"/meals/{meal['id']}/estimate_and_save_draft",
+        json={},
+    )
+    second = api_client.post(
+        f"/meals/{meal['id']}/estimate_and_save_draft",
+        json={},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_draft_ids = [row["meal_id"] for row in first.json()["created_drafts"]]
+    second_draft_ids = [row["meal_id"] for row in second.json()["created_drafts"]]
+    assert second_draft_ids == first_draft_ids
+
+    meals = api_client.get("/meals").json()["items"]
+    accepted_rows = [row for row in meals if row["status"] == "accepted"]
+    assert len(accepted_rows) == 2
+    assert {row["title"] for row in accepted_rows} == {
+        "Рулет с маком",
+        "Кофе с молоком",
+    }
+
+    with Session(db_engine) as session:
+        item_count = session.scalar(select(func.count(MealItem.id)))
+        saved_meal = session.get(Meal, UUID(meal["id"]))
+        daily = session.scalar(
+            select(DailyTotal).where(DailyTotal.date == date(2026, 4, 28))
+        )
+
+    assert item_count == 2
+    assert saved_meal is not None
+    assert saved_meal.estimate_status == "succeeded"
+    assert saved_meal.estimate_error is None
+    assert daily is not None
+    assert daily.meal_count == 2
 
 
 def test_multi_photo_single_unrelated_item_returns_warning(

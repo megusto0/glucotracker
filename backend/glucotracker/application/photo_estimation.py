@@ -109,7 +109,8 @@ class PhotoEstimationService:
         except GeminiClientError as exc:
             ai_summary = deps.ai_run_summary(self.gemini_client)
             logger.warning(
-                "Photo estimate failed meal_id=%s user_id=%s requested_model=%s used_model=%s error=%s",
+                "Photo estimate failed meal_id=%s user_id=%s "
+                "requested_model=%s used_model=%s error=%s",
                 meal.id,
                 self.user_id,
                 ai_summary["model_requested"],

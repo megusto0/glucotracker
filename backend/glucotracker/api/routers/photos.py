@@ -71,6 +71,7 @@ from glucotracker.domain.nutrition import calculate_meal_totals
 from glucotracker.infra.db.models import (
     AIRun,
     Meal,
+    MealAuditEvent,
     MealItem,
     Pattern,
     Photo,
@@ -874,6 +875,42 @@ def _move_source_photos_to_draft(
         moved_photo_ids.add(photo_id)
 
 
+def _saved_estimate_meals_by_item_index(
+    *,
+    source_meal: Meal,
+    session: SessionDep,
+) -> dict[int, Meal]:
+    """Return meals already created by save-draft for this source meal."""
+    events = session.scalars(
+        select(MealAuditEvent)
+        .where(
+            MealAuditEvent.owner_id == source_meal.owner_id,
+            MealAuditEvent.action == "photo_estimate_saved",
+        )
+        .order_by(MealAuditEvent.event_at.asc(), MealAuditEvent.id.asc())
+    )
+    saved: dict[int, Meal] = {}
+    for event in events:
+        metadata = event.metadata_json if isinstance(event.metadata_json, dict) else {}
+        if metadata.get("via") != "estimate_and_save_draft":
+            continue
+        if metadata.get("source_meal_id") != str(source_meal.id):
+            continue
+        if event.meal_id is None:
+            continue
+        try:
+            item_index = int(metadata["source_item_index"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if item_index in saved:
+            continue
+        meal = session.get(Meal, event.meal_id)
+        if meal is None or meal.owner_id != source_meal.owner_id:
+            continue
+        saved[item_index] = meal
+    return saved
+
+
 def _save_suggested_items_as_drafts(
     *,
     source_meal: Meal,
@@ -883,6 +920,15 @@ def _save_suggested_items_as_drafts(
     session: SessionDep,
 ) -> list[EstimateCreatedDraftResponse]:
     """Persist estimated items as accepted journal rows."""
+    session.execute(
+        select(Meal.id)
+        .where(Meal.id == source_meal.id, Meal.owner_id == source_meal.owner_id)
+        .with_for_update()
+    ).one()
+    saved_meals_by_index = _saved_estimate_meals_by_item_index(
+        source_meal=source_meal,
+        session=session,
+    )
     created: list[EstimateCreatedDraftResponse] = []
     moved_photo_ids: set[UUID] = set()
     original_items = list(result.items)
@@ -892,8 +938,10 @@ def _save_suggested_items_as_drafts(
             suggested_item,
             original_items[position] if position < len(original_items) else None,
         )
-        draft_meal = source_meal
-        if position > 0:
+        draft_meal = saved_meals_by_index.get(position)
+        if draft_meal is None and position == 0:
+            draft_meal = source_meal
+        if draft_meal is None:
             draft_meal = Meal(
                 owner_id=source_meal.owner_id,
                 eaten_at=source_meal.eaten_at,
@@ -904,10 +952,9 @@ def _save_suggested_items_as_drafts(
             )
             session.add(draft_meal)
             session.flush()
-        else:
-            draft_meal.title = _draft_title(item)
-            draft_meal.status = MealStatus.accepted
-            draft_meal.source = MealSource.photo
+        draft_meal.title = _draft_title(item)
+        draft_meal.status = MealStatus.accepted
+        draft_meal.source = MealSource.photo
 
         item.position = 0
         draft_meal.items = [
@@ -927,7 +974,12 @@ def _save_suggested_items_as_drafts(
             source_meal.owner_id,
             "photo_estimate_saved",
             draft_meal,
-            {"via": "estimate_and_save_draft", "source_meal_id": str(source_meal.id)},
+            {
+                "via": "estimate_and_save_draft",
+                "source_meal_id": str(source_meal.id),
+                "source_item_index": position,
+                "source_item_name": item.name,
+            },
         )
         created.append(_created_draft_response(draft_meal, item))
 
