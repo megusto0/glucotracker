@@ -72,7 +72,6 @@ import kotlin.time.Duration.Companion.minutes
 data class OutboxInspectorState(
     val active: List<OutboxItem> = emptyList(),
     val stuck: List<OutboxItem> = emptyList(),
-    val zombies: List<OutboxItem> = emptyList(),
     val isOnline: Boolean = true,
 ) {
     val total: Int = active.size + stuck.size
@@ -92,7 +91,6 @@ class OutboxInspectorViewModel @Inject constructor(
         OutboxInspectorState(
             active = items.filter { it.state.isActive && !it.isZombie },
             stuck = items.filter { it.state == OutboxState.Stuck && !it.isZombie },
-            zombies = items.filter { it.isZombie },
             isOnline = online,
         )
     }
@@ -206,15 +204,6 @@ fun OutboxInspectorScreen(
                     onOpenJournal = onOpenJournal,
                     onRetry = onRetry,
                     onDelete = { deleteCandidate = item },
-                )
-            }
-        }
-        if (state.zombies.isNotEmpty()) {
-            item { GTKicker(text = stringResource(R.string.outbox_zombie_header, state.zombies.size)) }
-            items(state.zombies, key = { it.id }) { item ->
-                ZombieOutboxItemRow(
-                    item = item,
-                    onRemove = { onDelete(item.id) },
                 )
             }
         }
@@ -385,59 +374,6 @@ private fun DeleteOutboxItemSheet(
                 GTOutlineButton(text = stringResource(R.string.record_delete_cancel), onClick = onDismiss)
                 GTOutlineButton(text = stringResource(R.string.outbox_delete), onClick = onConfirm)
             }
-        }
-    }
-}
-
-@Composable
-private fun ZombieOutboxItemRow(
-    item: OutboxItem,
-    onRemove: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Top) {
-            GTPhotoSlot(model = item.photoModel, modifier = Modifier.size(34.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 10.dp, end = 10.dp),
-            ) {
-                Text(
-                    text = outboxItemName(item),
-                    color = GT.colors.ink,
-                    style = GT.type.sansLabel,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = stringResource(R.string.outbox_zombie_status),
-                    color = GT.colors.good,
-                    style = GT.type.monoLabel,
-                )
-                Text(
-                    text = outboxAgeLine(item),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel,
-                )
-            }
-            Text(
-                text = item.captureTimeText,
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GTOutlineButton(
-                text = stringResource(R.string.outbox_zombie_remove),
-                onClick = onRemove,
-            )
         }
     }
 }

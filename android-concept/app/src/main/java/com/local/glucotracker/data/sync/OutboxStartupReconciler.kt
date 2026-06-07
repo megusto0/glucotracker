@@ -28,7 +28,9 @@ class OutboxStartupReconciler : Initializer<Unit> {
                     staleBefore = now - 5.minutes,
                     queuedAt = now,
                 )
+                database.outboxDao().deleteLinkedItems()
                 reconcileLocal(database)
+                database.outboxDao().deleteLinkedItems()
             }
         } finally {
             database.close()
@@ -71,6 +73,7 @@ class OutboxStartupReconciler : Initializer<Unit> {
                 linkedMealId = mealId,
                 reconciledAt = now,
             )
+            database.outboxDao().deleteById(item.id)
             Log.i(Tag, "Reconciled outbox item ${item.id} -> meal $mealId on startup.")
         }
     }
