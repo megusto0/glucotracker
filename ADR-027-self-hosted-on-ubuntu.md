@@ -70,7 +70,7 @@ megusto.duckdns.org:1338
 │            │                                    │
 │   ┌────────┴───────┬─────────────────┐          │
 │   ▼                ▼                 ▼          │
-│  PostgreSQL    /var/lib/glucotracker/photos/    │
+│  PostgreSQL    storage/glucotracker/runtime/    │
 │  (localhost)   (filesystem)                     │
 │                                                 │
 │  Glucotracker backend reaches Nightscout via    │
@@ -389,9 +389,10 @@ Both must pass before merging any SQL-touching code.
 ### 6.1 — Storage location
 
 ```bash
-sudo mkdir -p /var/lib/glucotracker/photos
-sudo chown -R glucotracker:glucotracker /var/lib/glucotracker
-sudo chmod 700 /var/lib/glucotracker/photos
+sudo mkdir -p /media/megusto/storage/glucotracker/runtime/photos
+sudo chown -R glucotracker:glucotracker \
+  /media/megusto/storage/glucotracker/runtime
+sudo chmod 700 /media/megusto/storage/glucotracker/runtime/photos
 ```
 
 The `glucotracker` system user (created in §7.1) is the only one with
@@ -462,16 +463,17 @@ sudo useradd --system --no-create-home --shell /usr/sbin/nologin glucotracker
 Description=Glucotracker FastAPI backend
 After=network.target postgresql.service
 Wants=postgresql.service
+RequiresMountsFor=/media/megusto/storage/glucotracker
 
 [Service]
 Type=simple
 User=glucotracker
 Group=glucotracker
-WorkingDirectory=/opt/glucotracker
-Environment="PATH=/opt/glucotracker/venv/bin"
-EnvironmentFile=/etc/glucotracker/env
-ExecStartPre=/opt/glucotracker/venv/bin/alembic upgrade head
-ExecStart=/opt/glucotracker/venv/bin/uvicorn glucotracker.main:app \
+WorkingDirectory=/media/megusto/storage/glucotracker/project/backend
+Environment="PATH=/media/megusto/storage/glucotracker/project/venv/bin"
+EnvironmentFile=/media/megusto/storage/glucotracker/config/env
+ExecStartPre=/media/megusto/storage/glucotracker/project/venv/bin/python -m alembic upgrade head
+ExecStart=/media/megusto/storage/glucotracker/project/venv/bin/python -m uvicorn glucotracker.main:app \
     --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
 RestartSec=10s
@@ -484,7 +486,7 @@ TasksMax=200
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/glucotracker /var/log/glucotracker
+ReadWritePaths=/media/megusto/storage/glucotracker/runtime /media/megusto/storage/glucotracker/logs
 
 # Logging
 StandardOutput=journal
@@ -502,12 +504,13 @@ WantedBy=multi-user.target
 photo tombstone cleanup, daily totals refresh, reconciliation).
 
 ```ini
-ExecStart=/opt/glucotracker/venv/bin/python -m glucotracker.workers
+ExecStart=/media/megusto/storage/glucotracker/project/venv/bin/python -m glucotracker.workers
 ```
 
 ### 7.4 — Environment file
 
-`/etc/glucotracker/env` (mode 600, owned by root):
+`/media/megusto/storage/glucotracker/config/env` (mode 640, owned by
+`root:glucotracker`):
 
 ```bash
 GLUCOTRACKER_DATABASE_URL=postgresql+psycopg://glucotracker:PASS@localhost:5432/glucotracker_prod
@@ -516,7 +519,8 @@ GLUCOTRACKER_APP_TIMEZONE=Europe/Moscow
 GEMINI_API_KEY=...
 GEMINI_MODEL_PHOTO=gemini-2.0-flash-exp
 STORAGE_BACKEND=filesystem
-PHOTO_STORAGE_DIR=/var/lib/glucotracker/photos
+PHOTO_STORAGE_DIR=/media/megusto/storage/glucotracker/runtime/photos
+ACTIVITY_LOG_DIR=/media/megusto/storage/glucotracker/runtime/activity_logs
 PHOTO_MAX_SIZE_BYTES=12582912
 LOG_LEVEL=INFO
 NIGHTSCOUT_BASE_URL=http://127.0.0.1:1337
@@ -596,8 +600,8 @@ header.
 ### 9.1 — What needs backup
 
 - PostgreSQL database (users, meals, photos metadata).
-- Photo files in `/var/lib/glucotracker/photos/`.
-- App config in `/etc/glucotracker/`.
+- Photo files in `/media/megusto/storage/glucotracker/runtime/photos/`.
+- App config in `/media/megusto/storage/glucotracker/config/`.
 - Caddy config in `/etc/caddy/Caddyfile` (and the DuckDNS token override).
 
 ### 9.2 — Local daily backup
@@ -607,14 +611,15 @@ header.
 ```bash
 #!/bin/bash
 set -e
-BACKUP_DIR=/var/backups/glucotracker
+BACKUP_DIR=/media/megusto/storage/glucotracker/backups
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p "$BACKUP_DIR"
 
 sudo -u postgres pg_dump glucotracker_prod \
   | gzip > "$BACKUP_DIR/db_${TIMESTAMP}.sql.gz"
 
-tar czf "$BACKUP_DIR/photos_${TIMESTAMP}.tar.gz" -C /var/lib/glucotracker photos
+tar czf "$BACKUP_DIR/photos_${TIMESTAMP}.tar.gz" \
+  -C /media/megusto/storage/glucotracker/runtime photos
 
 # Retain 7 days
 find "$BACKUP_DIR" -name "db_*.sql.gz" -mtime +7 -delete
@@ -722,8 +727,8 @@ the backend is unreachable; sync when reachable.
 ### Phase 1 — Local setup (no clients affected)
 
 1. Install Postgres, custom Caddy (§4.3), Python venv (§5, §7).
-2. Deploy Glucotracker code to `/opt/glucotracker`.
-3. Configure env file `/etc/glucotracker/env`.
+2. Deploy Glucotracker code to `/media/megusto/storage/glucotracker/project`.
+3. Configure env file `/media/megusto/storage/glucotracker/config/env`.
 4. Create systemd units, enable, start.
 5. Verify: `curl http://127.0.0.1:8000/health` returns 200.
 

@@ -2,15 +2,16 @@
 Description=Glucotracker background worker
 After=network.target postgresql.service
 Wants=postgresql.service
+RequiresMountsFor=/media/megusto/storage/glucotracker
 
 [Service]
 Type=simple
 User=glucotracker
 Group=glucotracker
-WorkingDirectory=/opt/glucotracker/backend
-Environment="PATH=/opt/glucotracker/venv/bin"
-EnvironmentFile=/etc/glucotracker/env
-ExecStart=/opt/glucotracker/venv/bin/python -m glucotracker.workers
+WorkingDirectory=/media/megusto/storage/glucotracker/project/backend
+Environment="PATH=/media/megusto/storage/glucotracker/project/venv/bin"
+EnvironmentFile=/media/megusto/storage/glucotracker/config/env
+ExecStart=/media/megusto/storage/glucotracker/project/venv/bin/python -m glucotracker.workers
 Restart=always
 RestartSec=10s
 
@@ -20,7 +21,7 @@ TasksMax=200
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/glucotracker /var/log/glucotracker
+ReadWritePaths=/media/megusto/storage/glucotracker/runtime /media/megusto/storage/glucotracker/logs
 
 StandardOutput=journal
 StandardError=journal

@@ -5,9 +5,12 @@ import tailwindcss from "@tailwindcss/vite";
 // @ts-expect-error process is a nodejs global
 const tauriDevHost = process.env.TAURI_DEV_HOST;
 const host = tauriDevHost || "127.0.0.1";
+// @ts-expect-error process is a nodejs global
+const base = process.env.VITE_BASE_PATH || "/";
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+  base,
   plugins: [react(), tailwindcss()],
   test: {
     environment: "jsdom",
@@ -25,6 +28,7 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host,
+    allowedHosts: ["megusto.duckdns.org"],
     hmr: tauriDevHost
       ? {
           protocol: "ws",
