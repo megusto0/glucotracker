@@ -613,6 +613,16 @@ class OutboxRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun markPhotoEstimating(id: String, serverMealId: String) {
+        database.withTransaction {
+            outboxDao.markPhotoEstimating(
+                id = id,
+                serverMealId = serverMealId,
+                acceptedAt = Clock.System.now(),
+            )
+        }
+    }
+
     override suspend fun markConfirmed(id: String, serverIdOnSuccess: String?) {
         database.withTransaction {
             outboxDao.markConfirmed(id, serverIdOnSuccess, Clock.System.now())

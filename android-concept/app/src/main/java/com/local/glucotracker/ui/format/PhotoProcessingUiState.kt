@@ -47,18 +47,27 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
     if (outboxItem.kind !is OutboxKind.CapturedMeal) return null
     val queueText = queuePositionText(queuePosition, queueSize)
     return when (outboxItem.state) {
-        OutboxState.Queued -> PhotoProcessingUiState(
-            stage = PhotoProcessingStage.WaitingUpload,
-            title = "Фото",
-            statusText = listOfNotNull("ждёт отправки", queueText).joinToString(" · "),
-            helperText = "начнём после предыдущих фото",
-            queuePositionText = queueText,
-            uploadProgress = null,
-            estimateElapsedSeconds = null,
-            estimateDeadlineSeconds = null,
-            canRetry = false,
-        )
+        OutboxState.Queued -> {
+            if (outboxItem.linkedMealId != null) {
+                estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+            } else {
+                PhotoProcessingUiState(
+                    stage = PhotoProcessingStage.WaitingUpload,
+                    title = "Фото",
+                    statusText = listOfNotNull("ждёт отправки", queueText).joinToString(" · "),
+                    helperText = "начнём после предыдущих фото",
+                    queuePositionText = queueText,
+                    uploadProgress = null,
+                    estimateElapsedSeconds = null,
+                    estimateDeadlineSeconds = null,
+                    canRetry = false,
+                )
+            }
+        }
         OutboxState.Uploading -> {
+            if (outboxItem.linkedMealId != null) {
+                return estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+            }
             val safeProgress = uploadProgress?.coerceIn(0f, 1f)
             PhotoProcessingUiState(
                 stage = PhotoProcessingStage.Uploading,

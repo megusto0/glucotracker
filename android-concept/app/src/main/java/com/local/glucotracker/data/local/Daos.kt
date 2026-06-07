@@ -68,6 +68,9 @@ interface OutboxDao {
     @Query("UPDATE outbox SET state = 'Confirmed', serverIdOnSuccess = :serverIdOnSuccess, lastAttemptAt = :confirmedAt, nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :confirmedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE id = :id")
     suspend fun markConfirmed(id: String, serverIdOnSuccess: String?, confirmedAt: Instant)
 
+    @Query("UPDATE outbox SET state = 'Queued', serverIdOnSuccess = :serverMealId, linkedMealId = :serverMealId, lastAttemptAt = :acceptedAt, nextAttemptAt = NULL, errorMessage = NULL, enteredCurrentStateAt = :acceptedAt, lastErrorCode = NULL, lastErrorMessage = NULL WHERE id = :id")
+    suspend fun markPhotoEstimating(id: String, serverMealId: String, acceptedAt: Instant)
+
     @Query("UPDATE outbox SET state = 'Queued', nextAttemptAt = :nextAttemptAt, errorMessage = :errorMessage, enteredCurrentStateAt = :queuedAt, lastErrorCode = :lastErrorCode, lastErrorMessage = :lastErrorMessage WHERE id = :id")
     suspend fun markQueuedForRetry(
         id: String,

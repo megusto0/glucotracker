@@ -307,7 +307,7 @@ private fun OutboxItem.toPendingRow(query: HistoryQuery): HistoryMealRowUi? {
                 eatenAt = outboxKind.capturedAt,
                 title = draft?.title ?: outboxKind.optimisticName,
                 source = HistoryMealSource.Photo,
-                status = state.toMealStatus(),
+                status = toPhotoCaptureMealStatus(),
                 photo = outboxKind.localPhotoPath,
                 totalKcal = null,
                 totalCarbsG = null,
@@ -355,6 +355,17 @@ private fun OutboxState?.toMealStatus(): HistoryMealStatus =
         OutboxState.Uploading -> HistoryMealStatus.Uploading
         OutboxState.Queued -> HistoryMealStatus.Queued
         else -> HistoryMealStatus.Accepted
+    }
+
+private fun OutboxItem.toPhotoCaptureMealStatus(): HistoryMealStatus =
+    if (
+        linkedMealId != null &&
+        state != OutboxState.Confirmed &&
+        state != OutboxState.Stuck
+    ) {
+        HistoryMealStatus.Estimating
+    } else {
+        state.toMealStatus()
     }
 
 private fun OutboxState.isActiveQueueState(): Boolean =

@@ -56,6 +56,7 @@ interface OutboxRepository {
     suspend fun enqueue(item: OutboxItem)
     suspend fun remove(id: String)
     suspend fun markUploading(id: String)
+    suspend fun markPhotoEstimating(id: String, serverMealId: String)
     suspend fun markConfirmed(id: String, serverIdOnSuccess: String?)
     suspend fun markStuck(id: String, errorCode: String, errorMessage: String?)
     suspend fun requeue(id: String, nextAttemptAt: kotlinx.datetime.Instant?, errorCode: String?, errorMessage: String?)

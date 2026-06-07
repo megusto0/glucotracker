@@ -178,6 +178,7 @@ private class FakeOutboxRepository : OutboxRepository {
     }
 
     override suspend fun markUploading(id: String) = Unit
+    override suspend fun markPhotoEstimating(id: String, serverMealId: String) = Unit
     override suspend fun markConfirmed(id: String, serverIdOnSuccess: String?) = Unit
     override suspend fun markStuck(id: String, errorCode: String, errorMessage: String?) = Unit
     override suspend fun requeue(id: String, nextAttemptAt: Instant?, errorCode: String?, errorMessage: String?) = Unit

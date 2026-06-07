@@ -261,6 +261,11 @@ private class FakeOutboxRepository(
         update(id, OutboxState.Uploading)
     }
 
+    override suspend fun markPhotoEstimating(id: String, serverMealId: String) {
+        transitions += "$id:Estimating"
+        update(id, OutboxState.Queued, serverIdOnSuccess = serverMealId, linkedMealId = serverMealId)
+    }
+
     override suspend fun markConfirmed(id: String, serverIdOnSuccess: String?) {
         transitions += "$id:Confirmed"
         update(id, OutboxState.Confirmed, serverIdOnSuccess = serverIdOnSuccess)
@@ -290,6 +295,7 @@ private class FakeOutboxRepository(
         errorMessage: String? = items[id]?.errorMessage,
         lastErrorCode: String? = items[id]?.lastErrorCode,
         draft: MealDraft? = items[id]?.draft,
+        linkedMealId: String? = items[id]?.linkedMealId,
     ) {
         items[id] = items.getValue(id).copy(
             state = state,
@@ -297,6 +303,7 @@ private class FakeOutboxRepository(
             errorMessage = errorMessage,
             lastErrorCode = lastErrorCode,
             draft = draft,
+            linkedMealId = linkedMealId,
         )
     }
 }

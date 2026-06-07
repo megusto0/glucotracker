@@ -104,6 +104,18 @@ class OutboxProcessorImpl @Inject constructor(
         item: OutboxItem,
         kind: OutboxKind.CapturedMeal,
     ) {
+        item.linkedMealId?.let { serverMealId ->
+            val visible = photoVisibilityTracker.waitUntilVisible(
+                item = item,
+                kind = kind,
+                serverMealId = serverMealId,
+            )
+            photoTelemetryLogger.estimateVisible(item, kind, visible)
+            kind.idempotencyKey?.let { key -> reconciler.reconcileByKey(key, serverMealId) }
+            outboxRepository.markConfirmed(item.id, serverMealId)
+            return
+        }
+
         val key = kind.idempotencyKey
         if (key != null) {
             val existing = runCatching { mealApi.getByIdempotencyKey(key) }.getOrNull()
@@ -132,6 +144,7 @@ class OutboxProcessorImpl @Inject constructor(
             attempt = attempt,
             uploadStartedAt = uploadStartedAt,
         )
+        outboxRepository.markPhotoEstimating(item.id, capture.mealId)
         val visible = photoVisibilityTracker.waitUntilVisible(
             item = item,
             kind = kind,

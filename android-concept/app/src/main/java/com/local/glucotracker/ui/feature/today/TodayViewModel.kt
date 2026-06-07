@@ -524,7 +524,7 @@ private fun OutboxItem.toPendingRow(
                 eatenAt = outboxKind.capturedAt,
                 title = draft?.title ?: outboxKind.optimisticName,
                 source = TodayMealSource.Photo,
-                status = state.toMealStatus(),
+                status = toPhotoCaptureMealStatus(),
                 photo = outboxKind.localPhotoPath,
                 totalKcal = null,
                 totalCarbsG = null,
@@ -582,6 +582,17 @@ private fun OutboxState?.toMealStatus(): TodayMealStatus =
         OutboxState.Uploading -> TodayMealStatus.Uploading
         OutboxState.Queued -> TodayMealStatus.Queued
         else -> TodayMealStatus.Accepted
+    }
+
+private fun OutboxItem.toPhotoCaptureMealStatus(): TodayMealStatus =
+    if (
+        linkedMealId != null &&
+        state != OutboxState.Confirmed &&
+        state != OutboxState.Stuck
+    ) {
+        TodayMealStatus.Estimating
+    } else {
+        state.toMealStatus()
     }
 
 private fun String?.toBackendDraftStatus(): TodayMealStatus =

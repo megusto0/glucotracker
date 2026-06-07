@@ -25,17 +25,29 @@ fun computeRowState(
     item: OutboxItem,
     isOnline: Boolean,
     now: Instant = Clock.System.now(),
-): RowState = computeRowStateInternal(
-    isPhotoDraft = item.kind is OutboxKind.CapturedMeal && item.draft == null,
-    state = item.state,
-    lastAttemptAt = item.lastAttemptAt,
-    nextAttemptAt = item.nextAttemptAt,
-    enteredCurrentStateAt = item.enteredCurrentStateAt,
-    lastErrorCode = item.lastErrorCode,
-    lastErrorMessage = item.lastErrorMessage ?: item.errorMessage,
-    isOnline = isOnline,
-    now = now,
-)
+): RowState {
+    if (
+        item.kind is OutboxKind.CapturedMeal &&
+        item.linkedMealId != null &&
+        item.state != OutboxState.Confirmed &&
+        item.state != OutboxState.Stuck
+    ) {
+        val timeInState = now - item.enteredCurrentStateAt
+        return if (timeInState > 2.minutes) RowState.EstimatingSlow else RowState.Estimating
+    }
+
+    return computeRowStateInternal(
+        isPhotoDraft = item.kind is OutboxKind.CapturedMeal && item.draft == null,
+        state = item.state,
+        lastAttemptAt = item.lastAttemptAt,
+        nextAttemptAt = item.nextAttemptAt,
+        enteredCurrentStateAt = item.enteredCurrentStateAt,
+        lastErrorCode = item.lastErrorCode,
+        lastErrorMessage = item.lastErrorMessage ?: item.errorMessage,
+        isOnline = isOnline,
+        now = now,
+    )
+}
 
 fun computeRowState(
     state: OutboxState,
