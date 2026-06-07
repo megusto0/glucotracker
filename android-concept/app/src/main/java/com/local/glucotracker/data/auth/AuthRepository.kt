@@ -4,7 +4,6 @@ import com.local.glucotracker.generated.api.AuthApi
 import com.local.glucotracker.generated.model.LoginRequest
 import com.local.glucotracker.generated.model.LogoutRequest
 import com.local.glucotracker.generated.model.RefreshRequest
-import com.local.glucotracker.generated.model.IssuedTokensResponse
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -31,7 +30,7 @@ class AuthRepository @Inject constructor(
             if (!tokens.success) throw AuthException("Invalid credentials.")
 
             val issued = tokens.body()
-            val me = authApi.getAuthMe(authorization = issued.authorizationHeader())
+            val me = authApi.getAuthMeWithAccessToken(issued.access)
             if (!me.success) throw AuthException("Could not load current user.")
 
             val user = me.body()
@@ -81,7 +80,7 @@ class AuthRepository @Inject constructor(
                 )
                 tokenStore.save(refreshedSession)
 
-                val me = authApi.getAuthMe(authorization = issued.authorizationHeader())
+                val me = authApi.getAuthMeWithAccessToken(issued.access)
                 if (!me.success) return@runCatching
 
                 val user = me.body()
@@ -112,7 +111,11 @@ private suspend fun TokenStore.hasFreshReplacementFor(previous: AuthSession): Bo
     return latest.refreshToken != previous.refreshToken && !latest.needsRefresh()
 }
 
-private fun IssuedTokensResponse.authorizationHeader(): String =
-    "Bearer $access"
+private suspend fun AuthApi.getAuthMeWithAccessToken(
+    accessToken: String,
+) = run {
+    setBearerToken(accessToken)
+    getAuthMe()
+}
 
 private const val RefreshSkewMillis = 60_000L
