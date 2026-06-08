@@ -58,7 +58,9 @@ private suspend fun HttpRequestBuilder.prepareAuthRequest(
     header("X-Glucotracker-Client", clientName)
     if (url.encodedPath.isAuthRoute()) return
 
-    authRepository.refreshIfNeeded()
+    val refreshed = authRepository.refreshIfNeeded()
+    if (refreshed.isFailure) return
+
     authRepository.currentAccessToken()?.let { access ->
         headers.remove(HttpHeaders.Authorization)
         header(HttpHeaders.Authorization, "Bearer $access")

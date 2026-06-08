@@ -67,6 +67,7 @@ class AuthRepository @Inject constructor(
                 )
                 if (!response.success) {
                     if (tokenStore.hasFreshReplacementFor(session)) return@runCatching
+                    tokenStore.clear()
                     throw AuthException("Refresh failed.")
                 }
 
