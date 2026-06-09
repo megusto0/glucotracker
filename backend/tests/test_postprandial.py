@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Generator
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -146,6 +146,32 @@ def test_nearest_reading_outside_tolerance() -> None:
     assert result is None
 
 
+def test_nearest_reading_matches_utc_cgm_to_local_wall_meal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    try:
+        uid = uuid.uuid4()
+        meal_at = datetime(2026, 5, 10, 14, 0, 0)
+        readings = [
+            NightscoutGlucoseEntry(
+                id=uuid.uuid4(),
+                owner_id=uid,
+                source_key="aware-cgm",
+                timestamp=datetime(2026, 5, 10, 10, 0, 0, tzinfo=UTC),
+                value_mmol_l=5.8,
+            )
+        ]
+
+        result = _nearest_reading(readings, meal_at)
+
+        assert result is not None
+        assert result["value"] == 5.8
+    finally:
+        get_settings.cache_clear()
+
+
 # ---------------------------------------------------------------------------
 # pre_meal_state
 # ---------------------------------------------------------------------------
@@ -222,6 +248,31 @@ def test_pre_meal_state_in_range(pp_db: Session) -> None:
     meal = _make_meal(datetime(2026, 5, 10, 14, 0, 0))
     meal.owner_id = uid
     state, _ = compute_pre_meal_state(pp_db, meal)
+    assert state == PreMealState.in_range
+
+
+def test_pre_meal_state_uses_local_wall_time_for_utc_cgm(
+    pp_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    uid = _uid(pp_db)
+    pp_db.add(
+        NightscoutGlucoseEntry(
+            id=uuid.uuid4(),
+            owner_id=uid,
+            source_key="aware-cgm-pre-meal",
+            timestamp=datetime(2026, 5, 10, 9, 55, 0, tzinfo=UTC),
+            value_mmol_l=5.5,
+        )
+    )
+    pp_db.flush()
+
+    meal = _make_meal(datetime(2026, 5, 10, 14, 0, 0))
+    meal.owner_id = uid
+    state, _ = compute_pre_meal_state(pp_db, meal)
+
     assert state == PreMealState.in_range
 
 

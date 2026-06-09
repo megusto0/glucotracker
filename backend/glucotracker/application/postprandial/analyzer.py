@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.postprandial import thresholds as T
+from glucotracker.application.time import local_wall_time, utc_instant_from_local_wall
 from glucotracker.domain.entities import (
     GlycemicResponse,
     MealStatus,
@@ -42,18 +43,25 @@ def _cgm_readings(
     start: datetime,
     end: datetime,
 ) -> list[NightscoutGlucoseEntry]:
+    utc_start = utc_instant_from_local_wall(local_wall_time(start))
+    utc_end = utc_instant_from_local_wall(local_wall_time(end))
     return list(
         session.scalars(
             select(NightscoutGlucoseEntry)
             .where(
                 NightscoutGlucoseEntry.owner_id == user_id,
-                NightscoutGlucoseEntry.timestamp >= start,
-                NightscoutGlucoseEntry.timestamp <= end,
+                NightscoutGlucoseEntry.timestamp >= utc_start,
+                NightscoutGlucoseEntry.timestamp <= utc_end,
                 visible_glucose_filter(user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp)
         )
     )
+
+
+def _reading_time(reading: NightscoutGlucoseEntry) -> datetime:
+    """Return a CGM reading timestamp as app-local naive wall-clock time."""
+    return local_wall_time(reading.timestamp)
 
 
 def _interpolate(
@@ -67,22 +75,25 @@ def _interpolate(
     before: NightscoutGlucoseEntry | None = None
     after: NightscoutGlucoseEntry | None = None
     for r in readings:
-        if r.timestamp <= target:
+        reading_at = _reading_time(r)
+        if reading_at <= target:
             before = r
-        if r.timestamp >= target and after is None:
+        if reading_at >= target and after is None:
             after = r
 
     if before is None or after is None:
         return None
 
-    if before.timestamp == after.timestamp:
+    before_at = _reading_time(before)
+    after_at = _reading_time(after)
+    if before_at == after_at:
         return {"value": round(before.value_mmol_l, 1), "source": "actual"}
 
-    gap_seconds = (after.timestamp - before.timestamp).total_seconds()
+    gap_seconds = (after_at - before_at).total_seconds()
     if gap_seconds > T.CGM_GAP_MAX_MINUTES * 60:
         return None
 
-    offset_seconds = (target - before.timestamp).total_seconds()
+    offset_seconds = (target - before_at).total_seconds()
     fraction = offset_seconds / gap_seconds
     value = before.value_mmol_l + (
         after.value_mmol_l - before.value_mmol_l
@@ -98,10 +109,11 @@ def _nearest_reading(
     """Return the reading nearest to `target`, ±5 min tolerance."""
     if not readings:
         return None
+    target = local_wall_time(target)
     nearest = min(
-        readings, key=lambda r: abs((r.timestamp - target).total_seconds())
+        readings, key=lambda r: abs((_reading_time(r) - target).total_seconds())
     )
-    diff = abs((nearest.timestamp - target).total_seconds())
+    diff = abs((_reading_time(nearest) - target).total_seconds())
     if diff > 5 * 60:
         return None
     return {"value": round(nearest.value_mmol_l, 1), "source": "actual"}
@@ -112,13 +124,14 @@ def compute_anchors(
     meal: Meal,
 ) -> dict[int, dict[str, Any] | None]:
     """Compute CGM sample anchors at t=0,30,60,90,180 relative to eaten_at."""
-    start = meal.eaten_at
-    end = meal.eaten_at + timedelta(minutes=WINDOW_TOTAL_MINUTES)
+    meal_at = local_wall_time(meal.eaten_at)
+    start = meal_at
+    end = meal_at + timedelta(minutes=WINDOW_TOTAL_MINUTES)
     readings = _cgm_readings(session, meal.owner_id, start, end)
 
     anchors: dict[int, dict[str, Any] | None] = {}
     for offset in SAMPLE_MINUTES:
-        target = meal.eaten_at + timedelta(minutes=offset)
+        target = meal_at + timedelta(minutes=offset)
         anchor = _nearest_reading(readings, target)
         if anchor is None:
             anchor = _interpolate(readings, target)
@@ -132,13 +145,14 @@ def compute_extended_anchors(
     meal: Meal,
 ) -> dict[int, dict[str, Any] | None]:
     """Compute CGM sample anchors at t=240,300 relative to eaten_at."""
-    start = meal.eaten_at + timedelta(minutes=180)
-    end = meal.eaten_at + timedelta(minutes=T.EXTENDED_WINDOW_MINUTES)
+    meal_at = local_wall_time(meal.eaten_at)
+    start = meal_at + timedelta(minutes=180)
+    end = meal_at + timedelta(minutes=T.EXTENDED_WINDOW_MINUTES)
     readings = _cgm_readings(session, meal.owner_id, start, end)
 
     anchors: dict[int, dict[str, Any] | None] = {}
     for offset in SAMPLE_MINUTES_EXTENDED:
-        target = meal.eaten_at + timedelta(minutes=offset)
+        target = meal_at + timedelta(minutes=offset)
         anchor = _nearest_reading(readings, target)
         if anchor is None:
             anchor = _interpolate(readings, target)
@@ -152,8 +166,9 @@ def compute_pre_meal_state(
     meal: Meal,
 ) -> tuple[PreMealState, float | None]:
     """Determine glucose state in the 30 min before the meal."""
-    window_start = meal.eaten_at - timedelta(minutes=PRE_MEAL_WINDOW_MINUTES)
-    window_end = meal.eaten_at + timedelta(minutes=5)
+    meal_at = local_wall_time(meal.eaten_at)
+    window_start = meal_at - timedelta(minutes=PRE_MEAL_WINDOW_MINUTES)
+    window_end = meal_at + timedelta(minutes=5)
     readings = _cgm_readings(session, meal.owner_id, window_start, window_end)
 
     if not readings:
@@ -161,12 +176,12 @@ def compute_pre_meal_state(
 
     nearest = min(
         readings,
-        key=lambda r: abs((r.timestamp - meal.eaten_at).total_seconds()),
+        key=lambda r: abs((_reading_time(r) - meal_at).total_seconds()),
     )
     value = nearest.value_mmol_l
 
     pre_15_anchor = _interpolate(
-        readings, meal.eaten_at - timedelta(minutes=15)
+        readings, meal_at - timedelta(minutes=15)
     )
     pre_15 = (
         pre_15_anchor["value"] if pre_15_anchor else None
@@ -188,7 +203,9 @@ def _find_peak(
         return {"value": t0_value, "minutes_from_t0": 0}
 
     peak = max(readings, key=lambda r: r.value_mmol_l)
-    peak_minutes = (peak.timestamp - readings[0].timestamp).total_seconds() / 60
+    peak_minutes = (
+        _reading_time(peak) - _reading_time(readings[0])
+    ).total_seconds() / 60
     return {
         "value": round(peak.value_mmol_l, 1),
         "minutes_from_t0": int(round(peak_minutes)),
@@ -210,18 +227,19 @@ def _coverage_fraction(
 
     covered = 0.0
     for i in range(len(readings)):
+        reading_at = _reading_time(readings[i])
         r_start = max(
-            readings[i].timestamp, start
+            reading_at, start
         )
         next_ts = (
-            readings[i + 1].timestamp
+            _reading_time(readings[i + 1])
             if i + 1 < len(readings)
             else end
         )
         r_end = min(next_ts, end)
 
         if i + 1 < len(readings):
-            gap = (next_ts - readings[i].timestamp).total_seconds()
+            gap = (next_ts - reading_at).total_seconds()
             if gap <= T.CGM_GAP_MAX_MINUTES * 60:
                 covered += (r_end - r_start).total_seconds()
         else:
@@ -263,13 +281,14 @@ def _sustained_above_threshold(
 
     above_start: datetime | None = None
     for r in readings:
+        reading_at = _reading_time(r)
         if r.value_mmol_l > threshold:
             if above_start is None:
-                above_start = r.timestamp
+                above_start = reading_at
         else:
             if above_start is not None:
                 duration = (
-                    readings[-1].timestamp - above_start
+                    reading_at - above_start
                 ).total_seconds() / 60
                 if duration >= min_minutes:
                     return True
@@ -277,7 +296,7 @@ def _sustained_above_threshold(
 
     if above_start is not None:
         duration = (
-            readings[-1].timestamp - above_start
+            _reading_time(readings[-1]) - above_start
         ).total_seconds() / 60
         return duration >= min_minutes
 
@@ -403,8 +422,9 @@ def compute_postprandial_response(
     anchors = compute_anchors(session, meal)
     pre_meal_state, pre_15 = compute_pre_meal_state(session, meal)
 
-    start = meal.eaten_at
-    end = meal.eaten_at + timedelta(minutes=WINDOW_TOTAL_MINUTES)
+    meal_at = local_wall_time(meal.eaten_at)
+    start = meal_at
+    end = meal_at + timedelta(minutes=WINDOW_TOTAL_MINUTES)
     readings = _cgm_readings(session, meal.owner_id, start, end)
     coverage = _coverage_fraction(readings, start, end)
 
@@ -429,8 +449,8 @@ def compute_postprandial_response(
         quality_flags.append("low_coverage")
 
     ext_anchors = compute_extended_anchors(session, meal)
-    ext_start = meal.eaten_at + timedelta(minutes=180)
-    ext_end = meal.eaten_at + timedelta(minutes=T.EXTENDED_WINDOW_MINUTES)
+    ext_start = meal_at + timedelta(minutes=180)
+    ext_end = meal_at + timedelta(minutes=T.EXTENDED_WINDOW_MINUTES)
     ext_readings = _cgm_readings(session, meal.owner_id, ext_start, ext_end)
     ext_coverage = _coverage_fraction(ext_readings, ext_start, ext_end)
 
