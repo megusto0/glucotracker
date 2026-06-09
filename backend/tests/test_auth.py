@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -20,7 +20,11 @@ from glucotracker.infra.db.session import (
     get_session_factory,
     reset_engine_for_tests,
 )
-from glucotracker.infra.security import issue_access_token, verify_password
+from glucotracker.infra.security import (
+    REFRESH_TOKEN_TTL,
+    issue_access_token,
+    verify_password,
+)
 from glucotracker.main import app
 
 
@@ -101,6 +105,8 @@ def test_login_ok(api_client: TestClient) -> None:
     assert body["refresh"]
     assert body["access_expires_at"]
     assert body["refresh_expires_at"]
+    refresh_expires_at = datetime.fromisoformat(body["refresh_expires_at"])
+    assert refresh_expires_at - datetime.now(UTC) > timedelta(days=3600)
 
 
 def test_login_wrong_password(api_client: TestClient) -> None:
@@ -129,7 +135,7 @@ def test_expired_access_token(api_client: TestClient) -> None:
     assert response.json() == {"code": "unauthorized"}
 
 
-def test_refresh_rotation(api_client: TestClient) -> None:
+def test_refresh_is_stable_and_reusable(api_client: TestClient) -> None:
     login_response = api_client.post(
         "/auth/login",
         json={"username": "admin", "password": "admin-password"},
@@ -143,14 +149,32 @@ def test_refresh_rotation(api_client: TestClient) -> None:
     second_refresh = refresh_response.json()["refresh"]
 
     assert refresh_response.status_code == 200
-    assert second_refresh != first_refresh
+    assert second_refresh == first_refresh
 
     replay_response = api_client.post(
         "/auth/refresh",
         json={"refresh_token": first_refresh},
     )
-    assert replay_response.status_code == 401
-    assert replay_response.json() == {"code": "unauthorized"}
+    assert replay_response.status_code == 200
+    assert replay_response.json()["refresh"] == first_refresh
+    assert replay_response.json()["access"] != refresh_response.json()["access"]
+
+
+def test_refresh_extends_session_expiry(api_client: TestClient) -> None:
+    login_response = api_client.post(
+        "/auth/login",
+        json={"username": "admin", "password": "admin-password"},
+    )
+    first_refresh = login_response.json()["refresh"]
+
+    refresh_response = api_client.post(
+        "/auth/refresh",
+        json={"refresh_token": first_refresh},
+    )
+
+    assert refresh_response.status_code == 200
+    expires_at = datetime.fromisoformat(refresh_response.json()["refresh_expires_at"])
+    assert expires_at - datetime.now(UTC) > REFRESH_TOKEN_TTL - timedelta(minutes=1)
 
 
 def test_logout_revokes_refresh(api_client: TestClient) -> None:

@@ -18,7 +18,7 @@ from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db.models import RefreshToken
 
 ACCESS_TOKEN_TTL = timedelta(minutes=15)
-REFRESH_TOKEN_TTL = timedelta(days=30)
+REFRESH_TOKEN_TTL = timedelta(days=3650)
 JWT_ALGORITHM = "HS256"
 
 _password_hasher = PasswordHasher()

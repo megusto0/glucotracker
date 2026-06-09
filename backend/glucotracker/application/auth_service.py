@@ -16,6 +16,7 @@ from glucotracker.domain.auth import (
 from glucotracker.infra.db.models import RefreshToken, User
 from glucotracker.infra.security import (
     ACCESS_TOKEN_TTL,
+    REFRESH_TOKEN_TTL,
     issue_access_token,
     issue_refresh_token,
     refresh_token_hash,
@@ -60,7 +61,7 @@ class AuthService:
         return tokens
 
     def refresh(self, refresh_token: str) -> IssuedTokens:
-        """Rotate a valid refresh token and issue a fresh token pair."""
+        """Issue a fresh access token for a valid long-lived refresh token."""
         token_hash = refresh_token_hash(refresh_token)
         row = self.session.scalar(
             select(RefreshToken)
@@ -76,8 +77,14 @@ class AuthService:
         ):
             raise AuthServiceError
 
-        row.revoked_at = now
-        tokens = self._issue_tokens(row.user, issued_at=now)
+        row.expires_at = now + REFRESH_TOKEN_TTL
+        access = issue_access_token(row.user.id, row.user.role, issued_at=now)
+        tokens = IssuedTokens(
+            access=access,
+            refresh=refresh_token,
+            access_expires_at=now + ACCESS_TOKEN_TTL,
+            refresh_expires_at=row.expires_at,
+        )
         self.session.commit()
         return tokens
 
