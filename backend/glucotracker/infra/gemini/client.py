@@ -73,6 +73,21 @@ For each distinct visible item:
 9. For every item, set source_photo_ids and source_photo_indices. Set
    primary_photo_id to the best single source photo for that item.
 
+Output contract:
+Every food item you return must include enough nutrition for the backend to
+save it. For each item, one of these must be true:
+- nutrition_per_100g has non-null carbs_g, protein_g, fat_g, and kcal, and a
+  visible, assumed, net, or total weight is present.
+- top-level grams_mid, carbs_g_mid, protein_g_mid, fat_g_mid, and kcal_mid are
+  all non-null for the total visible/eaten amount.
+If an exact nutrition label is unreadable but the packaged food is
+identifiable, estimate typical values for that exact product/category and use
+the second option. It is forbidden to return a packaged food item with only
+name/weight and null macros. Use confidence 0.55..0.75 when macros are generic
+estimates rather than readable label values, and explain this in Russian
+assumptions/evidence. A useful approximate macro estimate is better than an
+unsavable null-macro item.
+
 Do not merge unrelated photos:
 If multiple photos show different food/drink items, return separate
 EstimatedItem objects. Do not merge a drink and a wrap into one item. Only

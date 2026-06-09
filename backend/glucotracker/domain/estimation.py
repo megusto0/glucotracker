@@ -693,6 +693,69 @@ def _plated_item(
     return normalized
 
 
+def _has_top_level_nutrition_estimate(item: EstimatedItem) -> bool:
+    """Return true when Gemini provided usable direct nutrition totals."""
+    return any(
+        value is not None
+        for value in (
+            item.carbs_g_mid,
+            item.protein_g_mid,
+            item.fat_g_mid,
+            item.fiber_g_mid,
+            item.kcal_mid,
+        )
+    )
+
+
+def _label_visual_fallback_item(
+    item: EstimatedItem,
+    *,
+    known_components: list[KnownComponent],
+) -> MealItemCreate | None:
+    """Persist label-classified items when structured label facts are incomplete."""
+    if not _has_top_level_nutrition_estimate(item):
+        return None
+
+    normalized = _plated_item(item, known_components=known_components)
+    if normalized.calculation_method:
+        normalized.calculation_method = normalized.calculation_method.replace(
+            "visual_estimate",
+            "label_visual_estimate",
+            1,
+        )
+    else:
+        normalized.calculation_method = "label_visual_estimate_gemini_mid_fallback"
+
+    normalized.evidence["label_normalization_fallback"] = True
+    normalized.evidence["label_normalization_fallback_reason"] = (
+        "Gemini classified this as a label item, but did not return enough "
+        "structured label facts for backend label arithmetic."
+    )
+    normalized.assumptions = list(
+        dict.fromkeys(
+            [
+                *normalized.assumptions,
+                (
+                    "Поля этикетки неполные; сохранена верхнеуровневая оценка "
+                    "Gemini по фото."
+                ),
+            ]
+        )
+    )
+    normalized.warnings = [
+        {
+            "code": "label_fields_incomplete",
+            "message": (
+                "Gemini распознал этикетку, но не вернул достаточно БЖУ/веса "
+                "для точного расчёта по этикетке. Сохранена оценка по фото."
+            ),
+            "field": "evidence",
+        },
+        *normalized.warnings,
+    ]
+    return normalized
+
+
 def _known_component_nutrients(adjustment: Any) -> dict[str, Any]:
     """Return optional nutrients copied from matched known components."""
     nutrients: dict[str, Any] = {}
@@ -838,9 +901,18 @@ def normalize_estimation_to_items(
             normalized = _label_split_item(item) or _label_item(
                 item,
                 use_assumed_size=False,
+            ) or _label_visual_fallback_item(
+                item,
+                known_components=known_components,
             )
         elif item.scenario == "LABEL_PARTIAL":
-            normalized = _label_item(item, use_assumed_size=True)
+            normalized = _label_item(
+                item,
+                use_assumed_size=True,
+            ) or _label_visual_fallback_item(
+                item,
+                known_components=known_components,
+            )
         elif item.scenario == "BARCODE":
             normalized = _barcode_item(item, products_by_barcode)
         else:

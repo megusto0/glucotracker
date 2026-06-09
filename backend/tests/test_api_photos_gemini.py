@@ -1277,6 +1277,66 @@ def test_label_partial_uses_normalized_per_100g_with_assumed_weight(
     assert item["kcal"] == pytest.approx(291.2)
 
 
+def test_label_partial_falls_back_to_top_level_estimate_when_label_facts_missing(
+    api_client: TestClient,
+) -> None:
+    """Incomplete label facts still save when Gemini returned direct totals."""
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"])
+    _override_gemini(
+        EstimationResult(
+            items=[
+                EstimatedItem(
+                    name="Творожный сырок",
+                    brand="Самокат",
+                    scenario="LABEL_PARTIAL",
+                    extracted_facts=ExtractedNutritionFacts(
+                        visible_weight_g=50,
+                        assumption_reason=(
+                            "Nutrition values are typical because label facts "
+                            "were not readable."
+                        ),
+                    ),
+                    grams_mid=50,
+                    carbs_g_mid=19,
+                    protein_g_mid=6,
+                    fat_g_mid=10,
+                    fiber_g_mid=0.5,
+                    kcal_mid=175,
+                    confidence=0.72,
+                    confidence_reason=(
+                        "Package front is visible, but nutrition label is incomplete."
+                    ),
+                    assumptions=[],
+                    evidence=[
+                        "На упаковке виден творожный сырок Самокат 50 г.",
+                    ],
+                )
+            ],
+            overall_notes="Label facts incomplete.",
+        )
+    )
+
+    response = api_client.post(
+        f"/meals/{meal['id']}/estimate_and_save_draft",
+        json={},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["created_drafts"]
+    item = body["created_drafts"][0]["item"]
+    assert item["source_kind"] == "photo_estimate"
+    assert item["calculation_method"] == "label_visual_estimate_gemini_mid"
+    assert item["grams"] == pytest.approx(50)
+    assert item["carbs_g"] == pytest.approx(19)
+    assert item["protein_g"] == pytest.approx(6)
+    assert item["fat_g"] == pytest.approx(10)
+    assert item["kcal"] == pytest.approx(175)
+    assert item["evidence"]["label_normalization_fallback"] is True
+    assert item["warnings"][0]["code"] == "label_fields_incomplete"
+
+
 def test_plated_uses_gemini_mid_values(api_client: TestClient) -> None:
     """PLATED suggestions use Gemini mid estimates."""
     meal = _create_photo_meal(api_client)
