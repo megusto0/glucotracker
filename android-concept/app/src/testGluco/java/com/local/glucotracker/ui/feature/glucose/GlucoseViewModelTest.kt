@@ -77,7 +77,48 @@ class GlucoseViewModelTest {
             assertFalse(loaded.windows.first { it.window == GlucoseWindow.SixHours }.hasGap)
             assertTrue(loaded.windows.first { it.window == GlucoseWindow.Day }.hasGap)
             assertTrue(loaded.windows.first { it.window == GlucoseWindow.Week }.hasGap)
-            assertTrue(loaded.windows.first { it.window == GlucoseWindow.Day }.tirSegments.all { it.percent == null })
+            val daySegments = loaded.windows.first { it.window == GlucoseWindow.Day }.tirSegments
+            assertEquals(
+                100,
+                daySegments.first { it.bucket == GlucoseTirBucket.InRange }.percent,
+            )
+            assertTrue(
+                daySegments
+                    .filter { it.bucket != GlucoseTirBucket.InRange }
+                    .all { it.percent == 0 },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun computesFiveTirBucketsFromReadings() = runTest {
+        val now = Clock.System.now()
+        val values = listOf(2.5, 3.5, 6.0, 11.0, 14.0)
+        val readings = values.mapIndexed { index, value ->
+            reading(
+                at = Instant.fromEpochMilliseconds(now.toEpochMilliseconds() - index * 5L * 60_000L),
+                value = value,
+            )
+        }
+        val viewModel = GlucoseViewModel(
+            glucoseRepository = FakeGlucoseRepository(readings),
+            historyRepository = FakeHistoryRepository(),
+            outboxRepository = FakeOutboxRepository(),
+        )
+
+        viewModel.state.test {
+            var loaded = awaitItem()
+            while (loaded.windows.all { it.readings.isEmpty() }) {
+                loaded = awaitItem()
+            }
+
+            val segments = loaded.windows.first { it.window == GlucoseWindow.ThreeHours }.tirSegments
+            assertEquals(
+                GlucoseTirBucket.entries.toList(),
+                segments.map { it.bucket },
+            )
+            assertTrue(segments.all { it.percent == 20 })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -125,7 +166,6 @@ private class FakeGlucoseRepository(
                 from = from,
                 to = to,
                 readings = visible,
-                tirSegments = emptyList(),
             ),
             fetchedAt = visible.maxOfOrNull { it.readingAt },
             isRefreshing = false,

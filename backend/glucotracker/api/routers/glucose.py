@@ -16,12 +16,18 @@ from glucotracker.api.schemas import (
     FingerstickReadingPatch,
     FingerstickReadingResponse,
     GlucoseDashboardResponse,
+    GlucoseTirDailyResponse,
+    GlucoseTirDayResponse,
     SensorQualityResponse,
     SensorSessionCreate,
     SensorSessionPatch,
     SensorSessionResponse,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.stats_insights import (
+    InsightPeriod,
+    generate_glucose_tir_daily,
+)
 
 router = APIRouter(
     tags=["glucose"],
@@ -46,6 +52,26 @@ async def get_glucose_dashboard(
         from_datetime,
         to_datetime,
         mode,
+    )
+
+
+@router.get(
+    "/glucose/tir-daily",
+    response_model=GlucoseTirDailyResponse,
+    operation_id="getGlucoseTirDaily",
+)
+def get_glucose_tir_daily(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    period: InsightPeriod = "30d",
+) -> GlucoseTirDailyResponse:
+    """Return per-day TIR band shares for the period (descriptive only)."""
+    return GlucoseTirDailyResponse(
+        period=period,
+        days=[
+            GlucoseTirDayResponse.model_validate(day, from_attributes=True)
+            for day in generate_glucose_tir_daily(session, current_user.id, period)
+        ],
     )
 
 

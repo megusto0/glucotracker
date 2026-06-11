@@ -104,6 +104,7 @@ GLUCOSE_FORBIDDEN_REQUESTS = [
             }
         },
     ),
+    ("GET", "/glucose/tir-daily", {"params": {"period": "7d"}}),
     (
         "POST",
         "/fingersticks",

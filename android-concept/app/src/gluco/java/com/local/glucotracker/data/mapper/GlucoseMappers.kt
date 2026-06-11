@@ -45,6 +45,5 @@ fun List<CachedGlucoseEntity>.toRange(): GlucoseRange? {
         from = first().readingAt,
         to = last().readingAt,
         readings = map { it.toDomain() },
-        tirSegments = emptyList(),
     )
 }

@@ -589,6 +589,7 @@ private fun TodayKpiGrid(
     modifier: Modifier = Modifier,
 ) {
     val kcalGoal = goals.dailyKcal
+    val proteinGoal = goals.dailyProteinG
     val carbsGoal = goals.dailyCarbsG
     val remaining = kcalGoal?.let { it - totals.kcal }
     Column(modifier = modifier) {
@@ -607,8 +608,9 @@ private fun TodayKpiGrid(
             GTKpiCard(
                 label = stringResource(R.string.today_kpi_protein),
                 value = formatGrams(totals.proteinG),
-                sub = stringResource(R.string.today_kpi_day_sub),
-                progress = 0f,
+                sub = proteinGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatGrams(it.toDouble())) }
+                    ?: stringResource(R.string.today_kpi_day_sub),
+                progress = progressOf(totals.proteinG, proteinGoal),
                 progressColor = GT.colors.info.copy(alpha = 0.65f),
                 modifier = Modifier.weight(1f),
             )
@@ -626,15 +628,20 @@ private fun TodayKpiGrid(
                 progressColor = GT.colors.accent.copy(alpha = 0.68f),
                 modifier = Modifier.weight(1f),
             )
-            GTKpiCard(
-                label = stringResource(R.string.today_kpi_remaining),
-                value = remaining?.let { formatSignedKcal(it.roundToLong()) } ?: "—",
-                sub = kcalGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it)) }
-                    ?: stringResource(R.string.today_kpi_no_goal_sub),
-                progress = remaining?.let { progressOf(it.coerceAtLeast(0.0), kcalGoal) } ?: 0f,
-                progressColor = GT.colors.good.copy(alpha = 0.5f),
+            val drewGlucoseKpi = LocalGlucoseSurfaces.current.TodayGlucoseKpiCard(
                 modifier = Modifier.weight(1f),
             )
+            if (!drewGlucoseKpi) {
+                GTKpiCard(
+                    label = stringResource(R.string.today_kpi_remaining),
+                    value = remaining?.let { formatSignedKcal(it.roundToLong()) } ?: "—",
+                    sub = kcalGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it)) }
+                        ?: stringResource(R.string.today_kpi_no_goal_sub),
+                    progress = remaining?.let { progressOf(it.coerceAtLeast(0.0), kcalGoal) } ?: 0f,
+                    progressColor = GT.colors.good.copy(alpha = 0.5f),
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

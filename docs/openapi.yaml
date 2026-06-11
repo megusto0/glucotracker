@@ -2354,6 +2354,66 @@ components:
       - suspected_compression_count
       title: GlucoseDashboardSummary
       type: object
+    GlucoseTirDailyResponse:
+      description: Daily TIR distribution for a stats period (gluco feature only).
+      properties:
+        days:
+          items:
+            $ref: '#/components/schemas/GlucoseTirDayResponse'
+          title: Days
+          type: array
+        period:
+          enum:
+          - 7d
+          - 14d
+          - 30d
+          title: Period
+          type: string
+      required:
+      - period
+      - days
+      title: GlucoseTirDailyResponse
+      type: object
+    GlucoseTirDayResponse:
+      description: Per-day share of CGM points across display TIR bands (gluco only).
+      properties:
+        date:
+          format: date
+          title: Date
+          type: string
+        high_pct:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: High Pct
+        in_range_pct:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: In Range Pct
+        low_pct:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Low Pct
+        points:
+          title: Points
+          type: integer
+        very_high_pct:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Very High Pct
+        very_low_pct:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Very Low Pct
+      required:
+      - date
+      - points
+      title: GlucoseTirDayResponse
+      type: object
     HTTPValidationError:
       properties:
         detail:
@@ -8562,6 +8622,51 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Glucose Dashboard
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/tir-daily:
+    get:
+      description: Return per-day TIR band shares for the period (descriptive only).
+      operationId: getGlucoseTirDaily
+      parameters:
+      - in: query
+        name: period
+        required: false
+        schema:
+          default: 30d
+          enum:
+          - 7d
+          - 14d
+          - 30d
+          title: Period
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlucoseTirDailyResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Glucose Tir Daily
       tags:
       - glucose
       x-glucotracker-required-feature: glucose

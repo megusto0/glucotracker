@@ -2143,7 +2143,7 @@
             "type": "string"
           },
           "glucose_mode_label": {
-            "default": "исходная CGM",
+            "default": "\u0438\u0441\u0445\u043e\u0434\u043d\u0430\u044f CGM",
             "title": "Glucose Mode Label",
             "type": "string"
           },
@@ -2621,7 +2621,7 @@
         "description": "Optional local context to include in a photo estimation request.",
         "examples": [
           {
-            "context_note": "100 г варёного риса на тарелке",
+            "context_note": "100 \u0433 \u0432\u0430\u0440\u0451\u043d\u043e\u0433\u043e \u0440\u0438\u0441\u0430 \u043d\u0430 \u0442\u0430\u0440\u0435\u043b\u043a\u0435",
             "model": "default",
             "scenario_hint": "PLATED",
             "use_patterns": [],
@@ -3535,6 +3535,108 @@
           "suspected_compression_count"
         ],
         "title": "GlucoseDashboardSummary",
+        "type": "object"
+      },
+      "GlucoseTirDailyResponse": {
+        "description": "Daily TIR distribution for a stats period (gluco feature only).",
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/GlucoseTirDayResponse"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "period": {
+            "enum": [
+              "7d",
+              "14d",
+              "30d"
+            ],
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "days"
+        ],
+        "title": "GlucoseTirDailyResponse",
+        "type": "object"
+      },
+      "GlucoseTirDayResponse": {
+        "description": "Per-day share of CGM points across display TIR bands (gluco only).",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "high_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Pct"
+          },
+          "in_range_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Range Pct"
+          },
+          "low_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Pct"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "very_high_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Very High Pct"
+          },
+          "very_low_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Very Low Pct"
+          }
+        },
+        "required": [
+          "date",
+          "points"
+        ],
+        "title": "GlucoseTirDayResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -7025,8 +7127,8 @@
         "examples": [
           {
             "aliases": [
-              "воппер",
-              "вопер",
+              "\u0432\u043e\u043f\u043f\u0435\u0440",
+              "\u0432\u043e\u043f\u0435\u0440",
               "whopper"
             ],
             "default_carbs_g": 51,
@@ -7045,7 +7147,7 @@
           "aliases": {
             "examples": [
               [
-                "воппер"
+                "\u0432\u043e\u043f\u043f\u0435\u0440"
               ]
             ],
             "items": {
@@ -9481,7 +9583,7 @@
           "aliases": {
             "examples": [
               [
-                "сырок"
+                "\u0441\u044b\u0440\u043e\u043a"
               ]
             ],
             "items": {
@@ -13931,6 +14033,79 @@
           }
         ],
         "summary": "Get Glucose Dashboard",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/tir-daily": {
+      "get": {
+        "description": "Return per-day TIR band shares for the period (descriptive only).",
+        "operationId": "getGlucoseTirDaily",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "30d",
+              "enum": [
+                "7d",
+                "14d",
+                "30d"
+              ],
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlucoseTirDailyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Tir Daily",
         "tags": [
           "glucose"
         ],

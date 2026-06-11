@@ -312,6 +312,55 @@ def test_stats_insights_work_with_thirteen_tracked_days(
     assert "top_repeat_products" in kinds
 
 
+def test_stats_overview_omits_glucose_for_all_roles(api_client: TestClient) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_meals(session, user_id, 7)
+    session.close()
+
+    response = api_client.get("/stats/overview", params={"period": "7d"})
+
+    assert response.status_code == 200
+    assert "glucose" not in response.text.casefold()
+
+
+def test_glucose_tir_daily_returns_band_shares(api_client: TestClient) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    midday = local_now().replace(hour=12, minute=0, second=0, microsecond=0)
+    values = [2.5, 3.5, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 12.0, 15.0]
+    for index, value in enumerate(values):
+        session.add(
+            NightscoutGlucoseEntry(
+                owner_id=user_id,
+                source_key=f"tir-daily-{index}",
+                timestamp=(midday + timedelta(minutes=5 * index)).replace(tzinfo=UTC),
+                value_mmol_l=value,
+            )
+        )
+    session.commit()
+    session.close()
+
+    response = api_client.get("/glucose/tir-daily", params={"period": "7d"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["period"] == "7d"
+    assert len(payload["days"]) == 7
+    today_row = payload["days"][-1]
+    assert today_row["points"] == 10
+    assert today_row["very_low_pct"] == pytest.approx(10.0)
+    assert today_row["low_pct"] == pytest.approx(10.0)
+    assert today_row["in_range_pct"] == pytest.approx(60.0)
+    assert today_row["high_pct"] == pytest.approx(10.0)
+    assert today_row["very_high_pct"] == pytest.approx(10.0)
+    empty_row = payload["days"][0]
+    assert empty_row["points"] == 0
+    assert empty_row["in_range_pct"] is None
+
+
 @pytest.mark.parametrize("role", [UserRole.gluco, UserRole.food])
 def test_stats_insights_are_scoped_to_current_user(
     api_client: TestClient,

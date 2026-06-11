@@ -403,6 +403,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/tir-daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Tir Daily
+         * @description Return per-day TIR band shares for the period (descriptive only).
+         */
+        get: operations["getGlucoseTirDaily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3202,6 +3222,42 @@ export interface components {
             sensor_age_days?: number | null;
             /** Suspected Compression Count */
             suspected_compression_count: number;
+        };
+        /**
+         * GlucoseTirDailyResponse
+         * @description Daily TIR distribution for a stats period (gluco feature only).
+         */
+        GlucoseTirDailyResponse: {
+            /** Days */
+            days: components["schemas"]["GlucoseTirDayResponse"][];
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "7d" | "14d" | "30d";
+        };
+        /**
+         * GlucoseTirDayResponse
+         * @description Per-day share of CGM points across display TIR bands (gluco only).
+         */
+        GlucoseTirDayResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** High Pct */
+            high_pct?: number | null;
+            /** In Range Pct */
+            in_range_pct?: number | null;
+            /** Low Pct */
+            low_pct?: number | null;
+            /** Points */
+            points: number;
+            /** Very High Pct */
+            very_high_pct?: number | null;
+            /** Very Low Pct */
+            very_low_pct?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -7244,6 +7300,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GlucoseDashboardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGlucoseTirDaily: {
+        parameters: {
+            query?: {
+                period?: "7d" | "14d" | "30d";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlucoseTirDailyResponse"];
                 };
             };
             /** @description Validation Error */

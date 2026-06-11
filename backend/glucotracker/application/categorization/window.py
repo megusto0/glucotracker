@@ -23,6 +23,23 @@ SHIFT_THRESHOLD_MINUTES: int = 120
 WEEKEND_SPLIT_THRESHOLD_MINUTES: int = 90
 WEEKEND_SPLIT_MIN_WEEKS: int = 4
 MIN_QUALIFYING_DAYS: int = 7
+TYPICAL_MORNING_START_MINUTES: int = 4 * 60
+TYPICAL_MORNING_END_MINUTES: int = 11 * 60
+
+
+def anchor_is_typical_morning(anchor_minutes: int | None) -> bool:
+    """Return True when the day anchor lands in a conventional morning slot.
+
+    Time-of-day wording («утром», «вечерние») is only truthful for such
+    anchors; shifted anchors need anchor-relative labels instead.
+    """
+    if anchor_minutes is None:
+        return True
+    return (
+        TYPICAL_MORNING_START_MINUTES
+        <= anchor_minutes
+        <= TYPICAL_MORNING_END_MINUTES
+    )
 
 
 def _weighted_median(values: list[float], weights: list[float]) -> float:

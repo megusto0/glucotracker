@@ -18,6 +18,7 @@ from glucotracker.api.schemas import (
     ScheduleWindowResponse,
 )
 from glucotracker.application.categorization.window import (
+    anchor_is_typical_morning,
     compute_user_anchors,
     recompute_and_persist_anchors,
     write_anchors_to_user,
@@ -236,32 +237,48 @@ def _history_response(
     return list(reversed(rendered))
 
 
+_WINDOW_LABELS_CLOCK: dict[str, str] = {
+    "start": "1-й прием",
+    "mid": "дневные",
+    "late": "вечерние",
+    "night_cap": "поздние ночные",
+}
+# Anchor-relative labels: truthful even when the learned day anchor is far
+# from a conventional morning (e.g. first meal around midnight).
+_WINDOW_LABELS_RELATIVE: dict[str, str] = {
+    "start": "1-й прием",
+    "mid": "середина дня",
+    "late": "вторая половина",
+    "night_cap": "конец дня",
+}
+
+
 def _windows(anchor_minutes: int | None) -> list[ScheduleWindowResponse]:
+    labels = (
+        _WINDOW_LABELS_CLOCK
+        if anchor_is_typical_morning(anchor_minutes)
+        else _WINDOW_LABELS_RELATIVE
+    )
     if anchor_minutes is None:
         boundaries = [
-            ("start", "1-й прием", 5 * 60, 11 * 60),
-            ("mid", "дневные", 11 * 60, 16 * 60),
-            ("late", "вечерние", 16 * 60, 22 * 60),
-            ("night_cap", "поздние ночные", 22 * 60, 5 * 60),
+            ("start", 5 * 60, 11 * 60),
+            ("mid", 11 * 60, 16 * 60),
+            ("late", 16 * 60, 22 * 60),
+            ("night_cap", 22 * 60, 5 * 60),
         ]
     else:
         boundaries = [
-            ("start", "1-й прием", anchor_minutes, anchor_minutes + 3 * 60),
-            ("mid", "дневные", anchor_minutes + 3 * 60, anchor_minutes + 8 * 60),
-            ("late", "вечерние", anchor_minutes + 8 * 60, anchor_minutes + 13 * 60),
-            (
-                "night_cap",
-                "поздние ночные",
-                anchor_minutes + 13 * 60,
-                anchor_minutes + 24 * 60,
-            ),
+            ("start", anchor_minutes, anchor_minutes + 3 * 60),
+            ("mid", anchor_minutes + 3 * 60, anchor_minutes + 8 * 60),
+            ("late", anchor_minutes + 8 * 60, anchor_minutes + 13 * 60),
+            ("night_cap", anchor_minutes + 13 * 60, anchor_minutes + 24 * 60),
         ]
     return [
         ScheduleWindowResponse(
             key=key,
-            label=label,
+            label=labels[key],
             start_minute=start % (24 * 60),
             end_minute=end % (24 * 60),
         )
-        for key, label, start, end in boundaries
+        for key, start, end in boundaries
     ]

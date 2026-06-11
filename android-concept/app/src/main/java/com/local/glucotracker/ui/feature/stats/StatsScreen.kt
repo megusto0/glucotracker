@@ -56,6 +56,7 @@ import com.local.glucotracker.domain.model.StatsOverviewTopProduct
 import com.local.glucotracker.domain.model.StatsPeriod
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTKicker
+import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
@@ -229,6 +230,9 @@ private fun NutritionStatsCharts(
                         .height(158.dp),
                 )
             }
+        }
+        item {
+            LocalGlucoseSurfaces.current.StatsTirSection(periodApiValue = state.period.apiValue)
         }
         item {
             StatCard(

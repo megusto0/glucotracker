@@ -122,7 +122,7 @@ class MoreViewModel @Inject constructor(
                 mealReminder = false,
                 nsFail = false,
                 lowConfidence = false,
-                outboxStuck = false,
+                outboxStuck = true,
             ),
             rhythm = null,
         ),

@@ -18,12 +18,6 @@ data class GlucoseRange(
     val from: Instant,
     val to: Instant,
     val readings: List<GlucoseReading>,
-    val tirSegments: List<TirSegment>,
-)
-
-data class TirSegment(
-    val label: String,
-    val percent: Int,
 )
 
 @Serializable

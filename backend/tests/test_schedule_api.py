@@ -96,6 +96,34 @@ def test_schedule_override_and_history_are_scoped(api_client: TestClient) -> Non
     assert get_response.json()["user_override_minutes"] == 420
 
 
+def test_schedule_windows_use_relative_labels_for_shifted_anchor(
+    api_client: TestClient,
+) -> None:
+    morning = api_client.put(
+        "/me/schedule/override",
+        json={"anchor_minutes": 8 * 60},
+    )
+    assert morning.status_code == 200
+    morning_labels = [row["label"] for row in morning.json()["windows"]]
+    assert morning_labels == ["1-й прием", "дневные", "вечерние", "поздние ночные"]
+
+    shifted = api_client.put(
+        "/me/schedule/override",
+        json={"anchor_minutes": 42},
+    )
+    assert shifted.status_code == 200
+    payload = shifted.json()
+    shifted_labels = [row["label"] for row in payload["windows"]]
+    assert shifted_labels == [
+        "1-й прием",
+        "середина дня",
+        "вторая половина",
+        "конец дня",
+    ]
+    assert payload["windows"][0]["start_minute"] == 42
+    assert payload["windows"][3]["end_minute"] == 42
+
+
 def test_schedule_read_persists_learned_anchor_when_missing(
     api_client: TestClient,
 ) -> None:

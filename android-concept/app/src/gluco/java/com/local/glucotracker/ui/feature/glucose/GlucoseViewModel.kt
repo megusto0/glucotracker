@@ -7,12 +7,12 @@ import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.Meal
-import com.local.glucotracker.domain.model.TirSegment
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +59,7 @@ data class GlucoseTirSegmentUi(
 )
 
 enum class GlucoseTirBucket {
+    VeryLow,
     Low,
     InRange,
     High,
@@ -68,6 +69,7 @@ enum class GlucoseTirBucket {
 data class GlucoseDaypartUi(
     val label: String,
     val valueMmol: Double?,
+    val belowRangePercent: Int?,
 )
 
 @HiltViewModel
@@ -189,7 +191,7 @@ private fun CachedView<GlucoseRange>.toWindowState(
         to = to,
         readings = readings,
         mealMarkers = meals.map { it.eatenAt },
-        tirSegments = value?.tirSegments.orEmpty().toTirUi(),
+        tirSegments = readings.toTirSegments(),
         tirFetchedAt = fetchedAt,
         hasGap = window.requiresGapKicker() && readings.hasGap(from, to),
         latest = latest,
@@ -198,31 +200,48 @@ private fun CachedView<GlucoseRange>.toWindowState(
     )
 }
 
-private fun List<TirSegment>.toTirUi(): List<GlucoseTirSegmentUi> {
-    val buckets = associateBy { it.label.toTirBucket() }
-    return listOf(
-        GlucoseTirSegmentUi(GlucoseTirBucket.Low, buckets[GlucoseTirBucket.Low]?.percent),
-        GlucoseTirSegmentUi(GlucoseTirBucket.InRange, buckets[GlucoseTirBucket.InRange]?.percent),
-        GlucoseTirSegmentUi(GlucoseTirBucket.High, buckets[GlucoseTirBucket.High]?.percent),
-        GlucoseTirSegmentUi(GlucoseTirBucket.VeryHigh, buckets[GlucoseTirBucket.VeryHigh]?.percent),
-    )
-}
+// Display thresholds, same scale as the settings TIR strip (3.0 · 3.9 · 10.0 · 13.0).
+private const val VeryLowThresholdMmol = 3.0
+private const val LowThresholdMmol = 3.9
+private const val HighThresholdMmol = 10.0
+private const val VeryHighThresholdMmol = 13.0
 
-private fun String.toTirBucket(): GlucoseTirBucket =
+private fun Double.toTirBucket(): GlucoseTirBucket =
     when {
-        contains("very", ignoreCase = true) -> GlucoseTirBucket.VeryHigh
-        contains("high", ignoreCase = true) || contains("above", ignoreCase = true) -> GlucoseTirBucket.High
-        contains("low", ignoreCase = true) || contains("below", ignoreCase = true) -> GlucoseTirBucket.Low
-        else -> GlucoseTirBucket.InRange
+        this < VeryLowThresholdMmol -> GlucoseTirBucket.VeryLow
+        this < LowThresholdMmol -> GlucoseTirBucket.Low
+        this <= HighThresholdMmol -> GlucoseTirBucket.InRange
+        this <= VeryHighThresholdMmol -> GlucoseTirBucket.High
+        else -> GlucoseTirBucket.VeryHigh
     }
 
-private fun emptyTirSegments(): List<GlucoseTirSegmentUi> =
-    listOf(
-        GlucoseTirSegmentUi(GlucoseTirBucket.Low, null),
-        GlucoseTirSegmentUi(GlucoseTirBucket.InRange, null),
-        GlucoseTirSegmentUi(GlucoseTirBucket.High, null),
-        GlucoseTirSegmentUi(GlucoseTirBucket.VeryHigh, null),
+private fun List<GlucoseReading>.toTirSegments(): List<GlucoseTirSegmentUi> {
+    if (isEmpty()) return emptyTirSegments()
+    val counts = groupingBy { it.displayValueMmolL.toTirBucket() }.eachCount()
+    val percents = largestRemainderPercents(
+        GlucoseTirBucket.entries.map { counts[it] ?: 0 },
+        total = size,
     )
+    return GlucoseTirBucket.entries.mapIndexed { index, bucket ->
+        GlucoseTirSegmentUi(bucket, percents[index])
+    }
+}
+
+/** Round counts to integer percents that always sum to 100. */
+private fun largestRemainderPercents(counts: List<Int>, total: Int): List<Int> {
+    val exact = counts.map { it * 100.0 / total }
+    val floors = exact.map { it.toInt() }.toMutableList()
+    val leftover = 100 - floors.sum()
+    exact
+        .mapIndexed { index, value -> index to value - floors[index] }
+        .sortedByDescending { it.second }
+        .take(leftover.coerceAtLeast(0))
+        .forEach { (index, _) -> floors[index] += 1 }
+    return floors
+}
+
+private fun emptyTirSegments(): List<GlucoseTirSegmentUi> =
+    GlucoseTirBucket.entries.map { GlucoseTirSegmentUi(it, null) }
 
 private fun List<GlucoseReading>.toDayparts(): List<GlucoseDaypartUi> {
     if (isEmpty()) return emptyDayparts()
@@ -230,15 +249,21 @@ private fun List<GlucoseReading>.toDayparts(): List<GlucoseDaypartUi> {
         val values = filter { reading ->
             reading.readingAt.toLocalDateTime(TimeZone.currentSystemDefault()).time.hour in range.hourRange
         }
+        val belowCount = values.count { it.displayValueMmolL < LowThresholdMmol }
         GlucoseDaypartUi(
             label = range.label,
             valueMmol = values.map { it.displayValueMmolL }.averageOrNull(),
+            belowRangePercent = if (values.isEmpty()) {
+                null
+            } else {
+                (belowCount * 100.0 / values.size).roundToInt()
+            },
         )
     }
 }
 
 private fun emptyDayparts(): List<GlucoseDaypartUi> =
-    DaypartRanges.map { GlucoseDaypartUi(label = it.label, valueMmol = null) }
+    DaypartRanges.map { GlucoseDaypartUi(label = it.label, valueMmol = null, belowRangePercent = null) }
 
 private data class DaypartRange(
     val label: String,

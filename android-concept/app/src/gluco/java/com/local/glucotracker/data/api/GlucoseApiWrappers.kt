@@ -3,6 +3,7 @@ package com.local.glucotracker.data.api
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
+import com.local.glucotracker.generated.model.GlucoseTirDailyResponse
 import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
 import com.local.glucotracker.generated.model.NightscoutInsulinEventResponse
 import com.local.glucotracker.generated.model.NightscoutStatusResponse
@@ -18,6 +19,9 @@ class GlucoseApi @Inject constructor(
 ) {
     suspend fun dashboard(from: Instant, to: Instant, mode: String? = null): GlucoseDashboardResponse =
         glucoseApi.getGlucoseDashboard(from = from, to = to, mode = mode).body()
+
+    suspend fun tirDaily(period: String): GlucoseTirDailyResponse =
+        glucoseApi.getGlucoseTirDaily(period = period).body()
 }
 
 class NightscoutApi @Inject constructor(

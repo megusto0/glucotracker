@@ -130,6 +130,27 @@ class StatsOverviewAnomalyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class GlucoseTirDayResponse(BaseModel):
+    """Per-day share of CGM points across display TIR bands (gluco only)."""
+
+    date: date_type
+    points: int
+    very_low_pct: float | None = None
+    low_pct: float | None = None
+    in_range_pct: float | None = None
+    high_pct: float | None = None
+    very_high_pct: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GlucoseTirDailyResponse(BaseModel):
+    """Daily TIR distribution for a stats period (gluco feature only)."""
+
+    period: Literal["7d", "14d", "30d"]
+    days: list[GlucoseTirDayResponse]
+
+
 class StatsOverviewResponse(BaseModel):
     """Structured mobile stats aggregate."""
 

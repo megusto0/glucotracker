@@ -43,7 +43,16 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
     }
 
     @Composable
-    override fun StatsTirSection() {
+    override fun TodayGlucoseKpiCard(modifier: Modifier): Boolean {
+        GTHintBox(
+            text = stringResource(R.string.today_kpi_below_range),
+            modifier = modifier,
+        )
+        return true
+    }
+
+    @Composable
+    override fun StatsTirSection(periodApiValue: String) {
         GTHintBox(text = stringResource(R.string.stats_tir_empty))
     }
 

@@ -409,10 +409,11 @@ private fun TirStrip(state: GlucoseWindowState) {
         ) {
             val knownTotal = state.tirSegments.sumOf { it.percent ?: 0 }
             state.tirSegments.forEach { segment ->
-                if (knownTotal > 0 && segment.percent != null) {
+                val percent = segment.percent ?: 0
+                if (knownTotal > 0 && percent > 0) {
                     Box(
                         modifier = Modifier
-                            .weight(segment.percent.toFloat())
+                            .weight(percent.toFloat())
                             .height(10.dp)
                             .background(segment.bucket.color()),
                     )
@@ -471,6 +472,7 @@ private fun DaypartCard(
 ) {
     val emptyValue = stringResource(R.string.glucose_value_empty)
     val value = daypart.valueMmol?.let(::formatMmol) ?: emptyValue
+    val belowPercent = daypart.belowRangePercent
     val description = if (daypart.valueMmol != null) {
         stringResource(R.string.glucose_daypart_description, daypart.label, value)
     } else {
@@ -500,6 +502,15 @@ private fun DaypartCard(
             style = GT.type.monoLabel,
             maxLines = 1,
         )
+        if (belowPercent != null && belowPercent > 0) {
+            Text(
+                text = stringResource(R.string.glucose_daypart_below, belowPercent),
+                modifier = Modifier.padding(top = 4.dp),
+                color = GT.colors.warn,
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -601,6 +612,7 @@ private fun FingerstickGlyph() {
 @Composable
 private fun GlucoseTirBucket.label(): String =
     when (this) {
+        GlucoseTirBucket.VeryLow -> stringResource(R.string.glucose_tir_very_low)
         GlucoseTirBucket.Low -> stringResource(R.string.glucose_tir_low)
         GlucoseTirBucket.InRange -> stringResource(R.string.glucose_tir_range)
         GlucoseTirBucket.High -> stringResource(R.string.glucose_tir_high)
@@ -610,6 +622,7 @@ private fun GlucoseTirBucket.label(): String =
 @Composable
 private fun GlucoseTirBucket.color(): Color =
     when (this) {
+        GlucoseTirBucket.VeryLow -> GT.colors.bad
         GlucoseTirBucket.Low -> GT.colors.info
         GlucoseTirBucket.InRange -> GT.colors.good
         GlucoseTirBucket.High -> GT.colors.warn

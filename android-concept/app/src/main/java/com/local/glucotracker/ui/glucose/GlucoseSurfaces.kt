@@ -78,8 +78,22 @@ interface GlucoseSurfaces {
     @Composable
     fun MiniGlucoseCard(modifier: Modifier = Modifier)
 
+    /**
+     * Fourth KPI card on the Today grid. The gluco flavor renders a
+     * descriptive below-range glance for the current day and returns true;
+     * the noop returns false so the caller keeps the kcal-remaining card.
+     */
     @Composable
-    fun StatsTirSection()
+    fun TodayGlucoseKpiCard(modifier: Modifier = Modifier): Boolean
+
+    /**
+     * Daily TIR distribution card on the stats page. The gluco flavor
+     * fetches the backend-computed per-day band shares for [periodApiValue]
+     * (e.g. "30d") from the gluco-gated endpoint; the food noop renders
+     * nothing.
+     */
+    @Composable
+    fun StatsTirSection(periodApiValue: String)
 
     @Composable
     fun StatsDaypartSection()
@@ -138,7 +152,10 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
     override fun MiniGlucoseCard(modifier: Modifier) = Unit
 
     @Composable
-    override fun StatsTirSection() = Unit
+    override fun TodayGlucoseKpiCard(modifier: Modifier): Boolean = false
+
+    @Composable
+    override fun StatsTirSection(periodApiValue: String) = Unit
 
     @Composable
     override fun StatsDaypartSection() = Unit

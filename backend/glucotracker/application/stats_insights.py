@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from glucotracker.application.categorization.window import anchor_is_typical_morning
 from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.product_categories import is_sweet_text
 from glucotracker.application.time import (
@@ -48,6 +49,13 @@ PERIOD_DAYS: dict[InsightPeriod, int] = {
     "30d": 30,
 }
 MIN_TRACKED_DAYS_FOR_INSIGHTS: int = 7
+
+# Display thresholds for the TIR bands, same scale the clients show
+# (3.0 · 3.9 · 10.0 · 13.0 mmol/L). Descriptive only.
+TIR_VERY_LOW_MMOL: float = 3.0
+TIR_LOW_MMOL: float = 3.9
+TIR_HIGH_MMOL: float = 10.0
+TIR_VERY_HIGH_MMOL: float = 13.0
 
 _KIND_FLAVOR: dict[InsightKind, str] = {
     "consistent": "both",
@@ -89,6 +97,15 @@ WINDOW_LABELS = {
     "mid": "днём",
     "late": "вечером",
     "night_cap": "ночью",
+}
+
+# Anchor-relative wording for users whose learned day starts far from a
+# conventional morning; clock words above would point at the wrong hours.
+WINDOW_LABELS_RELATIVE = {
+    "start": "в первые часы дня",
+    "mid": "в середине дня",
+    "late": "во второй половине дня",
+    "night_cap": "в конце дня",
 }
 
 MONTH_GENITIVE = {
@@ -296,6 +313,23 @@ class StatsOverviewAnomaly:
 
 
 @dataclass(frozen=True)
+class StatsOverviewGlucoseDay:
+    """Per-day share of CGM points across the display TIR bands.
+
+    Gluco role only; food role gets an empty list. Percent fields are
+    None when the day has no visible CGM points.
+    """
+
+    date: date_type
+    points: int
+    very_low_pct: float | None
+    low_pct: float | None
+    in_range_pct: float | None
+    high_pct: float | None
+    very_high_pct: float | None
+
+
+@dataclass(frozen=True)
 class StatsOverview:
     """Structured stats aggregate for mobile rendering."""
 
@@ -415,8 +449,12 @@ def generate_overview(
     period: InsightPeriod,
     role: UserRole = UserRole.gluco,
 ) -> StatsOverview:
-    """Return deterministic structured aggregates for the mobile stats page."""
-    del role  # The aggregate is food-only data; glucose is intentionally absent.
+    """Return deterministic structured aggregates for the mobile stats page.
+
+    The aggregate is food-only data; glucose stays on the gluco-gated
+    ``/glucose/tir-daily`` endpoint so the food flavor never sees it.
+    """
+    del role
     days = PERIOD_DAYS[period]
     context = StatsInsightsRepository(session, user_id).context_for_period(days)
     start_date, end_date = _overview_period_range(days)
@@ -489,6 +527,23 @@ def generate_overview(
         top_products=_overview_top_products(context.meals, user_id),
         anomalies=_overview_anomalies(daily, meals_by_day, average_kcal, spread_kcal),
     )
+
+
+def generate_glucose_tir_daily(
+    session: Session,
+    user_id: UUID,
+    period: InsightPeriod,
+) -> list[StatsOverviewGlucoseDay]:
+    """Return per-day TIR band shares for the period (gluco feature only).
+
+    Descriptive measurement only — no targets, no treatment advice. Lives
+    behind the glucose feature gate; never embedded in the shared stats
+    overview so the food flavor stays glucose-free.
+    """
+    days = PERIOD_DAYS[period]
+    context = StatsInsightsRepository(session, user_id).context_for_period(days)
+    start_date, end_date = _overview_period_range(days)
+    return _overview_glucose_daily(context, _date_list(start_date, end_date))
 
 
 def _generate_uncached(
@@ -798,6 +853,58 @@ def _append_per_100(
         values.append(float(item_value) / float(grams or 1) * 100)
 
 
+def _overview_glucose_daily(
+    context: InsightContext,
+    all_days: list[date_type],
+) -> list[StatsOverviewGlucoseDay]:
+    by_day: dict[date_type, list[float]] = defaultdict(list)
+    for point in context.glucose_points:
+        by_day[point.local_date].append(point.value_mmol_l)
+
+    rows: list[StatsOverviewGlucoseDay] = []
+    for day in all_days:
+        values = by_day.get(day, [])
+        total = len(values)
+        if total == 0:
+            rows.append(
+                StatsOverviewGlucoseDay(
+                    date=day,
+                    points=0,
+                    very_low_pct=None,
+                    low_pct=None,
+                    in_range_pct=None,
+                    high_pct=None,
+                    very_high_pct=None,
+                )
+            )
+            continue
+        very_low = sum(1 for value in values if value < TIR_VERY_LOW_MMOL)
+        low = sum(
+            1 for value in values if TIR_VERY_LOW_MMOL <= value < TIR_LOW_MMOL
+        )
+        high = sum(
+            1 for value in values if TIR_HIGH_MMOL < value <= TIR_VERY_HIGH_MMOL
+        )
+        very_high = sum(1 for value in values if value > TIR_VERY_HIGH_MMOL)
+        in_range = total - very_low - low - high - very_high
+
+        def pct(count: int, *, of: int = total) -> float:
+            return round(count * 100.0 / of, 1)
+
+        rows.append(
+            StatsOverviewGlucoseDay(
+                date=day,
+                points=total,
+                very_low_pct=pct(very_low),
+                low_pct=pct(low),
+                in_range_pct=pct(in_range),
+                high_pct=pct(high),
+                very_high_pct=pct(very_high),
+            )
+        )
+    return rows
+
+
 def _overview_anomalies(
     daily: list[StatsOverviewDay],
     meals_by_day: dict[date_type, list[InsightMeal]],
@@ -1022,7 +1129,8 @@ def _weekday_pattern_sweet(context: InsightContext) -> InsightCandidate | None:
     return InsightCandidate(
         kind="weekday_pattern_sweet",
         text=(
-            f"По {_day_label(weekdays)} {WINDOW_LABELS[window]} "
+            f"По {_day_label(weekdays)} "
+            f"{_window_label(window, context.anchor_minutes)} "
             f"сладкого больше — около {_format_int(kcal)} ккал."
         ),
         signal_strength=share,
@@ -1359,6 +1467,12 @@ def _fallback_window(hour: int) -> str:
     return "night_cap"
 
 
+def _window_label(window: str, anchor_minutes: int | None) -> str:
+    if anchor_is_typical_morning(anchor_minutes):
+        return WINDOW_LABELS[window]
+    return WINDOW_LABELS_RELATIVE[window]
+
+
 def _late_threshold_label(anchor_minutes: int | None) -> str:
     minutes = (
         (anchor_minutes + 8 * 60) % (24 * 60)
@@ -1430,6 +1544,7 @@ def rendered_template_samples_for_lint() -> tuple[str, ...]:
             "По средам и пятницам вечером сладкого больше всего — "
             "около 380 ккал из десертов и напитков."
         ),
+        "По средам в конце дня сладкого больше — около 380 ккал.",
         "Чаще всего ешь в 13:00 и 19:00.",
         (
             "Чаще всего: Протеиновое брауни (7×), "

@@ -20,7 +20,9 @@ data class NotificationToggles(
     val mealReminder: Boolean,
     val nsFail: Boolean,
     val lowConfidence: Boolean,
-    val outboxStuck: Boolean = false,
+    // Default ON: a stuck record risks silent data loss; the concept allows
+    // status notifications ("запись не дошла"), and the user can opt out.
+    val outboxStuck: Boolean = true,
 )
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
@@ -57,7 +59,7 @@ class SettingsStore @Inject constructor(
                 mealReminder = preferences[Keys.NotifMealReminder] ?: false,
                 nsFail = preferences[Keys.NotifNsFail] ?: false,
                 lowConfidence = preferences[Keys.NotifLowConfidence] ?: false,
-                outboxStuck = preferences[Keys.NotifOutboxStuck] ?: false,
+                outboxStuck = preferences[Keys.NotifOutboxStuck] ?: true,
             )
         }
 
@@ -148,7 +150,8 @@ class SettingsStore @Inject constructor(
                 "outbox_stuck" -> Keys.NotifOutboxStuck
                 else -> return@edit
             }
-            preferences[prefKey] = !(preferences[prefKey] ?: false)
+            val default = prefKey == Keys.NotifOutboxStuck
+            preferences[prefKey] = !(preferences[prefKey] ?: default)
         }
     }
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -39,6 +40,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -57,11 +60,13 @@ import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTKicker
+import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import com.local.glucotracker.ui.format.formatMmol
+import com.local.glucotracker.ui.format.formatPercent
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -85,11 +90,24 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     }
 
     @Composable
-    override fun StatsTirSection() {
-        GlucoseNoteCard(
-            title = stringResource(R.string.stats_chart_tir),
-            text = stringResource(R.string.stats_tir_empty),
-        )
+    override fun TodayGlucoseKpiCard(modifier: Modifier): Boolean {
+        TodayGlucoseKpiSurface(modifier)
+        return true
+    }
+
+    @Composable
+    override fun StatsTirSection(periodApiValue: String) {
+        val viewModel: StatsTirViewModel = hiltViewModel()
+        LaunchedEffect(periodApiValue) { viewModel.load(periodApiValue) }
+        val days by viewModel.state.collectAsStateWithLifecycle()
+        if (days.none { it.hasData }) {
+            GlucoseNoteCard(
+                title = stringResource(R.string.stats_chart_tir),
+                text = stringResource(R.string.stats_tir_empty),
+            )
+            return
+        }
+        StatsTirDailyCard(days = days)
     }
 
     @Composable
@@ -687,6 +705,113 @@ private fun MiniGlucoseSurface(
 }
 
 @Composable
+private fun StatsTirDailyCard(
+    days: List<TirDayUi>,
+    modifier: Modifier = Modifier,
+) {
+    val veryLowColor = GT.colors.bad
+    val lowColor = GT.colors.info
+    val inRangeColor = GT.colors.good
+    val highColor = GT.colors.warn
+    val emptyColor = GT.colors.hairline
+    val description = stringResource(R.string.stats_tir_daily_description, days.count { it.hasData })
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(14.dp),
+    ) {
+        GTKicker(text = stringResource(R.string.stats_tir_daily_title))
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .padding(top = 10.dp)
+                .semantics { contentDescription = description },
+        ) {
+            if (days.isEmpty()) return@Canvas
+            val gap = 2.dp.toPx()
+            val barWidth = (size.width - gap * (days.size - 1)) / days.size
+            days.forEachIndexed { index, day ->
+                val x = index * (barWidth + gap)
+                if (!day.hasData) {
+                    drawRect(
+                        color = emptyColor,
+                        topLeft = Offset(x, size.height - 2.dp.toPx()),
+                        size = Size(barWidth, 2.dp.toPx()),
+                    )
+                    return@forEachIndexed
+                }
+                // Stack from the bottom: very low, low, in range, high, very high.
+                val segments = listOf(
+                    day.veryLowPct to veryLowColor,
+                    day.lowPct to lowColor,
+                    day.inRangePct to inRangeColor,
+                    day.highPct to highColor,
+                    day.veryHighPct to veryLowColor,
+                )
+                var bottom = size.height
+                segments.forEach { (pct, color) ->
+                    val segmentHeight = (pct / 100.0 * size.height).toFloat()
+                    if (segmentHeight > 0f) {
+                        drawRect(
+                            color = color,
+                            topLeft = Offset(x, bottom - segmentHeight),
+                            size = Size(barWidth, segmentHeight),
+                        )
+                        bottom -= segmentHeight
+                    }
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            GlucoTirLegendItem(
+                label = stringResource(R.string.glucose_tir_very_low),
+                color = veryLowColor,
+            )
+            GlucoTirLegendItem(
+                label = stringResource(R.string.glucose_tir_low),
+                color = lowColor,
+            )
+            GlucoTirLegendItem(
+                label = stringResource(R.string.glucose_tir_range),
+                color = inRangeColor,
+            )
+            GlucoTirLegendItem(
+                label = stringResource(R.string.glucose_tir_high),
+                color = highColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayGlucoseKpiSurface(
+    modifier: Modifier = Modifier,
+    viewModel: TodayGlucoseKpiViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val percent = state.belowRangePercent
+    GTKpiCard(
+        label = stringResource(R.string.today_kpi_below_range),
+        value = percent?.let { formatPercent(it.toDouble()) }
+            ?: stringResource(R.string.glucose_value_empty),
+        sub = if (percent != null) {
+            stringResource(R.string.today_kpi_below_range_sub)
+        } else {
+            stringResource(R.string.today_glucose_no_fresh)
+        },
+        progress = percent?.let { (it / 100f).coerceIn(0f, 1f) } ?: 0f,
+        progressColor = GT.colors.info.copy(alpha = 0.65f),
+        modifier = modifier,
+    )
+}
+
+@Composable
 private fun MoreGlucoseSettingsSurface(
     viewModel: MoreNightscoutViewModel = hiltViewModel(),
     settingsViewModel: MoreGlucoseSettingsViewModel = hiltViewModel(),
@@ -804,21 +929,33 @@ private fun GlucoTirSection() {
                 ) {
                     Box(
                         modifier = Modifier
-                            .weight(18f)
+                            .weight(8f)
+                            .height(14.dp)
+                            .background(GT.colors.bad),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(12f)
+                            .height(14.dp)
+                            .background(GT.colors.info),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(56f)
+                            .height(14.dp)
+                            .background(GT.colors.good),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(16f)
                             .height(14.dp)
                             .background(GT.colors.warn),
                     )
                     Box(
                         modifier = Modifier
-                            .weight(52f)
+                            .weight(8f)
                             .height(14.dp)
-                            .background(GT.colors.accent),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(30f)
-                            .height(14.dp)
-                            .background(GT.colors.info),
+                            .background(GT.colors.bad),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -831,16 +968,24 @@ private fun GlucoTirSection() {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     GlucoTirLegendItem(
+                        label = stringResource(R.string.glucose_tir_very_low),
+                        color = GT.colors.bad,
+                    )
+                    GlucoTirLegendItem(
                         label = stringResource(R.string.glucose_tir_low),
-                        color = GT.colors.warn,
+                        color = GT.colors.info,
                     )
                     GlucoTirLegendItem(
                         label = stringResource(R.string.glucose_tir_range),
-                        color = GT.colors.accent,
+                        color = GT.colors.good,
                     )
                     GlucoTirLegendItem(
                         label = stringResource(R.string.glucose_tir_high),
-                        color = GT.colors.info,
+                        color = GT.colors.warn,
+                    )
+                    GlucoTirLegendItem(
+                        label = stringResource(R.string.glucose_tir_very_high),
+                        color = GT.colors.bad,
                     )
                 }
             }
