@@ -506,10 +506,11 @@ private fun InsulinEvent.sourceSuffix(): String =
 
 @Composable
 private fun InsulinEvent.displaySource(): String =
-    if (source.equals("nightscout", ignoreCase = true)) {
-        stringResource(R.string.insulin_source_nightscout)
-    } else {
-        source
+    when {
+        isPending -> stringResource(R.string.insulin_source_pending)
+        source.equals("nightscout", ignoreCase = true) ->
+            stringResource(R.string.insulin_source_nightscout)
+        else -> source
     }
 
 private fun formatInsulinDose(value: Double): String =

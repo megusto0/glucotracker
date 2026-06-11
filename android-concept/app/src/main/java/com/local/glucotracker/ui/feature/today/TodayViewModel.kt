@@ -30,6 +30,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -129,12 +131,13 @@ class TodayViewModel @Inject constructor(
 ) : ViewModel() {
     private val selectedDate = MutableStateFlow(currentLocalDate())
     private val refreshTick = MutableStateFlow(0)
+    private val dayRefreshTick = MutableStateFlow(0)
 
     private val isOnline = connectivityObserver.observe()
         .map { it.isConnected }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    private val dayView = combine(selectedDate, refreshTick) { date, _ -> date }
+    private val dayView = combine(selectedDate, refreshTick, dayRefreshTick) { date, _, _ -> date }
         .flatMapLatest { date -> todayRepository.observeDay(date) }
 
     private val coreState = combine(
@@ -219,6 +222,27 @@ class TodayViewModel @Inject constructor(
 
     init {
         requestSyncInBackground()
+        refreshDayWhenOutboxConfirms()
+    }
+
+    /**
+     * Re-pull the day cache as soon as an outbox mutation confirms so the
+     * accepted record (and server totals) replace the optimistic row without
+     * waiting for a manual refresh.
+     */
+    private fun refreshDayWhenOutboxConfirms() {
+        viewModelScope.launch {
+            outboxRepository.observe()
+                .map { items ->
+                    items
+                        .filter { it.state == OutboxState.Confirmed }
+                        .map { it.id }
+                        .toSet()
+                }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { dayRefreshTick.value += 1 }
+        }
     }
 
     fun refresh() {
@@ -244,6 +268,11 @@ class TodayViewModel @Inject constructor(
         viewModelScope.launch {
             if (row.kind == TodayMealRowKind.Pending && row.outboxId != null) {
                 outboxRepository.remove(row.outboxId)
+                // A confirmed-but-not-yet-cached creation already exists on
+                // the server; removing only the outbox row would resurrect it.
+                if (row.recordId != null) {
+                    outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = row.recordId))
+                }
             } else if (row.recordId != null) {
                 outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = row.recordId))
             }
@@ -316,10 +345,15 @@ private fun toTodayState(
     val serverMeals = day?.meals.orEmpty()
     val acceptedMeals = serverMeals.filter { it.isAcceptedStatus() }
     val backendDrafts = serverMeals.filter { it.isDraftStatus() }
-    val activeOutbox = outbox.filter { it.state.isVisibleQueueState() }
+    // Confirmed creations stay visible until the accepted meal lands in the
+    // day cache, so the row never blinks out between confirm and refetch.
+    val activeOutbox = outbox
+        .filter { it.state.isVisibleQueueState() || it.isConfirmedCreation() }
         .filterNot { item -> item.isAlreadyAccepted(acceptedMeals) }
         .filterNot { it.isZombie }
-    val pendingCount = activeOutbox.count { item -> item.affectsDay(date, acceptedMeals) }
+    val pendingCount = activeOutbox.count { item ->
+        item.state.countsInSyncQueue() && item.affectsDay(date, acceptedMeals)
+    }
     val visibleSyncStatus = syncStatus.copy(
         queueDepth = activeOutbox.count { item -> item.state.countsInSyncQueue() },
     )
@@ -495,7 +529,7 @@ private fun OutboxItem.toPendingRow(
             val draft = outboxKind.payload
             TodayMealRowUi(
                 id = id,
-                recordId = null,
+                recordId = serverIdOnSuccess,
                 outboxId = id,
                 kind = TodayMealRowKind.Pending,
                 eatenAt = outboxKind.eatenAt,
@@ -565,10 +599,15 @@ private fun OutboxItem.affectsDay(date: LocalDate, acceptedMeals: List<Meal>): B
         else -> false
     }
 
+private fun OutboxItem.isConfirmedCreation(): Boolean =
+    state == OutboxState.Confirmed &&
+        (kind is OutboxKind.CreateMeal || kind is OutboxKind.CapturedMeal)
+
 private fun OutboxItem.isAlreadyAccepted(acceptedMeals: List<Meal>): Boolean {
     val acceptedIds = acceptedMeals.map { it.id }.toSet()
     return when (val outboxKind = kind) {
         is OutboxKind.CapturedMeal -> draft?.id in acceptedIds ||
+            (serverIdOnSuccess != null && serverIdOnSuccess in acceptedIds) ||
             (attempts > 0 && acceptedMeals.any { meal -> meal.matchesPhotoCapture(outboxKind.capturedAt) })
         is OutboxKind.CreateMeal -> (serverIdOnSuccess != null && serverIdOnSuccess in acceptedIds) ||
             (attempts > 0 && acceptedMeals.any { meal -> meal.matchesCreateMeal(outboxKind) })

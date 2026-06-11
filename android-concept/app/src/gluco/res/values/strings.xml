@@ -65,6 +65,7 @@
     <string name="insulin_units_short">ЕД</string>
     <string name="insulin_correction">коррекция</string>
     <string name="insulin_source_nightscout">Nightscout</string>
+    <string name="insulin_source_pending">в очереди</string>
     <string name="insulin_attribution_tooltip">Источник: %1$s · Только чтение · id: %2$s</string>
     <string name="record_glucose_open">Открыть →</string>
     <string name="more_section_nightscout">Nightscout</string>

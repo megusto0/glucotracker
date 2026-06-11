@@ -5,14 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.data.settings.GlucoAlarmToggles
 import com.local.glucotracker.data.settings.GlucoSettingsStore
+import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.InsulinEvent
+import com.local.glucotracker.domain.model.InsulinEventType
+import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.data.repository.InsulinRepository
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.NightscoutRepository
+import com.local.glucotracker.domain.repository.OutboxRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -22,10 +26,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -166,23 +173,93 @@ class GlucoseSparklineViewModel @Inject constructor(
 @HiltViewModel
 class InsulinContextViewModel @Inject constructor(
     private val insulinRepository: InsulinRepository,
+    private val outboxRepository: OutboxRepository,
 ) : ViewModel() {
-    private val dayEvents = MutableStateFlow<Map<LocalDate, List<InsulinEvent>>>(emptyMap())
-    private val requestedDates = mutableSetOf<LocalDate>()
+    private val serverEvents = MutableStateFlow<Map<LocalDate, List<InsulinEvent>>>(emptyMap())
+    private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
     fun events(date: LocalDate): Flow<List<InsulinEvent>> {
-        load(date)
-        return dayEvents.map { eventsByDay -> eventsByDay[date].orEmpty() }
+        val pendingForDate = outboxRepository.observe()
+            .map { items -> items.pendingInsulinForDate(date) }
+            .distinctUntilChanged()
+            // Any state transition of an insulin outbox item (incl. confirm)
+            // re-pulls the server list, so the optimistic row is replaced by
+            // the accepted one without reopening the screen.
+            .onEach { pending -> reloadIfStale(date, pending.signature()) }
+        return combine(pendingForDate, serverEvents) { pending, byDay ->
+            mergeInsulinEvents(server = byDay[date].orEmpty(), pending = pending)
+        }
     }
 
-    private fun load(date: LocalDate) {
-        if (!requestedDates.add(date)) return
+    private fun reloadIfStale(date: LocalDate, signature: String) {
+        synchronized(loadedSignatures) {
+            if (loadedSignatures[date] == signature) return
+            loadedSignatures[date] = signature
+        }
         viewModelScope.launch {
-            val events = runCatching { insulinRepository.eventsForDay(date) }.getOrDefault(emptyList())
-            dayEvents.update { current -> current + (date to events) }
+            runCatching { insulinRepository.eventsForDay(date) }
+                .onSuccess { events -> serverEvents.update { it + (date to events) } }
+                .onFailure {
+                    synchronized(loadedSignatures) { loadedSignatures.remove(date) }
+                }
         }
     }
 }
+
+data class PendingInsulin(
+    val outboxId: String,
+    val recordedAt: Instant,
+    val units: Double,
+)
+
+internal fun List<OutboxItem>.pendingInsulinForDate(date: LocalDate): List<PendingInsulin> =
+    mapNotNull { item ->
+        val kind = item.kind as? CreateNightscoutInsulinOutboxKind ?: return@mapNotNull null
+        val localDate = kind.recordedAt
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+        if (localDate != date) return@mapNotNull null
+        PendingInsulin(
+            outboxId = item.id,
+            recordedAt = kind.recordedAt,
+            units = kind.insulinUnits,
+        )
+    }
+
+internal fun List<PendingInsulin>.signature(): String =
+    joinToString("|") { it.outboxId }
+
+/**
+ * Server events plus optimistic outbox rows. A pending row is dropped as
+ * soon as the server list contains a matching event (same dose within
+ * two minutes), so confirm transitions swap seamlessly.
+ */
+internal fun mergeInsulinEvents(
+    server: List<InsulinEvent>,
+    pending: List<PendingInsulin>,
+): List<InsulinEvent> {
+    val optimistic = pending
+        .filterNot { candidate -> server.any { event -> event.matches(candidate) } }
+        .map { candidate ->
+            InsulinEvent(
+                id = "outbox-${candidate.outboxId}",
+                timestamp = candidate.recordedAt,
+                doseUnits = candidate.units,
+                source = "glucotracker",
+                sourceEventId = null,
+                eventType = InsulinEventType.Bolus,
+                isReadOnly = true,
+                isPending = true,
+            )
+        }
+    return server + optimistic
+}
+
+private fun InsulinEvent.matches(pending: PendingInsulin): Boolean =
+    kotlin.math.abs(doseUnits - pending.units) < 0.01 &&
+        kotlin.math.abs(
+            timestamp.toEpochMilliseconds() - pending.recordedAt.toEpochMilliseconds(),
+        ) <= 2 * 60 * 1_000L
 
 data class MoreNightscoutState(
     val status: NightscoutStatus,

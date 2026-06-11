@@ -12,6 +12,8 @@ data class InsulinEvent(
     val sourceEventId: String?,
     val eventType: InsulinEventType,
     val isReadOnly: Boolean = true,
+    // Optimistic row from the local outbox, not yet visible on the server.
+    val isPending: Boolean = false,
 )
 
 enum class InsulinEventType {
