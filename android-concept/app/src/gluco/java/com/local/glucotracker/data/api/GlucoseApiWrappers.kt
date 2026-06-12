@@ -2,6 +2,7 @@ package com.local.glucotracker.data.api
 
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
+import com.local.glucotracker.generated.model.DayEpisodesResponse
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.GlucoseTirDailyResponse
 import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
@@ -22,6 +23,9 @@ class GlucoseApi @Inject constructor(
 
     suspend fun tirDaily(period: String): GlucoseTirDailyResponse =
         glucoseApi.getGlucoseTirDaily(period = period).body()
+
+    suspend fun episodes(from: Instant, to: Instant): DayEpisodesResponse =
+        glucoseApi.getGlucoseEpisodes(from = from, to = to).body()
 }
 
 class NightscoutApi @Inject constructor(

@@ -10,6 +10,7 @@ import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.GlucoseReading
+import com.local.glucotracker.domain.model.InsulinDayContext
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
 import com.local.glucotracker.domain.model.OutboxItem
@@ -34,7 +35,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -175,30 +175,44 @@ class InsulinContextViewModel @Inject constructor(
     private val insulinRepository: InsulinRepository,
     private val outboxRepository: OutboxRepository,
 ) : ViewModel() {
-    private val serverEvents = MutableStateFlow<Map<LocalDate, List<InsulinEvent>>>(emptyMap())
     private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
-    fun events(date: LocalDate): Flow<List<InsulinEvent>> {
+    fun context(date: LocalDate): Flow<InsulinDayContext> {
         val pendingForDate = outboxRepository.observe()
             .map { items -> items.pendingInsulinForDate(date) }
             .distinctUntilChanged()
             // Any state transition of an insulin outbox item (incl. confirm)
-            // re-pulls the server list, so the optimistic row is replaced by
-            // the accepted one without reopening the screen.
-            .onEach { pending -> reloadIfStale(date, pending.signature()) }
-        return combine(pendingForDate, serverEvents) { pending, byDay ->
-            mergeInsulinEvents(server = byDay[date].orEmpty(), pending = pending)
+            // re-pulls the server attribution, so the optimistic row is
+            // replaced by the accepted one without reopening the screen.
+            .onEach { pending -> refreshIfStale(date, pending.signature()) }
+        return combine(
+            pendingForDate,
+            // Room-backed: events the user has seen survive offline and
+            // process death; a failed refresh leaves them untouched.
+            insulinRepository.observeContextForDay(date),
+        ) { pending, server ->
+            val optimistic = mergeInsulinEvents(
+                server = server.allEvents,
+                pending = pending,
+            ).filter { it.isPending }
+            if (optimistic.isEmpty()) {
+                server
+            } else {
+                server.copy(
+                    orphans = (server.orphans + optimistic)
+                        .sortedBy { it.timestamp },
+                )
+            }
         }
     }
 
-    private fun reloadIfStale(date: LocalDate, signature: String) {
+    private fun refreshIfStale(date: LocalDate, signature: String) {
         synchronized(loadedSignatures) {
             if (loadedSignatures[date] == signature) return
             loadedSignatures[date] = signature
         }
         viewModelScope.launch {
-            runCatching { insulinRepository.eventsForDay(date) }
-                .onSuccess { events -> serverEvents.update { it + (date to events) } }
+            runCatching { insulinRepository.refreshDay(date) }
                 .onFailure {
                     synchronized(loadedSignatures) { loadedSignatures.remove(date) }
                 }

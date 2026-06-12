@@ -19,7 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,11 +54,10 @@ import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.InsulinDayContext
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
 import com.local.glucotracker.domain.model.NightscoutConnectionState
-import com.local.glucotracker.domain.model.PairableMeal
-import com.local.glucotracker.domain.model.pairInsulinWithMeals
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTHintBox
@@ -158,25 +160,9 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
         val date = eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val events by viewModel.events(date).collectAsStateWithLifecycle(initialValue = emptyList())
-        val paired = remember(date, mealId, eatenAt, meals, events) {
-            pairInsulinWithMeals(
-                date = date,
-                meals = (meals.ifEmpty {
-                    listOf(MealContextAnchor(id = mealId.orEmpty(), eatenAt = eatenAt))
-                }).map { meal ->
-                    PairableMeal(
-                        value = meal,
-                        id = meal.id,
-                        eatenAt = meal.eatenAt,
-                    )
-                },
-                insulinEvents = events,
-            ).mealsWithInsulin
-                .firstOrNull { item -> item.meal.id == mealId }
-                ?.pairedInsulin
-                .orEmpty()
-        }
+        val context by viewModel.context(date)
+            .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
+        val paired = mealId?.let { context.byMealId[it] }.orEmpty()
         if (paired.isNotEmpty()) {
             InsulinMetaRow(events = paired)
         }
@@ -192,11 +178,11 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         ) -> Unit,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
-        val events by viewModel.events(date).collectAsStateWithLifecycle(initialValue = emptyList())
+        val context by viewModel.context(date)
+            .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         InsulinAwareRows(
-            date = date,
+            context = context,
             rows = rows,
-            events = events,
             rowId = { row -> row.id },
             rowTime = { row -> row.eatenAt },
             rowContent = rowContent,
@@ -214,11 +200,11 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         divider: @Composable () -> Unit,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
-        val events by viewModel.events(date).collectAsStateWithLifecycle(initialValue = emptyList())
+        val context by viewModel.context(date)
+            .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         InsulinAwareRows(
-            date = date,
+            context = context,
             rows = rows,
-            events = events,
             rowId = { row -> row.id },
             rowTime = { row -> row.eatenAt },
             rowContent = rowContent,
@@ -276,9 +262,8 @@ private fun StackGlucoseMetaRow(eatenAt: Instant) {
 
 @Composable
 private fun <T> InsulinAwareRows(
-    date: LocalDate,
+    context: InsulinDayContext,
     rows: List<T>,
-    events: List<InsulinEvent>,
     rowId: (T) -> String,
     rowTime: (T) -> Instant,
     rowContent: @Composable (
@@ -287,29 +272,24 @@ private fun <T> InsulinAwareRows(
     ) -> Unit,
     separator: @Composable () -> Unit = { Spacer(Modifier.height(14.dp)) },
 ) {
-    val dayContent = remember(date, rows, events) {
-        pairInsulinWithMeals(
-            date = date,
-            meals = rows.map { row ->
-                PairableMeal(
-                    value = row,
-                    id = rowId(row),
-                    eatenAt = rowTime(row),
-                )
-            },
-            insulinEvents = events,
-        )
-    }
-    val timeline = remember(dayContent) {
+    var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
+    val timeline = remember(context, rows) {
+        val rowIds = rows.map(rowId).toSet()
+        // Events anchored to meals not present in the row list (e.g. other
+        // statuses) still surface as standalone rows instead of vanishing.
+        val unanchored = context.byMealId
+            .filterKeys { mealId -> mealId !in rowIds }
+            .values
+            .flatten()
         (
-            dayContent.mealsWithInsulin.map { item ->
+            rows.map { row ->
                 InsulinTimelineItem.Meal(
-                    row = item.meal,
-                    paired = item.pairedInsulin,
-                    timestamp = rowTime(item.meal),
+                    row = row,
+                    paired = context.byMealId[rowId(row)].orEmpty(),
+                    timestamp = rowTime(row),
                 )
             } +
-                dayContent.orphanInsulin.map { event ->
+                (context.orphans + unanchored).map { event ->
                     InsulinTimelineItem.Orphan(event = event, timestamp = event.timestamp)
                 }
             ).sortedByDescending { item -> item.timestamp }
@@ -324,9 +304,20 @@ private fun <T> InsulinAwareRows(
                     }
                 }
             }
-            is InsulinTimelineItem.Orphan -> OrphanInsulinRow(event = item.event)
+            is InsulinTimelineItem.Orphan -> OrphanInsulinRow(
+                event = item.event,
+                onOpenResponse = { responseCardEvent = item.event }
+                    .takeIf { !item.event.isPending },
+            )
         }
         if (index < timeline.lastIndex) separator()
+    }
+
+    responseCardEvent?.let { event ->
+        CorrectionResponseSheet(
+            event = event,
+            onDismiss = { responseCardEvent = null },
+        )
     }
 }
 
@@ -385,7 +376,10 @@ private fun InlineInsulinLine(event: InsulinEvent) {
 }
 
 @Composable
-private fun OrphanInsulinRow(event: InsulinEvent) {
+private fun OrphanInsulinRow(
+    event: InsulinEvent,
+    onOpenResponse: (() -> Unit)? = null,
+) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
     LaunchedEffect(showTooltip) {
         if (showTooltip) {
@@ -398,9 +392,9 @@ private fun OrphanInsulinRow(event: InsulinEvent) {
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 28.dp)
-                .pointerInput(event.id) {
+                .pointerInput(event.id, onOpenResponse) {
                     detectTapGestures(
-                        onTap = {},
+                        onTap = { onOpenResponse?.invoke() },
                         onLongPress = { showTooltip = true },
                     )
                 }
@@ -503,6 +497,160 @@ private fun InsulinEvent.sourceSuffix(): String =
     } else {
         displaySource()
     }
+
+/**
+ * Descriptive glucose response around one standalone correction — same idea
+ * as the meal cards' postprandial view, computed from cached CGM readings.
+ * No advice, only what happened.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CorrectionResponseSheet(
+    event: InsulinEvent,
+    onDismiss: () -> Unit,
+    viewModel: GlucoseSparklineViewModel = hiltViewModel(),
+) {
+    val zone = TimeZone.currentSystemDefault()
+    val date = event.timestamp.toLocalDateTime(zone).date
+    val readings by viewModel.readings(date)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val windowStartMs = event.timestamp.toEpochMilliseconds() - 30L * 60_000L
+    val windowEndMs = event.timestamp.toEpochMilliseconds() + 180L * 60_000L
+    val windowReadings = remember(readings, event.id) {
+        readings.filter { reading ->
+            reading.readingAt.toEpochMilliseconds() in windowStartMs..windowEndMs
+        }
+    }
+    val atInjection = windowReadings.valueNear(event.timestamp.toEpochMilliseconds())
+    val plus1h = windowReadings.valueNear(
+        event.timestamp.toEpochMilliseconds() + 60L * 60_000L,
+    )
+    val plus2h = windowReadings.valueNear(
+        event.timestamp.toEpochMilliseconds() + 120L * 60_000L,
+    )
+    val delta2h = if (atInjection != null && plus2h != null) plus2h - atInjection else null
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = GT.colors.surface,
+        contentColor = GT.colors.ink,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.correction_sheet_title),
+                color = GT.colors.ink,
+                style = GT.type.serifSection,
+            )
+            Text(
+                text = stringResource(
+                    R.string.correction_sheet_dose,
+                    formatInsulinDose(event.doseUnits),
+                    event.timestamp.timeText(),
+                ),
+                modifier = Modifier.padding(top = 4.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+            GTKicker(
+                text = stringResource(R.string.correction_sheet_kicker),
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            if (windowReadings.size < 2) {
+                GTHintBox(
+                    text = stringResource(R.string.correction_sheet_no_data),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            } else {
+                Sparkline(
+                    points = windowReadings.map { it.displayValueMmolL },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .padding(top = 10.dp),
+                    color = GT.colors.info,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CorrectionStat(
+                        label = stringResource(R.string.correction_sheet_at_injection),
+                        value = atInjection,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CorrectionStat(
+                        label = stringResource(R.string.correction_sheet_plus_1h),
+                        value = plus1h,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CorrectionStat(
+                        label = stringResource(R.string.correction_sheet_plus_2h),
+                        value = plus2h,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CorrectionStat(
+                        label = stringResource(R.string.correction_sheet_delta),
+                        value = delta2h,
+                        signed = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CorrectionStat(
+    label: String,
+    value: Double?,
+    modifier: Modifier = Modifier,
+    signed: Boolean = false,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            color = GT.colors.muted,
+            style = GT.type.kicker,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = when {
+                value == null -> stringResource(R.string.glucose_value_empty)
+                signed -> formatGlucoseDelta(value)
+                else -> formatMmol(value)
+            },
+            modifier = Modifier.padding(top = 4.dp),
+            color = GT.colors.ink,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun List<GlucoseReading>.valueNear(
+    targetEpochMs: Long,
+    toleranceMs: Long = 15L * 60_000L,
+): Double? =
+    minByOrNull { reading ->
+        kotlin.math.abs(reading.readingAt.toEpochMilliseconds() - targetEpochMs)
+    }
+        ?.takeIf { reading ->
+            kotlin.math.abs(
+                reading.readingAt.toEpochMilliseconds() - targetEpochMs,
+            ) <= toleranceMs
+        }
+        ?.displayValueMmolL
 
 @Composable
 private fun InsulinEvent.displaySource(): String =

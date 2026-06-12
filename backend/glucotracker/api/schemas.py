@@ -151,6 +151,40 @@ class GlucoseTirDailyResponse(BaseModel):
     days: list[GlucoseTirDayResponse]
 
 
+class DayEpisodeInsulinResponse(BaseModel):
+    """One insulin event inside a grouped episode (gluco feature only)."""
+
+    id: UUID
+    timestamp: datetime
+    insulin_units: float | None = None
+    # "food" when the event is attributed to meals nearby, "correction"
+    # when it stands alone. Display attribution only, never advice.
+    kind: Literal["food", "correction"]
+    anchor_meal_id: UUID | None = None
+
+
+class DayEpisodeResponse(BaseModel):
+    """One grouped meal/insulin episode for client attribution."""
+
+    key: str
+    kind: Literal["food", "food_only", "correction"]
+    start_at: datetime
+    end_at: datetime
+    meal_ids: list[UUID]
+    insulin: list[DayEpisodeInsulinResponse]
+    total_carbs_g: float
+    total_kcal: float
+    total_insulin_units: float
+
+
+class DayEpisodesResponse(BaseModel):
+    """Grouped episodes for a local wall-clock range."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    episodes: list[DayEpisodeResponse]
+
+
 class StatsOverviewResponse(BaseModel):
     """Structured mobile stats aggregate."""
 

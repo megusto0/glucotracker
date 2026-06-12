@@ -325,6 +325,30 @@ def test_stats_overview_omits_glucose_for_all_roles(api_client: TestClient) -> N
     assert "glucose" not in response.text.casefold()
 
 
+def test_glucose_tir_daily_is_scoped_to_current_user(api_client: TestClient) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    session = session_factory()
+    other = _create_user(session, "tir-isolation-other", UserRole.gluco)
+    session.commit()
+    other_id = other.id
+    midday = local_now().replace(hour=12, minute=0, second=0, microsecond=0)
+    session.add(
+        NightscoutGlucoseEntry(
+            owner_id=other_id,
+            source_key="tir-isolation-other-point",
+            timestamp=midday.replace(tzinfo=UTC),
+            value_mmol_l=15.0,
+        )
+    )
+    session.commit()
+    session.close()
+
+    response = api_client.get("/glucose/tir-daily", params={"period": "7d"})
+
+    assert response.status_code == 200
+    assert all(row["points"] == 0 for row in response.json()["days"])
+
+
 def test_glucose_tir_daily_returns_band_shares(api_client: TestClient) -> None:
     session_factory = api_client.app_state["session_factory"]
     user_id = UUID(str(api_client.app_state["current_user_id"]))

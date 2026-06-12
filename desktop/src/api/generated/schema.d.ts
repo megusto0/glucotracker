@@ -403,6 +403,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Episodes
+         * @description Return grouped meal/insulin episodes for the range (attribution only).
+         */
+        get: operations["getGlucoseEpisodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/tir-daily": {
         parameters: {
             query?: never;
@@ -2560,6 +2580,82 @@ export interface components {
             recorded_at: string;
             /** Shift From Previous Minutes */
             shift_from_previous_minutes?: number | null;
+        };
+        /**
+         * DayEpisodeInsulinResponse
+         * @description One insulin event inside a grouped episode (gluco feature only).
+         */
+        DayEpisodeInsulinResponse: {
+            /** Anchor Meal Id */
+            anchor_meal_id?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Insulin Units */
+            insulin_units?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "food" | "correction";
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /**
+         * DayEpisodeResponse
+         * @description One grouped meal/insulin episode for client attribution.
+         */
+        DayEpisodeResponse: {
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Insulin */
+            insulin: components["schemas"]["DayEpisodeInsulinResponse"][];
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "food" | "food_only" | "correction";
+            /** Meal Ids */
+            meal_ids: string[];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Total Carbs G */
+            total_carbs_g: number;
+            /** Total Insulin Units */
+            total_insulin_units: number;
+            /** Total Kcal */
+            total_kcal: number;
+        };
+        /**
+         * DayEpisodesResponse
+         * @description Grouped episodes for a local wall-clock range.
+         */
+        DayEpisodesResponse: {
+            /** Episodes */
+            episodes: components["schemas"]["DayEpisodeResponse"][];
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
         };
         /**
          * DeleteResponse
@@ -7300,6 +7396,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GlucoseDashboardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGlucoseEpisodes: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayEpisodesResponse"];
                 };
             };
             /** @description Validation Error */

@@ -12,6 +12,9 @@ from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
     CgmCalibrationModelResponse,
+    DayEpisodeInsulinResponse,
+    DayEpisodeResponse,
+    DayEpisodesResponse,
     FingerstickReadingCreate,
     FingerstickReadingPatch,
     FingerstickReadingResponse,
@@ -22,6 +25,10 @@ from glucotracker.api.schemas import (
     SensorSessionCreate,
     SensorSessionPatch,
     SensorSessionResponse,
+)
+from glucotracker.application.episodes import (
+    EpisodeQueryService,
+    anchor_meal_id,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
 from glucotracker.application.stats_insights import (
@@ -52,6 +59,73 @@ async def get_glucose_dashboard(
         from_datetime,
         to_datetime,
         mode,
+    )
+
+
+@router.get(
+    "/glucose/episodes",
+    response_model=DayEpisodesResponse,
+    operation_id="getGlucoseEpisodes",
+)
+def get_glucose_episodes(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    from_datetime: Annotated[datetime, Query(alias="from")],
+    to_datetime: Annotated[datetime, Query(alias="to")],
+) -> DayEpisodesResponse:
+    """Return grouped meal/insulin episodes for the range (attribution only)."""
+    components = EpisodeQueryService(session, current_user.id).components(
+        from_datetime,
+        to_datetime,
+    )
+    episodes: list[DayEpisodeResponse] = []
+    for component in components:
+        # Raw UTC timestamps, same as /nightscout/insulin — clients convert.
+        insulin = [
+            DayEpisodeInsulinResponse(
+                id=event.id,
+                timestamp=event.timestamp,
+                insulin_units=event.insulin_units,
+                kind="food" if component.meals else "correction",
+                anchor_meal_id=anchor_meal_id(event, component),
+            )
+            for event in component.insulin
+        ]
+        kind = (
+            "food"
+            if component.meals and component.insulin
+            else "food_only"
+            if component.meals
+            else "correction"
+        )
+        episodes.append(
+            DayEpisodeResponse(
+                key="|".join(
+                    sorted(
+                        [f"m:{meal.id}" for meal in component.meals]
+                        + [f"i:{event.id}" for event in component.insulin]
+                    )
+                ),
+                kind=kind,
+                start_at=component.start_at,
+                end_at=component.end_at,
+                meal_ids=[meal.id for meal in component.meals],
+                insulin=insulin,
+                total_carbs_g=round(
+                    sum(meal.total_carbs_g for meal in component.meals), 1
+                ),
+                total_kcal=round(
+                    sum(meal.total_kcal for meal in component.meals), 1
+                ),
+                total_insulin_units=round(
+                    sum(event.insulin_units or 0 for event in component.insulin), 2
+                ),
+            )
+        )
+    return DayEpisodesResponse(
+        from_datetime=from_datetime,
+        to_datetime=to_datetime,
+        episodes=episodes,
     )
 
 

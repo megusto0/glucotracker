@@ -13,6 +13,7 @@ from glucotracker.config import get_settings
 from glucotracker.infra.db.session import get_session_factory
 from glucotracker.infra.storage import photo_store
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
+from glucotracker.workers.episode_snapshots import EpisodeSnapshotWorker
 
 logger = logging.getLogger(__name__)
 PHOTO_TOMBSTONE_RETENTION_DAYS = 30
@@ -50,6 +51,7 @@ async def run_workers() -> None:
         asyncio.create_task(AnchorRecomputeWorker().run_forever()),
         asyncio.create_task(PostprandialSweeper().run_forever()),
         asyncio.create_task(PhotoTombstoneCleanupWorker().run_forever()),
+        asyncio.create_task(EpisodeSnapshotWorker().run_forever()),
     ]
     if settings.nightscout_background_import_enabled:
         tasks.append(

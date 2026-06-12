@@ -1849,6 +1849,156 @@
         "title": "DayAnchorHistoryResponse",
         "type": "object"
       },
+      "DayEpisodeInsulinResponse": {
+        "description": "One insulin event inside a grouped episode (gluco feature only).",
+        "properties": {
+          "anchor_meal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Meal Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "insulin_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Units"
+          },
+          "kind": {
+            "enum": [
+              "food",
+              "correction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "timestamp",
+          "kind"
+        ],
+        "title": "DayEpisodeInsulinResponse",
+        "type": "object"
+      },
+      "DayEpisodeResponse": {
+        "description": "One grouped meal/insulin episode for client attribution.",
+        "properties": {
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "insulin": {
+            "items": {
+              "$ref": "#/components/schemas/DayEpisodeInsulinResponse"
+            },
+            "title": "Insulin",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "food",
+              "food_only",
+              "correction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "meal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Meal Ids",
+            "type": "array"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "total_carbs_g": {
+            "title": "Total Carbs G",
+            "type": "number"
+          },
+          "total_insulin_units": {
+            "title": "Total Insulin Units",
+            "type": "number"
+          },
+          "total_kcal": {
+            "title": "Total Kcal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "start_at",
+          "end_at",
+          "meal_ids",
+          "insulin",
+          "total_carbs_g",
+          "total_kcal",
+          "total_insulin_units"
+        ],
+        "title": "DayEpisodeResponse",
+        "type": "object"
+      },
+      "DayEpisodesResponse": {
+        "description": "Grouped episodes for a local wall-clock range.",
+        "properties": {
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/DayEpisodeResponse"
+            },
+            "title": "Episodes",
+            "type": "array"
+          },
+          "from_datetime": {
+            "format": "date-time",
+            "title": "From Datetime",
+            "type": "string"
+          },
+          "to_datetime": {
+            "format": "date-time",
+            "title": "To Datetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_datetime",
+          "to_datetime",
+          "episodes"
+        ],
+        "title": "DayEpisodesResponse",
+        "type": "object"
+      },
       "DeleteResponse": {
         "description": "Generic delete response.",
         "properties": {
@@ -14033,6 +14183,84 @@
           }
         ],
         "summary": "Get Glucose Dashboard",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/episodes": {
+      "get": {
+        "description": "Return grouped meal/insulin episodes for the range (attribution only).",
+        "operationId": "getGlucoseEpisodes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayEpisodesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Episodes",
         "tags": [
           "glucose"
         ],

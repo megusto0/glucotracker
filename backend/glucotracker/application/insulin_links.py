@@ -19,11 +19,15 @@ from glucotracker.api.schemas import (
     InsulinLinkMealResponse,
     MealInsulinLinkItem,
 )
-from glucotracker.application.nightscout_context import (
-    INSULIN_WINDOW_AFTER,
-    INSULIN_WINDOW_BEFORE,
-    _local_wall_time,
+from glucotracker.application.episodes import (
+    AutoLink,
+    EpisodePair,
+    group_components,
 )
+from glucotracker.application.episodes import (
+    auto_links as _shared_auto_links,
+)
+from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -36,18 +40,8 @@ from glucotracker.infra.db.models import (
 )
 
 DAY_BUFFER = timedelta(minutes=90)
-FOOD_ONLY_CLUSTER_WINDOW = timedelta(minutes=45)
 GLUCOSE_ACTUAL_TOLERANCE = timedelta(minutes=5)
 GLUCOSE_INTERPOLATION_MAX_GAP = timedelta(minutes=15)
-
-
-@dataclass(frozen=True)
-class AutoLink:
-    """Computed link candidate for one insulin event."""
-
-    meal_id: UUID
-    insulin_event_id: UUID
-    confidence: float
 
 
 @dataclass(frozen=True)
@@ -388,6 +382,17 @@ class InsulinLinkDayService:
             ),
         )
 
+    def materialize_day(self, day: date) -> None:
+        """Recompute and persist episode snapshots for one day automatically.
+
+        Same engine as the manual review save, so the DB export always
+        contains grouped meal+insulin episodes even when the user never
+        opens the desktop review page. Manual links, when present, are
+        respected.
+        """
+        self._replace_episode_snapshots(day)
+        self.session.commit()
+
     def replace_day(self, payload: InsulinLinkDayPutRequest) -> InsulinLinkDayResponse:
         """Replace manual links for the payload date and return fresh labels."""
         day_start, next_day_start = _day_bounds(payload.date)
@@ -604,82 +609,31 @@ def _episode_snapshots(
     links: list[MealInsulinLinkItem],
     glucose: list[NightscoutGlucoseEntry],
 ) -> list[EpisodeSnapshotData]:
-    graph: dict[str, set[str]] = {}
-    meal_by_id = {meal.id: meal for meal in meals}
-    insulin_by_id = {event.id: event for event in insulin}
-
-    def add_node(node: str) -> None:
-        graph.setdefault(node, set())
-
-    def add_edge(left: str, right: str) -> None:
-        add_node(left)
-        add_node(right)
-        graph[left].add(right)
-        graph[right].add(left)
-
-    for meal in meals:
-        add_node(f"m:{meal.id}")
-    for event in insulin:
-        add_node(f"i:{event.id}")
-
-    visible_links = [
-        link
-        for link in links
-        if link.meal_id in meal_by_id and link.insulin_event_id in insulin_by_id
-    ]
-    for link in visible_links:
-        add_edge(f"m:{link.meal_id}", f"i:{link.insulin_event_id}")
-
-    linked_meal_ids = {link.meal_id for link in visible_links}
-    food_only_meals = sorted(
-        (meal for meal in meals if meal.id not in linked_meal_ids),
-        key=lambda meal: meal.eaten_at,
+    components = group_components(
+        meals,
+        insulin,
+        [
+            EpisodePair(
+                meal_id=link.meal_id,
+                insulin_event_id=link.insulin_event_id,
+                source=link.source or "manual",
+                confidence=link.confidence,
+            )
+            for link in links
+        ],
     )
-    for previous, current in zip(food_only_meals, food_only_meals[1:], strict=False):
-        if current.eaten_at - previous.eaten_at <= FOOD_ONLY_CLUSTER_WINDOW:
-            add_edge(f"m:{previous.id}", f"m:{current.id}")
-
-    visited: set[str] = set()
-    components: list[list[str]] = []
-    for node in graph:
-        if node in visited:
-            continue
-        stack = [node]
-        component: list[str] = []
-        visited.add(node)
-        while stack:
-            current = stack.pop()
-            component.append(current)
-            for next_node in graph.get(current, set()):
-                if next_node in visited:
-                    continue
-                visited.add(next_node)
-                stack.append(next_node)
-        components.append(component)
 
     snapshots: list[EpisodeSnapshotData] = []
     for component in components:
-        component_meals = sorted(
-            (
-                meal_by_id[UUID(node[2:])]
-                for node in component
-                if node.startswith("m:") and UUID(node[2:]) in meal_by_id
-            ),
-            key=lambda meal: meal.eaten_at,
-        )
-        component_insulin = sorted(
-            (
-                insulin_by_id[UUID(node[2:])]
-                for node in component
-                if node.startswith("i:") and UUID(node[2:]) in insulin_by_id
-            ),
-            key=lambda event: _local_wall_time(event.timestamp),
-        )
+        component_meals = component.meals
+        component_insulin = component.insulin
+        component_meal_ids = {meal.id for meal in component_meals}
+        component_insulin_ids = {event.id for event in component_insulin}
         component_links = [
             link
-            for link in visible_links
-            if link.meal_id in {meal.id for meal in component_meals}
-            and link.insulin_event_id in {event.id for event in component_insulin}
+            for link in links
+            if link.meal_id in component_meal_ids
+            and link.insulin_event_id in component_insulin_ids
         ]
         timestamps = [meal.eaten_at for meal in component_meals] + [
             _local_wall_time(event.timestamp) for event in component_insulin
@@ -701,8 +655,11 @@ def _episode_snapshots(
             if component_meals
             else None
         )
+        component_nodes = [f"m:{meal.id}" for meal in component_meals] + [
+            f"i:{event.id}" for event in component_insulin
+        ]
         snapshot = EpisodeSnapshotData(
-            episode_key="|".join(sorted(component)),
+            episode_key="|".join(sorted(component_nodes)),
             sequence=0,
             kind=kind,
             title=_episode_title(component_meals, component_insulin, kind),
@@ -825,34 +782,7 @@ def _auto_links(
     meals: list[Meal],
     insulin: list[NightscoutInsulinEvent],
 ) -> list[AutoLink]:
-    links: list[AutoLink] = []
-    for event in insulin:
-        if event.insulin_units is None or event.insulin_units <= 0:
-            continue
-        event_time = _local_wall_time(event.timestamp)
-        for meal in meals:
-            meal_window_start = meal.eaten_at - INSULIN_WINDOW_BEFORE
-            meal_window_end = meal.eaten_at + INSULIN_WINDOW_AFTER
-            if meal_window_start <= event_time <= meal_window_end:
-                delta_minutes = abs((event_time - meal.eaten_at).total_seconds()) / 60
-                links.append(
-                    AutoLink(
-                        meal_id=meal.id,
-                        insulin_event_id=event.id,
-                        confidence=_confidence(delta_minutes),
-                    )
-                )
-    return links
-
-
-def _confidence(delta_minutes: float) -> float:
-    if delta_minutes <= 15:
-        return 0.9
-    if delta_minutes <= 45:
-        return 0.75
-    if delta_minutes <= 90:
-        return 0.6
-    return 0.4
+    return _shared_auto_links(meals, insulin)
 
 
 def _event_response(
