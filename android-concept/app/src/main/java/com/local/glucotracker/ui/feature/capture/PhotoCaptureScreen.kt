@@ -14,6 +14,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,9 +24,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,11 +55,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil3.compose.AsyncImage
 import com.local.glucotracker.R
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import java.io.File
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 
 @Composable
 fun PhotoCaptureScreen(
@@ -124,6 +130,8 @@ private fun CameraPreviewScreen(
     var torchOn by remember { mutableStateOf(false) }
     var captureError by remember { mutableStateOf(false) }
     var captureState by remember { mutableStateOf(CameraCaptureState.Idle) }
+    // A captured-but-not-yet-sent photo awaiting the user's Send/Retake/Close.
+    var capturedPhoto by remember { mutableStateOf<CapturedPhoto?>(null) }
     val captureOverlayAlpha by animateFloatAsState(
         targetValue = if (captureState == CameraCaptureState.Idle) 0f else 1f,
         animationSpec = tween(durationMillis = 120),
@@ -182,65 +190,96 @@ private fun CameraPreviewScreen(
             )
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .background(Color.Black.copy(alpha = 0.52f))
-                .padding(vertical = GT.space.lg),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
+        if (capturedPhoto == null) {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = GT.space.lg),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Black.copy(alpha = 0.52f))
+                    .padding(vertical = GT.space.lg),
+                contentAlignment = Alignment.Center,
             ) {
-                TorchButton(
-                    enabled = torchOn,
-                    onClick = {
-                        torchOn = !torchOn
-                        camera?.cameraControl?.enableTorch(torchOn)
-                    },
-                    contentDescription = torchDesc,
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = GT.space.lg),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TorchButton(
+                        enabled = torchOn,
+                        onClick = {
+                            torchOn = !torchOn
+                            camera?.cameraControl?.enableTorch(torchOn)
+                        },
+                        contentDescription = torchDesc,
+                    )
 
-                ShutterButton(
-                    enabled = captureState == CameraCaptureState.Idle,
-                    onClick = {
-                        captureError = false
-                        captureState = CameraCaptureState.Saving
-                        val capturedAt = Clock.System.now()
-                        val outputFile = File.createTempFile("capture_", ".jpg", context.cacheDir)
-                        val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
-                        imageCapture.takePicture(
-                            outputOptions,
-                            mainExecutor,
-                            object : ImageCapture.OnImageSavedCallback {
-                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                    viewModel.enqueueCameraPhoto(outputFile, capturedAt) { outboxId ->
-                                        captureState = CameraCaptureState.Queued
-                                        onPhotoQueued(outboxId)
+                    ShutterButton(
+                        enabled = captureState == CameraCaptureState.Idle,
+                        onClick = {
+                            captureError = false
+                            captureState = CameraCaptureState.Saving
+                            // Shutter moment is the meal time (eaten_at); it is
+                            // preserved through Send, never overwritten later.
+                            val capturedAt = Clock.System.now()
+                            val outputFile = File.createTempFile("capture_", ".jpg", context.cacheDir)
+                            val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
+                            imageCapture.takePicture(
+                                outputOptions,
+                                mainExecutor,
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                        captureState = CameraCaptureState.Idle
+                                        capturedPhoto = CapturedPhoto(outputFile, capturedAt)
                                     }
-                                }
 
-                                override fun onError(exception: ImageCaptureException) {
-                                    outputFile.delete()
-                                    captureState = CameraCaptureState.Idle
-                                    captureError = true
-                                }
-                            },
-                        )
-                    },
-                    contentDescription = shutterDesc,
-                )
+                                    override fun onError(exception: ImageCaptureException) {
+                                        outputFile.delete()
+                                        captureState = CameraCaptureState.Idle
+                                        captureError = true
+                                    }
+                                },
+                            )
+                        },
+                        contentDescription = shutterDesc,
+                    )
 
-                CloseButton(
-                    onClick = onClose,
-                    contentDescription = closeDesc,
-                )
+                    CloseButton(
+                        onClick = onClose,
+                        contentDescription = closeDesc,
+                    )
+                }
             }
+        }
+
+        capturedPhoto?.let { photo ->
+            PhotoReviewOverlay(
+                file = photo.file,
+                sending = captureState == CameraCaptureState.Saving ||
+                    captureState == CameraCaptureState.Queued,
+                onClose = {
+                    photo.file.delete()
+                    capturedPhoto = null
+                    onClose()
+                },
+                onRetake = {
+                    photo.file.delete()
+                    capturedPhoto = null
+                    captureError = false
+                },
+                onSend = {
+                    captureState = CameraCaptureState.Saving
+                    // enqueueCameraPhoto copies into storage and deletes the
+                    // temp file itself, so we don't delete it here.
+                    viewModel.enqueueCameraPhoto(photo.file, photo.capturedAt) { outboxId ->
+                        captureState = CameraCaptureState.Queued
+                        capturedPhoto = null
+                        onPhotoQueued(outboxId)
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
         if (captureFlashAlpha > 0f) {
@@ -266,6 +305,98 @@ private enum class CameraCaptureState {
     Idle,
     Saving,
     Queued,
+}
+
+private data class CapturedPhoto(
+    val file: File,
+    val capturedAt: Instant,
+)
+
+@Composable
+private fun PhotoReviewOverlay(
+    file: File,
+    sending: Boolean,
+    onClose: () -> Unit,
+    onRetake: () -> Unit,
+    onSend: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val reviewDesc = stringResource(R.string.camera_review_content_description)
+    Box(modifier = modifier.background(Color.Black)) {
+        AsyncImage(
+            model = file,
+            contentDescription = reviewDesc,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .background(Color.Black.copy(alpha = 0.52f))
+                .navigationBarsPadding()
+                .padding(horizontal = GT.space.lg, vertical = GT.space.lg),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReviewActionButton(
+                text = stringResource(R.string.camera_review_close),
+                onClick = onClose,
+                enabled = !sending,
+                modifier = Modifier.weight(1f),
+            )
+            ReviewActionButton(
+                text = stringResource(R.string.camera_review_retake),
+                onClick = onRetake,
+                enabled = !sending,
+                modifier = Modifier.weight(1f),
+            )
+            ReviewActionButton(
+                text = stringResource(R.string.camera_review_send),
+                onClick = onSend,
+                enabled = !sending,
+                primary = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    primary: Boolean = false,
+) {
+    val shape = RoundedCornerShape(10.dp)
+    val container = if (primary) GT.colors.surface2 else Color.Transparent
+    val label = if (primary) GT.colors.ink else GT.colors.surface2
+    val alpha = if (enabled) 1f else 0.5f
+    Box(
+        modifier = modifier
+            .heightIn(min = GT.space.touch)
+            .clip(shape)
+            .background(container.copy(alpha = if (primary) alpha else 0f))
+            .then(
+                if (primary) {
+                    Modifier
+                } else {
+                    Modifier.border(1.dp, GT.colors.surface2.copy(alpha = alpha), shape)
+                },
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = label.copy(alpha = alpha),
+            style = GT.type.sansLabel,
+            maxLines = 1,
+        )
+    }
 }
 
 @Composable

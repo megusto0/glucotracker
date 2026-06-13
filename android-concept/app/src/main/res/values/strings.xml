@@ -317,6 +317,10 @@
     <string name="camera_torch_content_description">Фонарик</string>
     <string name="camera_flip_content_description">Перевернуть</string>
     <string name="camera_close_content_description">Закрыть</string>
+    <string name="camera_review_send">Отправить</string>
+    <string name="camera_review_retake">Переснять</string>
+    <string name="camera_review_close">Закрыть</string>
+    <string name="camera_review_content_description">Просмотр снимка</string>
     <string name="camera_capture_saving">Сохраняем фото</string>
     <string name="camera_capture_queued">Фото в очереди</string>
     <string name="camera_capture_error">Не удалось сохранить фото</string>
