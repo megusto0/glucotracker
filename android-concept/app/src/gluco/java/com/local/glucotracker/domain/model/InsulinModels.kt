@@ -31,6 +31,9 @@ enum class InsulinEventType {
 data class InsulinDayContext(
     val byMealId: Map<String, List<InsulinEvent>>,
     val orphans: List<InsulinEvent>,
+    // Meal ids that the backend episode engine groups as one eating event
+    // (only groups with 2+ meals). Drives "one card per episode" on Today.
+    val mealEpisodeGroups: List<List<String>> = emptyList(),
 ) {
     val allEvents: List<InsulinEvent>
         get() = byMealId.values.flatten() + orphans

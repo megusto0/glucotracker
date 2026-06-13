@@ -67,6 +67,8 @@ import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
+import com.local.glucotracker.ui.format.formatGrams
+import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatMmol
 import com.local.glucotracker.ui.format.formatPercent
 import java.text.DecimalFormat
@@ -174,17 +176,16 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         rows: List<TodayMealRowUi>,
         rowContent: @Composable (
             row: TodayMealRowUi,
+            framed: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
-        InsulinAwareRows(
+        TodayEpisodeRows(
             context = context,
             rows = rows,
-            rowId = { row -> row.id },
-            rowTime = { row -> row.eatenAt },
             rowContent = rowContent,
         )
     }
@@ -257,6 +258,161 @@ private fun StackGlucoseMetaRow(eatenAt: Instant) {
             style = GT.type.monoLabel.copy(fontSize = 10.sp),
             maxLines = 1,
         )
+    }
+}
+
+@Composable
+private fun TodayEpisodeRows(
+    context: InsulinDayContext,
+    rows: List<TodayMealRowUi>,
+    rowContent: @Composable (
+        row: TodayMealRowUi,
+        framed: Boolean,
+        extraMetaContent: @Composable ColumnScope.() -> Unit,
+    ) -> Unit,
+) {
+    var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
+    val items = remember(context, rows) { buildTodayTimeline(context, rows) }
+
+    items.forEachIndexed { index, item ->
+        when (item) {
+            is TodayTimelineItem.Single -> rowContent(item.entry.row, true) {
+                item.entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+            }
+            is TodayTimelineItem.Episode -> TodayEpisodeCard(
+                entries = item.entries,
+                rowContent = rowContent,
+            )
+            is TodayTimelineItem.Orphan -> OrphanInsulinRow(
+                event = item.event,
+                onOpenResponse = { responseCardEvent = item.event }
+                    .takeIf { !item.event.isPending },
+            )
+        }
+        if (index < items.lastIndex) Spacer(Modifier.height(14.dp))
+    }
+
+    responseCardEvent?.let { event ->
+        CorrectionResponseSheet(
+            event = event,
+            onDismiss = { responseCardEvent = null },
+        )
+    }
+}
+
+private data class TodayMealEntry(
+    val row: TodayMealRowUi,
+    val paired: List<InsulinEvent>,
+)
+
+private sealed interface TodayTimelineItem {
+    val timestamp: Instant
+
+    data class Single(val entry: TodayMealEntry, override val timestamp: Instant) : TodayTimelineItem
+    data class Episode(
+        val entries: List<TodayMealEntry>,
+        override val timestamp: Instant,
+    ) : TodayTimelineItem
+    data class Orphan(val event: InsulinEvent, override val timestamp: Instant) : TodayTimelineItem
+}
+
+/**
+ * Groups accepted meals that the backend episode engine considers one eating
+ * event into a single card; everything else stays a standalone card/row.
+ */
+private fun buildTodayTimeline(
+    context: InsulinDayContext,
+    rows: List<TodayMealRowUi>,
+): List<TodayTimelineItem> {
+    val rowById = rows.associateBy { it.id }
+    val entryOf = { row: TodayMealRowUi ->
+        TodayMealEntry(row = row, paired = context.byMealId[row.id].orEmpty())
+    }
+    val groupedIds = mutableSetOf<String>()
+    val episodes = context.mealEpisodeGroups.mapNotNull { group ->
+        val present = group.mapNotNull { rowById[it] }
+        if (present.size < 2) return@mapNotNull null
+        present.forEach { groupedIds += it.id }
+        val entries = present
+            .sortedByDescending { it.eatenAt }
+            .map(entryOf)
+        TodayTimelineItem.Episode(
+            entries = entries,
+            timestamp = present.maxOf { it.eatenAt },
+        )
+    }
+
+    val singles = rows
+        .filter { it.id !in groupedIds }
+        .map { row -> TodayTimelineItem.Single(entryOf(row), row.eatenAt) }
+
+    val anchoredIds = rows.map { it.id }.toSet()
+    val orphanEvents = context.orphans +
+        context.byMealId.filterKeys { it !in anchoredIds }.values.flatten()
+    val orphans = orphanEvents.map { TodayTimelineItem.Orphan(it, it.timestamp) }
+
+    return (episodes + singles + orphans).sortedByDescending { it.timestamp }
+}
+
+@Composable
+private fun TodayEpisodeCard(
+    entries: List<TodayMealEntry>,
+    rowContent: @Composable (
+        row: TodayMealRowUi,
+        framed: Boolean,
+        extraMetaContent: @Composable ColumnScope.() -> Unit,
+    ) -> Unit,
+) {
+    val totalCarbs = entries.sumOf { it.row.totalCarbsG ?: 0.0 }
+    val totalKcal = entries.sumOf { it.row.totalKcal ?: 0.0 }
+    val totalInsulin = entries.sumOf { entry -> entry.paired.sumOf { it.doseUnits } }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GTKicker(text = stringResource(R.string.today_episode_kicker, entries.size))
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                maxLines = 1,
+            )
+        }
+        GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+        entries.forEachIndexed { index, entry ->
+            rowContent(entry.row, false) {
+                entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+            }
+            if (index < entries.lastIndex) {
+                GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun todayEpisodeSummary(
+    totalCarbs: Double,
+    totalKcal: Double,
+    totalInsulin: Double,
+): String {
+    val carbs = stringResource(R.string.today_episode_carbs, formatGrams(totalCarbs))
+    val kcal = stringResource(R.string.today_episode_kcal, formatKcal(totalKcal))
+    val base = "$carbs · $kcal"
+    return if (totalInsulin > 0.0) {
+        "$base · ${formatInsulinDose(totalInsulin)} ${stringResource(R.string.insulin_units_short)}"
+    } else {
+        base
     }
 }
 

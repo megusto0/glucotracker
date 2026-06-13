@@ -9,7 +9,10 @@ import com.local.glucotracker.domain.model.InsulinEventType
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -24,13 +27,18 @@ class InsulinRepository @Inject constructor(
     private val glucoseApi: GlucoseApi,
     private val insulinEventDao: CachedInsulinEventDao,
 ) {
+    // Episode meal groupings are a visual nicety (one card per episode), not
+    // a record. Kept in memory from the last fetch; offline simply degrades
+    // to ungrouped cards — no records are ever lost.
+    private val episodeGroups = MutableStateFlow<Map<LocalDate, List<List<String>>>>(emptyMap())
+
     /**
      * Local-first day attribution: emits the Room cache immediately (so
      * records the user has already seen survive offline and restarts) and
      * keeps emitting as [refreshDay] lands fresh server data.
      */
     fun observeContextForDay(date: LocalDate): Flow<InsulinDayContext> =
-        insulinEventDao.observeDay(date).map { entities ->
+        combine(insulinEventDao.observeDay(date), episodeGroups) { entities, groups ->
             val byMealId = mutableMapOf<String, MutableList<InsulinEvent>>()
             val orphans = mutableListOf<InsulinEvent>()
             entities.forEach { entity ->
@@ -45,6 +53,7 @@ class InsulinRepository @Inject constructor(
             InsulinDayContext(
                 byMealId = byMealId,
                 orphans = orphans,
+                mealEpisodeGroups = groups[date].orEmpty(),
             )
         }
 
@@ -57,7 +66,8 @@ class InsulinRepository @Inject constructor(
         val from = date.atStartOfDayIn(zone)
         val to = date.plus(DatePeriod(days = 1)).atStartOfDayIn(zone)
         val fetchedAt = Clock.System.now()
-        val entities = glucoseApi.episodes(from, to).episodes.flatMap { episode ->
+        val episodes = glucoseApi.episodes(from, to).episodes
+        val entities = episodes.flatMap { episode ->
             episode.insulin.mapNotNull { event ->
                 val dose = event.insulinUnits?.toDouble() ?: return@mapNotNull null
                 if (dose <= 0.0) return@mapNotNull null
@@ -73,6 +83,10 @@ class InsulinRepository @Inject constructor(
             }
         }
         insulinEventDao.replaceDay(date, entities)
+        val groups = episodes
+            .map { episode -> episode.mealIds.map { it.toString() } }
+            .filter { it.size >= 2 }
+        episodeGroups.update { it + (date to groups) }
     }
 }
 

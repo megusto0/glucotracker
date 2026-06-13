@@ -66,6 +66,9 @@
     <string name="insulin_correction">коррекция</string>
     <string name="insulin_source_nightscout">Nightscout</string>
     <string name="insulin_source_pending">в очереди</string>
+    <string name="today_episode_kicker">ПРИЁМ · %1$d×</string>
+    <string name="today_episode_carbs">%1$s У</string>
+    <string name="today_episode_kcal">%1$s ккал</string>
     <string name="correction_sheet_title">Коррекция</string>
     <string name="correction_sheet_dose">%1$s ЕД · %2$s</string>
     <string name="correction_sheet_kicker">ОТВЕТ ГЛЮКОЗЫ</string>

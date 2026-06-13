@@ -115,8 +115,11 @@ interface GlucoseSurfaces {
     fun TodayRows(
         date: LocalDate,
         rows: List<TodayMealRowUi>,
+        // framed = false means the row is drawn inside a shared episode card
+        // and must not draw its own card border.
         rowContent: @Composable (
             row: TodayMealRowUi,
+            framed: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     )
@@ -179,11 +182,12 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         rows: List<TodayMealRowUi>,
         rowContent: @Composable (
             row: TodayMealRowUi,
+            framed: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, {})
+            rowContent(row, true, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }

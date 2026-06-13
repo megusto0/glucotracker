@@ -84,11 +84,12 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         rows: List<TodayMealRowUi>,
         rowContent: @Composable (
             row: TodayMealRowUi,
+            framed: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, {})
+            rowContent(row, true, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }

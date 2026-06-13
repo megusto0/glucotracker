@@ -382,7 +382,7 @@ private fun DayState(
                 LocalGlucoseSurfaces.current.TodayRows(
                     date = state.date,
                     rows = state.rows,
-                ) { row, extraMetaContent ->
+                ) { row, framed, extraMetaContent ->
                     SwipeMealRow(
                         row = row,
                         lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
@@ -390,6 +390,7 @@ private fun DayState(
                         onDeleteRow = { candidate -> deleteCandidate = candidate },
                         isOnline = state.isOnline,
                         compact = brandAccentColor != null,
+                        framed = framed,
                         extraMetaContent = extraMetaContent,
                     )
                 }
@@ -850,6 +851,7 @@ private fun SwipeMealRow(
     onDeleteRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
     compact: Boolean = false,
+    framed: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val canDeleteLocally = row.recordId == null && row.outboxId != null
@@ -860,6 +862,7 @@ private fun SwipeMealRow(
             onOpenRow = onOpenRow,
             isOnline = isOnline,
             compact = compact,
+            framed = framed,
             extraMetaContent = extraMetaContent,
         )
         return
@@ -886,6 +889,7 @@ private fun SwipeMealRow(
             onOpenRow = onOpenRow,
             isOnline = isOnline,
             compact = compact,
+            framed = framed,
             extraMetaContent = extraMetaContent,
         )
     }
@@ -969,6 +973,7 @@ private fun MealRowSurface(
     onOpenRow: (TodayMealRowUi) -> Unit,
     isOnline: Boolean = true,
     compact: Boolean = false,
+    framed: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     var highlighted by remember(row.id, lastAddedId) { mutableStateOf(row.id == lastAddedId) }
@@ -989,13 +994,23 @@ private fun MealRowSurface(
         Modifier
     }
 
-    Box(
-        modifier = Modifier
+    // framed = false: the row sits inside a shared episode card, so it gets no
+    // outer margin, border, or rounded surface of its own — only its click and
+    // just-added highlight.
+    val surfaceModifier = if (framed) {
+        Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp)
             .background(bg, GT.shapes.card)
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .then(clickModifier),
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .background(if (highlighted) bg else Color.Transparent)
+    }
+
+    Box(
+        modifier = surfaceModifier.then(clickModifier),
     ) {
         val photoProcessing = row.photoProcessing
         if (photoProcessing != null && row.kind == TodayMealRowKind.Pending && row.source == TodayMealSource.Photo) {
