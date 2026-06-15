@@ -3,6 +3,7 @@ package com.local.glucotracker.ui.feature.stack
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.data.api.MealApi
 import com.local.glucotracker.data.sync.ConnectivityObserver
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayState
@@ -22,8 +23,10 @@ import com.local.glucotracker.ui.format.computeRowState
 import com.local.glucotracker.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import io.ktor.client.plugins.ResponseException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,6 +56,7 @@ data class MealCard(
     val serverId: String?,
     val outboxId: String?,
     val primaryItemId: String?,
+    val primaryProductId: String?,
     val outboxItem: OutboxItem?,
     val eatenAt: Instant,
     val title: String?,
@@ -96,11 +100,20 @@ enum class MealCardStatusHint {
     Stuck,
 }
 
+enum class FavoriteFeedback {
+    Idle,
+    Saving,
+    Saved,
+    NotEnoughData,
+    Error,
+}
+
 @HiltViewModel
 class MealStackViewModel @Inject constructor(
     private val todayRepository: TodayRepository,
     private val outboxRepository: OutboxRepository,
     private val mealRepository: MealRepository,
+    private val mealApi: MealApi,
     connectivityObserver: ConnectivityObserver,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -109,6 +122,9 @@ class MealStackViewModel @Inject constructor(
     )
     private val focusedId = checkNotNull(savedStateHandle.get<String>(Route.MealStack.ArgFocusedId))
     private val currentCardId = MutableStateFlow(focusedId)
+
+    private val _favoriteFeedback = MutableStateFlow(FavoriteFeedback.Idle)
+    val favoriteFeedback: StateFlow<FavoriteFeedback> = _favoriteFeedback
 
     val state = combine(
         todayRepository.observeDay(date),
@@ -143,6 +159,45 @@ class MealStackViewModel @Inject constructor(
 
     fun onPageChanged(cardId: String) {
         currentCardId.value = cardId
+        _favoriteFeedback.value = FavoriteFeedback.Idle
+    }
+
+    /** Delete the focused entry: drop a queued item, or enqueue a server delete. */
+    fun deleteCurrent(onDeleted: () -> Unit) {
+        val card = currentCard() ?: return
+        viewModelScope.launch {
+            val outboxId = card.outboxId
+            val serverId = card.serverId
+            if (serverId == null && outboxId != null) {
+                outboxRepository.remove(outboxId)
+            } else if (serverId != null) {
+                outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = serverId))
+            }
+            onDeleted()
+        }
+    }
+
+    /** Save the focused meal's main item into the product DB (quick-add). */
+    fun favoriteCurrent() {
+        val card = currentCard() ?: return
+        val itemId = card.primaryItemId
+        if (itemId == null) {
+            _favoriteFeedback.value = FavoriteFeedback.NotEnoughData
+            return
+        }
+        _favoriteFeedback.value = FavoriteFeedback.Saving
+        viewModelScope.launch {
+            val aliases = listOfNotNull(card.title?.trim()?.ifBlank { null })
+            runCatching { mealApi.rememberProduct(java.util.UUID.fromString(itemId), aliases) }
+                .onSuccess { _favoriteFeedback.value = FavoriteFeedback.Saved }
+                .onFailure { error ->
+                    _favoriteFeedback.value = if (error.isConflict()) {
+                        FavoriteFeedback.NotEnoughData
+                    } else {
+                        FavoriteFeedback.Error
+                    }
+                }
+        }
     }
 
     fun updateTitle(title: String) {
@@ -224,6 +279,9 @@ class MealStackViewModel @Inject constructor(
         }
 }
 
+private fun Throwable.isConflict(): Boolean =
+    this is ResponseException && response.status.value == 409
+
 private fun buildMealCards(
     date: LocalDate,
     cachedDay: CachedView<DayState>,
@@ -299,6 +357,7 @@ private fun Meal.toMealCard(
         serverId = id,
         outboxId = activeItem?.id,
         primaryItemId = primaryItem?.id,
+        primaryProductId = primaryItem?.productId,
         outboxItem = activeItem,
         eatenAt = editPatch?.eatenAt ?: eatenAt,
         title = editPatch?.title ?: title,
@@ -327,6 +386,7 @@ private fun OutboxItem.toPendingCard(date: LocalDate, isOnline: Boolean): MealCa
                 serverId = null,
                 outboxId = id,
                 primaryItemId = null,
+                primaryProductId = null,
                 outboxItem = this,
                 eatenAt = itemKind.eatenAt,
                 title = draft.title,
@@ -351,6 +411,7 @@ private fun OutboxItem.toPendingCard(date: LocalDate, isOnline: Boolean): MealCa
                 serverId = null,
                 outboxId = id,
                 primaryItemId = null,
+                primaryProductId = null,
                 outboxItem = this,
                 eatenAt = itemKind.capturedAt,
                 title = draft?.title ?: itemKind.optimisticName,

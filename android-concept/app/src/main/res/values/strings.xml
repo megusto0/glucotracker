@@ -247,6 +247,12 @@
     <string name="record_source_time">время · %1$s</string>
     <string name="record_favorite">★ В избранное</string>
     <string name="record_delete">Удалить</string>
+    <string name="stack_favorite_add">★ В избранное</string>
+    <string name="stack_favorite_saving">Сохраняем…</string>
+    <string name="stack_favorite_saved">★ В избранном</string>
+    <string name="stack_favorite_no_data">Недостаточно данных для быстрого добавления</string>
+    <string name="stack_favorite_error">Не удалось сохранить</string>
+    <string name="stack_delete_confirm">Точно удалить?</string>
     <string name="record_delete_confirm_title">Удалить запись?</string>
     <string name="record_delete_confirm_body">Для серверной записи будет создана операция в очереди. Локальная запись удалится сразу.</string>
     <string name="record_delete_cancel">Отмена</string>

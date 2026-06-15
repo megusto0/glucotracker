@@ -74,6 +74,7 @@ import coil3.compose.AsyncImage
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.ui.design.GT
+import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
@@ -99,14 +100,18 @@ fun MealStackRoute(
     viewModel: MealStackViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val favoriteFeedback by viewModel.favoriteFeedback.collectAsStateWithLifecycle()
     MealStackScreen(
         state = state,
+        favoriteFeedback = favoriteFeedback,
         onBack = onBack,
         onPageChanged = viewModel::onPageChanged,
         onSaveTitle = viewModel::updateTitle,
         onSaveTime = viewModel::updateTime,
         onSaveWeight = viewModel::updateWeight,
         onRetry = viewModel::retryCurrent,
+        onFavorite = viewModel::favoriteCurrent,
+        onDelete = { viewModel.deleteCurrent(onDeleted = onBack) },
         modifier = modifier,
     )
 }
@@ -115,12 +120,15 @@ fun MealStackRoute(
 @Composable
 fun MealStackScreen(
     state: MealStackUiState,
+    favoriteFeedback: FavoriteFeedback,
     onBack: () -> Unit,
     onPageChanged: (String) -> Unit,
     onSaveTitle: (String) -> Unit,
     onSaveTime: (String) -> Unit,
     onSaveWeight: (String) -> Unit,
     onRetry: () -> Unit,
+    onFavorite: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -133,12 +141,15 @@ fun MealStackScreen(
             is MealStackUiState.Empty -> EmptyStack(date = state.date, onBack = onBack)
             is MealStackUiState.Ready -> ReadyStack(
                 state = state,
+                favoriteFeedback = favoriteFeedback,
                 onBack = onBack,
                 onPageChanged = onPageChanged,
                 onSaveTitle = onSaveTitle,
                 onSaveTime = onSaveTime,
                 onSaveWeight = onSaveWeight,
                 onRetry = onRetry,
+                onFavorite = onFavorite,
+                onDelete = onDelete,
             )
         }
     }
@@ -148,12 +159,15 @@ fun MealStackScreen(
 @Composable
 private fun ReadyStack(
     state: MealStackUiState.Ready,
+    favoriteFeedback: FavoriteFeedback,
     onBack: () -> Unit,
     onPageChanged: (String) -> Unit,
     onSaveTitle: (String) -> Unit,
     onSaveTime: (String) -> Unit,
     onSaveWeight: (String) -> Unit,
     onRetry: () -> Unit,
+    onFavorite: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     var editSheetOpen by remember { mutableStateOf(false) }
     val currentCard = state.cards.getOrNull(state.currentIndex)
@@ -249,10 +263,16 @@ private fun ReadyStack(
         ) {
             QuickEditSheet(
                 card = currentCard,
+                favoriteFeedback = favoriteFeedback,
                 onClose = { editSheetOpen = false },
                 onSaveTitle = onSaveTitle,
                 onSaveTime = onSaveTime,
                 onSaveWeight = onSaveWeight,
+                onFavorite = onFavorite,
+                onDelete = {
+                    editSheetOpen = false
+                    onDelete()
+                },
             )
         }
     }
@@ -661,10 +681,13 @@ private fun MetaRow(label: String, value: String, modifier: Modifier = Modifier)
 @Composable
 private fun QuickEditSheet(
     card: MealCard,
+    favoriteFeedback: FavoriteFeedback,
     onClose: () -> Unit,
     onSaveTitle: (String) -> Unit,
     onSaveTime: (String) -> Unit,
     onSaveWeight: (String) -> Unit,
+    onFavorite: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     var title by remember(card.id, card.title) { mutableStateOf(card.title.orEmpty()) }
     var time by remember(card.id, card.eatenAt) { mutableStateOf(card.eatenAt.timeText()) }
@@ -724,6 +747,71 @@ private fun QuickEditSheet(
         if (!canEditWeight) {
             Text(
                 text = stringResource(R.string.stack_weight_disabled),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+        GTHairlineDivider(modifier = Modifier.padding(vertical = 2.dp))
+        StackActionsFooter(
+            alreadyFavorite = card.primaryProductId != null,
+            canFavorite = card.primaryItemId != null,
+            favoriteFeedback = favoriteFeedback,
+            onFavorite = onFavorite,
+            onDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+private fun StackActionsFooter(
+    alreadyFavorite: Boolean,
+    canFavorite: Boolean,
+    favoriteFeedback: FavoriteFeedback,
+    onFavorite: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    val saved = alreadyFavorite || favoriteFeedback == FavoriteFeedback.Saved
+    val favoriteText = when {
+        favoriteFeedback == FavoriteFeedback.Saving -> stringResource(R.string.stack_favorite_saving)
+        saved -> stringResource(R.string.stack_favorite_saved)
+        else -> stringResource(R.string.stack_favorite_add)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GTOutlineButton(
+                text = favoriteText,
+                onClick = onFavorite,
+                enabled = canFavorite &&
+                    !saved &&
+                    favoriteFeedback != FavoriteFeedback.Saving,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = if (confirmDelete) {
+                    stringResource(R.string.stack_delete_confirm)
+                } else {
+                    stringResource(R.string.record_delete)
+                },
+                modifier = Modifier
+                    .heightIn(min = GT.space.touch)
+                    .clickable {
+                        if (confirmDelete) onDelete() else confirmDelete = true
+                    }
+                    .padding(horizontal = GT.space.sm, vertical = 12.dp),
+                color = GT.colors.warn,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+            )
+        }
+        val feedbackText = when (favoriteFeedback) {
+            FavoriteFeedback.NotEnoughData -> stringResource(R.string.stack_favorite_no_data)
+            FavoriteFeedback.Error -> stringResource(R.string.stack_favorite_error)
+            else -> null
+        }
+        if (feedbackText != null) {
+            Text(
+                text = feedbackText,
                 color = GT.colors.muted,
                 style = GT.type.sansLabel,
             )

@@ -151,6 +151,17 @@ class MealApi @Inject constructor(
     suspend fun getMeal(id: java.util.UUID): MealResponse =
         mealsApi.getMeal(id).body()
 
+    /** Promote a confirmed meal item into the product DB (quick-add / favorite). */
+    suspend fun rememberProduct(
+        itemId: java.util.UUID,
+        aliases: List<String>? = null,
+    ): com.local.glucotracker.generated.model.ProductResponse =
+        mealsApi.rememberProductFromMealItem(
+            itemId = itemId,
+            rememberProductRequest = com.local.glucotracker.generated.model
+                .RememberProductRequest(aliases = aliases),
+        ).body()
+
     suspend fun getByIdempotencyKey(key: String): MealResponse? {
         val page = mealsApi.listMeals(
             from = null,
