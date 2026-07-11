@@ -16,13 +16,16 @@ import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
 import com.local.glucotracker.data.repository.MealContextProvider
 import com.local.glucotracker.data.repository.NightscoutMealContextProvider
 import com.local.glucotracker.data.repository.NightscoutRepositoryImpl
+import com.local.glucotracker.data.repository.SensorRepositoryImpl
 import com.local.glucotracker.data.sync.GlucoOutboxRemote
 import com.local.glucotracker.data.sync.OutboxRemote
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.NightscoutRepository
+import com.local.glucotracker.domain.repository.SensorRepository
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.ui.feature.glucose.GlucoseRoute
+import com.local.glucotracker.ui.feature.sensor.SensorManagementRoute
 import com.local.glucotracker.ui.feature.insulin.InsulinEntryRoute
 import com.local.glucotracker.ui.glucose.GlucoseSurfaces
 import com.local.glucotracker.ui.glucose.GlucoseSurfacesReal
@@ -37,6 +40,7 @@ import javax.inject.Singleton
 
 private const val GlucoseRoutePath = "glucose"
 private const val QuickNumberRoutePath = "quick_number"
+private const val SensorManagementRoutePath = "sensor_management"
 
 object GlucoNavConfig : NavConfig {
     override val tabs = listOf(
@@ -56,7 +60,10 @@ object GlucoNavConfig : NavConfig {
 class GlucoFlavorNavGraph : FlavorNavGraph {
     override fun NavGraphBuilder.registerFlavorRoutes(navController: NavHostController) {
         composable(GlucoseRoutePath) {
-            GlucoseRoute()
+            GlucoseRoute(onOpenSensors = { navController.navigate(SensorManagementRoutePath) })
+        }
+        composable(SensorManagementRoutePath) {
+            SensorManagementRoute(onBack = { navController.popBackStack() })
         }
         composable(QuickNumberRoutePath) {
             InsulinEntryRoute(onClose = { navController.popBackStack() })
@@ -121,6 +128,10 @@ object GlucoFlavorModule {
     @Provides
     @Singleton
     fun provideNightscoutRepository(impl: NightscoutRepositoryImpl): NightscoutRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideSensorRepository(impl: SensorRepositoryImpl): SensorRepository = impl
 
     @Provides
     @Singleton

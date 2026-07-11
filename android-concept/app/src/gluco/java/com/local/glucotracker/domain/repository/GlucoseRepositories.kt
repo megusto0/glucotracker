@@ -4,6 +4,8 @@ import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
+import com.local.glucotracker.domain.model.SensorQuality
+import com.local.glucotracker.domain.model.SensorSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -17,4 +19,10 @@ interface NightscoutRepository {
     suspend fun status(): NightscoutStatus
     suspend fun dayStatus(date: LocalDate): NightscoutDayStatus
     suspend fun syncToday(date: LocalDate): NightscoutDayStatus
+}
+
+interface SensorRepository {
+    fun observeSensors(): Flow<CachedView<List<SensorSession>>>
+    suspend fun refreshSensors()
+    suspend fun sensorQuality(sensorId: String): SensorQuality
 }

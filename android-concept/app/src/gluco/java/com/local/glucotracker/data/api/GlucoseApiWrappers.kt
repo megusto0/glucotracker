@@ -10,6 +10,8 @@ import com.local.glucotracker.generated.model.NightscoutInsulinEventResponse
 import com.local.glucotracker.generated.model.NightscoutStatusResponse
 import com.local.glucotracker.generated.model.NightscoutSyncTodayRequest
 import com.local.glucotracker.generated.model.NightscoutSyncTodayResponse
+import com.local.glucotracker.generated.model.SensorQualityResponse
+import com.local.glucotracker.generated.model.SensorSessionResponse
 import com.local.glucotracker.generated.model.TimelineResponse
 import javax.inject.Inject
 import kotlinx.datetime.Instant
@@ -26,6 +28,12 @@ class GlucoseApi @Inject constructor(
 
     suspend fun episodes(from: Instant, to: Instant): DayEpisodesResponse =
         glucoseApi.getGlucoseEpisodes(from = from, to = to).body()
+
+    suspend fun sensors(): List<SensorSessionResponse> =
+        glucoseApi.listSensors().body()
+
+    suspend fun sensorQuality(sensorId: java.util.UUID): SensorQualityResponse =
+        glucoseApi.getSensorQuality(sensorId).body()
 }
 
 class NightscoutApi @Inject constructor(

@@ -20,6 +20,44 @@ data class GlucoseRange(
     val readings: List<GlucoseReading>,
 )
 
+data class SensorSession(
+    val id: String,
+    val startedAt: Instant,
+    val endedAt: Instant?,
+    val expectedLifeDays: Double,
+    val label: String?,
+    val vendor: String?,
+    val model: String?,
+    val excludedFromAnalytics: Boolean,
+    val exclusionReason: String?,
+)
+
+data class SensorQuality(
+    val qualityScore: Int,
+    val confidence: SensorQualityConfidence,
+    val sensorAgeDays: Double?,
+    val sensorPhase: SensorPhase?,
+    val fingerstickCount: Int,
+    val validCalibrationPoints: Int,
+    val missingDataPercent: Double?,
+    val noiseScore: Double,
+    val mardPercent: Double?,
+    val suspectedCompressionCount: Int,
+)
+
+enum class SensorQualityConfidence {
+    None,
+    Low,
+    Medium,
+    High,
+}
+
+enum class SensorPhase {
+    Warmup,
+    Stable,
+    EndOfLife,
+}
+
 @Serializable
 @SerialName("create_fingerstick")
 data class CreateFingerstickOutboxKind(
@@ -27,6 +65,26 @@ data class CreateFingerstickOutboxKind(
     val glucoseMmolL: Double,
     val meterName: String? = null,
     val notes: String? = null,
+) : OutboxKind
+
+@Serializable
+@SerialName("create_sensor")
+data class CreateSensorOutboxKind(
+    val localId: String,
+    val startedAt: Instant,
+    val expectedLifeDays: Double,
+    val label: String? = null,
+    val vendor: String? = null,
+    val model: String? = null,
+) : OutboxKind
+
+@Serializable
+@SerialName("patch_sensor")
+data class PatchSensorOutboxKind(
+    val sensorId: String,
+    val endedAt: Instant? = null,
+    val excludedFromAnalytics: Boolean? = null,
+    val exclusionReason: String? = null,
 ) : OutboxKind
 
 @Serializable

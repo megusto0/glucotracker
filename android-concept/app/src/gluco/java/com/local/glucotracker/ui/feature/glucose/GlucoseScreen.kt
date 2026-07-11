@@ -73,6 +73,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @Composable
 fun GlucoseRoute(
+    onOpenSensors: () -> Unit = {},
     viewModel: GlucoseViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(Unit) {
@@ -86,6 +87,7 @@ fun GlucoseRoute(
         state = state,
         onSelectWindow = viewModel::selectWindow,
         onFingerstickSubmit = viewModel::enqueueFingerstick,
+        onOpenSensors = onOpenSensors,
     )
 }
 
@@ -96,6 +98,7 @@ fun GlucoseScreen(
     state: GlucoseScreenState,
     onSelectWindow: (GlucoseWindow) -> Unit,
     onFingerstickSubmit: (Double) -> Unit,
+    onOpenSensors: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var sheetVisible by remember { mutableStateOf(false) }
@@ -174,6 +177,10 @@ fun GlucoseScreen(
             onSubmit = { value ->
                 onFingerstickSubmit(value)
                 sheetVisible = false
+            },
+            onOpenSensors = {
+                sheetVisible = false
+                onOpenSensors()
             },
         )
     }
@@ -519,6 +526,7 @@ private fun DaypartCard(
 private fun GlucoseSheet(
     onDismiss: () -> Unit,
     onSubmit: (Double) -> Unit,
+    onOpenSensors: () -> Unit,
 ) {
     var valueText by remember { mutableStateOf("") }
     val parsedValue = valueText.replace(',', '.').toDoubleOrNull()
@@ -583,6 +591,11 @@ private fun GlucoseSheet(
                 modifier = Modifier.padding(top = 6.dp),
                 color = GT.colors.ink2,
                 style = GT.type.sansBody,
+            )
+            GTOutlineButton(
+                text = stringResource(R.string.glucose_sensor_manage),
+                onClick = onOpenSensors,
+                modifier = Modifier.padding(top = 10.dp),
             )
         }
     }
