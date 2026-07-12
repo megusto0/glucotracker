@@ -196,6 +196,15 @@ body{
   overflow:auto;
   position:relative;
 }
+.nightscout-route-loading{
+  display:grid;
+  place-items:center;
+  width:100%;
+  height:100%;
+  color:#bdbdbd;
+  background:#111;
+  font-size:18px;
+}
 .gt-glucose-layout{
   display:flex;
   height:100%;

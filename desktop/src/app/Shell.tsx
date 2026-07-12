@@ -10,6 +10,7 @@ export function Shell() {
   const location = useLocation();
   const theme = useSettingsStore((s) => s.theme);
   const token = useSettingsStore((s) => s.token);
+  const currentUser = useSettingsStore((s) => s.currentUser);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -26,6 +27,7 @@ export function Shell() {
   }, [theme]);
 
   const isLoginRoute = location.pathname === "/login";
+  const isNightscoutRoute = location.pathname === "/nightscout";
 
   if (!token.trim() && !isLoginRoute) {
     return (
@@ -39,6 +41,22 @@ export function Shell() {
 
   if (token.trim() && isLoginRoute) {
     return <Navigate replace to="/" />;
+  }
+
+  if (
+    isNightscoutRoute &&
+    currentUser &&
+    !currentUser.features.includes("glucose")
+  ) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (isNightscoutRoute) {
+    return (
+      <div className="nightscout-app">
+        <main className="nightscout-main">{element}</main>
+      </div>
+    );
   }
 
   return isLoginRoute ? (
