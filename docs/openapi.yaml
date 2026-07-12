@@ -2434,6 +2434,14 @@ components:
           - high
           title: Calibration Confidence
           type: string
+        cob_g:
+          default: 0.0
+          title: Cob G
+          type: number
+        cob_minutes_remaining:
+          default: 0
+          title: Cob Minutes Remaining
+          type: integer
         current_glucose:
           anyOf:
           - type: number
@@ -2450,6 +2458,14 @@ components:
           - type: number
           - type: 'null'
           title: Drift Mmol L Per Day
+        iob_minutes_remaining:
+          default: 0
+          title: Iob Minutes Remaining
+          type: integer
+        iob_units:
+          default: 0.0
+          title: Iob Units
+          type: number
         sensor_age_days:
           anyOf:
           - type: number

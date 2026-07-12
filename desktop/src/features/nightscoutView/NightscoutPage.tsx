@@ -47,6 +47,12 @@ function formatMmol(value?: number | null) {
     : "—";
 }
 
+function formatOnBoard(value: number | undefined, digits: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(digits)
+    : "0";
+}
+
 function displayValue(point: DashboardPoint, mode: DisplayMode) {
   return mode === "normalized"
     ? point.normalized_value ?? point.raw_value
@@ -118,6 +124,7 @@ export function NightscoutPage() {
       : null;
   const ageMinutes = pointAgeMinutes(latest);
   const missingPercent = dashboard.data?.quality.missing_data_pct;
+  const summary = dashboard.data?.summary;
   const isUrgent = latestValue !== null && latestValue < 3.0;
 
   const refresh = () => setRefreshAnchor(new Date());
@@ -205,6 +212,25 @@ export function NightscoutPage() {
           <div className="ns-delta-pill">
             <b>{delta === null ? "—" : `${delta >= 0 ? "+" : ""}${formatMmol(delta)}`}</b>
             <span>mmol/L</span>
+          </div>
+        </div>
+
+        <div aria-label="Активный инсулин и углеводы" className="ns-on-board">
+          <div className="ns-board-metric">
+            <span>IOB</span>
+            <strong>{formatOnBoard(summary?.iob_units, 2)}</strong>
+            <b>Ед</b>
+            <small>
+              {summary?.iob_minutes_remaining ?? 0} мин до завершения
+            </small>
+          </div>
+          <div className="ns-board-metric">
+            <span>COB</span>
+            <strong>{formatOnBoard(summary?.cob_g, 1)}</strong>
+            <b>г</b>
+            <small>
+              {summary?.cob_minutes_remaining ?? 0} мин до усвоения
+            </small>
           </div>
         </div>
 
@@ -300,8 +326,11 @@ function NightscoutChart({
   const yTicks = MAIN_Y_TICKS.filter((tick) => tick >= yMin && tick <= yMax);
   const pointRadius = Math.max(3.2, Math.min(5.2, Math.min(width, height) * 0.0048));
   const overviewRadius = Math.max(2, pointRadius * 0.55);
+  const treatmentRadius = Math.max(8, Math.min(11, pointRadius * 2.25));
 
   const points = data?.points ?? [];
+  const foodEvents = data?.food_events ?? [];
+  const insulinEvents = data?.insulin_events ?? [];
   const overviewPoints = overview?.points ?? [];
   const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 3 * 3_600_000;
   const toMs = data ? Date.parse(data.to_datetime) : Date.now();
@@ -421,6 +450,51 @@ function NightscoutChart({
                   hour: "numeric",
                   minute: "2-digit",
                 }).format(new Date(tick))}
+              </text>
+            </g>
+          );
+        })}
+
+        {foodEvents.map((event, index) => {
+          const x = scaleX(event.timestamp);
+          return (
+            <g
+              aria-label={`${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`}
+              className="ns-treatment ns-treatment--food"
+              key={`food-${event.timestamp}-${index}`}
+              role="img"
+              transform={`translate(${x} ${chartTop + treatmentRadius + 3})`}
+            >
+              <title>
+                {event.title} · {event.carbs_g.toFixed(1)} г углеводов
+              </title>
+              <circle r={treatmentRadius} />
+              <text className="ns-treatment-symbol" dy="0.35em">C</text>
+              <text className="ns-treatment-value" y={treatmentRadius + 14}>
+                {event.carbs_g.toFixed(0)}g
+              </text>
+            </g>
+          );
+        })}
+        {insulinEvents.map((event, index) => {
+          const x = scaleX(event.timestamp);
+          const units = event.insulin_units;
+          return (
+            <g
+              aria-label={`Инсулин: ${units?.toFixed(2) ?? "—"} единиц`}
+              className="ns-treatment ns-treatment--insulin"
+              key={`insulin-${event.timestamp}-${index}`}
+              role="img"
+              transform={`translate(${x} ${chartTop + treatmentRadius * 4 + 8})`}
+            >
+              <title>
+                Инсулин · {units?.toFixed(2) ?? "—"} Ед
+                {event.notes ? ` · ${event.notes}` : ""}
+              </title>
+              <circle r={treatmentRadius} />
+              <text className="ns-treatment-symbol" dy="0.35em">I</text>
+              <text className="ns-treatment-value" y={treatmentRadius + 14}>
+                {typeof units === "number" ? `${units.toFixed(1)}U` : "—"}
               </text>
             </g>
           );

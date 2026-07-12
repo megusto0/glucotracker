@@ -655,6 +655,20 @@ class TestGETIsolation:
         assert r.status_code == 200
         data = r.json()
         assert str(self.ids["bob_sensor"]) not in _collect_ids(data)
+        assert data["summary"]["cob_g"] == pytest.approx(3.33)
+        assert data["summary"]["cob_minutes_remaining"] == 60
+        assert data["summary"]["iob_units"] == pytest.approx(0.67)
+        assert data["summary"]["iob_minutes_remaining"] == 90
+
+        r = self.client.get(
+            "/glucose/dashboard", params=params, headers=self.bob_headers
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["summary"]["cob_g"] == pytest.approx(6.67)
+        assert data["summary"]["cob_minutes_remaining"] == 120
+        assert data["summary"]["iob_units"] == pytest.approx(2.0)
+        assert data["summary"]["iob_minutes_remaining"] == 270
 
     def test_twin_params(self):
         r = self.client.get("/twin/params", headers=self.alice_headers)

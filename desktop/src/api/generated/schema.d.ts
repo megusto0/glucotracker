@@ -3308,12 +3308,32 @@ export interface components {
              * @enum {string}
              */
             calibration_confidence: "none" | "low" | "medium" | "high";
+            /**
+             * Cob G
+             * @default 0
+             */
+            cob_g: number;
+            /**
+             * Cob Minutes Remaining
+             * @default 0
+             */
+            cob_minutes_remaining: number;
             /** Current Glucose */
             current_glucose?: number | null;
             /** Current Glucose At */
             current_glucose_at?: string | null;
             /** Drift Mmol L Per Day */
             drift_mmol_l_per_day?: number | null;
+            /**
+             * Iob Minutes Remaining
+             * @default 0
+             */
+            iob_minutes_remaining: number;
+            /**
+             * Iob Units
+             * @default 0
+             */
+            iob_units: number;
             /** Sensor Age Days */
             sensor_age_days?: number | null;
             /** Suspected Compression Count */

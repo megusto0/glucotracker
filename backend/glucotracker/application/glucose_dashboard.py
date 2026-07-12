@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from math import ceil
 from statistics import median
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -47,6 +49,7 @@ from glucotracker.infra.db.models import (
     SensorSession,
     utc_now,
 )
+from glucotracker.infra.db.repositories.twin import TwinRepository
 
 GlucoseMode = Literal["raw", "smoothed", "normalized"]
 Confidence = Literal["none", "low", "medium", "high"]
@@ -73,6 +76,12 @@ STABLE_BIAS_BANDWIDTH_H = 36.0
 END_OF_LIFE_BIAS_BANDWIDTH_H = 18.0
 MIN_BIAS_CONTRIBUTORS = 1
 MAX_BIAS_BANDWIDTH_H = 72.0
+
+OnBoardEvent = TypeVar(
+    "OnBoardEvent",
+    GlucoseDashboardFoodEvent,
+    GlucoseDashboardInsulinEvent,
+)
 
 
 @dataclass(frozen=True)
@@ -287,9 +296,52 @@ class GlucoseDashboardService:
         if mode == "normalized" and not (calibration and calibration.can_normalize):
             notes.append("Недостаточно записей из пальца для нормализации.")
 
+        twin_params = TwinRepository(
+            self.session,
+            self.user_id,
+        ).get_or_create_params(persist=False)
+        food_lookback = local_to - timedelta(
+            minutes=twin_params.carb_duration_minutes,
+        )
+        insulin_lookback = local_to - timedelta(minutes=twin_params.dia_minutes)
+        food_history = self._food_events(min(local_from, food_lookback), local_to)
+        insulin_history = self._insulin_events(
+            min(local_from, insulin_lookback),
+            local_to,
+        )
+        food_events = [
+            event
+            for event in food_history
+            if _local_wall_time(event.timestamp) >= local_from
+        ]
+        insulin_events = [
+            event
+            for event in insulin_history
+            if _local_wall_time(event.timestamp) >= local_from
+        ]
+        cob_g, cob_minutes_remaining = _remaining_on_board(
+            food_history,
+            as_of=local_to,
+            duration_minutes=twin_params.carb_duration_minutes,
+            amount=lambda event: event.carbs_g,
+        )
+        iob_units, iob_minutes_remaining = _remaining_on_board(
+            insulin_history,
+            as_of=local_to,
+            duration_minutes=twin_params.dia_minutes,
+            amount=lambda event: event.insulin_units,
+        )
+
         points = self._display_points(raw_points, calibration, mode)
         artifacts = _artifact_intervals(raw_points, current_sensor)
-        summary = self._summary(points, quality)
+        summary = self._summary(
+            points,
+            quality,
+            iob_units=iob_units,
+            iob_minutes_remaining=iob_minutes_remaining,
+            cob_g=cob_g,
+            cob_minutes_remaining=cob_minutes_remaining,
+        )
         bias_data = None
         if current_sensor is not None and calibration is not None:
             bias_data = self._bias_over_lifetime(
@@ -305,8 +357,8 @@ class GlucoseDashboardService:
                 FingerstickReadingResponse.model_validate(row)
                 for row in fingerstick_rows
             ],
-            food_events=self._food_events(local_from, local_to),
-            insulin_events=self._insulin_events(local_from, local_to),
+            food_events=food_events,
+            insulin_events=insulin_events,
             artifacts=artifacts,
             current_sensor=(
                 SensorSessionResponse.model_validate(current_sensor)
@@ -355,7 +407,7 @@ class GlucoseDashboardService:
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
         return [
-            RawPoint(_local_wall_time(row.timestamp), row.value_mmol_l)
+            RawPoint(_local_wall_from_utc(row.timestamp), row.value_mmol_l)
             for row in rows
         ]
 
@@ -474,7 +526,7 @@ class GlucoseDashboardService:
         ).all()
         return [
             GlucoseDashboardInsulinEvent(
-                timestamp=row.timestamp,
+                timestamp=_local_wall_from_utc(row.timestamp),
                 insulin_units=row.insulin_units,
                 event_type=row.event_type,
                 notes=row.notes,
@@ -807,11 +859,20 @@ class GlucoseDashboardService:
         self,
         points: list[GlucoseDashboardPoint],
         quality: SensorQualityResponse,
+        *,
+        iob_units: float,
+        iob_minutes_remaining: int,
+        cob_g: float,
+        cob_minutes_remaining: int,
     ) -> GlucoseDashboardSummary:
         current = points[-1] if points else None
         return GlucoseDashboardSummary(
             current_glucose=current.display_value if current else None,
             current_glucose_at=current.timestamp if current else None,
+            iob_units=iob_units,
+            iob_minutes_remaining=iob_minutes_remaining,
+            cob_g=cob_g,
+            cob_minutes_remaining=cob_minutes_remaining,
             sensor_age_days=quality.sensor_age_days,
             bias_mmol_l=(
                 quality.correction_now_mmol_l
@@ -1609,6 +1670,16 @@ def _local_wall_time(value: datetime) -> datetime:
     return value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
 
 
+def _local_wall_from_utc(value: datetime) -> datetime:
+    """Convert a stored UTC instant to app-local wall time.
+
+    SQLite drops timezone metadata from DateTime columns, so a naive value from
+    a Nightscout cache row still represents UTC rather than local wall time.
+    """
+    utc_value = value.replace(tzinfo=UTC) if value.tzinfo is None else value
+    return utc_value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
+
+
 def _utc_bound(value: datetime) -> datetime:
     """Convert app-local wall clock (or aware dt) to UTC for timestamptz filters.
 
@@ -1617,3 +1688,37 @@ def _utc_bound(value: datetime) -> datetime:
     by the app offset (e.g. -4h for Europe/Samara), returning empty CGM windows.
     """
     return utc_instant_from_local_wall(_local_wall_time(value))
+
+
+def _remaining_on_board(
+    events: list[OnBoardEvent],
+    *,
+    as_of: datetime,
+    duration_minutes: int,
+    amount: Callable[[OnBoardEvent], float | None],
+) -> tuple[float, int]:
+    """Return a linear, display-only estimate of active amount and time left.
+
+    The configured digital-twin DIA and carbohydrate duration define the
+    active windows. Each event decays linearly so the calculation stays
+    deterministic and backend-owned; it is informational, not dose guidance.
+    """
+    if duration_minutes <= 0:
+        return 0.0, 0
+
+    total = 0.0
+    longest_remaining = 0
+    for event in events:
+        event_amount = amount(event)
+        if event_amount is None or event_amount <= 0:
+            continue
+        elapsed = (
+            as_of - _local_wall_time(event.timestamp)
+        ).total_seconds() / 60
+        if elapsed < 0 or elapsed >= duration_minutes:
+            continue
+        remaining = duration_minutes - elapsed
+        total += event_amount * (remaining / duration_minutes)
+        longest_remaining = max(longest_remaining, ceil(remaining))
+
+    return round(total, 2), longest_remaining

@@ -1665,6 +1665,10 @@ class GlucoseDashboardSummary(BaseModel):
 
     current_glucose: float | None = None
     current_glucose_at: datetime | None = None
+    iob_units: float = 0.0
+    iob_minutes_remaining: int = 0
+    cob_g: float = 0.0
+    cob_minutes_remaining: int = 0
     sensor_age_days: float | None = None
     bias_mmol_l: float | None = None
     drift_mmol_l_per_day: float | None = None

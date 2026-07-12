@@ -131,7 +131,11 @@
 .ns-status {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(180px, 0.8fr);
+  grid-template-columns:
+    minmax(220px, 1.05fr)
+    minmax(210px, .9fr)
+    minmax(220px, .85fr)
+    minmax(180px, .65fr);
   align-items: start;
   gap: 8px 16px;
   min-width: 0;
@@ -238,6 +242,57 @@
 
 .ns-page--urgent .ns-current-reading { color: #ef5350; }
 
+.ns-on-board {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.ns-board-metric {
+  display: grid;
+  grid-template-columns: 42px auto 28px;
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #151515;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.ns-board-metric > span {
+  grid-row: 1 / 3;
+  align-self: center;
+  color: var(--ns-cyan);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.ns-board-metric > strong {
+  color: #eee;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ns-board-metric > b {
+  color: var(--ns-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ns-board-metric > small {
+  grid-column: 2 / 4;
+  overflow: hidden;
+  color: var(--ns-muted);
+  font: 11px/1.25 Ubuntu, "Noto Sans", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ns-mode-switch {
   justify-self: end;
   display: grid;
@@ -322,6 +377,45 @@
   vector-effect: non-scaling-stroke;
 }
 
+.ns-treatment {
+  pointer-events: auto;
+}
+
+.ns-treatment circle {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.ns-treatment--food circle {
+  fill: var(--ns-cyan);
+  stroke: #111;
+}
+
+.ns-treatment--insulin circle {
+  fill: #111;
+  stroke: var(--ns-text);
+}
+
+.ns-treatment-symbol,
+.ns-treatment-value {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.ns-treatment-symbol {
+  fill: #111;
+  font-size: 10px;
+}
+
+.ns-treatment--insulin .ns-treatment-symbol { fill: var(--ns-text); }
+
+.ns-treatment-value {
+  fill: #ddd;
+  font-size: 11px;
+}
+
 .ns-cursor {
   stroke: #888;
   stroke-width: 1;
@@ -384,6 +478,7 @@
   .ns-clock { font-size: 56px; }
   .ns-current-reading strong { font-size: 64px; }
   .ns-trend { font-size: 48px; }
+  .ns-on-board { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
   .ns-mode-switch {
     grid-column: 1 / -1;
     grid-template-columns: 1fr 1fr;
@@ -401,4 +496,5 @@
   .ns-pills { font-size: 15px; }
   .ns-hours { gap: 2px; font-size: 15px; }
   .ns-delta-pill { font-size: 22px; }
+  .ns-on-board { grid-template-columns: 1fr; }
 }

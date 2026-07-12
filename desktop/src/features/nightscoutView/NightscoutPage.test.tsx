@@ -17,9 +17,23 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
     artifacts: [],
     current_sensor: null,
     fingersticks: [],
-    food_events: [],
+    food_events: [
+      {
+        carbs_g: 42,
+        kcal: 510,
+        timestamp: "2026-07-12T06:30:00Z",
+        title: "Завтрак",
+      },
+    ],
     from_datetime: "2026-07-12T04:00:00Z",
-    insulin_events: [],
+    insulin_events: [
+      {
+        event_type: "Meal Bolus",
+        insulin_units: 3.5,
+        notes: null,
+        timestamp: "2026-07-12T06:25:00Z",
+      },
+    ],
     mode,
     notes: [],
     points: [
@@ -58,9 +72,13 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
     summary: {
       bias_mmol_l: 0.7,
       calibration_confidence: "high",
+      cob_g: 21,
+      cob_minutes_remaining: 90,
       current_glucose: normalized ? 6.2 : 5.5,
       current_glucose_at: "2026-07-12T07:00:00Z",
       drift_mmol_l_per_day: 0,
+      iob_minutes_remaining: 120,
+      iob_units: 1.75,
       sensor_age_days: 4,
       suspected_compression_count: 0,
     },
@@ -100,5 +118,22 @@ describe("NightscoutPage", () => {
       expect.any(String),
       "normalized",
     );
+  });
+
+  test("shows IOB and COB status with Nightscout treatment markers", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("IOB")).toBeInTheDocument();
+    expect(screen.getByText("1.75")).toBeInTheDocument();
+    expect(screen.getByText("120 мин до завершения")).toBeInTheDocument();
+    expect(screen.getByText("COB")).toBeInTheDocument();
+    expect(screen.getByText("21.0")).toBeInTheDocument();
+    expect(screen.getByText("90 мин до усвоения")).toBeInTheDocument();
+    expect(container.querySelectorAll(".ns-treatment--food")).toHaveLength(1);
+    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(1);
   });
 });

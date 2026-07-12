@@ -8,6 +8,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from glucotracker.application.glucose_dashboard import _local_wall_from_utc
+from glucotracker.config import get_settings
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
 
 
@@ -85,6 +87,25 @@ def _create_fingerstick(
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_naive_cached_nightscout_timestamp_is_converted_from_utc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SQLite Nightscout timestamps are naive UTC instants, not local clocks."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    try:
+        assert _local_wall_from_utc(datetime(2026, 7, 12, 11, 0)) == datetime(
+            2026,
+            7,
+            12,
+            15,
+            0,
+        )
+    finally:
+        monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "UTC")
+        get_settings.cache_clear()
 
 
 def test_dashboard_reads_local_cache_without_refreshing_nightscout(
