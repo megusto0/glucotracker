@@ -21,7 +21,7 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
       {
         carbs_g: 42,
         kcal: 510,
-        timestamp: "2026-07-12T06:30:00Z",
+        timestamp: "2026-07-12T06:55:00Z",
         title: "Завтрак",
       },
     ],
@@ -31,7 +31,7 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
         event_type: "Meal Bolus",
         insulin_units: 3.5,
         notes: null,
-        timestamp: "2026-07-12T06:25:00Z",
+        timestamp: "2026-07-12T07:00:00Z",
       },
     ],
     mode,
@@ -120,7 +120,7 @@ describe("NightscoutPage", () => {
     );
   });
 
-  test("shows IOB and COB status with Nightscout treatment markers", () => {
+  test("shows on-board status and anchors treatments to CGM points", () => {
     const { container } = render(
       <MemoryRouter>
         <NightscoutPage />
@@ -135,5 +135,17 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("90 мин до усвоения")).toBeInTheDocument();
     expect(container.querySelectorAll(".ns-treatment--food")).toHaveLength(1);
     expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(1);
+
+    const glucosePoints = container.querySelectorAll(".ns-point");
+    const foodMarker = container.querySelector(".ns-treatment--food");
+    const insulinMarker = container.querySelector(".ns-treatment--insulin");
+    expect(foodMarker).toHaveAttribute(
+      "transform",
+      `translate(${glucosePoints[0]?.getAttribute("cx")} ${glucosePoints[0]?.getAttribute("cy")})`,
+    );
+    expect(insulinMarker).toHaveAttribute(
+      "transform",
+      `translate(${glucosePoints[1]?.getAttribute("cx")} ${glucosePoints[1]?.getAttribute("cy")})`,
+    );
   });
 });

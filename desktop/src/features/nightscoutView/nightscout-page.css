@@ -386,6 +386,13 @@
   vector-effect: non-scaling-stroke;
 }
 
+.ns-treatment-link {
+  stroke: #777;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
 .ns-treatment--food circle {
   fill: var(--ns-cyan);
   stroke: #111;
@@ -469,6 +476,35 @@
   inset: 0;
 }
 
+@media (orientation: portrait) and (min-width: 821px) {
+  .ns-page { grid-template-rows: 46px auto minmax(0, 1fr); }
+
+  .ns-status {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 8px 18px 10px;
+  }
+
+  .ns-on-board {
+    grid-row: 2;
+    grid-column: 2;
+    grid-template-columns: 1fr 1fr;
+    align-self: stretch;
+    padding-top: 0;
+  }
+
+  .ns-mode-switch {
+    grid-row: 2;
+    grid-column: 1;
+    grid-template-columns: 1fr 1fr;
+    justify-self: stretch;
+    align-self: stretch;
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .ns-mode-switch::before { grid-column: 1 / -1; }
+}
+
 @media (max-width: 820px) {
   .ns-page { grid-template-rows: 46px auto minmax(0, 1fr); }
   .ns-status {
@@ -487,6 +523,23 @@
     margin-top: 6px;
   }
   .ns-mode-switch::before { grid-column: 1 / -1; }
+}
+
+@media (orientation: portrait) and (min-width: 600px) and (max-width: 820px) {
+  .ns-on-board {
+    grid-row: 2;
+    grid-column: 2;
+    grid-template-columns: 1fr 1fr;
+    align-self: stretch;
+    padding-top: 0;
+  }
+
+  .ns-mode-switch {
+    grid-row: 2;
+    grid-column: 1;
+    align-self: stretch;
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 560px) {

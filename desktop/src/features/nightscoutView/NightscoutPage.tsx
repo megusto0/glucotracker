@@ -22,6 +22,14 @@ type HoverPoint = {
   x: number;
   y: number;
 };
+type ChartTreatment = {
+  ariaLabel: string;
+  detail: string;
+  key: string;
+  kind: "food" | "insulin";
+  timestamp: string;
+  valueLabel: string;
+};
 
 const HOUR_OPTIONS = [2, 3, 4, 6, 12, 24] as const;
 const MAIN_Y_TICKS = [2, 3, 4, 6, 10, 14, 22] as const;
@@ -282,11 +290,14 @@ function NightscoutChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<HoverPoint | null>(null);
   // Size SVG in real pixels so preserveAspectRatio doesn't squash dots into ovals.
-  const [size, setSize] = useState({ width: 1280, height: 720 });
+  const [size, setSize] = useState(() => ({
+    width: Math.max(window.innerWidth, 320),
+    height: Math.max(window.innerHeight - 200, 320),
+  }));
 
   useEffect(() => {
     const el = shellRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el) return;
     const apply = (width: number, height: number) => {
       if (width < 40 || height < 40) return;
       setSize((prev) =>
@@ -295,22 +306,46 @@ function NightscoutChart({
           : { width, height },
       );
     };
-    apply(el.clientWidth, el.clientHeight);
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      apply(entry.contentRect.width, entry.contentRect.height);
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      apply(rect.width, rect.height);
+    };
+    measure();
+    let settledFrame: number | null = null;
+    const animationFrame = window.requestAnimationFrame(() => {
+      settledFrame = window.requestAnimationFrame(measure);
     });
-    observer.observe(el);
-    return () => observer.disconnect();
+    const settledLayout = window.setTimeout(measure, 350);
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            apply(entry.contentRect.width, entry.contentRect.height);
+          });
+    observer?.observe(el);
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      if (settledFrame !== null) window.cancelAnimationFrame(settledFrame);
+      window.clearTimeout(settledLayout);
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+    };
   }, []);
 
   const { width, height } = size;
+  const isPortrait = height > width * 1.2;
   const left = 8;
   const right = Math.max(48, Math.min(72, width * 0.055));
   const chartWidth = Math.max(1, width - right - left);
   const labelBand = Math.max(28, Math.min(40, height * 0.045));
-  const overviewHeight = Math.max(100, Math.min(170, height * 0.2));
+  const overviewHeight = isPortrait
+    ? Math.max(180, Math.min(320, height * 0.28))
+    : Math.max(100, Math.min(170, height * 0.2));
   const overviewGap = 8;
   const mainHeight = Math.max(
     160,
@@ -364,6 +399,62 @@ function NightscoutChart({
   const selectionX =
     left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
   const selectionWidth = Math.max((duration / overviewDuration) * chartWidth, 2);
+  const nearestPoint = (timestamp: string) => {
+    if (points.length === 0) return null;
+    const eventTime = Date.parse(timestamp);
+    return points.reduce((best, point) =>
+      Math.abs(Date.parse(point.timestamp) - eventTime) <
+      Math.abs(Date.parse(best.timestamp) - eventTime)
+        ? point
+        : best,
+    );
+  };
+  const treatments: ChartTreatment[] = [
+    ...foodEvents.map((event, index) => ({
+      ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
+      detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
+      key: `food-${event.timestamp}-${index}`,
+      kind: "food" as const,
+      timestamp: event.timestamp,
+      valueLabel: `${event.carbs_g.toFixed(0)}g`,
+    })),
+    ...insulinEvents.map((event, index) => ({
+      ariaLabel: `Инсулин: ${event.insulin_units?.toFixed(2) ?? "—"} единиц`,
+      detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
+        event.notes ? ` · ${event.notes}` : ""
+      }`,
+      key: `insulin-${event.timestamp}-${index}`,
+      kind: "insulin" as const,
+      timestamp: event.timestamp,
+      valueLabel:
+        typeof event.insulin_units === "number"
+          ? `${event.insulin_units.toFixed(1)}U`
+          : "—",
+    })),
+  ];
+  const anchoredTreatments = treatments.flatMap((treatment) => {
+    const anchor = nearestPoint(treatment.timestamp);
+    return anchor ? [{ ...treatment, anchor }] : [];
+  });
+  const treatmentCounts = new Map<string, number>();
+  anchoredTreatments.forEach(({ anchor }) => {
+    treatmentCounts.set(
+      anchor.timestamp,
+      (treatmentCounts.get(anchor.timestamp) ?? 0) + 1,
+    );
+  });
+  const treatmentIndexes = new Map<string, number>();
+  const treatmentMarkers = anchoredTreatments.map((treatment) => {
+    const clusterKey = treatment.anchor.timestamp;
+    const clusterIndex = treatmentIndexes.get(clusterKey) ?? 0;
+    const clusterSize = treatmentCounts.get(clusterKey) ?? 1;
+    treatmentIndexes.set(clusterKey, clusterIndex + 1);
+    return {
+      ...treatment,
+      xOffset:
+        (clusterIndex - (clusterSize - 1) / 2) * (treatmentRadius * 2 + 5),
+    };
+  });
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!svgRef.current || points.length === 0) return;
@@ -395,7 +486,7 @@ function NightscoutChart({
         height={height}
         onPointerLeave={() => setHover(null)}
         onPointerMove={handlePointerMove}
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio="none"
         ref={svgRef}
         role="img"
         viewBox={`0 0 ${width} ${height}`}
@@ -455,51 +546,6 @@ function NightscoutChart({
           );
         })}
 
-        {foodEvents.map((event, index) => {
-          const x = scaleX(event.timestamp);
-          return (
-            <g
-              aria-label={`${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`}
-              className="ns-treatment ns-treatment--food"
-              key={`food-${event.timestamp}-${index}`}
-              role="img"
-              transform={`translate(${x} ${chartTop + treatmentRadius + 3})`}
-            >
-              <title>
-                {event.title} · {event.carbs_g.toFixed(1)} г углеводов
-              </title>
-              <circle r={treatmentRadius} />
-              <text className="ns-treatment-symbol" dy="0.35em">C</text>
-              <text className="ns-treatment-value" y={treatmentRadius + 14}>
-                {event.carbs_g.toFixed(0)}g
-              </text>
-            </g>
-          );
-        })}
-        {insulinEvents.map((event, index) => {
-          const x = scaleX(event.timestamp);
-          const units = event.insulin_units;
-          return (
-            <g
-              aria-label={`Инсулин: ${units?.toFixed(2) ?? "—"} единиц`}
-              className="ns-treatment ns-treatment--insulin"
-              key={`insulin-${event.timestamp}-${index}`}
-              role="img"
-              transform={`translate(${x} ${chartTop + treatmentRadius * 4 + 8})`}
-            >
-              <title>
-                Инсулин · {units?.toFixed(2) ?? "—"} Ед
-                {event.notes ? ` · ${event.notes}` : ""}
-              </title>
-              <circle r={treatmentRadius} />
-              <text className="ns-treatment-symbol" dy="0.35em">I</text>
-              <text className="ns-treatment-value" y={treatmentRadius + 14}>
-                {typeof units === "number" ? `${units.toFixed(1)}U` : "—"}
-              </text>
-            </g>
-          );
-        })}
-
         {mode === "normalized"
           ? points.map((point) => (
               <circle
@@ -521,6 +567,45 @@ function NightscoutChart({
               key={`${mode}-${point.timestamp}`}
               r={pointRadius}
             />
+          );
+        })}
+
+        {treatmentMarkers.map((treatment) => {
+          const anchorX = scaleX(treatment.anchor.timestamp);
+          const anchorY = scaleY(displayValue(treatment.anchor, mode));
+          return (
+            <g
+              aria-label={treatment.ariaLabel}
+              className={`ns-treatment ns-treatment--${treatment.kind}`}
+              key={treatment.key}
+              role="img"
+              transform={`translate(${anchorX + treatment.xOffset} ${anchorY})`}
+            >
+              <title>{treatment.detail}</title>
+              {treatment.xOffset !== 0 ? (
+                <line
+                  className="ns-treatment-link"
+                  x1={-treatment.xOffset}
+                  x2="0"
+                  y1="0"
+                  y2="0"
+                />
+              ) : null}
+              <circle r={treatmentRadius} />
+              <text className="ns-treatment-symbol" dy="0.35em">
+                {treatment.kind === "food" ? "C" : "I"}
+              </text>
+              <text
+                className="ns-treatment-value"
+                y={
+                  treatment.kind === "food"
+                    ? -treatmentRadius - 5
+                    : treatmentRadius + 14
+                }
+              >
+                {treatment.valueLabel}
+              </text>
+            </g>
           );
         })}
 
