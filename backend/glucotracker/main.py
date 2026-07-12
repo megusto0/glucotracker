@@ -36,6 +36,7 @@ from glucotracker.application.postprandial.worker import PostprandialSweeper
 from glucotracker.config import get_settings
 from glucotracker.infra.db.session import get_session_factory
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
+from glucotracker.workers.on_board_fit import OnBoardFitWorker
 
 
 @asynccontextmanager
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     background_task: asyncio.Task[None] | None = None
     anchor_task: asyncio.Task[None] | None = None
     sweeper_task: asyncio.Task[None] | None = None
+    on_board_fit_task: asyncio.Task[None] | None = None
     run_background_tasks = (
         settings.run_background_tasks_in_web and not app.dependency_overrides
     )
@@ -54,12 +56,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             NightscoutBackgroundImporter(get_session_factory()).run_forever()
         )
     if run_background_tasks:
-        anchor_task = asyncio.create_task(
-            AnchorRecomputeWorker().run_forever()
-        )
-        sweeper_task = asyncio.create_task(
-            PostprandialSweeper().run_forever()
-        )
+        anchor_task = asyncio.create_task(AnchorRecomputeWorker().run_forever())
+        sweeper_task = asyncio.create_task(PostprandialSweeper().run_forever())
+        on_board_fit_task = asyncio.create_task(OnBoardFitWorker().run_forever())
     try:
         yield
     finally:
@@ -75,6 +74,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             sweeper_task.cancel()
             with suppress(asyncio.CancelledError):
                 await sweeper_task
+        if on_board_fit_task is not None:
+            on_board_fit_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await on_board_fit_task
 
 
 app = FastAPI(

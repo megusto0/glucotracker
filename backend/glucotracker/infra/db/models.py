@@ -128,7 +128,10 @@ class User(Base):
     carb_goal_g_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fat_goal_g_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     goals_setup_completed: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=text("0"), nullable=False,
+        Boolean,
+        default=False,
+        server_default=text("0"),
+        nullable=False,
     )
 
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
@@ -261,9 +264,7 @@ class Meal(Base, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
     )
-    ai_categories: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    ai_categories: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     derived_categories: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True
     )
@@ -317,8 +318,7 @@ class Meal(Base, TimestampMixin):
         if self.eaten_at and 6 <= self.eaten_at.hour < 11:
             tags.append("breakfast")
         if any(
-            item.product and item.product.category == "sweet"
-            for item in self.items
+            item.product and item.product.category == "sweet" for item in self.items
         ):
             tags.append("sweet")
         return tags
@@ -1383,9 +1383,7 @@ class TwinFitLog(Base):
     """Append-only per-user history of twin parameter changes and fits."""
 
     __tablename__ = "twin_fit_log"
-    __table_args__ = (
-        Index("ix_twin_fit_log_owner_fit_at", "owner_id", "fit_at"),
-    )
+    __table_args__ = (Index("ix_twin_fit_log_owner_fit_at", "owner_id", "fit_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(
@@ -1421,6 +1419,118 @@ class TwinFitLog(Base):
     converged: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     iterations: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    owner: Mapped[User] = relationship()
+
+
+class OnBoardModelFit(Base):
+    """Append-only per-user IOB/COB personalization fit.
+
+    Only rows with ``active=True`` are eligible for display calculations.  A
+    rejected fit is retained for auditability but can never replace the last
+    validated model.
+    """
+
+    __tablename__ = "on_board_model_fits"
+    __table_args__ = (
+        CheckConstraint(
+            "kind in ('iob', 'cob')",
+            name="ck_on_board_model_fits_kind",
+        ),
+        CheckConstraint(
+            "confidence in ('none', 'low', 'medium', 'high')",
+            name="ck_on_board_model_fits_confidence",
+        ),
+        CheckConstraint(
+            "status in ('accepted', 'rejected', 'insufficient_data')",
+            name="ck_on_board_model_fits_status",
+        ),
+        CheckConstraint(
+            "sample_count >= 0 AND day_count >= 0",
+            name="ck_on_board_model_fits_counts",
+        ),
+        Index(
+            "ix_on_board_model_fits_owner_active",
+            "owner_id",
+            "kind",
+            "scope_key",
+            "active",
+        ),
+        Index(
+            "ix_on_board_model_fits_owner_fitted_at",
+            "owner_id",
+            "fitted_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(96), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    params_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    training_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+    )
+    training_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+    )
+    sample_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    day_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    validation_mae_mmol: Mapped[float | None] = mapped_column(Float, nullable=True)
+    baseline_mae_mmol: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confidence: Mapped[str] = mapped_column(
+        String(12),
+        default="none",
+        server_default=text("'none'"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )
+    fitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
 
     owner: Mapped[User] = relationship()
 

@@ -17,6 +17,7 @@ SCOPED_DB_MODEL_NAMES = {
     "NightscoutImportState",
     "NightscoutInsulinEvent",
     "NightscoutSettings",
+    "OnBoardModelFit",
     "Pattern",
     "Photo",
     "Product",

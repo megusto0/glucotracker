@@ -1584,8 +1584,7 @@ class SensorQualityResponse(BaseModel):
     stable_calibration_points: int = 0
     warmup_calibration_points: int = 0
     calibration_basis: (
-        Literal["stable_after_48h", "warmup_after_12h_fallback", "insufficient"]
-        | None
+        Literal["stable_after_48h", "warmup_after_12h_fallback", "insufficient"] | None
     ) = None
     warmup_metrics: SensorWarmupMetricsResponse | None = None
     median_bias_mmol_l: float | None = None
@@ -1640,6 +1639,18 @@ class GlucoseDashboardFoodEvent(BaseModel):
     # Macro-based absorption class: fast | normal | slow
     absorption_profile: str | None = None
     absorption_minutes: int | None = None
+    absorption_fast_weight: float | None = None
+    absorption_normal_weight: float | None = None
+    absorption_slow_weight: float | None = None
+    absorption_model_source: (
+        Literal[
+            "macro_prior",
+            "personalized_meal",
+            "personalized_category",
+        ]
+        | None
+    ) = None
+    absorption_confidence: Literal["none", "low", "medium", "high"] | None = None
 
 
 class GlucoseDashboardInsulinEvent(BaseModel):
@@ -1648,6 +1659,7 @@ class GlucoseDashboardInsulinEvent(BaseModel):
     timestamp: datetime
     insulin_units: float | None = None
     event_type: str | None = None
+    insulin_type: str | None = None
     notes: str | None = None
 
 
@@ -1675,6 +1687,10 @@ class GlucoseDashboardSummary(BaseModel):
     iob_minutes_remaining: int = 0
     cob_g: float = 0.0
     cob_minutes_remaining: int = 0
+    iob_model_source: Literal["population", "personalized"] = "population"
+    iob_model_confidence: Literal["none", "low", "medium", "high"] = "none"
+    cob_model_source: Literal["macro_prior", "personalized"] = "macro_prior"
+    cob_model_confidence: Literal["none", "low", "medium", "high"] = "none"
     sensor_age_days: float | None = None
     bias_mmol_l: float | None = None
     drift_mmol_l_per_day: float | None = None
@@ -1861,6 +1877,9 @@ class TwinCurveFoodEvent(BaseModel):
     title: str
     carbs_g: float
     kcal: float | None = None
+    protein_g: float | None = None
+    fat_g: float | None = None
+    fiber_g: float | None = None
 
 
 class TwinCurveInsulinEvent(BaseModel):
@@ -1869,6 +1888,7 @@ class TwinCurveInsulinEvent(BaseModel):
     timestamp: datetime
     insulin_units: float
     event_type: str | None = None
+    insulin_type: str | None = None
     notes: str | None = None
 
 

@@ -32,6 +32,8 @@ The backend is the product authority. It owns:
 - food/insulin link review episodes and persisted glucose snapshots around
   meals when CGM data exists;
 - digital twin research-mode parameter fitting and reconstructed curves;
+- validated per-user IOB/COB timing fits with append-only audit history and
+  population fallback;
 - OpenAPI generation.
 
 Key entry points:
@@ -50,6 +52,16 @@ Key entry points:
 
 `get_session` yields a sync SQLAlchemy `Session` from an async dependency. Keep
 that shape; it avoids QueuePool starvation during FastAPI dependency cleanup.
+
+### On-board timing personalization
+
+Per `CONCEPT.md` §1, IOB/COB is informational-only. The owner-scoped
+`on_board_model_fits` table stores versioned accepted/rejected timing fits;
+`OnBoardRepository` is the only persistence/training read boundary. Fitting uses
+completed raw-CGM days asynchronously or as part of the existing twin fit flow.
+The glucose dashboard only loads an active validated fit and falls back to the
+population model, so a read request never trains or writes a model. See
+[`iob-cob-models.md`](iob-cob-models.md) for gates and model details.
 
 ### Time Semantics
 

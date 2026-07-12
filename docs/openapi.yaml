@@ -2238,14 +2238,73 @@ components:
     GlucoseDashboardFoodEvent:
       description: Food marker for glucose dashboard overlays.
       properties:
+        absorption_confidence:
+          anyOf:
+          - enum:
+            - none
+            - low
+            - medium
+            - high
+            type: string
+          - type: 'null'
+          title: Absorption Confidence
+        absorption_fast_weight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Absorption Fast Weight
+        absorption_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Absorption Minutes
+        absorption_model_source:
+          anyOf:
+          - enum:
+            - macro_prior
+            - personalized_meal
+            - personalized_category
+            type: string
+          - type: 'null'
+          title: Absorption Model Source
+        absorption_normal_weight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Absorption Normal Weight
+        absorption_profile:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Absorption Profile
+        absorption_slow_weight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Absorption Slow Weight
         carbs_g:
           title: Carbs G
           type: number
+        fat_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fat G
+        fiber_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fiber G
         kcal:
           anyOf:
           - type: number
           - type: 'null'
           title: Kcal
+        protein_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Protein G
         timestamp:
           format: date-time
           title: Timestamp
@@ -2267,6 +2326,11 @@ components:
           - type: string
           - type: 'null'
           title: Event Type
+        insulin_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Insulin Type
         insulin_units:
           anyOf:
           - type: number
@@ -2442,6 +2506,22 @@ components:
           default: 0
           title: Cob Minutes Remaining
           type: integer
+        cob_model_confidence:
+          default: none
+          enum:
+          - none
+          - low
+          - medium
+          - high
+          title: Cob Model Confidence
+          type: string
+        cob_model_source:
+          default: macro_prior
+          enum:
+          - macro_prior
+          - personalized
+          title: Cob Model Source
+          type: string
         current_glucose:
           anyOf:
           - type: number
@@ -2462,6 +2542,22 @@ components:
           default: 0
           title: Iob Minutes Remaining
           type: integer
+        iob_model_confidence:
+          default: none
+          enum:
+          - none
+          - low
+          - medium
+          - high
+          title: Iob Model Confidence
+          type: string
+        iob_model_source:
+          default: population
+          enum:
+          - population
+          - personalized
+          title: Iob Model Source
+          type: string
         iob_units:
           default: 0.0
           title: Iob Units
@@ -7071,11 +7167,26 @@ components:
         carbs_g:
           title: Carbs G
           type: number
+        fat_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fat G
+        fiber_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fiber G
         kcal:
           anyOf:
           - type: number
           - type: 'null'
           title: Kcal
+        protein_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Protein G
         timestamp:
           format: date-time
           title: Timestamp
@@ -7097,6 +7208,11 @@ components:
           - type: string
           - type: 'null'
           title: Event Type
+        insulin_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Insulin Type
         insulin_units:
           title: Insulin Units
           type: number

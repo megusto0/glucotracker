@@ -3199,10 +3199,30 @@ export interface components {
          * @description Food marker for glucose dashboard overlays.
          */
         GlucoseDashboardFoodEvent: {
+            /** Absorption Confidence */
+            absorption_confidence?: ("none" | "low" | "medium" | "high") | null;
+            /** Absorption Fast Weight */
+            absorption_fast_weight?: number | null;
+            /** Absorption Minutes */
+            absorption_minutes?: number | null;
+            /** Absorption Model Source */
+            absorption_model_source?: ("macro_prior" | "personalized_meal" | "personalized_category") | null;
+            /** Absorption Normal Weight */
+            absorption_normal_weight?: number | null;
+            /** Absorption Profile */
+            absorption_profile?: string | null;
+            /** Absorption Slow Weight */
+            absorption_slow_weight?: number | null;
             /** Carbs G */
             carbs_g: number;
+            /** Fat G */
+            fat_g?: number | null;
+            /** Fiber G */
+            fiber_g?: number | null;
             /** Kcal */
             kcal?: number | null;
+            /** Protein G */
+            protein_g?: number | null;
             /**
              * Timestamp
              * Format: date-time
@@ -3218,6 +3238,8 @@ export interface components {
         GlucoseDashboardInsulinEvent: {
             /** Event Type */
             event_type?: string | null;
+            /** Insulin Type */
+            insulin_type?: string | null;
             /** Insulin Units */
             insulin_units?: number | null;
             /** Notes */
@@ -3318,6 +3340,18 @@ export interface components {
              * @default 0
              */
             cob_minutes_remaining: number;
+            /**
+             * Cob Model Confidence
+             * @default none
+             * @enum {string}
+             */
+            cob_model_confidence: "none" | "low" | "medium" | "high";
+            /**
+             * Cob Model Source
+             * @default macro_prior
+             * @enum {string}
+             */
+            cob_model_source: "macro_prior" | "personalized";
             /** Current Glucose */
             current_glucose?: number | null;
             /** Current Glucose At */
@@ -3329,6 +3363,18 @@ export interface components {
              * @default 0
              */
             iob_minutes_remaining: number;
+            /**
+             * Iob Model Confidence
+             * @default none
+             * @enum {string}
+             */
+            iob_model_confidence: "none" | "low" | "medium" | "high";
+            /**
+             * Iob Model Source
+             * @default population
+             * @enum {string}
+             */
+            iob_model_source: "population" | "personalized";
             /**
              * Iob Units
              * @default 0
@@ -6300,8 +6346,14 @@ export interface components {
         TwinCurveFoodEvent: {
             /** Carbs G */
             carbs_g: number;
+            /** Fat G */
+            fat_g?: number | null;
+            /** Fiber G */
+            fiber_g?: number | null;
             /** Kcal */
             kcal?: number | null;
+            /** Protein G */
+            protein_g?: number | null;
             /**
              * Timestamp
              * Format: date-time
@@ -6317,6 +6369,8 @@ export interface components {
         TwinCurveInsulinEvent: {
             /** Event Type */
             event_type?: string | null;
+            /** Insulin Type */
+            insulin_type?: string | null;
             /** Insulin Units */
             insulin_units: number;
             /** Notes */

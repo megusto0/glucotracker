@@ -20,6 +20,7 @@ from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db.models import (
     NightscoutGlucoseEntry,
     NightscoutImportState,
+    NightscoutInsulinEvent,
     NightscoutSettings,
     User,
     utc_now,
@@ -31,12 +32,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class NightscoutImportCandidate:
-    """Configured gluco user eligible for background glucose import."""
+    """Configured gluco user eligible for background context import."""
 
     user_id: UUID
     url: str
     api_secret: str
     latest_glucose_at: datetime | None
+    latest_insulin_at: datetime | None
+    sync_glucose: bool
+    import_insulin_events: bool
 
 
 class NightscoutBackgroundImporter:
@@ -120,38 +124,91 @@ class NightscoutBackgroundImporter:
                 sync_glucose = (
                     settings_row.sync_glucose if settings_row is not None else True
                 )
-                if not enabled or not sync_glucose or not url or not api_secret:
+                import_insulin_events = (
+                    settings_row.import_insulin_events
+                    if settings_row is not None
+                    else True
+                )
+                if (
+                    not enabled
+                    or not (sync_glucose or import_insulin_events)
+                    or not url
+                    or not api_secret
+                ):
                     continue
 
-                latest_glucose_at = session.scalar(
-                    select(func.max(NightscoutGlucoseEntry.timestamp)).where(
-                        NightscoutGlucoseEntry.owner_id == user_id
+                latest_glucose_at = None
+                if sync_glucose:
+                    latest_glucose_at = session.scalar(
+                        select(func.max(NightscoutGlucoseEntry.timestamp)).where(
+                            NightscoutGlucoseEntry.owner_id == user_id
+                        )
                     )
-                )
+                latest_insulin_at = None
+                if import_insulin_events:
+                    latest_insulin_at = session.scalar(
+                        select(func.max(NightscoutInsulinEvent.timestamp)).where(
+                            NightscoutInsulinEvent.owner_id == user_id
+                        )
+                    )
                 candidates.append(
                     NightscoutImportCandidate(
                         user_id=user_id,
                         url=url,
                         api_secret=api_secret,
                         latest_glucose_at=latest_glucose_at,
+                        latest_insulin_at=latest_insulin_at,
+                        sync_glucose=sync_glucose,
+                        import_insulin_events=import_insulin_events,
                     )
                 )
             return candidates
 
     async def _import_candidate(self, candidate: NightscoutImportCandidate) -> int:
-        from_datetime, to_datetime = self._range(candidate.latest_glucose_at)
+        now = self._now()
+        glucose_range = (
+            self._range(candidate.latest_glucose_at, now=now)
+            if candidate.sync_glucose
+            else None
+        )
+        insulin_range = (
+            self._range(candidate.latest_insulin_at, now=now)
+            if candidate.import_insulin_events
+            else None
+        )
+        enabled_ranges = [
+            stream_range
+            for stream_range in (glucose_range, insulin_range)
+            if stream_range is not None
+        ]
+        if not enabled_ranges:
+            return 0
+        from_datetime = min(stream_range[0] for stream_range in enabled_ranges)
+        to_datetime = now
         client = NightscoutClient(
             base_url=candidate.url,
             api_secret=candidate.api_secret,
         )
+        glucose_rows = []
         try:
-            glucose_rows = await client.fetch_glucose_entries(
-                from_datetime,
-                to_datetime,
-            )
+            if glucose_range is not None:
+                glucose_rows = await client.fetch_glucose_entries(
+                    *glucose_range,
+                )
         except Exception as exc:
             self._record_error(candidate.user_id, exc)
             raise
+        insulin_rows = []
+        if insulin_range is not None and hasattr(client, "fetch_insulin_events"):
+            try:
+                insulin_rows = await client.fetch_insulin_events(
+                    *insulin_range,
+                )
+            except Exception:
+                logger.exception(
+                    "Background Nightscout insulin import failed for user %s",
+                    candidate.user_id,
+                )
         sensor_event_rows = []
         if hasattr(client, "fetch_sensor_events"):
             try:
@@ -171,18 +228,23 @@ class NightscoutBackgroundImporter:
                 from_datetime,
                 to_datetime,
                 glucose_rows=glucose_rows,
-                insulin_rows=[],
+                insulin_rows=insulin_rows,
                 sensor_event_rows=sensor_event_rows,
             )
-            return response.glucose_imported
+            return response.glucose_imported + response.insulin_imported
 
-    def _range(self, latest_glucose_at: datetime | None) -> tuple[datetime, datetime]:
-        now = self._now()
+    def _range(
+        self,
+        latest_at: datetime | None,
+        *,
+        now: datetime | None = None,
+    ) -> tuple[datetime, datetime]:
+        now = now or self._now()
         floor = now - self.lookback
-        if latest_glucose_at is None:
+        if latest_at is None:
             return floor, now
 
-        latest = _as_local_aware(latest_glucose_at)
+        latest = _as_local_aware(latest_at)
         start = max(floor, min(latest - self.overlap, now))
         return start, now
 

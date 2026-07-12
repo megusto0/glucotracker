@@ -74,10 +74,14 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
       calibration_confidence: "high",
       cob_g: 21,
       cob_minutes_remaining: 90,
+      cob_model_confidence: "none",
+      cob_model_source: "macro_prior",
       current_glucose: normalized ? 6.2 : 5.5,
       current_glucose_at: "2026-07-12T07:00:00Z",
       drift_mmol_l_per_day: 0,
       iob_minutes_remaining: 120,
+      iob_model_confidence: "none",
+      iob_model_source: "population",
       iob_units: 1.75,
       sensor_age_days: 4,
       suspected_compression_count: 0,
@@ -88,11 +92,14 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
 
 describe("NightscoutPage", () => {
   beforeEach(() => {
-    mockedUseDashboard.mockImplementation((_from, _to, mode) => ({
-      data: dashboard(mode),
-      error: null,
-      isLoading: false,
-    }) as ReturnType<typeof useGlucoseDashboard>);
+    mockedUseDashboard.mockImplementation(
+      (_from, _to, mode) =>
+        ({
+          data: dashboard(mode),
+          error: null,
+          isLoading: false,
+        }) as ReturnType<typeof useGlucoseDashboard>,
+    );
   });
 
   test("switches between standard and normalized dashboard series", () => {
@@ -107,12 +114,13 @@ describe("NightscoutPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Нормализованный" }));
 
-    expect(screen.getByRole("button", { name: "Нормализованный" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "Нормализованный" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("6.2")).toBeInTheDocument();
-    expect(container.querySelectorAll(".ns-point--normalized").length).toBeGreaterThan(0);
+    expect(
+      container.querySelectorAll(".ns-point--normalized").length,
+    ).toBeGreaterThan(0);
     expect(mockedUseDashboard).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
@@ -134,7 +142,9 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("21.0")).toBeInTheDocument();
     expect(screen.getByText("90 мин до усвоения")).toBeInTheDocument();
     expect(container.querySelectorAll(".ns-treatment--food")).toHaveLength(1);
-    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(1);
+    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(
+      1,
+    );
 
     const glucosePoints = container.querySelectorAll(".ns-point");
     const foodMarker = container.querySelector(".ns-treatment--food");

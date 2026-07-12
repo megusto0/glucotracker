@@ -527,9 +527,7 @@ class TestGETIsolation:
         )
         assert r.status_code == 404
 
-        r = self.client.get(
-            f"/meals/{self.ids['bob_meal']}", headers=self.bob_headers
-        )
+        r = self.client.get(f"/meals/{self.ids['bob_meal']}", headers=self.bob_headers)
         assert r.status_code == 200
         assert str(self.ids["bob_meal"]) in _collect_ids(r.json())
 
@@ -630,15 +628,11 @@ class TestGETIsolation:
         assert str(self.ids["bob_pattern"]) not in _collect_ids(r.json())
 
     def test_dashboard_source_breakdown(self):
-        r = self.client.get(
-            "/dashboard/source_breakdown", headers=self.alice_headers
-        )
+        r = self.client.get("/dashboard/source_breakdown", headers=self.alice_headers)
         assert r.status_code == 200
 
     def test_dashboard_data_quality(self):
-        r = self.client.get(
-            "/dashboard/data_quality", headers=self.alice_headers
-        )
+        r = self.client.get("/dashboard/data_quality", headers=self.alice_headers)
         assert r.status_code == 200
         data = r.json()
         assert str(self.ids["bob_meal"]) not in _collect_ids(data)
@@ -655,10 +649,11 @@ class TestGETIsolation:
         assert r.status_code == 200
         data = r.json()
         assert str(self.ids["bob_sensor"]) not in _collect_ids(data)
-        # Alice meal (10 g carbs, normal profile) at `now`, as_of=now+2h → elapsed 120 min.
-        assert data["summary"]["cob_g"] == pytest.approx(1.67, abs=0.05)
-        assert data["summary"]["cob_minutes_remaining"] == 51
-        # Alice: 2 U at now-1h, as_of=now+2h → elapsed 180 min on biphasic IOB (DIA 270).
+        # Alice's moderate mixed meal uses a soft normal/slow prior rather than
+        # being forced into one hard bucket; at +120 min its tail remains.
+        assert data["summary"]["cob_g"] == pytest.approx(2.93, abs=0.05)
+        assert data["summary"]["cob_minutes_remaining"] == 286
+        # Alice: 2 U at now-1h, as_of=now+2h → 180 min on biphasic IOB.
         assert data["summary"]["iob_units"] == pytest.approx(0.54, abs=0.02)
         assert data["summary"]["iob_minutes_remaining"] == 84
 
@@ -667,9 +662,9 @@ class TestGETIsolation:
         )
         assert r.status_code == 200
         data = r.json()
-        # Bob meal at now+1h, as_of=now+2h → elapsed 60 min, normal profile.
-        assert data["summary"]["cob_g"] == pytest.approx(5.37, abs=0.05)
-        assert data["summary"]["cob_minutes_remaining"] == 111
+        # Bob has the same mixed-meal prior at +60 min.
+        assert data["summary"]["cob_g"] == pytest.approx(6.05, abs=0.05)
+        assert data["summary"]["cob_minutes_remaining"] == 346
         # Bob: 2 U at as_of (future relative to range start) → full IOB.
         assert data["summary"]["iob_units"] == pytest.approx(2.0)
         assert data["summary"]["iob_minutes_remaining"] == 270
@@ -799,9 +794,7 @@ class TestGETIsolation:
         assert r.status_code == 200
 
     def test_nightscout_latest_reading(self):
-        r = self.client.get(
-            "/nightscout/latest-reading", headers=self.alice_headers
-        )
+        r = self.client.get("/nightscout/latest-reading", headers=self.alice_headers)
         assert r.status_code == 200
         data = r.json()
         assert str(self.ids["bob_ns_glucose"]) not in _collect_ids(data)
@@ -1216,9 +1209,7 @@ class TestMutationIsolation:
         photo_id = photo.id
         s.close()
 
-        r = self.client.delete(
-            f"/photos/{photo_id}", headers=self.bob_headers
-        )
+        r = self.client.delete(f"/photos/{photo_id}", headers=self.bob_headers)
         assert r.status_code == 404
 
     def test_get_photo_file_as_bob(self):
@@ -1236,9 +1227,7 @@ class TestMutationIsolation:
         photo_id = photo.id
         s.close()
 
-        r = self.client.get(
-            f"/photos/{photo_id}/file", headers=self.bob_headers
-        )
+        r = self.client.get(f"/photos/{photo_id}/file", headers=self.bob_headers)
         assert r.status_code == 404
 
     def test_update_nightscout_settings_isolation(self):
@@ -1251,9 +1240,9 @@ class TestMutationIsolation:
 
         sf = self.env["session_factory"]
         s = sf()
-        settings = s.query(NightscoutSettings).filter_by(
-            owner_id=self.bob
-        ).one_or_none()
+        settings = (
+            s.query(NightscoutSettings).filter_by(owner_id=self.bob).one_or_none()
+        )
         if settings is not None:
             assert settings.enabled is False or settings.enabled is True
         s.close()
@@ -1262,9 +1251,11 @@ class TestMutationIsolation:
         sf = self.env["session_factory"]
         s = sf()
         s.info["current_user_id"] = self.alice
-        meal = s.query(Meal).filter_by(
-            id=self.ids["alice_meal"], owner_id=self.alice
-        ).one()
+        meal = (
+            s.query(Meal)
+            .filter_by(id=self.ids["alice_meal"], owner_id=self.alice)
+            .one()
+        )
         item = meal.items[0]
         item_id = item.id
         s.close()
@@ -1280,25 +1271,27 @@ class TestMutationIsolation:
         sf = self.env["session_factory"]
         s = sf()
         s.info["current_user_id"] = self.alice
-        meal = s.query(Meal).filter_by(
-            id=self.ids["alice_meal"], owner_id=self.alice
-        ).one()
+        meal = (
+            s.query(Meal)
+            .filter_by(id=self.ids["alice_meal"], owner_id=self.alice)
+            .one()
+        )
         item = meal.items[0]
         item_id = item.id
         s.close()
 
-        r = self.client.delete(
-            f"/meal_items/{item_id}", headers=self.bob_headers
-        )
+        r = self.client.delete(f"/meal_items/{item_id}", headers=self.bob_headers)
         assert r.status_code == 404
 
     def test_copy_by_weight_as_bob(self):
         sf = self.env["session_factory"]
         s = sf()
         s.info["current_user_id"] = self.alice
-        meal = s.query(Meal).filter_by(
-            id=self.ids["alice_meal"], owner_id=self.alice
-        ).one()
+        meal = (
+            s.query(Meal)
+            .filter_by(id=self.ids["alice_meal"], owner_id=self.alice)
+            .one()
+        )
         item = meal.items[0]
         item.grams = 100
         s.commit()
@@ -1316,9 +1309,11 @@ class TestMutationIsolation:
         sf = self.env["session_factory"]
         s = sf()
         s.info["current_user_id"] = self.alice
-        meal = s.query(Meal).filter_by(
-            id=self.ids["alice_meal"], owner_id=self.alice
-        ).one()
+        meal = (
+            s.query(Meal)
+            .filter_by(id=self.ids["alice_meal"], owner_id=self.alice)
+            .one()
+        )
         item = meal.items[0]
         item_id = item.id
         s.close()
@@ -1461,9 +1456,7 @@ class TestMutationIsolation:
         assert r.status_code == 200
         sf = self.env["session_factory"]
         s = sf()
-        profile = s.query(UserProfile).filter_by(
-            owner_id=self.bob
-        ).one()
+        profile = s.query(UserProfile).filter_by(owner_id=self.bob).one()
         assert profile.weight_kg == 80
         s.close()
 
@@ -1482,10 +1475,14 @@ class TestMutationIsolation:
         assert r.status_code == 200
         sf = self.env["session_factory"]
         s = sf()
-        activity = s.query(DailyActivity).filter_by(
-            owner_id=self.bob,
-            date=today - timedelta(days=2),
-        ).one()
+        activity = (
+            s.query(DailyActivity)
+            .filter_by(
+                owner_id=self.bob,
+                date=today - timedelta(days=2),
+            )
+            .one()
+        )
         assert activity.steps == 1000
         s.close()
 
@@ -1526,10 +1523,14 @@ class TestMutationIsolation:
 
         sf = self.env["session_factory"]
         s = sf()
-        link = s.query(MealInsulinLink).filter_by(
-            meal_id=self.ids["bob_meal"],
-            insulin_event_id=self.ids["bob_ns_insulin"],
-        ).one()
+        link = (
+            s.query(MealInsulinLink)
+            .filter_by(
+                meal_id=self.ids["bob_meal"],
+                insulin_event_id=self.ids["bob_ns_insulin"],
+            )
+            .one()
+        )
         assert str(link.owner_id) == str(self.bob)
         s.close()
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import ceil
@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.api.schemas import (
     BiasCurvePoint,
@@ -36,6 +36,12 @@ from glucotracker.api.schemas import (
     SensorWarmupMetricsResponse,
 )
 from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.on_board.classification import (
+    is_liquid_meal,
+    is_rapid_insulin_event,
+    meal_category_scope,
+    meal_pattern_key,
+)
 from glucotracker.application.sensor_lifecycle import close_previous_open_sensors
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.config import get_settings
@@ -49,6 +55,7 @@ from glucotracker.infra.db.models import (
     SensorSession,
     utc_now,
 )
+from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.db.repositories.twin import TwinRepository
 
 GlucoseMode = Literal["raw", "smoothed", "normalized"]
@@ -76,6 +83,7 @@ STABLE_BIAS_BANDWIDTH_H = 36.0
 END_OF_LIFE_BIAS_BANDWIDTH_H = 18.0
 MIN_BIAS_CONTRIBUTORS = 1
 MAX_BIAS_BANDWIDTH_H = 72.0
+DISPLAY_COB_RESIDUAL_FRACTION = 0.005
 
 OnBoardEvent = TypeVar(
     "OnBoardEvent",
@@ -173,13 +181,9 @@ class GlucoseDashboardService:
         """Return fingerstick readings for a local time range."""
         filters = []
         if from_datetime is not None:
-            filters.append(
-                FingerstickReading.measured_at >= _utc_bound(from_datetime)
-            )
+            filters.append(FingerstickReading.measured_at >= _utc_bound(from_datetime))
         if to_datetime is not None:
-            filters.append(
-                FingerstickReading.measured_at <= _utc_bound(to_datetime)
-            )
+            filters.append(FingerstickReading.measured_at <= _utc_bound(to_datetime))
         rows = self.session.scalars(
             select(FingerstickReading)
             .where(*filters)
@@ -300,13 +304,44 @@ class GlucoseDashboardService:
             self.session,
             self.user_id,
         ).get_or_create_params(persist=False)
-        # Slow mixed meals can keep COB for up to ~6h; look back past default 180.
-        food_lookback = local_to - timedelta(minutes=max(twin_params.carb_duration_minutes, 360))
-        insulin_lookback = local_to - timedelta(minutes=twin_params.dia_minutes)
+        from glucotracker.application.twin.kernels import (
+            MAX_CARB_ABSORPTION_MINUTES,
+            PersonalizedInsulinKernel,
+            personalized_insulin_minutes_remaining,
+        )
+
+        on_board_repository = OnBoardRepository(self.session, self.user_id)
+        iob_fit = on_board_repository.get_active_fit("iob", "rapid")
+        iob_kernel: PersonalizedInsulinKernel | None = None
+        if iob_fit is not None:
+            try:
+                iob_kernel = PersonalizedInsulinKernel.from_mapping(iob_fit.params_json)
+            except ValueError:
+                iob_fit = None
+        active_cob_fits: dict[str, Any] = {}
+        for fit in on_board_repository.list_active_fits("cob"):
+            active_cob_fits.setdefault(fit.scope_key, fit)
+
+        # The slow basis lasts 420 minutes. Personalized insulin tails may be
+        # longer than the legacy DIA, but the cached threshold keeps the read
+        # path bounded and fitting remains completely off this request path.
+        food_horizon = max(
+            twin_params.carb_duration_minutes,
+            MAX_CARB_ABSORPTION_MINUTES,
+        )
+        insulin_horizon = twin_params.dia_minutes
+        if iob_kernel is not None:
+            insulin_horizon = max(
+                insulin_horizon,
+                personalized_insulin_minutes_remaining(0, iob_kernel),
+            )
+        food_lookback = local_to - timedelta(minutes=food_horizon)
+        insulin_lookback = local_to - timedelta(minutes=insulin_horizon)
         food_history = self._food_events(
             min(local_from, food_lookback),
             local_to,
             default_carb_duration=twin_params.carb_duration_minutes,
+            active_cob_fits=active_cob_fits,
         )
         insulin_history = self._insulin_events(
             min(local_from, insulin_lookback),
@@ -330,13 +365,31 @@ class GlucoseDashboardService:
             # Macro-based fast/normal/slow carb curves (energy drink vs salad).
             decay="carb_pd",
         )
+        iob_history = [
+            event
+            for event in insulin_history
+            if is_rapid_insulin_event(
+                insulin_type=event.insulin_type,
+                event_type=event.event_type,
+            )
+        ]
         iob_units, iob_minutes_remaining = _remaining_on_board(
-            insulin_history,
+            iob_history,
             as_of=local_to,
             duration_minutes=twin_params.dia_minutes,
             amount=lambda event: event.insulin_units,
-            # Data-calibrated biphasic IOB (front-loaded + long tail).
             decay="insulin_pd",
+            insulin_kernel=iob_kernel,
+        )
+
+        personalized_food = [
+            event
+            for event in food_history
+            if event.absorption_model_source
+            in {"personalized_meal", "personalized_category"}
+        ]
+        cob_confidence = _highest_confidence(
+            event.absorption_confidence for event in personalized_food
         )
 
         points = self._display_points(raw_points, calibration, mode)
@@ -348,11 +401,20 @@ class GlucoseDashboardService:
             iob_minutes_remaining=iob_minutes_remaining,
             cob_g=cob_g,
             cob_minutes_remaining=cob_minutes_remaining,
+            iob_model_source="personalized" if iob_kernel is not None else "population",
+            iob_model_confidence=(
+                iob_fit.confidence if iob_fit is not None else "none"
+            ),
+            cob_model_source="personalized" if personalized_food else "macro_prior",
+            cob_model_confidence=cob_confidence,
         )
         bias_data = None
         if current_sensor is not None and calibration is not None:
             bias_data = self._bias_over_lifetime(
-                current_sensor, calibration, local_from, local_to,
+                current_sensor,
+                calibration,
+                local_from,
+                local_to,
             )
 
         return GlucoseDashboardResponse(
@@ -425,9 +487,7 @@ class GlucoseDashboardService:
     ) -> list[FingerstickReading]:
         filters = [FingerstickReading.measured_at >= _utc_bound(from_datetime)]
         if to_datetime is not None:
-            filters.append(
-                FingerstickReading.measured_at <= _utc_bound(to_datetime)
-            )
+            filters.append(FingerstickReading.measured_at <= _utc_bound(to_datetime))
         rows = self.session.scalars(
             select(FingerstickReading)
             .where(*filters)
@@ -498,10 +558,13 @@ class GlucoseDashboardService:
         to_datetime: datetime,
         *,
         default_carb_duration: int = 180,
+        active_cob_fits: dict[str, Any] | None = None,
     ) -> list[GlucoseDashboardFoodEvent]:
         from glucotracker.application.twin.kernels import (
-            carb_absorption_duration_minutes,
-            classify_carb_profile,
+            CarbProfileWeights,
+            blend_carb_profile_weights,
+            carb_mixture_minutes_remaining,
+            carb_profile_prior_weights,
         )
 
         rows = self.session.scalars(
@@ -512,26 +575,86 @@ class GlucoseDashboardService:
                 Meal.eaten_at >= from_datetime,
                 Meal.eaten_at <= to_datetime,
             )
+            .options(selectinload(Meal.items))
             .order_by(Meal.eaten_at.asc())
         ).all()
+        cob_fits = active_cob_fits or {}
         events: list[GlucoseDashboardFoodEvent] = []
         for meal in rows:
             carbs = float(meal.total_carbs_g or 0.0)
             protein = float(meal.total_protein_g or 0.0)
             fat = float(meal.total_fat_g or 0.0)
             fiber = float(meal.total_fiber_g or 0.0)
-            profile = classify_carb_profile(
+            item_names = [item.name for item in meal.items if item.name]
+            liquid = is_liquid_meal(
+                ai_categories=meal.ai_categories,
+                derived_categories=meal.derived_categories,
+                title=meal.title,
+                item_names=item_names,
+            )
+            taste_profile = str(
+                (meal.ai_categories or {}).get("taste_profile") or ""
+            ).casefold()
+            prior = carb_profile_prior_weights(
+                carbs_g=carbs,
+                protein_g=protein,
+                fat_g=fat,
+                fiber_g=fiber,
+                is_liquid=liquid,
+                is_sweetened=taste_profile in {"sweet", "drink_sweet"},
+            )
+            identity_keys = [
+                f"product:{item.product_id}" if item.product_id else item.name
+                for item in meal.items
+                if item.product_id or item.name
+            ]
+            pattern_scope = "pattern:" + meal_pattern_key(
+                item_identity_keys=identity_keys,
+                title=meal.title,
                 carbs_g=carbs,
                 protein_g=protein,
                 fat_g=fat,
                 fiber_g=fiber,
             )
-            duration = carb_absorption_duration_minutes(
-                carbs_g=carbs,
-                protein_g=protein,
-                fat_g=fat,
-                fiber_g=fiber,
-                default_minutes=default_carb_duration,
+            category_scope = meal_category_scope(
+                dominant_profile=prior.dominant_profile,
+                is_liquid=liquid,
+            )
+            weights = prior
+            model_source: Literal[
+                "macro_prior",
+                "personalized_meal",
+                "personalized_category",
+            ] = "macro_prior"
+            confidence: Literal["none", "low", "medium", "high"] = "none"
+            fit = cob_fits.get(pattern_scope)
+            if fit is not None:
+                model_source = "personalized_meal"
+            else:
+                fit = cob_fits.get(category_scope)
+                if fit is not None:
+                    model_source = "personalized_category"
+            if fit is not None:
+                try:
+                    payload = fit.params_json
+                    learned_payload = payload.get("weights", payload)
+                    learned = CarbProfileWeights.from_mapping(learned_payload)
+                    learned_weight = float(payload.get("learned_weight", 1.0))
+                    weights = blend_carb_profile_weights(
+                        prior,
+                        learned,
+                        learned_weight=learned_weight,
+                    )
+                    confidence = fit.confidence
+                except (AttributeError, TypeError, ValueError):
+                    weights = prior
+                    model_source = "macro_prior"
+                    confidence = "none"
+            duration = carb_mixture_minutes_remaining(
+                0,
+                weights=weights,
+                normal_duration_minutes=default_carb_duration,
+                residual_fraction=DISPLAY_COB_RESIDUAL_FRACTION,
             )
             events.append(
                 GlucoseDashboardFoodEvent(
@@ -542,8 +665,13 @@ class GlucoseDashboardService:
                     protein_g=protein,
                     fat_g=fat,
                     fiber_g=fiber,
-                    absorption_profile=profile,
+                    absorption_profile=weights.dominant_profile,
                     absorption_minutes=duration,
+                    absorption_fast_weight=weights.fast,
+                    absorption_normal_weight=weights.normal,
+                    absorption_slow_weight=weights.slow,
+                    absorption_model_source=model_source,
+                    absorption_confidence=confidence,
                 )
             )
         return events
@@ -567,6 +695,7 @@ class GlucoseDashboardService:
                 timestamp=_local_wall_from_utc(row.timestamp),
                 insulin_units=row.insulin_units,
                 event_type=row.event_type,
+                insulin_type=row.insulin_type,
                 notes=row.notes,
             )
             for row in rows
@@ -647,7 +776,8 @@ class GlucoseDashboardService:
             capped = True
 
         fitted_residuals = [
-            point.residual - _correction_for_age(
+            point.residual
+            - _correction_for_age(
                 {
                     "b0": b0,
                     "b1": b1,
@@ -902,6 +1032,10 @@ class GlucoseDashboardService:
         iob_minutes_remaining: int,
         cob_g: float,
         cob_minutes_remaining: int,
+        iob_model_source: Literal["population", "personalized"],
+        iob_model_confidence: Literal["none", "low", "medium", "high"],
+        cob_model_source: Literal["macro_prior", "personalized"],
+        cob_model_confidence: Literal["none", "low", "medium", "high"],
     ) -> GlucoseDashboardSummary:
         current = points[-1] if points else None
         return GlucoseDashboardSummary(
@@ -911,6 +1045,10 @@ class GlucoseDashboardService:
             iob_minutes_remaining=iob_minutes_remaining,
             cob_g=cob_g,
             cob_minutes_remaining=cob_minutes_remaining,
+            iob_model_source=iob_model_source,
+            iob_model_confidence=iob_model_confidence,
+            cob_model_source=cob_model_source,
+            cob_model_confidence=cob_model_confidence,
             sensor_age_days=quality.sensor_age_days,
             bias_mmol_l=(
                 quality.correction_now_mmol_l
@@ -1085,9 +1223,7 @@ def _valid_calibration_points(
 def _stable_calibration_points(
     points: list[CalibrationPoint],
 ) -> tuple[list[CalibrationPoint], CalibrationBasis]:
-    stable = [
-        point for point in points if point.sensor_age_days >= STABLE_START_DAYS
-    ]
+    stable = [point for point in points if point.sensor_age_days >= STABLE_START_DAYS]
     if stable:
         return stable, "stable_after_48h"
 
@@ -1181,8 +1317,7 @@ def _time_to_stabilize_hours(
         if span_hours < 3:
             continue
         if all(
-            abs(candidate.residual - plateau_residual) <= 0.8
-            for candidate in window
+            abs(candidate.residual - plateau_residual) <= 0.8 for candidate in window
         ):
             return _sensor_age_hours(point)
     return None
@@ -1405,21 +1540,25 @@ def _bias_metadata_for_points(
     for point in points:
         bias_est = estimate_bias_at(point.timestamp, cal_points, sensor_start)
         if bias_est is not None:
-            metadata.append({
-                "bias_confidence": bias_est.confidence,
-                "nearest_fingerstick_distance_min": (
-                    round(bias_est.nearest_fingerstick_distance_h * 60, 1)
-                    if bias_est.nearest_fingerstick_distance_h is not None
-                    else None
-                ),
-                "contributing_fingerstick_count": bias_est.contributing_count,
-            })
+            metadata.append(
+                {
+                    "bias_confidence": bias_est.confidence,
+                    "nearest_fingerstick_distance_min": (
+                        round(bias_est.nearest_fingerstick_distance_h * 60, 1)
+                        if bias_est.nearest_fingerstick_distance_h is not None
+                        else None
+                    ),
+                    "contributing_fingerstick_count": bias_est.contributing_count,
+                }
+            )
         else:
-            metadata.append({
-                "bias_confidence": "none",
-                "nearest_fingerstick_distance_min": None,
-                "contributing_fingerstick_count": 0,
-            })
+            metadata.append(
+                {
+                    "bias_confidence": "none",
+                    "nearest_fingerstick_distance_min": None,
+                    "contributing_fingerstick_count": 0,
+                }
+            )
     return metadata
 
 
@@ -1698,6 +1837,17 @@ def _unique(values: list[str]) -> list[str]:
     return result
 
 
+def _highest_confidence(
+    values: Iterable[Literal["none", "low", "medium", "high"] | None],
+) -> Literal["none", "low", "medium", "high"]:
+    order = {"none": 0, "low": 1, "medium": 2, "high": 3}
+    best: Literal["none", "low", "medium", "high"] = "none"
+    for value in values:
+        if value is not None and order[value] > order[best]:
+            best = value
+    return best
+
+
 def _now_local() -> datetime:
     return datetime.now(get_settings().local_zoneinfo).replace(tzinfo=None)
 
@@ -1735,6 +1885,7 @@ def _remaining_on_board(
     duration_minutes: int,
     amount: Callable[[OnBoardEvent], float | None],
     decay: Literal["linear", "insulin_pd", "carb_pd"] = "linear",
+    insulin_kernel: Any | None = None,
 ) -> tuple[float, int]:
     """Return a display-only estimate of active amount and time left.
 
@@ -1748,10 +1899,15 @@ def _remaining_on_board(
         return 0.0, 0
 
     from glucotracker.application.twin.kernels import (
+        CarbProfileWeights,
         carb_cob_remaining_fraction,
         carb_minutes_remaining,
+        carb_mixture_cob_remaining_fraction,
+        carb_mixture_minutes_remaining,
         insulin_iob_remaining_fraction,
         insulin_minutes_remaining,
+        personalized_insulin_iob_remaining_fraction,
+        personalized_insulin_minutes_remaining,
     )
 
     total = 0.0
@@ -1760,20 +1916,63 @@ def _remaining_on_board(
         event_amount = amount(event)
         if event_amount is None or event_amount <= 0:
             continue
-        elapsed = (
-            as_of - _local_wall_time(event.timestamp)
-        ).total_seconds() / 60
+        elapsed = (as_of - _local_wall_time(event.timestamp)).total_seconds() / 60
         if elapsed < 0:
             continue
 
         if decay == "insulin_pd":
-            if elapsed >= duration_minutes:
-                continue
-            frac = insulin_iob_remaining_fraction(elapsed, duration_minutes)
-            mins_left = insulin_minutes_remaining(elapsed, duration_minutes)
+            if insulin_kernel is not None:
+                frac = personalized_insulin_iob_remaining_fraction(
+                    elapsed,
+                    insulin_kernel,
+                )
+                mins_left = personalized_insulin_minutes_remaining(
+                    elapsed,
+                    insulin_kernel,
+                )
+                if mins_left <= 0 or frac <= 0:
+                    continue
+            else:
+                if elapsed >= duration_minutes:
+                    continue
+                frac = insulin_iob_remaining_fraction(elapsed, duration_minutes)
+                mins_left = insulin_minutes_remaining(elapsed, duration_minutes)
             total += event_amount * frac
             longest_remaining = max(longest_remaining, mins_left)
         elif decay == "carb_pd":
+            fast_weight = getattr(event, "absorption_fast_weight", None)
+            normal_weight = getattr(event, "absorption_normal_weight", None)
+            slow_weight = getattr(event, "absorption_slow_weight", None)
+            if (
+                fast_weight is not None
+                and normal_weight is not None
+                and slow_weight is not None
+            ):
+                try:
+                    weights = CarbProfileWeights(
+                        float(fast_weight),
+                        float(normal_weight),
+                        float(slow_weight),
+                    )
+                except ValueError:
+                    weights = None
+                if weights is not None:
+                    frac = carb_mixture_cob_remaining_fraction(
+                        elapsed,
+                        weights=weights,
+                        normal_duration_minutes=duration_minutes,
+                    )
+                    mins_left = carb_mixture_minutes_remaining(
+                        elapsed,
+                        weights=weights,
+                        normal_duration_minutes=duration_minutes,
+                        residual_fraction=DISPLAY_COB_RESIDUAL_FRACTION,
+                    )
+                    if mins_left <= 0 or frac <= 0:
+                        continue
+                    total += event_amount * frac
+                    longest_remaining = max(longest_remaining, mins_left)
+                    continue
             profile = getattr(event, "absorption_profile", None) or "normal"
             meal_duration = int(
                 getattr(event, "absorption_minutes", None) or duration_minutes or 180

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -24,6 +25,8 @@ from glucotracker.api.schemas import (
     TwinParamsRead,
 )
 from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.on_board.service import OnBoardFitService
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.application.twin.estimator import (
     BGAnchor,
     CarbEvent,
@@ -42,7 +45,10 @@ from glucotracker.infra.db.models import (
     TwinParams,
     utc_now,
 )
+from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.db.repositories.twin import TwinRepository
+
+logger = logging.getLogger(__name__)
 
 STALE_AFTER_DAYS = 30
 FIT_MIN_CGM_POINTS = 200
@@ -109,6 +115,7 @@ class TwinService:
         row.last_fit_method = "reset"
         row.last_fit_converged = None
         row.updated_at = utc_now()
+        OnBoardRepository(self.session, self.user_id).deactivate_all()
         self.repository.add_fit_log(
             params_snapshot=_params_snapshot(row),
             method="reset",
@@ -249,6 +256,19 @@ class TwinService:
             train_mae_mmol=result.train_mae_mmol,
             train_window_count=result.train_window_count,
         )
+        try:
+            with self.session.begin_nested():
+                OnBoardFitService(self.session, self.user_id).fit_range(
+                    data_from,
+                    data_to,
+                )
+        except Exception:
+            # Timing personalization must never prevent the already-validated
+            # twin fit from being saved; the dashboard keeps its safe fallback.
+            logger.exception(
+                "On-board timing fit failed for user %s",
+                self.user_id,
+            )
         self.session.commit()
         self.session.refresh(row)
         return TwinFitResponse(
@@ -314,9 +334,8 @@ class TwinService:
         estimator_params = _estimator_params(row)
         lookback_from = min(
             anchors[0].timestamp,
-            local_from - timedelta(
-                minutes=max(row.dia_minutes, row.carb_duration_minutes)
-            ),
+            local_from
+            - timedelta(minutes=max(row.dia_minutes, row.carb_duration_minutes)),
         )
         curve_points = estimate_curve(
             bg_anchors=anchors,
@@ -363,7 +382,8 @@ class TwinService:
             select(FingerstickReading)
             .where(
                 FingerstickReading.owner_id == self.user_id,
-                FingerstickReading.measured_at < from_datetime,
+                FingerstickReading.measured_at
+                < utc_instant_from_local_wall(from_datetime),
             )
             .order_by(FingerstickReading.measured_at.desc())
             .limit(1)
@@ -373,8 +393,10 @@ class TwinService:
                 select(FingerstickReading)
                 .where(
                     FingerstickReading.owner_id == self.user_id,
-                    FingerstickReading.measured_at >= from_datetime,
-                    FingerstickReading.measured_at <= to_datetime,
+                    FingerstickReading.measured_at
+                    >= utc_instant_from_local_wall(from_datetime),
+                    FingerstickReading.measured_at
+                    <= utc_instant_from_local_wall(to_datetime),
                 )
                 .order_by(FingerstickReading.measured_at.asc())
             )
@@ -399,8 +421,10 @@ class TwinService:
             select(NightscoutGlucoseEntry)
             .where(
                 NightscoutGlucoseEntry.owner_id == self.user_id,
-                NightscoutGlucoseEntry.timestamp >= from_datetime,
-                NightscoutGlucoseEntry.timestamp <= to_datetime,
+                NightscoutGlucoseEntry.timestamp
+                >= utc_instant_from_local_wall(from_datetime),
+                NightscoutGlucoseEntry.timestamp
+                <= utc_instant_from_local_wall(to_datetime),
                 visible_glucose_filter(self.user_id),
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
@@ -424,8 +448,10 @@ class TwinService:
                 .select_from(FingerstickReading)
                 .where(
                     FingerstickReading.owner_id == self.user_id,
-                    FingerstickReading.measured_at >= from_datetime,
-                    FingerstickReading.measured_at <= to_datetime,
+                    FingerstickReading.measured_at
+                    >= utc_instant_from_local_wall(from_datetime),
+                    FingerstickReading.measured_at
+                    <= utc_instant_from_local_wall(to_datetime),
                 )
             )
             or 0
@@ -462,8 +488,10 @@ class TwinService:
                 .select_from(NightscoutInsulinEvent)
                 .where(
                     NightscoutInsulinEvent.owner_id == self.user_id,
-                    NightscoutInsulinEvent.timestamp >= from_datetime,
-                    NightscoutInsulinEvent.timestamp <= to_datetime,
+                    NightscoutInsulinEvent.timestamp
+                    >= utc_instant_from_local_wall(from_datetime),
+                    NightscoutInsulinEvent.timestamp
+                    <= utc_instant_from_local_wall(to_datetime),
                     NightscoutInsulinEvent.insulin_units.is_not(None),
                     NightscoutInsulinEvent.insulin_units > 0,
                 )
@@ -493,6 +521,9 @@ class TwinService:
                 title=row.title or "Приём пищи",
                 carbs_g=row.total_carbs_g,
                 kcal=row.total_kcal,
+                protein_g=row.total_protein_g,
+                fat_g=row.total_fat_g,
+                fiber_g=row.total_fiber_g,
             )
             for row in rows
         ]
@@ -506,8 +537,10 @@ class TwinService:
             select(NightscoutInsulinEvent)
             .where(
                 NightscoutInsulinEvent.owner_id == self.user_id,
-                NightscoutInsulinEvent.timestamp >= from_datetime,
-                NightscoutInsulinEvent.timestamp <= to_datetime,
+                NightscoutInsulinEvent.timestamp
+                >= utc_instant_from_local_wall(from_datetime),
+                NightscoutInsulinEvent.timestamp
+                <= utc_instant_from_local_wall(to_datetime),
                 NightscoutInsulinEvent.insulin_units.is_not(None),
             )
             .order_by(NightscoutInsulinEvent.timestamp.asc())
@@ -517,6 +550,7 @@ class TwinService:
                 timestamp=_local_wall_time(row.timestamp),
                 insulin_units=float(row.insulin_units or 0),
                 event_type=row.event_type,
+                insulin_type=row.insulin_type,
                 notes=row.notes,
             )
             for row in rows

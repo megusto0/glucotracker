@@ -61,6 +61,10 @@ if "%GLUCOTRACKER_JWT_SECRET%"=="" (
   set "GLUCOTRACKER_JWT_SECRET=local-dev-jwt-secret-change-me-32-characters"
 )
 
+if "%GLUCOTRACKER_RUN_BACKGROUND_TASKS_IN_WEB%"=="" (
+  set "GLUCOTRACKER_RUN_BACKGROUND_TASKS_IN_WEB=true"
+)
+
 echo Applying database migrations...
 alembic upgrade head
 if errorlevel 1 (
