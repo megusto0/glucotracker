@@ -655,18 +655,22 @@ class TestGETIsolation:
         assert r.status_code == 200
         data = r.json()
         assert str(self.ids["bob_sensor"]) not in _collect_ids(data)
-        assert data["summary"]["cob_g"] == pytest.approx(3.33)
-        assert data["summary"]["cob_minutes_remaining"] == 60
-        assert data["summary"]["iob_units"] == pytest.approx(0.67)
-        assert data["summary"]["iob_minutes_remaining"] == 90
+        # Alice meal (10 g carbs, normal profile) at `now`, as_of=now+2h → elapsed 120 min.
+        assert data["summary"]["cob_g"] == pytest.approx(1.67, abs=0.05)
+        assert data["summary"]["cob_minutes_remaining"] == 51
+        # Alice: 2 U at now-1h, as_of=now+2h → elapsed 180 min on biphasic IOB (DIA 270).
+        assert data["summary"]["iob_units"] == pytest.approx(0.54, abs=0.02)
+        assert data["summary"]["iob_minutes_remaining"] == 84
 
         r = self.client.get(
             "/glucose/dashboard", params=params, headers=self.bob_headers
         )
         assert r.status_code == 200
         data = r.json()
-        assert data["summary"]["cob_g"] == pytest.approx(6.67)
-        assert data["summary"]["cob_minutes_remaining"] == 120
+        # Bob meal at now+1h, as_of=now+2h → elapsed 60 min, normal profile.
+        assert data["summary"]["cob_g"] == pytest.approx(5.37, abs=0.05)
+        assert data["summary"]["cob_minutes_remaining"] == 111
+        # Bob: 2 U at as_of (future relative to range start) → full IOB.
         assert data["summary"]["iob_units"] == pytest.approx(2.0)
         assert data["summary"]["iob_minutes_remaining"] == 270
 

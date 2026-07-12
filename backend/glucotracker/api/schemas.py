@@ -1634,6 +1634,12 @@ class GlucoseDashboardFoodEvent(BaseModel):
     title: str
     carbs_g: float
     kcal: float | None = None
+    protein_g: float | None = None
+    fat_g: float | None = None
+    fiber_g: float | None = None
+    # Macro-based absorption class: fast | normal | slow
+    absorption_profile: str | None = None
+    absorption_minutes: int | None = None
 
 
 class GlucoseDashboardInsulinEvent(BaseModel):

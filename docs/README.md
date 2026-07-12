@@ -20,9 +20,10 @@ prompt files, temporary specs, old screenshots, and old OpenAPI dumps live under
    surfaces.
 5. [`ux.md`](ux.md) and [`ui-rulebook.md`](ui-rulebook.md) - interaction,
    loading/empty/error states, visual rules, tokens, typography, and components.
-6. [`sync.md`](sync.md), [`ai.md`](ai.md), [`reports.md`](reports.md), and
-   [`medical-safety.md`](medical-safety.md) - specialized behavior and safety
-   boundaries.
+6. [`sync.md`](sync.md), [`ai.md`](ai.md), [`reports.md`](reports.md),
+   [`iob-cob-models.md`](iob-cob-models.md), and
+   [`medical-safety.md`](medical-safety.md) - specialized behavior, on-board
+   IOB/COB models, and safety boundaries.
 7. [`testing.md`](testing.md) - verification commands and high-risk test areas.
 8. [`adr/README.md`](adr/README.md) - accepted ADR index and known implementation
    mismatches.

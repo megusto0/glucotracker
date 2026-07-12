@@ -300,11 +300,14 @@ class GlucoseDashboardService:
             self.session,
             self.user_id,
         ).get_or_create_params(persist=False)
-        food_lookback = local_to - timedelta(
-            minutes=twin_params.carb_duration_minutes,
-        )
+        # Slow mixed meals can keep COB for up to ~6h; look back past default 180.
+        food_lookback = local_to - timedelta(minutes=max(twin_params.carb_duration_minutes, 360))
         insulin_lookback = local_to - timedelta(minutes=twin_params.dia_minutes)
-        food_history = self._food_events(min(local_from, food_lookback), local_to)
+        food_history = self._food_events(
+            min(local_from, food_lookback),
+            local_to,
+            default_carb_duration=twin_params.carb_duration_minutes,
+        )
         insulin_history = self._insulin_events(
             min(local_from, insulin_lookback),
             local_to,
@@ -324,12 +327,16 @@ class GlucoseDashboardService:
             as_of=local_to,
             duration_minutes=twin_params.carb_duration_minutes,
             amount=lambda event: event.carbs_g,
+            # Macro-based fast/normal/slow carb curves (energy drink vs salad).
+            decay="carb_pd",
         )
         iob_units, iob_minutes_remaining = _remaining_on_board(
             insulin_history,
             as_of=local_to,
             duration_minutes=twin_params.dia_minutes,
             amount=lambda event: event.insulin_units,
+            # Data-calibrated biphasic IOB (front-loaded + long tail).
+            decay="insulin_pd",
         )
 
         points = self._display_points(raw_points, calibration, mode)
@@ -489,7 +496,14 @@ class GlucoseDashboardService:
         self,
         from_datetime: datetime,
         to_datetime: datetime,
+        *,
+        default_carb_duration: int = 180,
     ) -> list[GlucoseDashboardFoodEvent]:
+        from glucotracker.application.twin.kernels import (
+            carb_absorption_duration_minutes,
+            classify_carb_profile,
+        )
+
         rows = self.session.scalars(
             select(Meal)
             .where(
@@ -500,15 +514,39 @@ class GlucoseDashboardService:
             )
             .order_by(Meal.eaten_at.asc())
         ).all()
-        return [
-            GlucoseDashboardFoodEvent(
-                timestamp=meal.eaten_at,
-                title=meal.title or "Приём пищи",
-                carbs_g=meal.total_carbs_g,
-                kcal=meal.total_kcal,
+        events: list[GlucoseDashboardFoodEvent] = []
+        for meal in rows:
+            carbs = float(meal.total_carbs_g or 0.0)
+            protein = float(meal.total_protein_g or 0.0)
+            fat = float(meal.total_fat_g or 0.0)
+            fiber = float(meal.total_fiber_g or 0.0)
+            profile = classify_carb_profile(
+                carbs_g=carbs,
+                protein_g=protein,
+                fat_g=fat,
+                fiber_g=fiber,
             )
-            for meal in rows
-        ]
+            duration = carb_absorption_duration_minutes(
+                carbs_g=carbs,
+                protein_g=protein,
+                fat_g=fat,
+                fiber_g=fiber,
+                default_minutes=default_carb_duration,
+            )
+            events.append(
+                GlucoseDashboardFoodEvent(
+                    timestamp=meal.eaten_at,
+                    title=meal.title or "Приём пищи",
+                    carbs_g=carbs,
+                    kcal=meal.total_kcal,
+                    protein_g=protein,
+                    fat_g=fat,
+                    fiber_g=fiber,
+                    absorption_profile=profile,
+                    absorption_minutes=duration,
+                )
+            )
+        return events
 
     def _insulin_events(
         self,
@@ -1696,15 +1734,25 @@ def _remaining_on_board(
     as_of: datetime,
     duration_minutes: int,
     amount: Callable[[OnBoardEvent], float | None],
+    decay: Literal["linear", "insulin_pd", "carb_pd"] = "linear",
 ) -> tuple[float, int]:
-    """Return a linear, display-only estimate of active amount and time left.
+    """Return a display-only estimate of active amount and time left.
 
-    The configured digital-twin DIA and carbohydrate duration define the
-    active windows. Each event decays linearly so the calculation stays
-    deterministic and backend-owned; it is informational, not dose guidance.
+    - ``linear``: uniform decay (legacy).
+    - ``insulin_pd``: biphasic IOB from real CGM-calibrated curve.
+    - ``carb_pd``: per-meal macro profile (fast sugar vs slow fat/protein).
+
+    Informational only — not dose guidance.
     """
-    if duration_minutes <= 0:
+    if duration_minutes <= 0 and decay != "carb_pd":
         return 0.0, 0
+
+    from glucotracker.application.twin.kernels import (
+        carb_cob_remaining_fraction,
+        carb_minutes_remaining,
+        insulin_iob_remaining_fraction,
+        insulin_minutes_remaining,
+    )
 
     total = 0.0
     longest_remaining = 0
@@ -1715,10 +1763,40 @@ def _remaining_on_board(
         elapsed = (
             as_of - _local_wall_time(event.timestamp)
         ).total_seconds() / 60
-        if elapsed < 0 or elapsed >= duration_minutes:
+        if elapsed < 0:
             continue
-        remaining = duration_minutes - elapsed
-        total += event_amount * (remaining / duration_minutes)
-        longest_remaining = max(longest_remaining, ceil(remaining))
+
+        if decay == "insulin_pd":
+            if elapsed >= duration_minutes:
+                continue
+            frac = insulin_iob_remaining_fraction(elapsed, duration_minutes)
+            mins_left = insulin_minutes_remaining(elapsed, duration_minutes)
+            total += event_amount * frac
+            longest_remaining = max(longest_remaining, mins_left)
+        elif decay == "carb_pd":
+            profile = getattr(event, "absorption_profile", None) or "normal"
+            meal_duration = int(
+                getattr(event, "absorption_minutes", None) or duration_minutes or 180
+            )
+            if meal_duration <= 0 or elapsed >= meal_duration:
+                continue
+            frac = carb_cob_remaining_fraction(
+                elapsed,
+                duration_min=meal_duration,
+                profile=str(profile),
+            )
+            mins_left = carb_minutes_remaining(
+                elapsed,
+                duration_min=meal_duration,
+                profile=str(profile),
+            )
+            total += event_amount * frac
+            longest_remaining = max(longest_remaining, mins_left)
+        else:
+            if elapsed >= duration_minutes:
+                continue
+            remaining = duration_minutes - elapsed
+            total += event_amount * (remaining / duration_minutes)
+            longest_remaining = max(longest_remaining, ceil(remaining))
 
     return round(total, 2), longest_remaining
