@@ -35,6 +35,7 @@ from glucotracker.api.schemas import (
 )
 from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.sensor_lifecycle import close_previous_open_sensors
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
@@ -164,11 +165,11 @@ class GlucoseDashboardService:
         filters = []
         if from_datetime is not None:
             filters.append(
-                FingerstickReading.measured_at >= _local_wall_time(from_datetime)
+                FingerstickReading.measured_at >= _utc_bound(from_datetime)
             )
         if to_datetime is not None:
             filters.append(
-                FingerstickReading.measured_at <= _local_wall_time(to_datetime)
+                FingerstickReading.measured_at <= _utc_bound(to_datetime)
             )
         rows = self.session.scalars(
             select(FingerstickReading)
@@ -184,7 +185,8 @@ class GlucoseDashboardService:
     ) -> FingerstickReadingResponse:
         """Create a manual capillary glucose reading."""
         row = FingerstickReading(owner_id=self.user_id, **payload.model_dump())
-        row.measured_at = _local_wall_time(row.measured_at)
+        # Store absolute UTC; clients send app-local wall clocks.
+        row.measured_at = _utc_bound(row.measured_at)
         self.session.add(row)
         self.session.commit()
         self.session.refresh(row)
@@ -199,7 +201,7 @@ class GlucoseDashboardService:
         row = self._fingerstick(fingerstick_id)
         for field, value in payload.model_dump(exclude_unset=True).items():
             if field == "measured_at" and value is not None:
-                value = _local_wall_time(value)
+                value = _utc_bound(value)
             setattr(row, field, value)
         self.session.commit()
         self.session.refresh(row)
@@ -341,11 +343,12 @@ class GlucoseDashboardService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[RawPoint]:
+        # App DB sessions use UTC; client ranges are app-local wall clocks.
         rows = self.session.scalars(
             select(NightscoutGlucoseEntry)
             .where(
-                NightscoutGlucoseEntry.timestamp >= _local_wall_time(from_datetime),
-                NightscoutGlucoseEntry.timestamp <= _local_wall_time(to_datetime),
+                NightscoutGlucoseEntry.timestamp >= _utc_bound(from_datetime),
+                NightscoutGlucoseEntry.timestamp <= _utc_bound(to_datetime),
                 NightscoutGlucoseEntry.owner_id == self.user_id,
                 visible_glucose_filter(self.user_id),
             )
@@ -361,10 +364,10 @@ class GlucoseDashboardService:
         from_datetime: datetime,
         to_datetime: datetime | None,
     ) -> list[FingerstickReading]:
-        filters = [FingerstickReading.measured_at >= _local_wall_time(from_datetime)]
+        filters = [FingerstickReading.measured_at >= _utc_bound(from_datetime)]
         if to_datetime is not None:
             filters.append(
-                FingerstickReading.measured_at <= _local_wall_time(to_datetime)
+                FingerstickReading.measured_at <= _utc_bound(to_datetime)
             )
         rows = self.session.scalars(
             select(FingerstickReading)
@@ -463,8 +466,8 @@ class GlucoseDashboardService:
         rows = self.session.scalars(
             select(NightscoutInsulinEvent)
             .where(
-                NightscoutInsulinEvent.timestamp >= from_datetime,
-                NightscoutInsulinEvent.timestamp <= to_datetime,
+                NightscoutInsulinEvent.timestamp >= _utc_bound(from_datetime),
+                NightscoutInsulinEvent.timestamp <= _utc_bound(to_datetime),
                 NightscoutInsulinEvent.owner_id == self.user_id,
             )
             .order_by(NightscoutInsulinEvent.timestamp.asc())
@@ -1604,3 +1607,13 @@ def _local_wall_time(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
+
+
+def _utc_bound(value: datetime) -> datetime:
+    """Convert app-local wall clock (or aware dt) to UTC for timestamptz filters.
+
+    The SQLAlchemy session timezone is UTC. Comparing a naive local wall time
+    directly against timestamptz treats the wall clock as UTC and shifts ranges
+    by the app offset (e.g. -4h for Europe/Samara), returning empty CGM windows.
+    """
+    return utc_instant_from_local_wall(_local_wall_time(value))

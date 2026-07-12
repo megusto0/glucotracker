@@ -252,18 +252,55 @@ function NightscoutChart({
   mode: DisplayMode;
   overview?: GlucoseDashboardResponse;
 }) {
+  const shellRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<HoverPoint | null>(null);
-  const width = 1280;
-  const mainHeight = 650;
-  const overviewTop = 690;
-  const overviewHeight = 180;
-  const height = 900;
-  const left = 0;
-  const right = 72;
-  const chartWidth = width - right;
-  const chartTop = 12;
-  const chartBottom = mainHeight;
+  // Size SVG in real pixels so preserveAspectRatio doesn't squash dots into ovals.
+  const [size, setSize] = useState({ width: 1280, height: 720 });
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const apply = (width: number, height: number) => {
+      if (width < 40 || height < 40) return;
+      setSize((prev) =>
+        Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1
+          ? prev
+          : { width, height },
+      );
+    };
+    apply(el.clientWidth, el.clientHeight);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      apply(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const { width, height } = size;
+  const left = 8;
+  const right = Math.max(48, Math.min(72, width * 0.055));
+  const chartWidth = Math.max(1, width - right - left);
+  const labelBand = Math.max(28, Math.min(40, height * 0.045));
+  const overviewHeight = Math.max(100, Math.min(170, height * 0.2));
+  const overviewGap = 8;
+  const mainHeight = Math.max(
+    160,
+    height - overviewHeight - labelBand * 2 - overviewGap,
+  );
+  const chartTop = 10;
+  const chartBottom = mainHeight - 6;
+  const plotHeight = Math.max(1, chartBottom - chartTop);
+  const overviewTop = mainHeight + labelBand + overviewGap;
+  const yMin = 2;
+  const yMax = 16; // tighter than 22 so typical 3–10 mmol/L isn't a thin strip
+  const ySpan = yMax - yMin;
+  const yTicks = MAIN_Y_TICKS.filter((tick) => tick >= yMin && tick <= yMax);
+  const pointRadius = Math.max(3.2, Math.min(5.2, Math.min(width, height) * 0.0048));
+  const overviewRadius = Math.max(2, pointRadius * 0.55);
+
   const points = data?.points ?? [];
   const overviewPoints = overview?.points ?? [];
   const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 3 * 3_600_000;
@@ -276,26 +313,34 @@ function NightscoutChart({
   const overviewDuration = Math.max(overviewTo - overviewFrom, 1);
   const scaleX = (timestamp: string) =>
     left + ((Date.parse(timestamp) - fromMs) / duration) * chartWidth;
-  const scaleY = (value: number) =>
-    chartBottom - ((value - 2) / 20) * (chartBottom - chartTop);
+  const scaleY = (value: number) => {
+    const clamped = Math.min(yMax, Math.max(yMin, value));
+    return chartBottom - ((clamped - yMin) / ySpan) * plotHeight;
+  };
   const overviewX = (timestamp: string) =>
-    ((Date.parse(timestamp) - overviewFrom) / overviewDuration) * chartWidth;
-  const overviewY = (value: number) =>
-    overviewTop + overviewHeight - ((value - 2) / 20) * overviewHeight;
+    left + ((Date.parse(timestamp) - overviewFrom) / overviewDuration) * chartWidth;
+  const overviewY = (value: number) => {
+    const clamped = Math.min(yMax, Math.max(yMin, value));
+    return (
+      overviewTop +
+      overviewHeight -
+      ((clamped - yMin) / ySpan) * overviewHeight
+    );
+  };
   const xTicks = Array.from({ length: 7 }, (_, index) => fromMs + (duration * index) / 6);
   const overviewTicks = Array.from(
     { length: 5 },
     (_, index) => overviewFrom + (overviewDuration * index) / 4,
   );
   const selectionX =
-    ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
+    left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
   const selectionWidth = Math.max((duration / overviewDuration) * chartWidth, 2);
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!svgRef.current || points.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
     const svgX = ((event.clientX - rect.left) / rect.width) * width;
-    const timestamp = fromMs + (svgX / chartWidth) * duration;
+    const timestamp = fromMs + ((svgX - left) / chartWidth) * duration;
     const nearest = points.reduce((best, point) =>
       Math.abs(Date.parse(point.timestamp) - timestamp) <
       Math.abs(Date.parse(best.timestamp) - timestamp)
@@ -314,39 +359,64 @@ function NightscoutChart({
   }
 
   return (
-    <div className="ns-chart-shell">
+    <div className="ns-chart-shell" ref={shellRef}>
       <svg
         aria-label="График глюкозы Nightscout"
         className="ns-chart"
+        height={height}
         onPointerLeave={() => setHover(null)}
         onPointerMove={handlePointerMove}
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid meet"
         ref={svgRef}
         role="img"
         viewBox={`0 0 ${width} ${height}`}
+        width={width}
       >
+        <rect fill="#111" height={height} width={width} />
         <rect fill="#111" height={mainHeight} width={width} />
-        {MAIN_Y_TICKS.map((tick) => (
+        {yTicks.map((tick) => (
           <g key={tick}>
             <line
               className="ns-grid-line"
-              x1="0"
-              x2={chartWidth}
+              x1={left}
+              x2={left + chartWidth}
               y1={scaleY(tick)}
               y2={scaleY(tick)}
             />
-            <text className="ns-axis-label" textAnchor="end" x={width - 8} y={scaleY(tick) + 7}>
+            <text
+              className="ns-axis-label"
+              textAnchor="end"
+              x={width - 10}
+              y={scaleY(tick) + 5}
+            >
               {tick}
             </text>
           </g>
         ))}
-        <line className="ns-axis" x1="0" x2={chartWidth} y1={chartBottom} y2={chartBottom} />
+        <line
+          className="ns-axis"
+          x1={left}
+          x2={left + chartWidth}
+          y1={chartBottom}
+          y2={chartBottom}
+        />
         {xTicks.map((tick) => {
-          const x = ((tick - fromMs) / duration) * chartWidth;
+          const x = left + ((tick - fromMs) / duration) * chartWidth;
           return (
             <g key={tick}>
-              <line className="ns-axis" x1={x} x2={x} y1={chartBottom} y2={chartBottom + 10} />
-              <text className="ns-axis-label" textAnchor="middle" x={x} y={chartBottom + 34}>
+              <line
+                className="ns-axis"
+                x1={x}
+                x2={x}
+                y1={chartBottom}
+                y2={chartBottom + 8}
+              />
+              <text
+                className="ns-axis-label"
+                textAnchor="middle"
+                x={x}
+                y={chartBottom + labelBand - 6}
+              >
                 {new Intl.DateTimeFormat("en-US", {
                   hour: "numeric",
                   minute: "2-digit",
@@ -363,7 +433,7 @@ function NightscoutChart({
                 cx={scaleX(point.timestamp)}
                 cy={scaleY(point.raw_value)}
                 key={`raw-${point.timestamp}`}
-                r="4"
+                r={pointRadius * 0.9}
               />
             ))
           : null}
@@ -375,7 +445,7 @@ function NightscoutChart({
               cx={scaleX(point.timestamp)}
               cy={scaleY(value)}
               key={`${mode}-${point.timestamp}`}
-              r="4.3"
+              r={pointRadius}
             />
           );
         })}
@@ -389,18 +459,29 @@ function NightscoutChart({
               y1={chartTop}
               y2={chartBottom}
             />
-            <circle className="ns-hover-point" cx={hover.x} cy={hover.y} r="7" />
+            <circle
+              className="ns-hover-point"
+              cx={hover.x}
+              cy={hover.y}
+              r={pointRadius + 2.5}
+            />
           </>
         ) : null}
 
-        <rect fill="#111" height={overviewHeight} width={width} x="0" y={overviewTop} />
+        <rect
+          fill="#111"
+          height={overviewHeight}
+          width={width}
+          x="0"
+          y={overviewTop}
+        />
         {overviewPoints.map((point) => (
           <circle
             className="ns-overview-point"
             cx={overviewX(point.timestamp)}
             cy={overviewY(displayValue(point, mode))}
             key={`overview-${point.timestamp}`}
-            r="2.5"
+            r={overviewRadius}
           />
         ))}
         <rect
@@ -410,11 +491,23 @@ function NightscoutChart({
           x={selectionX}
           y={overviewTop}
         />
-        <line className="ns-axis" x1="0" x2={chartWidth} y1={overviewTop + overviewHeight} y2={overviewTop + overviewHeight} />
+        <line
+          className="ns-axis"
+          x1={left}
+          x2={left + chartWidth}
+          y1={overviewTop + overviewHeight}
+          y2={overviewTop + overviewHeight}
+        />
         {overviewTicks.map((tick) => {
-          const x = ((tick - overviewFrom) / overviewDuration) * chartWidth;
+          const x = left + ((tick - overviewFrom) / overviewDuration) * chartWidth;
           return (
-            <text className="ns-axis-label" key={tick} textAnchor="middle" x={x} y={height - 4}>
+            <text
+              className="ns-axis-label"
+              key={tick}
+              textAnchor="middle"
+              x={x}
+              y={height - 6}
+            >
               {new Intl.DateTimeFormat("en-US", {
                 day: "numeric",
                 hour: "numeric",

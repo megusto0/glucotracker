@@ -191,6 +191,21 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("APP_TIMEZONE", "GLUCOTRACKER_APP_TIMEZONE"),
     )
+    # Browser desktop (Vite) is a different origin than the API host; without
+    # CORS, login and all authenticated fetch() calls fail with NetworkError.
+    cors_origins: str = Field(
+        default=(
+            "http://127.0.0.1:4173,"
+            "http://localhost:4173,"
+            "http://127.0.0.1:1420,"
+            "http://localhost:1420,"
+            "http://127.0.0.1:5173,"
+            "http://localhost:5173,"
+            "https://megusto.duckdns.org,"
+            "https://megusto.duckdns.org:1338"
+        ),
+        validation_alias=AliasChoices("CORS_ORIGINS", "GLUCOTRACKER_CORS_ORIGINS"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=(BACKEND_DIR / ".env", ".env"),
