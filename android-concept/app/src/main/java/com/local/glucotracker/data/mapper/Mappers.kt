@@ -34,9 +34,10 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private const val PackedListSeparator = "\u001F"
@@ -212,20 +213,20 @@ fun CachedMealEntity.toDomain(): Meal =
 
 private fun String?.toPostprandialResponse(): PostprandialResponse? {
     if (isNullOrBlank()) return null
-    val root = runCatching { OpenApiJson.json.parseToJsonElement(this).jsonObject }.getOrNull() ?: return null
-    val anchors = root["anchors"]?.jsonObject.orEmpty()
+    val root = runCatching {
+        OpenApiJson.json.parseToJsonElement(this) as? JsonObject
+    }.getOrNull() ?: return null
+    val anchors = root["anchors"] as? JsonObject
     val points = listOf(0, 30, 60, 90, 180, 240, 300).mapNotNull { offset ->
-        val value = anchors[offset.toString()]
-            ?.jsonObject
-            ?.get("value")
-            ?.jsonPrimitive
+        val anchor = anchors?.get(offset.toString()) as? JsonObject
+        val value = (anchor?.get("value") as? JsonPrimitive)
             ?.doubleOrNull
         value?.let { PostprandialPoint(offsetMinutes = offset, valueMmolL = it) }
     }
     return PostprandialResponse(
-        deltaMaxMmolL = root["delta_max"]?.jsonPrimitive?.doubleOrNull,
-        coverage180 = root["coverage_180min"]?.jsonPrimitive?.doubleOrNull,
-        glycemicResponse = root["glycemic_response"]?.jsonPrimitive?.contentOrNull,
+        deltaMaxMmolL = (root["delta_max"] as? JsonPrimitive)?.doubleOrNull,
+        coverage180 = (root["coverage_180min"] as? JsonPrimitive)?.doubleOrNull,
+        glycemicResponse = (root["glycemic_response"] as? JsonPrimitive)?.contentOrNull,
         points = points,
     )
 }
