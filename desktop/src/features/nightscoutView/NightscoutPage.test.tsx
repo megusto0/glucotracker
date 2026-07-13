@@ -128,7 +128,21 @@ describe("NightscoutPage", () => {
     );
   });
 
-  test("shows on-board status and keeps treatments on separate top rails", () => {
+  test("shows on-board status and anchors treatments around normalized points", () => {
+    mockedUseDashboard.mockImplementation((_from, _to, mode) => {
+      const data = dashboard(mode);
+      return {
+        data: {
+          ...data,
+          insulin_events: data.insulin_events.map((event) => ({
+            ...event,
+            timestamp: data.food_events[0]!.timestamp,
+          })),
+        },
+        error: null,
+        isLoading: false,
+      } as ReturnType<typeof useGlucoseDashboard>;
+    });
     const { container } = render(
       <MemoryRouter>
         <NightscoutPage />
@@ -146,24 +160,42 @@ describe("NightscoutPage", () => {
       1,
     );
 
-    // Same clock as CGM samples → same X; food and insulin stay on fixed rails (not CGM Y).
-    const glucosePoints = container.querySelectorAll(".ns-point");
+    fireEvent.click(screen.getByRole("button", { name: "Нормализованный" }));
+
+    // Same CGM anchor: insulin is above it, carbs are below it.
+    const glucosePoint = container.querySelector(".ns-point--normalized");
     const foodMarker = container.querySelector(".ns-treatment--food");
     const insulinMarker = container.querySelector(".ns-treatment--insulin");
-    const foodCx = glucosePoints[0]?.getAttribute("cx");
-    const insulinCx = glucosePoints[1]?.getAttribute("cx");
+    const anchorX = glucosePoint?.getAttribute("cx");
+    const anchorY = Number(glucosePoint?.getAttribute("cy"));
     const foodTransform = foodMarker?.getAttribute("transform") ?? "";
     const insulinTransform = insulinMarker?.getAttribute("transform") ?? "";
-    expect(foodTransform).toMatch(new RegExp(`^translate\\(${foodCx} `));
-    expect(insulinTransform).toMatch(new RegExp(`^translate\\(${insulinCx} `));
-    const foodY = Number(foodTransform.match(/translate\([^ ]+ ([^)]+)\)/)?.[1]);
+    expect(foodTransform).toMatch(new RegExp(`^translate\\(${anchorX} `));
+    expect(insulinTransform).toMatch(new RegExp(`^translate\\(${anchorX} `));
+    const foodY = Number(
+      foodTransform.match(/translate\([^ ]+ ([^)]+)\)/)?.[1],
+    );
     const insulinY = Number(
       insulinTransform.match(/translate\([^ ]+ ([^)]+)\)/)?.[1],
     );
-    const glucoseY = Number(glucosePoints[0]?.getAttribute("cy"));
-    expect(foodY).toBeLessThan(glucoseY);
-    expect(insulinY).toBeLessThan(glucoseY);
-    expect(insulinY).toBeGreaterThan(foodY);
+    expect(insulinY).toBeLessThan(anchorY);
+    expect(foodY).toBeGreaterThan(anchorY);
+    expect(
+      Number(foodMarker?.querySelector("circle")?.getAttribute("r")),
+    ).toBeGreaterThanOrEqual(12);
+    expect(
+      Number(insulinMarker?.querySelector("circle")?.getAttribute("r")),
+    ).toBeGreaterThanOrEqual(12);
+    expect(
+      foodMarker?.querySelector(".ns-treatment-value")?.getAttribute("y"),
+    ).toMatch(/^\d/);
+    expect(
+      insulinMarker?.querySelector(".ns-treatment-value")?.getAttribute("y"),
+    ).toMatch(/^-/);
+    expect(foodMarker?.querySelector(".ns-treatment-link")).toBeInTheDocument();
+    expect(
+      insulinMarker?.querySelector(".ns-treatment-link"),
+    ).toBeInTheDocument();
   });
 
   test("dedupes near-identical insulin markers from re-import", () => {
@@ -198,6 +230,8 @@ describe("NightscoutPage", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(1);
+    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(
+      1,
+    );
   });
 });

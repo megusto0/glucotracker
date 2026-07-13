@@ -7,10 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import type {
-  GlucoseDashboardResponse,
-  GlucoseMode,
-} from "../../api/client";
+import type { GlucoseDashboardResponse, GlucoseMode } from "../../api/client";
 import { useGlucoseDashboard } from "../glucose/useGlucoseDashboard";
 import "./nightscout-page.css";
 
@@ -54,7 +51,7 @@ function formatOnBoard(value: number | undefined, digits: number) {
 
 function displayValue(point: DashboardPoint, mode: DisplayMode) {
   return mode === "normalized"
-    ? point.normalized_value ?? point.raw_value
+    ? (point.normalized_value ?? point.raw_value)
     : point.raw_value;
 }
 
@@ -96,22 +93,15 @@ function dedupeInsulinEvents(
   return unique;
 }
 
-/**
- * Small horizontal fan for markers that share nearly the same clock X on one
- * rail (food or insulin). Keeps the classic Nightscout top-band layout clean.
- */
-function railOffsets(
-  xs: number[],
-  spacing: number,
-): number[] {
-  const groups = new Map<number, number[]>();
-  xs.forEach((x, index) => {
-    const bucket = Math.round(x / Math.max(spacing, 1));
-    const list = groups.get(bucket) ?? [];
+/** Small horizontal fan for same-kind events anchored to one CGM sample. */
+function markerOffsets(anchorKeys: string[], spacing: number): number[] {
+  const groups = new Map<string, number[]>();
+  anchorKeys.forEach((key, index) => {
+    const list = groups.get(key) ?? [];
     list.push(index);
-    groups.set(bucket, list);
+    groups.set(key, list);
   });
-  const offsets = xs.map(() => 0);
+  const offsets = anchorKeys.map(() => 0);
   groups.forEach((indexes) => {
     if (indexes.length < 2) return;
     indexes.forEach((index, order) => {
@@ -188,7 +178,11 @@ export function NightscoutPage() {
           <span>Nightscout</span>
         </button>
         <nav aria-label="Действия Nightscout" className="ns-toolbar-actions">
-          <button aria-label="Уведомления" className="ns-icon-button" type="button">
+          <button
+            aria-label="Уведомления"
+            className="ns-icon-button"
+            type="button"
+          >
             <Bell size={19} />
           </button>
           <button aria-label="Звук" className="ns-icon-button" type="button">
@@ -249,12 +243,19 @@ export function NightscoutPage() {
         <div className="ns-reading-block">
           <div className="ns-current-reading">
             <strong>{formatMmol(latestValue)}</strong>
-            <span aria-label={`Тренд ${trendSymbol(delta)}`} className="ns-trend">
+            <span
+              aria-label={`Тренд ${trendSymbol(delta)}`}
+              className="ns-trend"
+            >
               {trendSymbol(delta)}
             </span>
           </div>
           <div className="ns-delta-pill">
-            <b>{delta === null ? "—" : `${delta >= 0 ? "+" : ""}${formatMmol(delta)}`}</b>
+            <b>
+              {delta === null
+                ? "—"
+                : `${delta >= 0 ? "+" : ""}${formatMmol(delta)}`}
+            </b>
             <span>mmol/L</span>
           </div>
         </div>
@@ -272,9 +273,7 @@ export function NightscoutPage() {
             <span>COB</span>
             <strong>{formatOnBoard(summary?.cob_g, 1)}</strong>
             <b>г</b>
-            <small>
-              {summary?.cob_minutes_remaining ?? 0} мин до усвоения
-            </small>
+            <small>{summary?.cob_minutes_remaining ?? 0} мин до усвоения</small>
           </div>
         </div>
 
@@ -395,15 +394,20 @@ function NightscoutChart({
   const yMax = 16; // tighter than 22 so typical 3–10 mmol/L isn't a thin strip
   const ySpan = yMax - yMin;
   const yTicks = MAIN_Y_TICKS.filter((tick) => tick >= yMin && tick <= yMax);
-  const pointRadius = Math.max(3.2, Math.min(5.2, Math.min(width, height) * 0.0048));
+  const pointRadius = Math.max(
+    3.2,
+    Math.min(5.2, Math.min(width, height) * 0.0048),
+  );
   const overviewRadius = Math.max(2, pointRadius * 0.55);
-  const treatmentRadius = Math.max(8, Math.min(11, pointRadius * 2.25));
+  const treatmentRadius = Math.max(12, Math.min(16, pointRadius * 3.1));
 
   const points = data?.points ?? [];
   const foodEvents = data?.food_events ?? [];
   const insulinEvents = dedupeInsulinEvents(data?.insulin_events ?? []);
   const overviewPoints = overview?.points ?? [];
-  const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 3 * 3_600_000;
+  const fromMs = data
+    ? Date.parse(data.from_datetime)
+    : Date.now() - 3 * 3_600_000;
   const toMs = data ? Date.parse(data.to_datetime) : Date.now();
   const duration = Math.max(toMs - fromMs, 1);
   const overviewFrom = overview
@@ -418,60 +422,83 @@ function NightscoutChart({
     return chartBottom - ((clamped - yMin) / ySpan) * plotHeight;
   };
   const overviewX = (timestamp: string) =>
-    left + ((Date.parse(timestamp) - overviewFrom) / overviewDuration) * chartWidth;
+    left +
+    ((Date.parse(timestamp) - overviewFrom) / overviewDuration) * chartWidth;
   const overviewY = (value: number) => {
     const clamped = Math.min(yMax, Math.max(yMin, value));
     return (
-      overviewTop +
-      overviewHeight -
-      ((clamped - yMin) / ySpan) * overviewHeight
+      overviewTop + overviewHeight - ((clamped - yMin) / ySpan) * overviewHeight
     );
   };
-  const xTicks = Array.from({ length: 7 }, (_, index) => fromMs + (duration * index) / 6);
+  const xTicks = Array.from(
+    { length: 7 },
+    (_, index) => fromMs + (duration * index) / 6,
+  );
   const overviewTicks = Array.from(
     { length: 5 },
     (_, index) => overviewFrom + (overviewDuration * index) / 4,
   );
   const selectionX =
     left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
-  const selectionWidth = Math.max((duration / overviewDuration) * chartWidth, 2);
-  // Classic Nightscout layout: food and insulin on separate top rails.
-  // Do NOT glue markers to the CGM curve — that caused piles and "drift".
-  const foodRailY = chartTop + treatmentRadius + 4;
-  const insulinRailY = chartTop + treatmentRadius * 3.6 + 10;
+  const selectionWidth = Math.max(
+    (duration / overviewDuration) * chartWidth,
+    2,
+  );
+  const nearestPoint = (timestamp: string) => {
+    if (points.length === 0) return null;
+    const eventTime = Date.parse(timestamp);
+    return points.reduce((best, point) =>
+      Math.abs(Date.parse(point.timestamp) - eventTime) <
+      Math.abs(Date.parse(best.timestamp) - eventTime)
+        ? point
+        : best,
+    );
+  };
   const fanSpacing = treatmentRadius * 2 + 6;
 
-  const foodMarkers = foodEvents.map((event, index) => ({
-    ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
-    detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
-    key: `food-${event.timestamp}-${index}`,
-    kind: "food" as const,
-    timestamp: event.timestamp,
-    valueLabel: `${event.carbs_g.toFixed(0)}g`,
-    x: scaleX(event.timestamp),
-    y: foodRailY,
-  }));
-  const foodFan = railOffsets(
-    foodMarkers.map((marker) => marker.x),
+  const foodMarkers = foodEvents.flatMap((event, index) => {
+    const anchor = nearestPoint(event.timestamp);
+    return anchor
+      ? [
+          {
+            anchor,
+            ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
+            detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
+            key: `food-${event.timestamp}-${index}`,
+            kind: "food" as const,
+            timestamp: event.timestamp,
+            valueLabel: `${event.carbs_g.toFixed(0)}g`,
+          },
+        ]
+      : [];
+  });
+  const foodFan = markerOffsets(
+    foodMarkers.map((marker) => `food:${marker.anchor.timestamp}`),
     fanSpacing,
   );
-  const insulinMarkers = insulinEvents.map((event, index) => ({
-    ariaLabel: `Инсулин: ${event.insulin_units?.toFixed(2) ?? "—"} единиц`,
-    detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
-      event.notes ? ` · ${event.notes}` : ""
-    }`,
-    key: `insulin-${event.timestamp}-${index}`,
-    kind: "insulin" as const,
-    timestamp: event.timestamp,
-    valueLabel:
-      typeof event.insulin_units === "number"
-        ? `${event.insulin_units.toFixed(1)}U`
-        : "—",
-    x: scaleX(event.timestamp),
-    y: insulinRailY,
-  }));
-  const insulinFan = railOffsets(
-    insulinMarkers.map((marker) => marker.x),
+  const insulinMarkers = insulinEvents.flatMap((event, index) => {
+    const anchor = nearestPoint(event.timestamp);
+    return anchor
+      ? [
+          {
+            anchor,
+            ariaLabel: `Инсулин: ${event.insulin_units?.toFixed(2) ?? "—"} единиц`,
+            detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
+              event.notes ? ` · ${event.notes}` : ""
+            }`,
+            key: `insulin-${event.timestamp}-${index}`,
+            kind: "insulin" as const,
+            timestamp: event.timestamp,
+            valueLabel:
+              typeof event.insulin_units === "number"
+                ? `${event.insulin_units.toFixed(1)}U`
+                : "—",
+          },
+        ]
+      : [];
+  });
+  const insulinFan = markerOffsets(
+    insulinMarkers.map((marker) => `insulin:${marker.anchor.timestamp}`),
     fanSpacing,
   );
   const treatmentMarkers = [
@@ -497,14 +524,21 @@ function NightscoutChart({
         : best,
     );
     const value = displayValue(nearest, mode);
-    setHover({ point: nearest, value, x: scaleX(nearest.timestamp), y: scaleY(value) });
+    setHover({
+      point: nearest,
+      value,
+      x: scaleX(nearest.timestamp),
+      y: scaleY(value),
+    });
   };
 
   if (loading && points.length === 0) {
     return <div className="ns-chart-message">Загружаю CGM…</div>;
   }
   if (error && points.length === 0) {
-    return <div className="ns-chart-message">Не удалось загрузить данные CGM.</div>;
+    return (
+      <div className="ns-chart-message">Не удалось загрузить данные CGM.</div>
+    );
   }
 
   return (
@@ -600,23 +634,50 @@ function NightscoutChart({
         })}
 
         {treatmentMarkers.map((treatment) => {
-          const x = treatment.x + treatment.xOffset;
+          const anchorX = scaleX(treatment.anchor.timestamp);
+          const anchorY = scaleY(displayValue(treatment.anchor, mode));
+          const direction = treatment.kind === "insulin" ? -1 : 1;
+          const markerGap = treatmentRadius + pointRadius + 8;
+          const unclampedY = anchorY + direction * markerGap;
+          const markerY = Math.max(
+            chartTop + treatmentRadius + 20,
+            Math.min(chartBottom - treatmentRadius - 20, unclampedY),
+          );
+          const connectorEndY =
+            anchorY -
+            markerY +
+            (treatment.kind === "insulin" ? -pointRadius : pointRadius);
           return (
             <g
               aria-label={treatment.ariaLabel}
               className={`ns-treatment ns-treatment--${treatment.kind}`}
               key={treatment.key}
               role="img"
-              transform={`translate(${x} ${treatment.y})`}
+              transform={`translate(${anchorX + treatment.xOffset} ${markerY})`}
             >
               <title>{treatment.detail}</title>
+              <line
+                className="ns-treatment-link"
+                x1="0"
+                x2={-treatment.xOffset}
+                y1={
+                  treatment.kind === "insulin"
+                    ? treatmentRadius
+                    : -treatmentRadius
+                }
+                y2={connectorEndY}
+              />
               <circle r={treatmentRadius} />
               <text className="ns-treatment-symbol" dy="0.35em">
                 {treatment.kind === "food" ? "C" : "I"}
               </text>
               <text
                 className="ns-treatment-value"
-                y={treatmentRadius + 13}
+                y={
+                  treatment.kind === "insulin"
+                    ? -treatmentRadius - 7
+                    : treatmentRadius + 17
+                }
               >
                 {treatment.valueLabel}
               </text>
@@ -673,7 +734,8 @@ function NightscoutChart({
           y2={overviewTop + overviewHeight}
         />
         {overviewTicks.map((tick) => {
-          const x = left + ((tick - overviewFrom) / overviewDuration) * chartWidth;
+          const x =
+            left + ((tick - overviewFrom) / overviewDuration) * chartWidth;
           return (
             <text
               className="ns-axis-label"
@@ -703,7 +765,8 @@ function NightscoutChart({
           <b>BG: {formatMmol(hover.value)}</b>
           <span>Noise: ~~~</span>
           <span>
-            Time: {new Intl.DateTimeFormat("en-US", {
+            Time:{" "}
+            {new Intl.DateTimeFormat("en-US", {
               hour: "numeric",
               minute: "2-digit",
             }).format(new Date(hover.point.timestamp))}
@@ -715,7 +778,9 @@ function NightscoutChart({
       ) : null}
 
       {points.length === 0 && !loading ? (
-        <div className="ns-chart-empty">Нет данных CGM за выбранный период.</div>
+        <div className="ns-chart-empty">
+          Нет данных CGM за выбранный период.
+        </div>
       ) : null}
     </div>
   );
