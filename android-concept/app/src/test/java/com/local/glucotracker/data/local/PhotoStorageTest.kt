@@ -13,6 +13,12 @@ class PhotoStorageTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
+    fun uploadTargetStaysBelowServerMultipartLimit() {
+        assertTrue(PhotoStorage.TargetUploadBytes < PhotoStorage.ServerMultipartPhotoByteLimit)
+        assertTrue(PhotoStorage.TargetUploadBytes <= 900 * 1024)
+    }
+
+    @Test
     fun orphanSweepKeepsReferencedFilesAndDeletesUnreferencedFiles() {
         val photosDir = temporaryFolder.newFolder("photos")
         val referenced = File(photosDir, "referenced.jpg").apply { writeText("keep") }

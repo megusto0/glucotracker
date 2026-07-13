@@ -1,4 +1,4 @@
-"""Nightscout optional sync and read-only context endpoints."""
+"""Nightscout context plus owned manual-treatment synchronization endpoints."""
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ from glucotracker.api.schemas import (
     NightscoutGlucoseEntryResponse,
     NightscoutImportRequest,
     NightscoutImportResponse,
+    NightscoutInsulinDeleteResponse,
     NightscoutInsulinEntryCreate,
+    NightscoutInsulinEntryPatch,
     NightscoutInsulinEventResponse,
     NightscoutLatestReadingResponse,
     NightscoutSettingsPatch,
@@ -250,6 +252,47 @@ async def create_nightscout_insulin(
     ).create_insulin_entry(payload)
 
 
+@router.patch(
+    "/nightscout/insulin/{event_id}",
+    response_model=NightscoutInsulinEventResponse,
+    operation_id="updateNightscoutInsulin",
+    dependencies=[Depends(require_feature("nightscout"))],
+)
+async def update_nightscout_insulin(
+    event_id: UUID,
+    payload: NightscoutInsulinEntryPatch,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    client: NightscoutDep,
+) -> NightscoutInsulinEventResponse:
+    """Update an owned insulin treatment originally created by Glucotracker."""
+    return await NightscoutSyncService(
+        session,
+        current_user.id,
+        client,
+    ).update_insulin_entry(event_id, payload)
+
+
+@router.delete(
+    "/nightscout/insulin/{event_id}",
+    response_model=NightscoutInsulinDeleteResponse,
+    operation_id="deleteNightscoutInsulin",
+    dependencies=[Depends(require_feature("nightscout"))],
+)
+async def delete_nightscout_insulin(
+    event_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    client: NightscoutDep,
+) -> NightscoutInsulinDeleteResponse:
+    """Delete an owned insulin treatment originally created by Glucotracker."""
+    return await NightscoutSyncService(
+        session,
+        current_user.id,
+        client,
+    ).delete_insulin_entry(event_id)
+
+
 @router.get(
     "/nightscout/events",
     response_model=NightscoutEventsResponse,
@@ -379,7 +422,8 @@ async def import_nightscout_context(
     if do_glucose:
         try:
             glucose_rows = await effective_client_obj.fetch_glucose_entries(
-                payload.from_datetime, payload.to_datetime,
+                payload.from_datetime,
+                payload.to_datetime,
             )
             if hasattr(effective_client_obj, "fetch_sensor_events"):
                 try:
@@ -394,7 +438,8 @@ async def import_nightscout_context(
     if do_insulin:
         try:
             insulin_rows = await effective_client_obj.fetch_insulin_events(
-                payload.from_datetime, payload.to_datetime,
+                payload.from_datetime,
+                payload.to_datetime,
             )
         except Exception as exc:
             raise NightscoutSyncService.map_error(exc) from exc

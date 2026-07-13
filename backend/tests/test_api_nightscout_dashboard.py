@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -77,6 +77,7 @@ class FakeNightscoutClient:
         self.posted_meals = []
         self.posted_insulin = []
         self.updated_meals = []
+        self.updated_insulin = []
         self.lookup_meals = []
         self.lookup_insulin = []
         self.deleted_ids = []
@@ -131,6 +132,24 @@ class FakeNightscoutClient:
             raise self.delete_error
         self.deleted_ids.append(nightscout_id)
         return {"deleted": nightscout_id}
+
+    async def update_insulin_treatment(
+        self,
+        nightscout_id: str,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Record and return fake manual insulin treatment update."""
+        payload = {
+            "nightscout_id": nightscout_id,
+            "insulin_units": insulin_units,
+            "recorded_at": recorded_at,
+            "idempotency_key": idempotency_key,
+        }
+        self.updated_insulin.append(payload)
+        return {"_id": nightscout_id, "updated": True}
 
     async def update_meal_treatment(
         self,
@@ -846,6 +865,219 @@ def test_create_nightscout_insulin_entry_rejects_non_positive_units(
     assert fake.posted_insulin == []
 
 
+def test_update_nightscout_insulin_updates_remote_and_owned_cache(
+    api_client: TestClient,
+) -> None:
+    """An owned manual event is updated remotely before its cache is changed."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-update"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 2.0,
+            "recorded_at": "2026-04-28T08:10:00Z",
+            "idempotency_key": "manual-insulin-update-key",
+        },
+    )
+    event_id = created.json()["id"]
+
+    response = api_client.patch(
+        f"/nightscout/insulin/{event_id}",
+        json={
+            "insulin_units": 2.75,
+            "recorded_at": "2026-04-28T08:20:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == event_id
+    assert response.json()["insulin_units"] == 2.75
+    assert response.json()["editable"] is True
+    assert fake.updated_insulin == [
+        {
+            "nightscout_id": "manual-insulin-update",
+            "insulin_units": 2.75,
+            "recorded_at": datetime(2026, 4, 28, 8, 20, tzinfo=UTC),
+            "idempotency_key": "manual-insulin-update-key",
+        }
+    ]
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        row = session.get(NightscoutInsulinEvent, UUID(event_id))
+        assert row is not None
+        assert row.insulin_units == 2.75
+        assert row.timestamp == datetime(2026, 4, 28, 8, 20)
+
+
+def test_delete_nightscout_insulin_deletes_remote_then_owned_cache(
+    api_client: TestClient,
+) -> None:
+    """Deleting an owned manual event also removes its Nightscout treatment."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-delete"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 1.5,
+            "recorded_at": "2026-04-28T09:10:00Z",
+            "idempotency_key": "manual-insulin-delete-key",
+        },
+    )
+    event_id = created.json()["id"]
+
+    response = api_client.delete(f"/nightscout/insulin/{event_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": event_id,
+        "nightscout_id": "manual-insulin-delete",
+        "deleted": True,
+    }
+    assert fake.deleted_ids == ["manual-insulin-delete"]
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        assert session.get(NightscoutInsulinEvent, UUID(event_id)) is None
+
+
+def test_import_reconciles_manual_insulin_by_nightscout_id(
+    api_client: TestClient,
+) -> None:
+    """Background import does not duplicate or make a manual event read-only."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-import"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 2.25,
+            "recorded_at": "2026-04-28T09:30:00Z",
+            "idempotency_key": "manual-insulin-import-key",
+        },
+    )
+    assert created.status_code == 200
+    fake.insulin_rows = [
+        {
+            "_id": "manual-insulin-import",
+            "created_at": "2026-04-28T09:30:00Z",
+            "insulin": 2.25,
+            "eventType": "Insulin",
+            "enteredBy": "glucotracker",
+        }
+    ]
+
+    imported = api_client.post(
+        "/nightscout/import",
+        json={
+            "from_datetime": "2026-04-28T09:00:00Z",
+            "to_datetime": "2026-04-28T10:00:00Z",
+            "sync_glucose": False,
+            "import_insulin_events": True,
+        },
+    )
+
+    assert imported.status_code == 200
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        rows = list(
+            session.scalars(
+                select(NightscoutInsulinEvent).where(
+                    NightscoutInsulinEvent.owner_id == owner_id,
+                    NightscoutInsulinEvent.nightscout_id == "manual-insulin-import",
+                )
+            )
+        )
+        assert len(rows) == 1
+        assert rows[0].source_key == "manual_insulin:manual-insulin-import-key"
+        assert rows[0].raw_json["request"]["idempotency_key"] == (
+            "manual-insulin-import-key"
+        )
+
+
+def test_glucose_episodes_hide_historical_insulin_cache_duplicate(
+    api_client: TestClient,
+) -> None:
+    """Mobile attribution returns one event when old cache rows share a remote id."""
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    manual_id = uuid4()
+    with session_factory() as session:
+        session.add_all(
+            [
+                NightscoutInsulinEvent(
+                    id=manual_id,
+                    owner_id=owner_id,
+                    source_key="manual_insulin:duplicate-key",
+                    nightscout_id="duplicate-remote-id",
+                    timestamp=datetime(2026, 4, 28, 9, 30, tzinfo=UTC),
+                    insulin_units=2.0,
+                    entered_by="glucotracker",
+                ),
+                NightscoutInsulinEvent(
+                    owner_id=owner_id,
+                    source_key="insulin:duplicate-remote-id",
+                    nightscout_id="duplicate-remote-id",
+                    timestamp=datetime(2026, 4, 28, 9, 30, tzinfo=UTC),
+                    insulin_units=2.0,
+                    entered_by="glucotracker",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/glucose/episodes",
+        params={
+            "from": "2026-04-28T00:00:00Z",
+            "to": "2026-04-29T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    events = [
+        event for episode in response.json()["episodes"] for event in episode["insulin"]
+    ]
+    assert len(events) == 1
+    assert events[0]["id"] == str(manual_id)
+    assert events[0]["editable"] is True
+
+
+@pytest.mark.parametrize("method", ["patch", "delete"])
+def test_imported_nightscout_insulin_cannot_be_mutated(
+    api_client: TestClient,
+    method: str,
+) -> None:
+    """Imported Nightscout events remain read-only even for their cache owner."""
+    fake = FakeNightscoutClient()
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        row = NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key="nightscout:imported-insulin",
+            nightscout_id="imported-insulin",
+            timestamp=datetime(2026, 4, 28, 10, tzinfo=UTC),
+            insulin_units=3.0,
+            entered_by="pump",
+        )
+        session.add(row)
+        session.commit()
+        event_id = row.id
+
+    if method == "patch":
+        response = api_client.patch(
+            f"/nightscout/insulin/{event_id}",
+            json={"insulin_units": 4.0},
+        )
+    else:
+        response = api_client.delete(f"/nightscout/insulin/{event_id}")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "insulin_entry_read_only"
+    assert fake.updated_insulin == []
+    assert fake.deleted_ids == []
+
+
 def test_nightscout_import_preserves_utc_instants(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -866,27 +1098,27 @@ def test_nightscout_import_stores_local_context_and_timeline_groups_episode(
     """Imported Nightscout context is stored locally and grouped around meals."""
     fake = FakeNightscoutClient(
         glucose_rows=[
-                {
-                    "dateString": "2026-04-28T11:45:00",
-                    "sgv": 100,
-                    "direction": "Flat",
-                    "device": "CGM",
+            {
+                "dateString": "2026-04-28T11:45:00",
+                "sgv": 100,
+                "direction": "Flat",
+                "device": "CGM",
                 "_id": "glucose-before",
-                },
-                {
-                    "dateString": "2026-04-28T12:40:00",
-                    "sgv": 176,
-                    "direction": "SingleUp",
-                    "device": "CGM",
+            },
+            {
+                "dateString": "2026-04-28T12:40:00",
+                "sgv": 176,
+                "direction": "SingleUp",
+                "device": "CGM",
                 "_id": "glucose-peak",
             },
         ],
-            insulin_rows=[
-                {
-                    "created_at": "2026-04-28T12:08:00",
-                    "insulin": 4,
-                    "eventType": "Correction Bolus",
-                    "enteredBy": "Nightscout",
+        insulin_rows=[
+            {
+                "created_at": "2026-04-28T12:08:00",
+                "insulin": 4,
+                "eventType": "Correction Bolus",
+                "enteredBy": "Nightscout",
                 "_id": "insulin-episode",
             }
         ],

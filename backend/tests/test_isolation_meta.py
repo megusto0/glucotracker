@@ -15,6 +15,7 @@ def _load_openapi_spec() -> dict:
     if spec_path.exists():
         return json.loads(spec_path.read_text(encoding="utf-8"))
     from glucotracker.main import app
+
     return app.openapi()
 
 
@@ -74,6 +75,8 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "GET /nightscout/glucose",
     "GET /nightscout/insulin",
     "POST /nightscout/insulin",
+    "PATCH /nightscout/insulin/{event_id}",
+    "DELETE /nightscout/insulin/{event_id}",
     "GET /nightscout/events",
     "GET /nightscout/latest-reading",
     "POST /nightscout/import",

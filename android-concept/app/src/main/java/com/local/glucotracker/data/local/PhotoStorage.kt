@@ -56,6 +56,9 @@ class PhotoStorage @Inject constructor(
     }
 
     companion object {
+        internal const val ServerMultipartPhotoByteLimit = 1 * 1024 * 1024
+        internal const val TargetUploadBytes = 900 * 1024
+
         fun optimizedUploadBytes(source: File): ByteArray? =
             decodeOptimizedJpeg(source)
 
@@ -73,8 +76,7 @@ class PhotoStorage @Inject constructor(
     }
 }
 
-private const val MaxUploadDimensionPx = 1600
-private const val TargetUploadBytes = 1_200_000
+private const val MaxUploadDimensionPx = 1280
 
 private fun sampleSizeFor(width: Int, height: Int): Int {
     var sample = 1
@@ -123,15 +125,19 @@ private fun Bitmap.applyExifOrientation(source: File): Bitmap {
 }
 
 private fun Bitmap.compressForUpload(): ByteArray {
-    for (quality in listOf(84, 78, 72, 68)) {
+    var smallest: ByteArray? = null
+    for (quality in listOf(84, 78, 72, 66, 60, 54)) {
         val output = ByteArrayOutputStream()
         compress(Bitmap.CompressFormat.JPEG, quality, output)
         val bytes = output.toByteArray()
-        if (bytes.size <= TargetUploadBytes || quality == 68) {
+        if (smallest == null || bytes.size < smallest.size) {
+            smallest = bytes
+        }
+        if (bytes.size <= PhotoStorage.TargetUploadBytes) {
             return bytes
         }
     }
-    error("Unreachable upload compression quality loop.")
+    return smallest ?: error("Unreachable upload compression quality loop.")
 }
 
 private fun writeOptimizedJpeg(source: File, destination: File): Boolean {

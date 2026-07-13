@@ -229,6 +229,12 @@ NIGHTSCOUT_FORBIDDEN_REQUESTS = [
         },
     ),
     (
+        "PATCH",
+        f"/nightscout/insulin/{uuid4()}",
+        {"json": {"insulin_units": 1.5}},
+    ),
+    ("DELETE", f"/nightscout/insulin/{uuid4()}", {}),
+    (
         "GET",
         "/nightscout/events",
         {

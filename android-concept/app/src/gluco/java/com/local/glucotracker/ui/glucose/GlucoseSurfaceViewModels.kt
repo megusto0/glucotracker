@@ -6,6 +6,7 @@ import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.data.settings.GlucoAlarmToggles
 import com.local.glucotracker.data.settings.GlucoSettingsStore
 import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
+import com.local.glucotracker.domain.model.DeleteNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
@@ -14,6 +15,8 @@ import com.local.glucotracker.domain.model.InsulinDayContext
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
 import com.local.glucotracker.domain.model.OutboxItem
+import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.UpdateNightscoutInsulinOutboxKind
 import com.local.glucotracker.data.repository.InsulinRepository
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.NightscoutRepository
@@ -178,31 +181,20 @@ class InsulinContextViewModel @Inject constructor(
     private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
     fun context(date: LocalDate): Flow<InsulinDayContext> {
-        val pendingForDate = outboxRepository.observe()
-            .map { items -> items.pendingInsulinForDate(date) }
+        val mutationsForDate = outboxRepository.observe()
+            .map { items -> items.insulinOutboxForDate(date) }
             .distinctUntilChanged()
             // Any state transition of an insulin outbox item (incl. confirm)
             // re-pulls the server attribution, so the optimistic row is
             // replaced by the accepted one without reopening the screen.
-            .onEach { pending -> refreshIfStale(date, pending.signature()) }
+            .onEach { items -> refreshIfStale(date, items.insulinSignature()) }
         return combine(
-            pendingForDate,
+            mutationsForDate,
             // Room-backed: events the user has seen survive offline and
             // process death; a failed refresh leaves them untouched.
             insulinRepository.observeContextForDay(date),
-        ) { pending, server ->
-            val optimistic = mergeInsulinEvents(
-                server = server.allEvents,
-                pending = pending,
-            ).filter { it.isPending }
-            if (optimistic.isEmpty()) {
-                server
-            } else {
-                server.copy(
-                    orphans = (server.orphans + optimistic)
-                        .sortedBy { it.timestamp },
-                )
-            }
+        ) { items, server ->
+            applyInsulinOutbox(server = server, items = items, date = date)
         }
     }
 
@@ -229,6 +221,9 @@ data class PendingInsulin(
 internal fun List<OutboxItem>.pendingInsulinForDate(date: LocalDate): List<PendingInsulin> =
     mapNotNull { item ->
         val kind = item.kind as? CreateNightscoutInsulinOutboxKind ?: return@mapNotNull null
+        // Confirmed mutations are refreshed from the backend and must no longer
+        // render a second optimistic row beside the accepted event.
+        if (item.state == OutboxState.Confirmed) return@mapNotNull null
         val localDate = kind.recordedAt
             .toLocalDateTime(TimeZone.currentSystemDefault())
             .date
@@ -242,6 +237,82 @@ internal fun List<OutboxItem>.pendingInsulinForDate(date: LocalDate): List<Pendi
 
 internal fun List<PendingInsulin>.signature(): String =
     joinToString("|") { it.outboxId }
+
+internal fun List<OutboxItem>.insulinOutboxForDate(date: LocalDate): List<OutboxItem> =
+    filter { item ->
+        when (val kind = item.kind) {
+            is CreateNightscoutInsulinOutboxKind -> kind.recordedAt.localDate() == date
+            is UpdateNightscoutInsulinOutboxKind ->
+                kind.originalRecordedAt.localDate() == date || kind.recordedAt.localDate() == date
+            is DeleteNightscoutInsulinOutboxKind -> kind.recordedAt.localDate() == date
+            else -> false
+        }
+    }
+
+internal fun List<OutboxItem>.insulinSignature(): String =
+    joinToString("|") { item ->
+        "${item.id}:${item.state}:${item.attempts}:${item.serverIdOnSuccess.orEmpty()}"
+    }
+
+internal fun applyInsulinOutbox(
+    server: InsulinDayContext,
+    items: List<OutboxItem>,
+    date: LocalDate,
+): InsulinDayContext {
+    val deletes = items.mapNotNull { it.kind as? DeleteNightscoutInsulinOutboxKind }
+        .map { it.eventId }
+        .toSet()
+    val updates = items.mapNotNull { item ->
+        (item.kind as? UpdateNightscoutInsulinOutboxKind)?.let { it to item.state }
+    }.associateBy({ it.first.eventId }, { it })
+
+    fun apply(event: InsulinEvent): InsulinEvent? {
+        if (event.id in deletes) return null
+        val (update, state) = updates[event.id] ?: return event
+        if (update.recordedAt.localDate() != date) return null
+        val alreadyFresh = state == OutboxState.Confirmed &&
+            kotlin.math.abs(event.doseUnits - update.insulinUnits) < 0.01 &&
+            event.timestamp == update.recordedAt
+        return event.copy(
+            timestamp = update.recordedAt,
+            doseUnits = update.insulinUnits,
+            isPending = !alreadyFresh,
+        )
+    }
+
+    val byMealId = server.byMealId.mapValues { (_, events) ->
+        events.mapNotNull(::apply)
+    }.filterValues { it.isNotEmpty() }
+    val orphans = server.orphans.mapNotNull(::apply).toMutableList()
+    val knownIds = server.allEvents.map { it.id }.toSet()
+    updates.values.forEach { (update, state) ->
+        if (update.eventId !in knownIds && update.recordedAt.localDate() == date) {
+            orphans += InsulinEvent(
+                id = update.eventId,
+                timestamp = update.recordedAt,
+                doseUnits = update.insulinUnits,
+                source = "glucotracker",
+                sourceEventId = update.eventId,
+                eventType = InsulinEventType.Bolus,
+                isReadOnly = false,
+                isPending = state != OutboxState.Confirmed,
+            )
+        }
+    }
+    val pendingCreates = items.pendingInsulinForDate(date)
+    val optimisticCreates = mergeInsulinEvents(
+        server = byMealId.values.flatten() + orphans,
+        pending = pendingCreates,
+    ).filter { it.isPending && it.id.startsWith("outbox-") }
+    orphans += optimisticCreates
+    return server.copy(
+        byMealId = byMealId,
+        orphans = orphans.sortedBy { it.timestamp },
+    )
+}
+
+private fun Instant.localDate(): LocalDate =
+    toLocalDateTime(TimeZone.currentSystemDefault()).date
 
 /**
  * Server events plus optimistic outbox rows. A pending row is dropped as
@@ -338,9 +409,21 @@ class MoreGlucoseSettingsViewModel @Inject constructor(
         initialValue = GlucoAlarmToggles(),
     )
 
+    val normalizedGlucoseDisplay = settingsStore.normalizedGlucoseDisplay.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
     fun toggleAlarm(key: String) {
         viewModelScope.launch {
             settingsStore.toggleAlarm(key)
+        }
+    }
+
+    fun toggleNormalizedGlucoseDisplay() {
+        viewModelScope.launch {
+            settingsStore.toggleNormalizedGlucoseDisplay()
         }
     }
 }

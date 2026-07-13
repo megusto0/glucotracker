@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
+import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
@@ -84,10 +85,39 @@ class SensorManagementViewModelTest {
         assertTrue((outbox.items.value[2].kind as PatchSensorOutboxKind).endedAt != null)
         assertEquals(true, (outbox.items.value[3].kind as PatchSensorOutboxKind).excludedFromAnalytics)
     }
+
+    @Test
+    fun mergesAcceptedAndPendingFingerstickHistoryNewestFirst() = runTest {
+        val now = Clock.System.now()
+        val accepted = FingerstickReading(
+            id = "accepted",
+            measuredAt = Instant.fromEpochMilliseconds(now.toEpochMilliseconds() - 60_000L),
+            glucoseMmolL = 5.4,
+            meterName = "Contour",
+            notes = null,
+            createdAt = now,
+        )
+        val repository = FakeSensorRepository(emptyList(), listOf(accepted))
+        val outbox = FakeSensorOutboxRepository()
+        val viewModel = SensorManagementViewModel(repository, outbox)
+
+        viewModel.state.test {
+            awaitItem()
+            viewModel.enqueueFingerstick(6.2)
+            var updated = awaitItem()
+            while (updated.fingersticks.size < 2) updated = awaitItem()
+
+            assertEquals(listOf(6.2, 5.4), updated.fingersticks.map { it.glucoseMmolL })
+            assertEquals(OutboxState.Queued, updated.fingersticks.first().syncState)
+            assertEquals(null, updated.fingersticks.last().syncState)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
 
 private class FakeSensorRepository(
     sensors: List<SensorSession>,
+    fingersticks: List<FingerstickReading> = emptyList(),
 ) : SensorRepository {
     private val cached = MutableStateFlow(
         CachedView(
@@ -97,14 +127,33 @@ private class FakeSensorRepository(
             source = Source.Cache,
         ),
     )
+    private val cachedFingersticks = MutableStateFlow(
+        CachedView(
+            value = fingersticks,
+            fetchedAt = Clock.System.now(),
+            isRefreshing = false,
+            source = Source.Cache,
+        ),
+    )
     var refreshCalls = 0
+    var fingerstickRefreshCalls = 0
     val qualityCalls = mutableListOf<String>()
 
     override fun observeSensors(): Flow<CachedView<List<SensorSession>>> = cached
 
+    override fun observeFingersticks(
+        from: Instant,
+        to: Instant,
+    ): Flow<CachedView<List<FingerstickReading>>> = cachedFingersticks
+
     override suspend fun refreshSensors() {
         refreshCalls += 1
         cached.value = cached.value.copy(source = Source.Network)
+    }
+
+    override suspend fun refreshFingersticks(from: Instant, to: Instant) {
+        fingerstickRefreshCalls += 1
+        cachedFingersticks.value = cachedFingersticks.value.copy(source = Source.Network)
     }
 
     override suspend fun sensorQuality(sensorId: String): SensorQuality {

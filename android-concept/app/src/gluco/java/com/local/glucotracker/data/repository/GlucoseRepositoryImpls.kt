@@ -2,10 +2,16 @@ package com.local.glucotracker.data.repository
 
 import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.data.api.NightscoutApi
+import com.local.glucotracker.data.local.CachedFingerstickDao
 import com.local.glucotracker.data.local.CachedGlucoseDao
+import com.local.glucotracker.data.mapper.toCachedFingersticks
 import com.local.glucotracker.data.mapper.toCachedEntities
+import com.local.glucotracker.data.mapper.toFingersticks
 import com.local.glucotracker.data.mapper.toRange
+import com.local.glucotracker.data.mapper.withNormalizedDisplay
+import com.local.glucotracker.data.settings.GlucoSettingsStore
 import com.local.glucotracker.domain.model.CachedView
+import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.NightscoutConnectionState
 import com.local.glucotracker.domain.model.NightscoutDayStatus
@@ -24,6 +30,7 @@ import com.local.glucotracker.generated.model.SensorSessionResponse
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -35,20 +42,29 @@ import kotlinx.datetime.LocalDate
 class GlucoseRepositoryImpl @Inject constructor(
     private val glucoseDao: CachedGlucoseDao,
     private val glucoseApi: GlucoseApi,
+    private val settingsStore: GlucoSettingsStore,
 ) : GlucoseRepository {
     override fun observeRange(from: Instant, to: Instant): Flow<CachedView<GlucoseRange>> =
-        localFirst(
-            cache = { glucoseDao.observeRange(from, to).map { it.toRange() } },
-            refresh = {
-                val fetchedAt = Clock.System.now()
-                val readings = glucoseApi.dashboard(from = from, to = to).toCachedEntities(fetchedAt)
-                glucoseDao.upsertAll(readings)
-            },
-        )
+        combine(
+            localFirst(
+                cache = { glucoseDao.observeRange(from, to).map { it.toRange() } },
+                refresh = {
+                    val fetchedAt = Clock.System.now()
+                    val readings = glucoseApi.dashboard(from = from, to = to).toCachedEntities(fetchedAt)
+                    glucoseDao.upsertAll(readings)
+                },
+            ),
+            settingsStore.normalizedGlucoseDisplay,
+        ) { cached, normalized ->
+            cached.copy(value = cached.value?.withNormalizedDisplay(normalized))
+        }
 
     override fun observeCachedRange(from: Instant, to: Instant): Flow<CachedView<GlucoseRange>> =
-        glucoseDao.observeRange(from, to).map { readings ->
-            val range = readings.toRange()
+        combine(
+            glucoseDao.observeRange(from, to),
+            settingsStore.normalizedGlucoseDisplay,
+        ) { readings, normalized ->
+            val range = readings.toRange()?.withNormalizedDisplay(normalized)
             CachedView(
                 value = range,
                 fetchedAt = readings.maxOfOrNull { it.fetchedAt },
@@ -61,6 +77,7 @@ class GlucoseRepositoryImpl @Inject constructor(
 @Singleton
 class SensorRepositoryImpl @Inject constructor(
     private val glucoseApi: GlucoseApi,
+    private val fingerstickDao: CachedFingerstickDao,
 ) : SensorRepository {
     private val sensors = MutableStateFlow(
         CachedView<List<SensorSession>>(
@@ -72,6 +89,19 @@ class SensorRepositoryImpl @Inject constructor(
     )
 
     override fun observeSensors(): Flow<CachedView<List<SensorSession>>> = sensors
+
+    override fun observeFingersticks(
+        from: Instant,
+        to: Instant,
+    ): Flow<CachedView<List<FingerstickReading>>> =
+        localFirst(
+            cache = {
+                fingerstickDao.observeRange(from, to).map { rows ->
+                    rows.toFingersticks().takeIf { it.isNotEmpty() }
+                }
+            },
+            refresh = { refreshFingersticks(from, to) },
+        )
 
     override suspend fun refreshSensors() {
         sensors.update { it.copy(isRefreshing = true) }
@@ -87,6 +117,12 @@ class SensorRepositoryImpl @Inject constructor(
             .onFailure {
                 sensors.update { cached -> cached.copy(isRefreshing = false) }
             }
+    }
+
+    override suspend fun refreshFingersticks(from: Instant, to: Instant) {
+        val fetchedAt = Clock.System.now()
+        val readings = glucoseApi.fingersticks(from, to).toCachedFingersticks(fetchedAt)
+        fingerstickDao.replaceRange(from, to, readings)
     }
 
     override suspend fun sensorQuality(sensorId: String): SensorQuality =

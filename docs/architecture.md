@@ -25,7 +25,8 @@ The backend is the product authority. It owns:
   math;
 - auth, user roles, feature gates, and user-owned data scoping;
 - photo upload, Gemini calls, AI run audit, and photo draft acceptance;
-- Nightscout settings, read-only CGM/insulin cache, meal sync to Nightscout, and
+- Nightscout settings, read-only imported CGM/insulin cache, owned manual
+  insulin treatment create/update/delete, meal sync to Nightscout, and
   background imports;
 - glucose dashboard, fingersticks, sensor sessions, display-only calibration,
   corrupt-sensor exclusion, postprandial analysis, and report aggregation;

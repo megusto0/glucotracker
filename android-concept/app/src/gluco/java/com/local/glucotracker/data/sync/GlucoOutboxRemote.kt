@@ -3,12 +3,15 @@ package com.local.glucotracker.data.sync
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
+import com.local.glucotracker.domain.model.DeleteNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.model.PatchSensorOutboxKind
+import com.local.glucotracker.domain.model.UpdateNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.generated.api.GlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi
 import com.local.glucotracker.generated.model.FingerstickReadingCreate
 import com.local.glucotracker.generated.model.NightscoutInsulinEntryCreate
+import com.local.glucotracker.generated.model.NightscoutInsulinEntryPatch
 import com.local.glucotracker.generated.model.SensorSessionCreate
 import com.local.glucotracker.generated.model.SensorSessionPatch
 import java.math.BigDecimal
@@ -43,7 +46,23 @@ class GlucoOutboxRemote @Inject constructor(
                         idempotencyKey = kind.idempotencyKey,
                     ),
                 ).bodyOrThrow()
-                event.nightscoutId ?: kind.idempotencyKey
+                event.id?.toString() ?: event.nightscoutId ?: kind.idempotencyKey
+            }
+            is UpdateNightscoutInsulinOutboxKind -> {
+                val event = nightscoutApi.updateNightscoutInsulin(
+                    eventId = UUID.fromString(kind.eventId),
+                    nightscoutInsulinEntryPatch = NightscoutInsulinEntryPatch(
+                        insulinUnits = kind.insulinUnits.toBigDecimal(),
+                        recordedAt = kind.recordedAt,
+                    ),
+                ).bodyOrThrow()
+                event.id?.toString() ?: kind.eventId
+            }
+            is DeleteNightscoutInsulinOutboxKind -> {
+                nightscoutApi.deleteNightscoutInsulin(
+                    eventId = UUID.fromString(kind.eventId),
+                ).bodyOrThrow()
+                kind.eventId
             }
             is CreateSensorOutboxKind -> {
                 val sensor = glucoseApi.createSensor(

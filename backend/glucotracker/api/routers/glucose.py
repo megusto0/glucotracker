@@ -88,6 +88,11 @@ def get_glucose_episodes(
                 insulin_units=event.insulin_units,
                 kind="food" if component.meals else "correction",
                 anchor_meal_id=anchor_meal_id(event, component),
+                editable=(
+                    event.source_key.startswith("manual_insulin:")
+                    and event.entered_by == "glucotracker"
+                    and bool(event.nightscout_id)
+                ),
             )
             for event in component.insulin
         ]
@@ -114,9 +119,7 @@ def get_glucose_episodes(
                 total_carbs_g=round(
                     sum(meal.total_carbs_g for meal in component.meals), 1
                 ),
-                total_kcal=round(
-                    sum(meal.total_kcal for meal in component.meals), 1
-                ),
+                total_kcal=round(sum(meal.total_kcal for meal in component.meals), 1),
                 total_insulin_units=round(
                     sum(event.insulin_units or 0 for event in component.insulin), 2
                 ),

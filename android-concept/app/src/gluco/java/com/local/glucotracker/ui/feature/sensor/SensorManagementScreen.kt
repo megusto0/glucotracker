@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.glucotracker.R
+import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.SensorPhase
 import com.local.glucotracker.domain.model.SensorQuality
 import com.local.glucotracker.domain.model.SensorQualityConfidence
@@ -55,6 +56,7 @@ import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatMmol
 import com.local.glucotracker.ui.format.formatPercent
 import kotlinx.datetime.Instant
+import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -119,6 +121,33 @@ fun SensorManagementScreen(
             }
         }
 
+        if (state.pendingCreateCount > 0 || state.pendingSensorIds.isNotEmpty()) {
+            GTHintBox(
+                text = stringResource(
+                    R.string.sensor_pending_changes,
+                    state.pendingCreateCount + state.pendingSensorIds.size,
+                ),
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+
+        if (selected != null) {
+            SensorOverviewCard(
+                sensor = selected,
+                pending = selected.id in state.pendingSensorIds,
+                modifier = Modifier.padding(top = 18.dp),
+            )
+            QualityCard(
+                sensor = selected,
+                quality = state.quality,
+                loading = state.qualityLoading,
+                pending = selected.id in state.pendingSensorIds,
+                onFinish = { onFinishSensor(selected.id) },
+                onSetExcluded = { excluded -> onSetExcluded(selected.id, excluded) },
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+
         FingerstickCard(
             value = fingerstickText,
             onValueChange = { fingerstickText = it },
@@ -128,6 +157,11 @@ fun SensorManagementScreen(
                 fingerstickText = ""
             },
             modifier = Modifier.padding(top = 18.dp),
+        )
+        FingerstickHistoryCard(
+            readings = state.fingersticks,
+            loading = state.fingersticksRefreshing,
+            modifier = Modifier.padding(top = 10.dp),
         )
 
         Row(
@@ -141,16 +175,6 @@ fun SensorManagementScreen(
             GTOutlineButton(
                 text = stringResource(R.string.sensor_add),
                 onClick = { addSheetVisible = true },
-            )
-        }
-
-        if (state.pendingCreateCount > 0 || state.pendingSensorIds.isNotEmpty()) {
-            GTHintBox(
-                text = stringResource(
-                    R.string.sensor_pending_changes,
-                    state.pendingCreateCount + state.pendingSensorIds.size,
-                ),
-                modifier = Modifier.padding(top = 8.dp),
             )
         }
 
@@ -197,17 +221,7 @@ fun SensorManagementScreen(
             }
         }
 
-        if (selected != null) {
-            QualityCard(
-                sensor = selected,
-                quality = state.quality,
-                loading = state.qualityLoading,
-                pending = selected.id in state.pendingSensorIds,
-                onFinish = { onFinishSensor(selected.id) },
-                onSetExcluded = { excluded -> onSetExcluded(selected.id, excluded) },
-                modifier = Modifier.padding(top = 18.dp, bottom = 20.dp),
-            )
-        }
+        Spacer(Modifier.height(20.dp))
     }
 
     if (addSheetVisible) {
@@ -263,6 +277,216 @@ private fun FingerstickCard(
                 text = stringResource(R.string.glucose_sheet_submit),
                 enabled = enabled,
                 onClick = onSubmit,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SensorOverviewCard(
+    sensor: SensorSession,
+    pending: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val active = sensor.endedAt == null
+    val now = Clock.System.now()
+    val ageDays = (
+        (now.toEpochMilliseconds() - sensor.startedAt.toEpochMilliseconds()) /
+            MillisPerDay.toDouble()
+        ).coerceAtLeast(0.0)
+    val progress = (ageDays / sensor.expectedLifeDays.coerceAtLeast(0.1)).toFloat().coerceIn(0f, 1f)
+    val remainingDays = (sensor.expectedLifeDays - ageDays).coerceAtLeast(0.0)
+    val expectedEnd = Instant.fromEpochMilliseconds(
+        sensor.startedAt.toEpochMilliseconds() + (sensor.expectedLifeDays * MillisPerDay).toLong(),
+    )
+    val title = sensor.label
+        ?: listOfNotNull(sensor.vendor, sensor.model).joinToString(" ").ifBlank {
+            stringResource(R.string.sensor_default_name)
+        }
+    val details = listOfNotNull(sensor.vendor, sensor.model).joinToString(" · ")
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface2, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card)
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GTKicker(
+                text = stringResource(
+                    if (active) R.string.sensor_current_title else R.string.sensor_selected_title,
+                ),
+            )
+            Spacer(Modifier.weight(1f))
+            GTTag(
+                text = when {
+                    pending -> stringResource(R.string.sensor_status_pending)
+                    sensor.excludedFromAnalytics -> stringResource(R.string.sensor_status_excluded)
+                    active -> stringResource(R.string.sensor_status_active)
+                    else -> stringResource(R.string.sensor_status_finished)
+                },
+                active = active && !pending && !sensor.excludedFromAnalytics,
+            )
+        }
+        Text(
+            text = title,
+            modifier = Modifier.padding(top = 8.dp),
+            color = GT.colors.ink,
+            style = GT.type.serifSection,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (details.isNotBlank()) {
+            Text(
+                text = details,
+                modifier = Modifier.padding(top = 3.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .height(2.dp)
+                .background(GT.colors.hairline),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .height(2.dp)
+                    .background(GT.colors.info.copy(alpha = 0.65f)),
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 9.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.sensor_started_at, sensor.startedAt.shortDateTime()),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = if (active) {
+                    stringResource(R.string.sensor_remaining_days, formatGrams(remainingDays))
+                } else {
+                    stringResource(
+                        R.string.sensor_finished_at,
+                        (sensor.endedAt ?: expectedEnd).shortDateTime(),
+                    )
+                },
+                color = GT.colors.ink2,
+                style = GT.type.monoLabel,
+            )
+        }
+        if (active) {
+            Text(
+                text = stringResource(R.string.sensor_expected_end, expectedEnd.shortDateTime()),
+                modifier = Modifier.padding(top = 4.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FingerstickHistoryCard(
+    readings: List<FingerstickHistoryItem>,
+    loading: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GTKicker(text = stringResource(R.string.fingerstick_history_title))
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.fingerstick_history_count, readings.size),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+        }
+        when {
+            loading && readings.isEmpty() -> Text(
+                text = stringResource(R.string.fingerstick_history_loading),
+                modifier = Modifier.padding(top = 10.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansBody,
+            )
+            readings.isEmpty() -> GTHintBox(
+                text = stringResource(R.string.fingerstick_history_empty),
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            else -> readings.forEachIndexed { index, reading ->
+                if (index > 0) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(GT.space.hairline)
+                            .background(GT.colors.hairline),
+                    )
+                }
+                FingerstickHistoryRow(reading)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FingerstickHistoryRow(reading: FingerstickHistoryItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 58.dp)
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = reading.measuredAt.shortDateTime(),
+                color = GT.colors.ink2,
+                style = GT.type.monoLabel,
+            )
+            val detail = listOfNotNull(reading.meterName, reading.notes).joinToString(" · ")
+            if (detail.isNotBlank()) {
+                Text(
+                    text = detail,
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.sansLabel,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Text(
+            text = stringResource(
+                R.string.fingerstick_history_value,
+                formatMmol(reading.glucoseMmolL),
+            ),
+            color = GT.colors.ink,
+            style = GT.type.monoNumber,
+            maxLines = 1,
+        )
+        reading.syncState?.let { syncState ->
+            GTTag(
+                text = stringResource(
+                    if (syncState == OutboxState.Stuck) {
+                        R.string.fingerstick_status_failed
+                    } else {
+                        R.string.sensor_status_pending
+                    },
+                ),
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
@@ -614,6 +838,8 @@ private fun Instant.shortDateTime(): String {
         append(local.minute.toString().padStart(2, '0'))
     }
 }
+
+private const val MillisPerDay = 24L * 60L * 60L * 1_000L
 
 @Composable
 private fun BackGlyph() {

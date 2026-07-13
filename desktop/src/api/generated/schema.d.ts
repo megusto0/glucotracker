@@ -4,10384 +4,10578 @@
  */
 
 export interface paths {
-    "/activity/balance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Kcal Balance */
-        get: operations["getKcalBalance"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/activity/balance/range": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Kcal Balance Range */
-        get: operations["getKcalBalanceRange"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/activity/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Sync Activity */
-        post: operations["syncActivity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/postprandial/recompute": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Recompute Postprandial
-         * @description Recompute postprandial analysis for meals in a date range.
-         */
-        post: operations["adminRecomputePostprandial"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/recalculate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Recalculate Daily Totals
-         * @description Backfill daily totals for an inclusive date range.
-         */
-        post: operations["adminRecalculateDailyTotals"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Login
-         * @description Authenticate a user and issue access/refresh tokens.
-         */
-        post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Logout
-         * @description Revoke a refresh token.
-         */
-        post: operations["logout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Me
-         * @description Return the authenticated user.
-         */
-        get: operations["getAuthMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh
-         * @description Rotate a refresh token and return a fresh token pair.
-         */
-        post: operations["refreshAuthToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/autocomplete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autocomplete
-         * @description Return unified pattern and product suggestions for frontends.
-         */
-        get: operations["autocomplete"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/data_quality": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Data Quality
-         * @description Return item source and confidence quality metrics.
-         */
-        get: operations["getDashboardDataQuality"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/heatmap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Heatmap
-         * @description Aggregate accepted meals by weekday and hour.
-         */
-        get: operations["getDashboardHeatmap"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/range": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Range
-         * @description Return daily dashboard rows and summary for an inclusive range.
-         */
-        get: operations["getDashboardRange"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/source_breakdown": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Source Breakdown
-         * @description Count accepted meal items by source kind.
-         */
-        get: operations["getDashboardSourceBreakdown"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/today": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Today
-         * @description Return today's dashboard summary.
-         */
-        get: operations["getDashboardToday"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/dashboard/top_patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Top Patterns
-         * @description Return most frequently used patterns in accepted meals.
-         */
-        get: operations["getDashboardTopPatterns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/database/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Database Items
-         * @description List local pattern and product database rows for desktop management.
-         */
-        get: operations["listDatabaseItems"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/fingersticks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Fingersticks
-         * @description List manual capillary glucose readings.
-         */
-        get: operations["listFingersticks"];
-        put?: never;
-        /**
-         * Create Fingerstick
-         * @description Create a manual capillary glucose reading.
-         */
-        post: operations["createFingerstick"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/fingersticks/{fingerstick_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Fingerstick
-         * @description Delete a manual capillary glucose reading.
-         */
-        delete: operations["deleteFingerstick"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch Fingerstick
-         * @description Patch a manual capillary glucose reading.
-         */
-        patch: operations["patchFingerstick"];
-        trace?: never;
-    };
-    "/glucose/dashboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Glucose Dashboard
-         * @description Return display-only glucose dashboard data from the local cache.
-         */
-        get: operations["getGlucoseDashboard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/glucose/episodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Glucose Episodes
-         * @description Return grouped meal/insulin episodes for the range (attribution only).
-         */
-        get: operations["getGlucoseEpisodes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/glucose/tir-daily": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Glucose Tir Daily
-         * @description Return per-day TIR band shares for the period (descriptive only).
-         */
-        get: operations["getGlucoseTirDaily"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health
-         * @description Return lightweight service health for watchdog and reverse proxy checks.
-         */
-        get: operations["getHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/goals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get My Goals */
-        get: operations["getMyGoals"];
-        /** Update My Goals */
-        put: operations["updateMyGoals"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get My Schedule
-         * @description Return the user's current adaptive day rhythm.
-         */
-        get: operations["getMySchedule"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/schedule/non-typical-periods": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create My Non Typical Period
-         * @description Add a date range excluded from automatic day-anchor learning.
-         */
-        post: operations["createMyNonTypicalPeriod"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/schedule/non-typical-periods/{period_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete My Non Typical Period
-         * @description Remove one excluded schedule-learning period.
-         */
-        delete: operations["deleteMyNonTypicalPeriod"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/schedule/override": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Put My Schedule Override
-         * @description Set a manual day-anchor override.
-         */
-        put: operations["putMyScheduleOverride"];
-        post?: never;
-        /**
-         * Delete My Schedule Override
-         * @description Clear the manual day-anchor override and recompute the learned anchor.
-         */
-        delete: operations["deleteMyScheduleOverride"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meal_items/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Meal Item
-         * @description Delete a meal item and recalculate its meal totals.
-         */
-        delete: operations["deleteMealItem"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch Meal Item
-         * @description Patch a meal item and recalculate its meal totals.
-         */
-        patch: operations["patchMealItem"];
-        trace?: never;
-    };
-    "/meal_items/{item_id}/copy_by_weight": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Meal From Item Weight
-         * @description Create a new meal from an existing item scaled to a target weight.
-         */
-        post: operations["createMealFromMealItemWeight"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meal_items/{item_id}/remember_product": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Remember Product From Meal Item
-         * @description Persist a confirmed label item into the local product database.
-         */
-        post: operations["rememberProductFromMealItem"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Meals
-         * @description List meals with pagination and simple text search.
-         */
-        get: operations["listMeals"];
-        put?: never;
-        /**
-         * Create Meal
-         * @description Create a meal with optional inline items.
-         */
-        post: operations["createMeal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/from-photo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Meal From Photo
-         * @description Create one photo meal and let the backend own photo estimation.
-         */
-        post: operations["createMealFromPhoto"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Meal
-         * @description Return a meal with items and photos.
-         */
-        get: operations["getMeal"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Meal
-         * @description Delete a meal and cascade its items and photos.
-         */
-        delete: operations["deleteMeal"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch Meal
-         * @description Patch editable meal fields.
-         */
-        patch: operations["patchMeal"];
-        trace?: never;
-    };
-    "/meals/{meal_id}/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept Meal
-         * @description Accept a draft by atomically replacing Gemini-suggested items.
-         */
-        post: operations["acceptMealDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/ai_runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Meal Ai Runs
-         * @description Return AI estimation history for one meal.
-         */
-        get: operations["listMealAiRuns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/apply_estimation_run/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply Estimation Run
-         * @description Apply a stored re-estimation proposal to the current meal or a draft.
-         */
-        post: operations["applyEstimationRun"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/discard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Discard Meal
-         * @description Discard a meal draft.
-         */
-        post: operations["discardMealDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Estimate Meal Photos
-         * @description Estimate draft items from meal photos without saving them.
-         */
-        post: operations["estimateMealPhotos"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/estimate_and_save_draft": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Estimate And Save Meal Draft
-         * @description Estimate items from meal photos and save them as accepted journal rows.
-         */
-        post: operations["estimateAndSaveMealDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Replace Meal Items
-         * @description Atomically replace all meal items and recalculate totals.
-         */
-        put: operations["replaceMealItems"];
-        /**
-         * Add Meal Item
-         * @description Add an item to a meal and recalculate meal totals.
-         */
-        post: operations["addMealItem"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/photos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Meal Photo
-         * @description Upload a JPEG, PNG, or WebP photo for a meal.
-         */
-        post: operations["uploadMealPhoto"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/reestimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reestimate Meal Photos
-         * @description Re-run photo estimation for an existing meal without overwriting it.
-         */
-        post: operations["reestimateMealPhotos"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/sync_nightscout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync Meal To Nightscout
-         * @description Sync an accepted meal as a diary-only Nightscout treatment.
-         */
-        post: operations["syncMealToNightscout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/meals/{meal_id}/unsync_nightscout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Unsync Meal From Nightscout
-         * @description Delete a remote Nightscout treatment and clear local sync fields.
-         */
-        post: operations["unsyncMealFromNightscout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/mobile/photo-estimate-logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Submit Mobile Photo Estimate Logs
-         * @description Append Android photo-estimation diagnostics to a server JSONL log file.
-         */
-        post: operations["submitMobilePhotoEstimateLogs"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/day_status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Day Status
-         * @description Return Nightscout manual-sync counters for a selected day.
-         */
-        get: operations["getNightscoutDayStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Events
-         * @description Return combined read-only Nightscout glucose and insulin context events.
-         */
-        get: operations["getNightscoutEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/glucose": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Glucose
-         * @description Return read-only Nightscout glucose entries as gentle context.
-         */
-        get: operations["getNightscoutGlucose"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import Nightscout Context
-         * @description Fetch Nightscout glucose/insulin context and cache it locally.
-         */
-        post: operations["importNightscoutContext"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/insulin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Insulin
-         * @description Return read-only Nightscout insulin events without linking to dosing.
-         */
-        get: operations["getNightscoutInsulin"];
-        put?: never;
-        /**
-         * Create Nightscout Insulin
-         * @description Write a user-entered insulin amount to Nightscout.
-         */
-        post: operations["createNightscoutInsulin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/latest-reading": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Latest Reading
-         * @description Return the latest glucose reading from the local Nightscout cache.
-         */
-        get: operations["getNightscoutLatestReading"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Status
-         * @description Return optional Nightscout status without breaking local use.
-         */
-        get: operations["getNightscoutStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nightscout/sync/today": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync Today To Nightscout
-         * @description Manually send accepted unsynced meals for a selected day.
-         */
-        post: operations["syncTodayToNightscout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/nutrients/definitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Nutrient Definitions
-         * @description Return the built-in nutrient definition catalog.
-         */
-        get: operations["listNutrientDefinitions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Patterns
-         * @description List active patterns.
-         */
-        get: operations["listPatterns"];
-        put?: never;
-        /**
-         * Create Pattern
-         * @description Create a reusable meal pattern.
-         */
-        post: operations["createPattern"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patterns/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Patterns
-         * @description Search active patterns by prefix, key, display name, and aliases.
-         */
-        get: operations["searchPatterns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patterns/{pattern_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Pattern
-         * @description Return a pattern by id.
-         */
-        get: operations["getPattern"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Pattern
-         * @description Soft-delete a pattern by archiving it.
-         */
-        delete: operations["deletePattern"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch Pattern
-         * @description Patch a reusable meal pattern.
-         */
-        patch: operations["patchPattern"];
-        trace?: never;
-    };
-    "/patterns/{pattern_id}/image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Pattern Image
-         * @description Upload and replace a local pattern or restaurant image.
-         */
-        post: operations["uploadPatternImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patterns/{pattern_id}/image/file": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Pattern Image File
-         * @description Stream a locally stored pattern or restaurant image.
-         */
-        get: operations["getPatternImageFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/photos/{photo_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Photo
-         * @description Delete a photo row and its stored file.
-         */
-        delete: operations["deletePhoto"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/photos/{photo_id}/file": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Photo File
-         * @description Stream the stored image bytes for a photo.
-         */
-        get: operations["getPhotoFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Products
-         * @description List products, optionally searching brand, name, or barcode.
-         */
-        get: operations["listProducts"];
-        put?: never;
-        /**
-         * Create Product
-         * @description Create a manually saved packaged food.
-         */
-        post: operations["createProduct"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/from_label": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Or Update Product From Label
-         * @description Create or update a product from manually confirmed label facts.
-         */
-        post: operations["createOrUpdateProductFromLabel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Products
-         * @description Search products by name, brand, barcode, and aliases.
-         */
-        get: operations["searchProducts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/{product_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Product
-         * @description Return a saved product.
-         */
-        get: operations["getProduct"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Product
-         * @description Delete a personal saved product and unlink it from the user's meal items.
-         */
-        delete: operations["deleteProduct"];
-        options?: never;
-        head?: never;
-        /**
-         * Patch Product
-         * @description Patch a saved product.
-         */
-        patch: operations["patchProduct"];
-        trace?: never;
-    };
-    "/products/{product_id}/image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Product Image
-         * @description Upload and replace a local product image.
-         */
-        post: operations["uploadProductImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/{product_id}/image/file": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Product Image File
-         * @description Stream a locally stored product image.
-         */
-        get: operations["getProductImageFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/profile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Profile */
-        get: operations["getUserProfile"];
-        /** Update Profile */
-        put: operations["updateUserProfile"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/reports/endocrinologist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Endocrinologist Report
-         * @description Return one-page endocrinologist report data.
-         */
-        get: operations["getEndocrinologistReport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sensors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Sensors
-         * @description List sensor sessions.
-         */
-        get: operations["listSensors"];
-        put?: never;
-        /**
-         * Create Sensor
-         * @description Create a sensor session.
-         */
-        post: operations["createSensor"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sensors/{sensor_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Patch Sensor
-         * @description Patch a sensor session.
-         */
-        patch: operations["patchSensor"];
-        trace?: never;
-    };
-    "/sensors/{sensor_id}/quality": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Sensor Quality
-         * @description Return computed display-only quality metrics for one sensor.
-         */
-        get: operations["getSensorQuality"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sensors/{sensor_id}/recalculate-calibration": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recalculate Sensor Calibration
-         * @description Recompute and store a display-only calibration model.
-         */
-        post: operations["recalculateSensorCalibration"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/settings/nightscout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nightscout Settings
-         * @description Return masked server-side Nightscout settings.
-         */
-        get: operations["getNightscoutSettings"];
-        /**
-         * Update Nightscout Settings
-         * @description Update server-side Nightscout settings. Secret is write-only.
-         */
-        put: operations["updateNightscoutSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/settings/nightscout/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test Nightscout Connection
-         * @description Test Nightscout connection and persist masked status.
-         */
-        post: operations["testNightscoutConnection"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/stats/insights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stats Insights
-         * @description Return deterministic, server-rendered food pattern observations.
-         */
-        get: operations["getStatsInsights"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/stats/overview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stats Overview
-         * @description Return structured deterministic nutrition stats for mobile rendering.
-         */
-        get: operations["getStatsOverview"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/timeline": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Timeline
-         * @description Return backend-owned food episodes with local Nightscout context.
-         */
-        get: operations["getTimeline"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/timeline/insulin-links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Timeline Insulin Links
-         * @description Return one-day food/insulin links and backend suggestions.
-         */
-        get: operations["getTimelineInsulinLinks"];
-        /**
-         * Put Timeline Insulin Links
-         * @description Replace reviewed one-day food/insulin links atomically.
-         */
-        put: operations["putTimelineInsulinLinks"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/twin/curve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Twin Curve
-         * @description Return display-only digital twin reconstruction and forecast points.
-         */
-        get: operations["getTwinCurve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/twin/data/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Twin Data Summary
-         * @description Return data availability counters for the fit wizard.
-         */
-        get: operations["getTwinDataSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/twin/fit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Fit Twin
-         * @description Fit and persist current-user digital twin parameters.
-         */
-        post: operations["fitTwin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/twin/fit/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Twin Fit History
-         * @description Return newest digital twin fit/manual-change history rows.
-         */
-        get: operations["getTwinFitHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/twin/params": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Twin Params
-         * @description Return current digital twin parameters for the user.
-         */
-        get: operations["getTwinParams"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Patch Twin Params
-         * @description Apply a manual digital twin parameter override.
-         */
-        patch: operations["patchTwinParams"];
-        trace?: never;
-    };
-    "/twin/params/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reset Twin Params
-         * @description Reset fitted digital twin parameters to defaults.
-         */
-        post: operations["resetTwinParams"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  "/activity/balance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Kcal Balance */
+    get: operations["getKcalBalance"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/activity/balance/range": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Kcal Balance Range */
+    get: operations["getKcalBalanceRange"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/activity/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync Activity */
+    post: operations["syncActivity"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/admin/postprandial/recompute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Admin Recompute Postprandial
+     * @description Recompute postprandial analysis for meals in a date range.
+     */
+    post: operations["adminRecomputePostprandial"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/admin/recalculate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Admin Recalculate Daily Totals
+     * @description Backfill daily totals for an inclusive date range.
+     */
+    post: operations["adminRecalculateDailyTotals"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Login
+     * @description Authenticate a user and issue access/refresh tokens.
+     */
+    post: operations["login"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Logout
+     * @description Revoke a refresh token.
+     */
+    post: operations["logout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Me
+     * @description Return the authenticated user.
+     */
+    get: operations["getAuthMe"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh
+     * @description Rotate a refresh token and return a fresh token pair.
+     */
+    post: operations["refreshAuthToken"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/autocomplete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Autocomplete
+     * @description Return unified pattern and product suggestions for frontends.
+     */
+    get: operations["autocomplete"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/data_quality": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Data Quality
+     * @description Return item source and confidence quality metrics.
+     */
+    get: operations["getDashboardDataQuality"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/heatmap": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Heatmap
+     * @description Aggregate accepted meals by weekday and hour.
+     */
+    get: operations["getDashboardHeatmap"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/range": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Range
+     * @description Return daily dashboard rows and summary for an inclusive range.
+     */
+    get: operations["getDashboardRange"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/source_breakdown": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Source Breakdown
+     * @description Count accepted meal items by source kind.
+     */
+    get: operations["getDashboardSourceBreakdown"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Today
+     * @description Return today's dashboard summary.
+     */
+    get: operations["getDashboardToday"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/top_patterns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Top Patterns
+     * @description Return most frequently used patterns in accepted meals.
+     */
+    get: operations["getDashboardTopPatterns"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/database/items": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Database Items
+     * @description List local pattern and product database rows for desktop management.
+     */
+    get: operations["listDatabaseItems"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/fingersticks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Fingersticks
+     * @description List manual capillary glucose readings.
+     */
+    get: operations["listFingersticks"];
+    put?: never;
+    /**
+     * Create Fingerstick
+     * @description Create a manual capillary glucose reading.
+     */
+    post: operations["createFingerstick"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/fingersticks/{fingerstick_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Fingerstick
+     * @description Delete a manual capillary glucose reading.
+     */
+    delete: operations["deleteFingerstick"];
+    options?: never;
+    head?: never;
+    /**
+     * Patch Fingerstick
+     * @description Patch a manual capillary glucose reading.
+     */
+    patch: operations["patchFingerstick"];
+    trace?: never;
+  };
+  "/glucose/dashboard": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Glucose Dashboard
+     * @description Return display-only glucose dashboard data from the local cache.
+     */
+    get: operations["getGlucoseDashboard"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/glucose/episodes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Glucose Episodes
+     * @description Return grouped meal/insulin episodes for the range (attribution only).
+     */
+    get: operations["getGlucoseEpisodes"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/glucose/tir-daily": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Glucose Tir Daily
+     * @description Return per-day TIR band shares for the period (descriptive only).
+     */
+    get: operations["getGlucoseTirDaily"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Health
+     * @description Return lightweight service health for watchdog and reverse proxy checks.
+     */
+    get: operations["getHealth"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/goals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get My Goals */
+    get: operations["getMyGoals"];
+    /** Update My Goals */
+    put: operations["updateMyGoals"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/schedule": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get My Schedule
+     * @description Return the user's current adaptive day rhythm.
+     */
+    get: operations["getMySchedule"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/schedule/non-typical-periods": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create My Non Typical Period
+     * @description Add a date range excluded from automatic day-anchor learning.
+     */
+    post: operations["createMyNonTypicalPeriod"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/schedule/non-typical-periods/{period_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete My Non Typical Period
+     * @description Remove one excluded schedule-learning period.
+     */
+    delete: operations["deleteMyNonTypicalPeriod"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/schedule/override": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Put My Schedule Override
+     * @description Set a manual day-anchor override.
+     */
+    put: operations["putMyScheduleOverride"];
+    post?: never;
+    /**
+     * Delete My Schedule Override
+     * @description Clear the manual day-anchor override and recompute the learned anchor.
+     */
+    delete: operations["deleteMyScheduleOverride"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meal_items/{item_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Meal Item
+     * @description Delete a meal item and recalculate its meal totals.
+     */
+    delete: operations["deleteMealItem"];
+    options?: never;
+    head?: never;
+    /**
+     * Patch Meal Item
+     * @description Patch a meal item and recalculate its meal totals.
+     */
+    patch: operations["patchMealItem"];
+    trace?: never;
+  };
+  "/meal_items/{item_id}/copy_by_weight": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Meal From Item Weight
+     * @description Create a new meal from an existing item scaled to a target weight.
+     */
+    post: operations["createMealFromMealItemWeight"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meal_items/{item_id}/remember_product": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Remember Product From Meal Item
+     * @description Persist a confirmed label item into the local product database.
+     */
+    post: operations["rememberProductFromMealItem"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Meals
+     * @description List meals with pagination and simple text search.
+     */
+    get: operations["listMeals"];
+    put?: never;
+    /**
+     * Create Meal
+     * @description Create a meal with optional inline items.
+     */
+    post: operations["createMeal"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/from-photo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Meal From Photo
+     * @description Create one photo meal and let the backend own photo estimation.
+     */
+    post: operations["createMealFromPhoto"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Meal
+     * @description Return a meal with items and photos.
+     */
+    get: operations["getMeal"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Meal
+     * @description Delete a meal and cascade its items and photos.
+     */
+    delete: operations["deleteMeal"];
+    options?: never;
+    head?: never;
+    /**
+     * Patch Meal
+     * @description Patch editable meal fields.
+     */
+    patch: operations["patchMeal"];
+    trace?: never;
+  };
+  "/meals/{meal_id}/accept": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Accept Meal
+     * @description Accept a draft by atomically replacing Gemini-suggested items.
+     */
+    post: operations["acceptMealDraft"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/ai_runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Meal Ai Runs
+     * @description Return AI estimation history for one meal.
+     */
+    get: operations["listMealAiRuns"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/apply_estimation_run/{run_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Apply Estimation Run
+     * @description Apply a stored re-estimation proposal to the current meal or a draft.
+     */
+    post: operations["applyEstimationRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/discard": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Discard Meal
+     * @description Discard a meal draft.
+     */
+    post: operations["discardMealDraft"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/estimate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Estimate Meal Photos
+     * @description Estimate draft items from meal photos without saving them.
+     */
+    post: operations["estimateMealPhotos"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/estimate_and_save_draft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Estimate And Save Meal Draft
+     * @description Estimate items from meal photos and save them as accepted journal rows.
+     */
+    post: operations["estimateAndSaveMealDraft"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/items": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Replace Meal Items
+     * @description Atomically replace all meal items and recalculate totals.
+     */
+    put: operations["replaceMealItems"];
+    /**
+     * Add Meal Item
+     * @description Add an item to a meal and recalculate meal totals.
+     */
+    post: operations["addMealItem"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/photos": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Meal Photo
+     * @description Upload a JPEG, PNG, or WebP photo for a meal.
+     */
+    post: operations["uploadMealPhoto"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/reestimate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reestimate Meal Photos
+     * @description Re-run photo estimation for an existing meal without overwriting it.
+     */
+    post: operations["reestimateMealPhotos"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/sync_nightscout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync Meal To Nightscout
+     * @description Sync an accepted meal as a diary-only Nightscout treatment.
+     */
+    post: operations["syncMealToNightscout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/meals/{meal_id}/unsync_nightscout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Unsync Meal From Nightscout
+     * @description Delete a remote Nightscout treatment and clear local sync fields.
+     */
+    post: operations["unsyncMealFromNightscout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/mobile/photo-estimate-logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Submit Mobile Photo Estimate Logs
+     * @description Append Android photo-estimation diagnostics to a server JSONL log file.
+     */
+    post: operations["submitMobilePhotoEstimateLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/day_status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Day Status
+     * @description Return Nightscout manual-sync counters for a selected day.
+     */
+    get: operations["getNightscoutDayStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Events
+     * @description Return combined read-only Nightscout glucose and insulin context events.
+     */
+    get: operations["getNightscoutEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/glucose": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Glucose
+     * @description Return read-only Nightscout glucose entries as gentle context.
+     */
+    get: operations["getNightscoutGlucose"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/import": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Nightscout Context
+     * @description Fetch Nightscout glucose/insulin context and cache it locally.
+     */
+    post: operations["importNightscoutContext"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/insulin": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Insulin
+     * @description Return read-only Nightscout insulin events without linking to dosing.
+     */
+    get: operations["getNightscoutInsulin"];
+    put?: never;
+    /**
+     * Create Nightscout Insulin
+     * @description Write a user-entered insulin amount to Nightscout.
+     */
+    post: operations["createNightscoutInsulin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/insulin/{event_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Nightscout Insulin
+     * @description Delete an owned insulin treatment originally created by Glucotracker.
+     */
+    delete: operations["deleteNightscoutInsulin"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Nightscout Insulin
+     * @description Update an owned insulin treatment originally created by Glucotracker.
+     */
+    patch: operations["updateNightscoutInsulin"];
+    trace?: never;
+  };
+  "/nightscout/latest-reading": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Latest Reading
+     * @description Return the latest glucose reading from the local Nightscout cache.
+     */
+    get: operations["getNightscoutLatestReading"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Status
+     * @description Return optional Nightscout status without breaking local use.
+     */
+    get: operations["getNightscoutStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nightscout/sync/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync Today To Nightscout
+     * @description Manually send accepted unsynced meals for a selected day.
+     */
+    post: operations["syncTodayToNightscout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/nutrients/definitions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Nutrient Definitions
+     * @description Return the built-in nutrient definition catalog.
+     */
+    get: operations["listNutrientDefinitions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/patterns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Patterns
+     * @description List active patterns.
+     */
+    get: operations["listPatterns"];
+    put?: never;
+    /**
+     * Create Pattern
+     * @description Create a reusable meal pattern.
+     */
+    post: operations["createPattern"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/patterns/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Search Patterns
+     * @description Search active patterns by prefix, key, display name, and aliases.
+     */
+    get: operations["searchPatterns"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/patterns/{pattern_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Pattern
+     * @description Return a pattern by id.
+     */
+    get: operations["getPattern"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Pattern
+     * @description Soft-delete a pattern by archiving it.
+     */
+    delete: operations["deletePattern"];
+    options?: never;
+    head?: never;
+    /**
+     * Patch Pattern
+     * @description Patch a reusable meal pattern.
+     */
+    patch: operations["patchPattern"];
+    trace?: never;
+  };
+  "/patterns/{pattern_id}/image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Pattern Image
+     * @description Upload and replace a local pattern or restaurant image.
+     */
+    post: operations["uploadPatternImage"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/patterns/{pattern_id}/image/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Pattern Image File
+     * @description Stream a locally stored pattern or restaurant image.
+     */
+    get: operations["getPatternImageFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/photos/{photo_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Photo
+     * @description Delete a photo row and its stored file.
+     */
+    delete: operations["deletePhoto"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/photos/{photo_id}/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Photo File
+     * @description Stream the stored image bytes for a photo.
+     */
+    get: operations["getPhotoFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/products": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Products
+     * @description List products, optionally searching brand, name, or barcode.
+     */
+    get: operations["listProducts"];
+    put?: never;
+    /**
+     * Create Product
+     * @description Create a manually saved packaged food.
+     */
+    post: operations["createProduct"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/products/from_label": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Or Update Product From Label
+     * @description Create or update a product from manually confirmed label facts.
+     */
+    post: operations["createOrUpdateProductFromLabel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/products/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Search Products
+     * @description Search products by name, brand, barcode, and aliases.
+     */
+    get: operations["searchProducts"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/products/{product_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Product
+     * @description Return a saved product.
+     */
+    get: operations["getProduct"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Product
+     * @description Delete a personal saved product and unlink it from the user's meal items.
+     */
+    delete: operations["deleteProduct"];
+    options?: never;
+    head?: never;
+    /**
+     * Patch Product
+     * @description Patch a saved product.
+     */
+    patch: operations["patchProduct"];
+    trace?: never;
+  };
+  "/products/{product_id}/image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Product Image
+     * @description Upload and replace a local product image.
+     */
+    post: operations["uploadProductImage"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/products/{product_id}/image/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Product Image File
+     * @description Stream a locally stored product image.
+     */
+    get: operations["getProductImageFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Profile */
+    get: operations["getUserProfile"];
+    /** Update Profile */
+    put: operations["updateUserProfile"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/reports/endocrinologist": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Endocrinologist Report
+     * @description Return one-page endocrinologist report data.
+     */
+    get: operations["getEndocrinologistReport"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sensors": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Sensors
+     * @description List sensor sessions.
+     */
+    get: operations["listSensors"];
+    put?: never;
+    /**
+     * Create Sensor
+     * @description Create a sensor session.
+     */
+    post: operations["createSensor"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sensors/{sensor_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Patch Sensor
+     * @description Patch a sensor session.
+     */
+    patch: operations["patchSensor"];
+    trace?: never;
+  };
+  "/sensors/{sensor_id}/quality": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Sensor Quality
+     * @description Return computed display-only quality metrics for one sensor.
+     */
+    get: operations["getSensorQuality"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sensors/{sensor_id}/recalculate-calibration": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Recalculate Sensor Calibration
+     * @description Recompute and store a display-only calibration model.
+     */
+    post: operations["recalculateSensorCalibration"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/settings/nightscout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Nightscout Settings
+     * @description Return masked server-side Nightscout settings.
+     */
+    get: operations["getNightscoutSettings"];
+    /**
+     * Update Nightscout Settings
+     * @description Update server-side Nightscout settings. Secret is write-only.
+     */
+    put: operations["updateNightscoutSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/settings/nightscout/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Test Nightscout Connection
+     * @description Test Nightscout connection and persist masked status.
+     */
+    post: operations["testNightscoutConnection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/stats/insights": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Stats Insights
+     * @description Return deterministic, server-rendered food pattern observations.
+     */
+    get: operations["getStatsInsights"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/stats/overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Stats Overview
+     * @description Return structured deterministic nutrition stats for mobile rendering.
+     */
+    get: operations["getStatsOverview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/timeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Timeline
+     * @description Return backend-owned food episodes with local Nightscout context.
+     */
+    get: operations["getTimeline"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/timeline/insulin-links": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Timeline Insulin Links
+     * @description Return one-day food/insulin links and backend suggestions.
+     */
+    get: operations["getTimelineInsulinLinks"];
+    /**
+     * Put Timeline Insulin Links
+     * @description Replace reviewed one-day food/insulin links atomically.
+     */
+    put: operations["putTimelineInsulinLinks"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/twin/curve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Twin Curve
+     * @description Return display-only digital twin reconstruction and forecast points.
+     */
+    get: operations["getTwinCurve"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/twin/data/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Twin Data Summary
+     * @description Return data availability counters for the fit wizard.
+     */
+    get: operations["getTwinDataSummary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/twin/fit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Fit Twin
+     * @description Fit and persist current-user digital twin parameters.
+     */
+    post: operations["fitTwin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/twin/fit/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Twin Fit History
+     * @description Return newest digital twin fit/manual-change history rows.
+     */
+    get: operations["getTwinFitHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/twin/params": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Twin Params
+     * @description Return current digital twin parameters for the user.
+     */
+    get: operations["getTwinParams"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Patch Twin Params
+     * @description Apply a manual digital twin parameter override.
+     */
+    patch: operations["patchTwinParams"];
+    trace?: never;
+  };
+  "/twin/params/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset Twin Params
+     * @description Reset fitted digital twin parameters to defaults.
+     */
+    post: operations["resetTwinParams"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /**
-         * AIRunResponse
-         * @description AI estimation run audit row.
-         */
-        AIRunResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Error History Json */
-            error_history_json?: unknown[];
-            /**
-             * Fallback Used
-             * @default false
-             */
-            fallback_used: boolean;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Model */
-            model: string;
-            /** Model Requested */
-            model_requested?: string | null;
-            /** Model Used */
-            model_used?: string | null;
-            /** Normalized Items Json */
-            normalized_items_json?: unknown[] | null;
-            /** Promoted At */
-            promoted_at?: string | null;
-            /** Promoted By Action */
-            promoted_by_action?: string | null;
-            /** Provider */
-            provider: string;
-            /** Request Summary */
-            request_summary?: {
-                [key: string]: unknown;
-            } | null;
-            /** Request Type */
-            request_type: string;
-            /** Response Raw */
-            response_raw?: {
-                [key: string]: unknown;
-            } | null;
-            /** Source Photo Ids */
-            source_photo_ids?: unknown[];
-            /** Status */
-            status: string;
-        };
-        /** ActivitySyncRequest */
-        ActivitySyncRequest: {
-            /**
-             * Active Minutes
-             * @default 0
-             */
-            active_minutes: number;
-            /**
-             * Calorie Confidence
-             * @default none
-             */
-            calorie_confidence: string;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Heart Rate Avg */
-            heart_rate_avg?: number | null;
-            /** Heart Rate Rest */
-            heart_rate_rest?: number | null;
-            /**
-             * Hr Active Minutes
-             * @default 0
-             */
-            hr_active_minutes: number;
-            /**
-             * Hr Samples
-             * @default 0
-             */
-            hr_samples: number;
-            /**
-             * Kcal Burned
-             * @default 0
-             */
-            kcal_burned: number;
-            /**
-             * Kcal Hr Active
-             * @default 0
-             */
-            kcal_hr_active: number;
-            /**
-             * Kcal No Move Hr
-             * @default 0
-             */
-            kcal_no_move_hr: number;
-            /**
-             * Kcal Steps
-             * @default 0
-             */
-            kcal_steps: number;
-            /**
-             * Source
-             * @default gadgetbridge
-             */
-            source: string;
-            /**
-             * Steps
-             * @default 0
-             */
-            steps: number;
-        };
-        /** ActivitySyncResponse */
-        ActivitySyncResponse: {
-            /** Active Minutes */
-            active_minutes: number;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Heart Rate Avg */
-            heart_rate_avg: number | null;
-            /** Heart Rate Rest */
-            heart_rate_rest: number | null;
-            /** Kcal Burned */
-            kcal_burned: number;
-            /** Source */
-            source: string;
-            /** Steps */
-            steps: number;
-            /**
-             * Synced At
-             * Format: date-time
-             */
-            synced_at: string;
-        };
-        /**
-         * AdminPostprandialResponse
-         * @description Postprandial recompute response.
-         */
-        AdminPostprandialResponse: {
-            /** Meals Analyzed */
-            meals_analyzed: number;
-            /** Meals Total */
-            meals_total: number;
-        };
-        /**
-         * AdminRecalculateResponse
-         * @description Daily total backfill response.
-         */
-        AdminRecalculateResponse: {
-            /** Days Recalculated */
-            days_recalculated: number;
-            /**
-             * From Date
-             * Format: date
-             */
-            from_date: string;
-            /**
-             * To Date
-             * Format: date
-             */
-            to_date: string;
-        };
-        /**
-         * ApplyEstimationRunRequest
-         * @description Apply a stored re-estimation proposal.
-         */
-        ApplyEstimationRunRequest: {
-            /**
-             * Apply Mode
-             * @enum {string}
-             */
-            apply_mode: "replace_current" | "save_as_draft";
-        };
-        /**
-         * ApplyEstimationRunResponse
-         * @description Result of applying a re-estimation proposal.
-         */
-        ApplyEstimationRunResponse: {
-            /**
-             * Ai Run Id
-             * Format: uuid
-             */
-            ai_run_id: string;
-            /**
-             * Apply Mode
-             * @enum {string}
-             */
-            apply_mode: "replace_current" | "save_as_draft";
-            meal: components["schemas"]["MealResponse"];
-        };
-        /**
-         * AutocompleteSuggestion
-         * @description Unified autocomplete suggestion for frontend command palettes.
-         */
-        AutocompleteSuggestion: {
-            /** Carbs G */
-            carbs_g?: number | null;
-            /** Display Name */
-            display_name: string;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Id */
-            id?: string | null;
-            /** Image Url */
-            image_url?: string | null;
-            /** Kcal */
-            kcal?: number | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "pattern" | "product" | "command";
-            /** Matched Alias */
-            matched_alias?: string | null;
-            /** Protein G */
-            protein_g?: number | null;
-            /** Subtitle */
-            subtitle?: string | null;
-            /** Token */
-            token: string;
-            /**
-             * Usage Count
-             * @default 0
-             */
-            usage_count: number;
-        };
-        /**
-         * BiasCurvePoint
-         * @description One sampled point on the estimated bias curve.
-         */
-        BiasCurvePoint: {
-            /** Bias */
-            bias: number;
-            /** Confidence */
-            confidence: string;
-            /** Contributing Fingerstick Count */
-            contributing_fingerstick_count: number;
-            /** Nearest Fingerstick Distance Min */
-            nearest_fingerstick_distance_min?: number | null;
-            /** Sensor Age Hours */
-            sensor_age_hours: number;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * BiasOverLifetimeData
-         * @description Data for the bias-over-sensor-lifetime chart.
-         */
-        BiasOverLifetimeData: {
-            /** Bias Curve */
-            bias_curve: components["schemas"]["BiasCurvePoint"][];
-            /** Phase Markers */
-            phase_markers: components["schemas"]["BiasPhaseMarker"][];
-            /** Residuals */
-            residuals: components["schemas"]["BiasResidualPoint"][];
-            /**
-             * Sensor Started At
-             * Format: date-time
-             */
-            sensor_started_at: string;
-        };
-        /**
-         * BiasPhaseMarker
-         * @description Phase boundary on the bias chart.
-         */
-        BiasPhaseMarker: {
-            /** Label */
-            label: string;
-            /** Sensor Age Hours */
-            sensor_age_hours: number;
-        };
-        /**
-         * BiasResidualPoint
-         * @description One fingerstick residual on the bias chart.
-         */
-        BiasResidualPoint: {
-            /** Exclusion Reason */
-            exclusion_reason?: string | null;
-            /** Fingerstick Value */
-            fingerstick_value: number;
-            /** Included */
-            included: boolean;
-            /**
-             * Measured At
-             * Format: date-time
-             */
-            measured_at: string;
-            /** Raw Cgm Value */
-            raw_cgm_value: number;
-            /** Residual */
-            residual: number;
-            /** Sensor Age Hours */
-            sensor_age_hours: number;
-        };
-        /** Body_createMealFromPhoto */
-        Body_createMealFromPhoto: {
-            /**
-             * Captured At
-             * Format: date-time
-             */
-            captured_at: string;
-            /** Context */
-            context?: string | null;
-            /**
-             * Idempotency Key
-             * Format: uuid
-             */
-            idempotency_key: string;
-            /**
-             * Photo
-             * @description JPEG, PNG, or WebP photo.
-             */
-            photo: string;
-            /**
-             * Source
-             * @default camera
-             * @enum {string}
-             */
-            source: "camera" | "gallery";
-        };
-        /** Body_uploadMealPhoto */
-        Body_uploadMealPhoto: {
-            /**
-             * File
-             * @description JPEG, PNG, or WebP photo.
-             */
-            file: string;
-        };
-        /** Body_uploadPatternImage */
-        Body_uploadPatternImage: {
-            /**
-             * File
-             * @description JPEG, PNG, or WebP image.
-             */
-            file: string;
-        };
-        /** Body_uploadProductImage */
-        Body_uploadProductImage: {
-            /** File */
-            file: string;
-        };
-        /**
-         * CgmCalibrationModelResponse
-         * @description Persisted display-only CGM calibration model.
-         */
-        CgmCalibrationModelResponse: {
-            /** Active */
-            active: boolean;
-            /**
-             * Confidence
-             * @enum {string}
-             */
-            confidence: "none" | "low" | "medium" | "high";
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Metrics Json */
-            metrics_json: {
-                [key: string]: unknown;
-            };
-            /** Model Version */
-            model_version: string;
-            /** Params Json */
-            params_json: {
-                [key: string]: unknown;
-            };
-            /**
-             * Sensor Session Id
-             * Format: uuid
-             */
-            sensor_session_id: string;
-        };
-        /**
-         * CurrentUserDetailResponse
-         * @description Authenticated user details.
-         */
-        CurrentUserDetailResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Feature Flags */
-            feature_flags?: {
-                [key: string]: unknown;
-            };
-            /** Features */
-            features?: string[];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Last Login At */
-            last_login_at?: string | null;
-            role: components["schemas"]["UserRole"];
-            /** Username */
-            username: string;
-        };
-        /**
-         * DashboardDataQualityResponse
-         * @description Dashboard data quality response.
-         */
-        DashboardDataQualityResponse: {
-            /** Assumed Label Count */
-            assumed_label_count: number;
-            /** Exact Label Count */
-            exact_label_count: number;
-            /** Low Confidence Count */
-            low_confidence_count: number;
-            /** Low Confidence Items */
-            low_confidence_items: components["schemas"]["LowConfidenceItemResponse"][];
-            /** Manual Count */
-            manual_count: number;
-            /** Pattern Count */
-            pattern_count: number;
-            /** Product Db Count */
-            product_db_count: number;
-            /** Restaurant Db Count */
-            restaurant_db_count: number;
-            /** Total Item Count */
-            total_item_count: number;
-            /** Visual Estimate Count */
-            visual_estimate_count: number;
-        };
-        /**
-         * DashboardDayResponse
-         * @description Daily dashboard row.
-         */
-        DashboardDayResponse: {
-            /** Carbs G */
-            carbs_g: number;
-            /** Daily Average Kcal For Period */
-            daily_average_kcal_for_period?: number | null;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Fat G */
-            fat_g: number;
-            /** Fiber G */
-            fiber_g: number;
-            /** Kcal */
-            kcal: number;
-            /** Meal Count */
-            meal_count: number;
-            /** Nutrients */
-            nutrients?: components["schemas"]["DashboardNutrientTotal"][];
-            /**
-             * Photo Count
-             * @default 0
-             */
-            photo_count: number;
-            /** Protein G */
-            protein_g: number;
-        };
-        /**
-         * DashboardHeatmapCell
-         * @description Meal heatmap aggregate cell.
-         */
-        DashboardHeatmapCell: {
-            /** Avg Carbs G */
-            avg_carbs_g: number;
-            /** Day Of Week */
-            day_of_week: number;
-            /** Hour */
-            hour: number;
-            /** Meal Count */
-            meal_count: number;
-        };
-        /**
-         * DashboardHeatmapResponse
-         * @description Dashboard meal heatmap response.
-         */
-        DashboardHeatmapResponse: {
-            /** Cells */
-            cells: components["schemas"]["DashboardHeatmapCell"][];
-        };
-        /**
-         * DashboardNutrientTotal
-         * @description Daily or range nutrient total with known-value coverage.
-         */
-        DashboardNutrientTotal: {
-            /** Amount */
-            amount?: number | null;
-            /** Coverage */
-            coverage: number;
-            /** Display Name */
-            display_name: string;
-            /** Known Item Count */
-            known_item_count: number;
-            /** Nutrient Code */
-            nutrient_code: string;
-            /** Total Item Count */
-            total_item_count: number;
-            /** Unit */
-            unit: string;
-        };
-        /**
-         * DashboardRangeResponse
-         * @description Dashboard range response.
-         */
-        DashboardRangeResponse: {
-            /** Days */
-            days: components["schemas"]["DashboardDayResponse"][];
-            summary: components["schemas"]["DashboardRangeSummary"];
-        };
-        /**
-         * DashboardRangeSummary
-         * @description Dashboard range aggregate summary.
-         */
-        DashboardRangeSummary: {
-            /** Avg Carbs G */
-            avg_carbs_g: number;
-            /** Avg Fat G */
-            avg_fat_g: number;
-            /** Avg Fiber G */
-            avg_fiber_g: number;
-            /** Avg Kcal */
-            avg_kcal: number;
-            /** Avg Protein G */
-            avg_protein_g: number;
-            /** Nutrients */
-            nutrients?: components["schemas"]["DashboardNutrientTotal"][];
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Fat G */
-            total_fat_g: number;
-            /** Total Fiber G */
-            total_fiber_g: number;
-            /** Total Kcal */
-            total_kcal: number;
-            /** Total Meals */
-            total_meals: number;
-            /** Total Protein G */
-            total_protein_g: number;
-        };
-        /**
-         * DashboardSourceBreakdownResponse
-         * @description Dashboard source kind breakdown.
-         */
-        DashboardSourceBreakdownResponse: {
-            /** Days */
-            days: number;
-            /** Items */
-            items: components["schemas"]["DashboardSourceBreakdownRow"][];
-        };
-        /**
-         * DashboardSourceBreakdownRow
-         * @description Source kind count row.
-         */
-        DashboardSourceBreakdownRow: {
-            /** Count */
-            count: number;
-            source_kind: components["schemas"]["ItemSourceKind"];
-        };
-        /**
-         * DashboardTodayResponse
-         * @description Dashboard summary for today.
-         */
-        DashboardTodayResponse: {
-            /** Carbs G */
-            carbs_g: number;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Fat G */
-            fat_g: number;
-            /** Fiber G */
-            fiber_g: number;
-            /** Hours Since Last Meal */
-            hours_since_last_meal?: number | null;
-            /** Kcal */
-            kcal: number;
-            /** Last Meal At */
-            last_meal_at?: string | null;
-            /** Meal Count */
-            meal_count: number;
-            /** Nutrients */
-            nutrients?: components["schemas"]["DashboardNutrientTotal"][];
-            /** Prev Week Avg Carbs */
-            prev_week_avg_carbs: number;
-            /** Prev Week Avg Kcal */
-            prev_week_avg_kcal: number;
-            /** Protein G */
-            protein_g: number;
-            /** Week Avg Carbs */
-            week_avg_carbs: number;
-            /** Week Avg Kcal */
-            week_avg_kcal: number;
-        };
-        /**
-         * DashboardTodayWithGlucoseResponse
-         * @description Dashboard summary for a role with glucose context enabled.
-         */
-        DashboardTodayWithGlucoseResponse: {
-            /** Carbs G */
-            carbs_g: number;
-            /** Current Glucose */
-            current_glucose: number | null;
-            /** Current Glucose At */
-            current_glucose_at: string | null;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Fat G */
-            fat_g: number;
-            /** Fiber G */
-            fiber_g: number;
-            /** Hours Since Last Meal */
-            hours_since_last_meal?: number | null;
-            /** Kcal */
-            kcal: number;
-            /** Last Meal At */
-            last_meal_at?: string | null;
-            /** Meal Count */
-            meal_count: number;
-            /** Nutrients */
-            nutrients?: components["schemas"]["DashboardNutrientTotal"][];
-            /** Prev Week Avg Carbs */
-            prev_week_avg_carbs: number;
-            /** Prev Week Avg Kcal */
-            prev_week_avg_kcal: number;
-            /** Protein G */
-            protein_g: number;
-            /** Week Avg Carbs */
-            week_avg_carbs: number;
-            /** Week Avg Kcal */
-            week_avg_kcal: number;
-        };
-        /**
-         * DashboardTopPatternResponse
-         * @description Top used pattern response row.
-         */
-        DashboardTopPatternResponse: {
-            /** Count */
-            count: number;
-            /** Display Name */
-            display_name: string;
-            /**
-             * Pattern Id
-             * Format: uuid
-             */
-            pattern_id: string;
-            /** Token */
-            token: string;
-        };
-        /**
-         * DatabaseItemPageResponse
-         * @description Paginated food database response.
-         */
-        DatabaseItemPageResponse: {
-            /** Items */
-            items: components["schemas"]["DatabaseItemResponse"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * DatabaseItemResponse
-         * @description Unified food database row for desktop database management.
-         */
-        DatabaseItemResponse: {
-            /** Aliases */
-            aliases?: string[];
-            /** Carbs G */
-            carbs_g?: number | null;
-            /** Default Grams */
-            default_grams?: number | null;
-            /** Display Name */
-            display_name: string;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Fiber G */
-            fiber_g?: number | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Image Cache Path */
-            image_cache_path?: string | null;
-            /** Image Url */
-            image_url?: string | null;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean;
-            /** Kcal */
-            kcal?: number | null;
-            /** Key */
-            key?: string | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "pattern" | "product" | "restaurant";
-            /** Last Used At */
-            last_used_at?: string | null;
-            /** Nutrients Json */
-            nutrients_json?: {
-                [key: string]: unknown;
-            };
-            /** Prefix */
-            prefix?: string | null;
-            /** Protein G */
-            protein_g?: number | null;
-            /** Quality Warnings */
-            quality_warnings?: string[];
-            /** Source Confidence */
-            source_confidence?: string | null;
-            /** Source File */
-            source_file?: string | null;
-            /** Source Name */
-            source_name?: string | null;
-            /** Source Page */
-            source_page?: number | null;
-            /** Source Url */
-            source_url?: string | null;
-            /** Subtitle */
-            subtitle?: string | null;
-            /** Token */
-            token?: string | null;
-            /**
-             * Usage Count
-             * @default 0
-             */
-            usage_count: number;
-        };
-        /**
-         * DayAnchorHistoryResponse
-         * @description One effective day-anchor history row.
-         */
-        DayAnchorHistoryResponse: {
-            /** Anchor Weekday Minutes */
-            anchor_weekday_minutes?: number | null;
-            /** Anchor Weekend Minutes */
-            anchor_weekend_minutes?: number | null;
-            /** Basis */
-            basis: string;
-            /** Duration Days */
-            duration_days?: number | null;
-            /**
-             * Effective From
-             * Format: date
-             */
-            effective_from: string;
-            /** Effective To */
-            effective_to?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Recorded At
-             * Format: date-time
-             */
-            recorded_at: string;
-            /** Shift From Previous Minutes */
-            shift_from_previous_minutes?: number | null;
-        };
-        /**
-         * DayEpisodeInsulinResponse
-         * @description One insulin event inside a grouped episode (gluco feature only).
-         */
-        DayEpisodeInsulinResponse: {
-            /** Anchor Meal Id */
-            anchor_meal_id?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Insulin Units */
-            insulin_units?: number | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "food" | "correction";
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * DayEpisodeResponse
-         * @description One grouped meal/insulin episode for client attribution.
-         */
-        DayEpisodeResponse: {
-            /**
-             * End At
-             * Format: date-time
-             */
-            end_at: string;
-            /** Insulin */
-            insulin: components["schemas"]["DayEpisodeInsulinResponse"][];
-            /** Key */
-            key: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "food" | "food_only" | "correction";
-            /** Meal Ids */
-            meal_ids: string[];
-            /**
-             * Start At
-             * Format: date-time
-             */
-            start_at: string;
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Insulin Units */
-            total_insulin_units: number;
-            /** Total Kcal */
-            total_kcal: number;
-        };
-        /**
-         * DayEpisodesResponse
-         * @description Grouped episodes for a local wall-clock range.
-         */
-        DayEpisodesResponse: {
-            /** Episodes */
-            episodes: components["schemas"]["DayEpisodeResponse"][];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * DeleteResponse
-         * @description Generic delete response.
-         */
-        DeleteResponse: {
-            /**
-             * Deleted
-             * @example true
-             */
-            deleted: boolean;
-        };
-        /**
-         * EndocrinologistAdaptiveScheduleResponse
-         * @description Adaptive rhythm banner for the report.
-         */
-        EndocrinologistAdaptiveScheduleResponse: {
-            /** Basis */
-            basis: string;
-            /** Ribbon */
-            ribbon: string;
-            /** Summary */
-            summary: string;
-            /** Title */
-            title: string;
-            /** Windows */
-            windows: components["schemas"]["EndocrinologistScheduleWindowResponse"][];
-        };
-        /**
-         * EndocrinologistBottomMetric
-         * @description Bottom strip report metric.
-         */
-        EndocrinologistBottomMetric: {
-            /** Label */
-            label: string;
-            /** Unit */
-            unit?: string | null;
-            /** Value */
-            value: string;
-        };
-        /**
-         * EndocrinologistDailySummaryRow
-         * @description Daily report table row.
-         */
-        EndocrinologistDailySummaryRow: {
-            /** Breakfast */
-            breakfast: string;
-            /** Carbs */
-            carbs: string;
-            /** Date */
-            date: string;
-            /** Date Label */
-            date_label: string;
-            /** Dinner */
-            dinner: string;
-            /** Flagged */
-            flagged: boolean;
-            /** Hypo */
-            hypo: string;
-            /** Insulin */
-            insulin: string;
-            /** Lunch */
-            lunch: string;
-            /** Spikes */
-            spikes: string;
-            /** Tir */
-            tir: string;
-            /** Windows */
-            windows: string;
-        };
-        /**
-         * EndocrinologistMealProfileRow
-         * @description Meal profile report table row.
-         */
-        EndocrinologistMealProfileRow: {
-            /** Carbs */
-            carbs: string;
-            /** Episodes */
-            episodes: string;
-            /** Glucose After */
-            glucose_after: string;
-            /** Glucose Before */
-            glucose_before: string;
-            /** Insulin */
-            insulin: string;
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Observed Ratio */
-            observed_ratio: string;
-        };
-        /**
-         * EndocrinologistReportKpi
-         * @description Top report KPI tile.
-         */
-        EndocrinologistReportKpi: {
-            /** Caption */
-            caption: string;
-            /** Label */
-            label: string;
-            /** Unit */
-            unit: string;
-            /** Value */
-            value: string;
-        };
-        /**
-         * EndocrinologistReportResponse
-         * @description Presentation-ready endocrinologist report data.
-         */
-        EndocrinologistReportResponse: {
-            adaptive_schedule: components["schemas"]["EndocrinologistAdaptiveScheduleResponse"];
-            /** App Name */
-            app_name: string;
-            /** Bottom Metrics */
-            bottom_metrics: components["schemas"]["EndocrinologistBottomMetric"][];
-            /** Chips */
-            chips: components["schemas"]["ReportChipResponse"][];
-            daily_median_row: components["schemas"]["EndocrinologistDailySummaryRow"];
-            /** Daily Rows */
-            daily_rows: components["schemas"]["EndocrinologistDailySummaryRow"][];
-            /** Daily Rows Note */
-            daily_rows_note?: string | null;
-            /** Footer */
-            footer: string;
-            /** Generated Label */
-            generated_label: string;
-            /**
-             * Glucose Mode
-             * @default raw
-             * @enum {string}
-             */
-            glucose_mode: "raw" | "normalized";
-            /**
-             * Glucose Mode Label
-             * @default исходная CGM
-             */
-            glucose_mode_label: string;
-            /** Glycemic Profile */
-            glycemic_profile: components["schemas"]["EndocrinologistReportKpi"][];
-            /** Hypo Concentration Line */
-            hypo_concentration_line: string;
-            /** Kpis */
-            kpis: components["schemas"]["EndocrinologistReportKpi"][];
-            /** Meal Profile Rows */
-            meal_profile_rows: components["schemas"]["EndocrinologistMealProfileRow"][];
-            /** Notes */
-            notes?: string[];
-            /** Period Label */
-            period_label: string;
-            /** Shown Daily Rows */
-            shown_daily_rows: components["schemas"]["EndocrinologistDailySummaryRow"][];
-            /** Title */
-            title: string;
-            /** Warning */
-            warning?: string | null;
-        };
-        /**
-         * EndocrinologistScheduleWindowResponse
-         * @description Adaptive report window with rendered wall-clock range.
-         */
-        EndocrinologistScheduleWindowResponse: {
-            /** End Label */
-            end_label: string;
-            /** End Minute */
-            end_minute: number;
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Start Label */
-            start_label: string;
-            /** Start Minute */
-            start_minute: number;
-        };
-        /**
-         * EstimateCalculationBreakdown
-         * @description Readable backend-prepared calculation evidence for one suggested item.
-         */
-        EstimateCalculationBreakdown: {
-            /** Assumptions */
-            assumptions?: string[];
-            calculated_per_unit?: components["schemas"]["EstimateMacroBreakdown"] | null;
-            calculated_total: components["schemas"]["EstimateMacroBreakdown"];
-            /** Calculation Steps */
-            calculation_steps?: string[];
-            /** Count Detected */
-            count_detected?: number | null;
-            /** Evidence */
-            evidence?: string[];
-            /** Name */
-            name: string;
-            /** Net Weight Per Unit G */
-            net_weight_per_unit_g?: number | null;
-            nutrition_per_100g?: components["schemas"]["EstimateMacroBreakdown"] | null;
-            /** Position */
-            position: number;
-            /** Total Weight G */
-            total_weight_g?: number | null;
-        };
-        /**
-         * EstimateComparisonDiff
-         * @description Structured comparison between current and proposed item lists.
-         */
-        EstimateComparisonDiff: {
-            /** Added Items */
-            added_items?: components["schemas"]["EstimateItemChange"][];
-            /** Changed Items */
-            changed_items?: components["schemas"]["EstimateItemChange"][];
-            /** Confidence Delta */
-            confidence_delta?: number | null;
-            /** Current Model */
-            current_model?: string | null;
-            /** Proposed Model */
-            proposed_model?: string | null;
-            /** Removed Items */
-            removed_items?: components["schemas"]["EstimateItemChange"][];
-            totals: components["schemas"]["EstimateDiffTotals"];
-            /** Warnings */
-            warnings?: string[];
-        };
-        /**
-         * EstimateCreatedDraftResponse
-         * @description One draft journal row created from an estimated item.
-         */
-        EstimateCreatedDraftResponse: {
-            item: components["schemas"]["MealItemCreate"];
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Source Photo Id */
-            source_photo_id?: string | null;
-            /** Thumbnail Url */
-            thumbnail_url?: string | null;
-            /** Title */
-            title: string;
-            totals: components["schemas"]["MealTotalsResponse"];
-        };
-        /**
-         * EstimateDiffTotals
-         * @description Macro/kcal delta between current and proposed estimates.
-         */
-        EstimateDiffTotals: {
-            /** Carbs Delta */
-            carbs_delta: number;
-            /** Fat Delta */
-            fat_delta: number;
-            /** Fiber Delta */
-            fiber_delta: number;
-            /** Kcal Delta */
-            kcal_delta: number;
-            /** Protein Delta */
-            protein_delta: number;
-        };
-        /**
-         * EstimateItemChange
-         * @description Item-level change in an estimate comparison.
-         */
-        EstimateItemChange: {
-            current?: components["schemas"]["MealItemCreate"] | null;
-            /** Name */
-            name: string;
-            proposed?: components["schemas"]["MealItemCreate"] | null;
-        };
-        /**
-         * EstimateMacroBreakdown
-         * @description Macro/kcal values used in an estimation calculation breakdown.
-         */
-        EstimateMacroBreakdown: {
-            /** Carbs G */
-            carbs_g?: number | null;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Fiber G */
-            fiber_g?: number | null;
-            /** Kcal */
-            kcal?: number | null;
-            /** Protein G */
-            protein_g?: number | null;
-        };
-        /**
-         * EstimateMealRequest
-         * @description Optional local context to include in a photo estimation request.
-         * @example {
-         *       "context_note": "100 г варёного риса на тарелке",
-         *       "model": "default",
-         *       "scenario_hint": "PLATED",
-         *       "use_patterns": [],
-         *       "use_products": []
-         *     }
-         */
-        EstimateMealRequest: {
-            /**
-             * Context Note
-             * @description User-provided context for the photos, such as known component weights or corrections. This is evidence for Gemini, not authoritative macro math.
-             */
-            context_note?: string | null;
-            /**
-             * Model
-             * @default default
-             * @enum {string}
-             */
-            model: "default" | "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-3.1-flash-lite-preview";
-            /** Scenario Hint */
-            scenario_hint?: ("LABEL_FULL" | "LABEL_PARTIAL" | "PLATED" | "BARCODE" | "UNKNOWN") | null;
-            /** Use Patterns */
-            use_patterns?: string[];
-            /** Use Products */
-            use_products?: string[];
-        };
-        /**
-         * EstimateMealResponse
-         * @description Photo estimation response containing draft item suggestions.
-         * @example {
-         *       "ai_run_id": "22222222-2222-2222-2222-222222222222",
-         *       "gemini_notes": "Nutrition label is readable.",
-         *       "image_quality_warnings": [],
-         *       "meal_id": "11111111-1111-1111-1111-111111111111",
-         *       "reference_detected": "none",
-         *       "suggested_items": [
-         *         {
-         *           "assumptions": [],
-         *           "brand": "Example",
-         *           "calculation_method": "label_visible_weight_backend_calc",
-         *           "carbs_g": 28,
-         *           "confidence": 0.92,
-         *           "confidence_reason": "Full label and weight are visible.",
-         *           "evidence": {
-         *             "scenario": "LABEL_FULL"
-         *           },
-         *           "fat_g": 12,
-         *           "fiber_g": 2,
-         *           "grams": 50,
-         *           "kcal": 232,
-         *           "name": "Chocolate bar",
-         *           "protein_g": 3,
-         *           "source_kind": "label_calc",
-         *           "warnings": []
-         *         }
-         *       ],
-         *       "suggested_totals": {
-         *         "total_carbs_g": 28,
-         *         "total_fat_g": 12,
-         *         "total_fiber_g": 2,
-         *         "total_kcal": 232,
-         *         "total_protein_g": 3
-         *       }
-         *     }
-         */
-        EstimateMealResponse: {
-            /**
-             * Ai Run Id
-             * Format: uuid
-             */
-            ai_run_id: string;
-            /** Calculation Breakdowns */
-            calculation_breakdowns?: components["schemas"]["EstimateCalculationBreakdown"][];
-            /** Created Drafts */
-            created_drafts?: components["schemas"]["EstimateCreatedDraftResponse"][];
-            /** Gemini Notes */
-            gemini_notes: string;
-            /** Image Quality Warnings */
-            image_quality_warnings: string[];
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Raw Gemini Response */
-            raw_gemini_response?: {
-                [key: string]: unknown;
-            } | null;
-            reference_detected: components["schemas"]["PhotoReferenceKind"];
-            /** Source Photos */
-            source_photos?: components["schemas"]["EstimateSourcePhotoResponse"][];
-            /** Suggested Items */
-            suggested_items: components["schemas"]["MealItemCreate"][];
-            suggested_totals: components["schemas"]["MealTotalsResponse"];
-        };
-        /**
-         * EstimateSourcePhotoResponse
-         * @description Source photo reference for an estimation response.
-         */
-        EstimateSourcePhotoResponse: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Index */
-            index: number;
-            /** Original Filename */
-            original_filename?: string | null;
-            /** Thumbnail Url */
-            thumbnail_url: string;
-            /** Url */
-            url: string;
-        };
-        /**
-         * FingerstickReadingCreate
-         * @description Create a manual capillary glucose reading.
-         */
-        FingerstickReadingCreate: {
-            /** Glucose Mmol L */
-            glucose_mmol_l: number;
-            /**
-             * Measured At
-             * Format: date-time
-             */
-            measured_at: string;
-            /** Meter Name */
-            meter_name?: string | null;
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
-         * FingerstickReadingPatch
-         * @description Patch a manual capillary glucose reading.
-         */
-        FingerstickReadingPatch: {
-            /** Glucose Mmol L */
-            glucose_mmol_l?: number | null;
-            /** Measured At */
-            measured_at?: string | null;
-            /** Meter Name */
-            meter_name?: string | null;
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
-         * FingerstickReadingResponse
-         * @description Stored manual capillary glucose reading.
-         */
-        FingerstickReadingResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Glucose Mmol L */
-            glucose_mmol_l: number;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Measured At
-             * Format: date-time
-             */
-            measured_at: string;
-            /** Meter Name */
-            meter_name?: string | null;
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
-         * FoodEpisodeFoodResponse
-         * @description Computed food-only episode.
-         */
-        FoodEpisodeFoodResponse: {
-            /**
-             * End At
-             * Format: date-time
-             */
-            end_at: string;
-            /** Id */
-            id: string;
-            /** Meals */
-            meals: components["schemas"]["MealResponse"][];
-            /**
-             * Start At
-             * Format: date-time
-             */
-            start_at: string;
-            /** Title */
-            title: string;
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Kcal */
-            total_kcal: number;
-        };
-        /**
-         * FoodEpisodeResponse
-         * @description Computed grouping of meal, insulin, and local CGM context.
-         */
-        FoodEpisodeResponse: {
-            /**
-             * End At
-             * Format: date-time
-             */
-            end_at: string;
-            /** Glucose */
-            glucose?: components["schemas"]["NightscoutGlucoseEntryResponse"][];
-            glucose_summary: components["schemas"]["TimelineGlucoseSummary"];
-            /** Id */
-            id: string;
-            /** Insulin */
-            insulin?: components["schemas"]["NightscoutInsulinEventResponse"][];
-            /** Meals */
-            meals: components["schemas"]["MealResponse"][];
-            /**
-             * Start At
-             * Format: date-time
-             */
-            start_at: string;
-            /** Title */
-            title: string;
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Kcal */
-            total_kcal: number;
-        };
-        /**
-         * GlucoseArtifactInterval
-         * @description Suspected artifact interval for display shading.
-         */
-        GlucoseArtifactInterval: {
-            /**
-             * End At
-             * Format: date-time
-             */
-            end_at: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "compression_suspected" | "jump_suspected" | "gap" | "low_confidence_calibration" | "end_of_life_noise";
-            /** Label */
-            label: string;
-            /**
-             * Start At
-             * Format: date-time
-             */
-            start_at: string;
-        };
-        /**
-         * GlucoseDashboardFoodEvent
-         * @description Food marker for glucose dashboard overlays.
-         */
-        GlucoseDashboardFoodEvent: {
-            /** Absorption Confidence */
-            absorption_confidence?: ("none" | "low" | "medium" | "high") | null;
-            /** Absorption Fast Weight */
-            absorption_fast_weight?: number | null;
-            /** Absorption Minutes */
-            absorption_minutes?: number | null;
-            /** Absorption Model Source */
-            absorption_model_source?: ("macro_prior" | "personalized_meal" | "personalized_category") | null;
-            /** Absorption Normal Weight */
-            absorption_normal_weight?: number | null;
-            /** Absorption Profile */
-            absorption_profile?: string | null;
-            /** Absorption Slow Weight */
-            absorption_slow_weight?: number | null;
-            /** Carbs G */
-            carbs_g: number;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Fiber G */
-            fiber_g?: number | null;
-            /** Kcal */
-            kcal?: number | null;
-            /** Protein G */
-            protein_g?: number | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-            /** Title */
-            title: string;
-        };
-        /**
-         * GlucoseDashboardInsulinEvent
-         * @description Read-only insulin marker for glucose dashboard overlays.
-         */
-        GlucoseDashboardInsulinEvent: {
-            /** Event Type */
-            event_type?: string | null;
-            /** Insulin Type */
-            insulin_type?: string | null;
-            /** Insulin Units */
-            insulin_units?: number | null;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * GlucoseDashboardPoint
-         * @description One glucose dashboard display point.
-         */
-        GlucoseDashboardPoint: {
-            /** Bias Confidence */
-            bias_confidence?: string | null;
-            /** Contributing Fingerstick Count */
-            contributing_fingerstick_count?: number | null;
-            /** Correction Mmol L */
-            correction_mmol_l?: number | null;
-            /** Display Value */
-            display_value: number;
-            /** Flags */
-            flags?: string[];
-            /** Nearest Fingerstick Distance Min */
-            nearest_fingerstick_distance_min?: number | null;
-            /** Normalized Value */
-            normalized_value?: number | null;
-            /** Raw Value */
-            raw_value: number;
-            /** Smoothed Value */
-            smoothed_value?: number | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * GlucoseDashboardResponse
-         * @description Nightscout-like glucose dashboard response.
-         */
-        GlucoseDashboardResponse: {
-            /** Artifacts */
-            artifacts: components["schemas"]["GlucoseArtifactInterval"][];
-            bias_over_lifetime?: components["schemas"]["BiasOverLifetimeData"] | null;
-            current_sensor?: components["schemas"]["SensorSessionResponse"] | null;
-            /** Fingersticks */
-            fingersticks: components["schemas"]["FingerstickReadingResponse"][];
-            /** Food Events */
-            food_events: components["schemas"]["GlucoseDashboardFoodEvent"][];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /** Insulin Events */
-            insulin_events: components["schemas"]["GlucoseDashboardInsulinEvent"][];
-            /**
-             * Mode
-             * @enum {string}
-             */
-            mode: "raw" | "smoothed" | "normalized";
-            /** Notes */
-            notes?: string[];
-            /** Points */
-            points: components["schemas"]["GlucoseDashboardPoint"][];
-            quality: components["schemas"]["SensorQualityResponse"];
-            /** Sensors */
-            sensors: components["schemas"]["SensorSessionResponse"][];
-            summary: components["schemas"]["GlucoseDashboardSummary"];
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * GlucoseDashboardSummary
-         * @description Compact dashboard status values.
-         */
-        GlucoseDashboardSummary: {
-            /** Bias Mmol L */
-            bias_mmol_l?: number | null;
-            /**
-             * Calibration Confidence
-             * @enum {string}
-             */
-            calibration_confidence: "none" | "low" | "medium" | "high";
-            /**
-             * Cob G
-             * @default 0
-             */
-            cob_g: number;
-            /**
-             * Cob Minutes Remaining
-             * @default 0
-             */
-            cob_minutes_remaining: number;
-            /**
-             * Cob Model Confidence
-             * @default none
-             * @enum {string}
-             */
-            cob_model_confidence: "none" | "low" | "medium" | "high";
-            /**
-             * Cob Model Source
-             * @default macro_prior
-             * @enum {string}
-             */
-            cob_model_source: "macro_prior" | "personalized";
-            /** Current Glucose */
-            current_glucose?: number | null;
-            /** Current Glucose At */
-            current_glucose_at?: string | null;
-            /** Drift Mmol L Per Day */
-            drift_mmol_l_per_day?: number | null;
-            /**
-             * Iob Minutes Remaining
-             * @default 0
-             */
-            iob_minutes_remaining: number;
-            /**
-             * Iob Model Confidence
-             * @default none
-             * @enum {string}
-             */
-            iob_model_confidence: "none" | "low" | "medium" | "high";
-            /**
-             * Iob Model Source
-             * @default population
-             * @enum {string}
-             */
-            iob_model_source: "population" | "personalized";
-            /**
-             * Iob Units
-             * @default 0
-             */
-            iob_units: number;
-            /** Sensor Age Days */
-            sensor_age_days?: number | null;
-            /** Suspected Compression Count */
-            suspected_compression_count: number;
-        };
-        /**
-         * GlucoseTirDailyResponse
-         * @description Daily TIR distribution for a stats period (gluco feature only).
-         */
-        GlucoseTirDailyResponse: {
-            /** Days */
-            days: components["schemas"]["GlucoseTirDayResponse"][];
-            /**
-             * Period
-             * @enum {string}
-             */
-            period: "7d" | "14d" | "30d";
-        };
-        /**
-         * GlucoseTirDayResponse
-         * @description Per-day share of CGM points across display TIR bands (gluco only).
-         */
-        GlucoseTirDayResponse: {
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** High Pct */
-            high_pct?: number | null;
-            /** In Range Pct */
-            in_range_pct?: number | null;
-            /** Low Pct */
-            low_pct?: number | null;
-            /** Points */
-            points: number;
-            /** Very High Pct */
-            very_high_pct?: number | null;
-            /** Very Low Pct */
-            very_low_pct?: number | null;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * HealthResponse
-         * @description Service health response.
-         */
-        HealthResponse: {
-            /**
-             * Db
-             * @example not_checked
-             */
-            db: string;
-            /**
-             * Status
-             * @example ok
-             */
-            status: string;
-            /**
-             * Version
-             * @example 0.1.0
-             */
-            version: string;
-        };
-        /**
-         * InsulinLinkDayPutRequest
-         * @description Replace reviewed food/insulin links for one day atomically.
-         */
-        InsulinLinkDayPutRequest: {
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Links */
-            links?: components["schemas"]["MealInsulinLinkItem"][];
-            /** Reviewed Insulin Event Ids */
-            reviewed_insulin_event_ids?: string[];
-        };
-        /**
-         * InsulinLinkDayResponse
-         * @description One-day workspace for reviewing food and insulin event links.
-         */
-        InsulinLinkDayResponse: {
-            /** Auto Links */
-            auto_links: components["schemas"]["MealInsulinLinkItem"][];
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Insulin Events */
-            insulin_events: components["schemas"]["InsulinLinkEventResponse"][];
-            /** Links */
-            links: components["schemas"]["MealInsulinLinkItem"][];
-            /** Meals */
-            meals: components["schemas"]["InsulinLinkMealResponse"][];
-            /** Reviewed Insulin Event Ids */
-            reviewed_insulin_event_ids?: string[];
-        };
-        /**
-         * InsulinLinkEventResponse
-         * @description Insulin event with backend-owned contextual label and link hints.
-         */
-        InsulinLinkEventResponse: {
-            /** Confidence */
-            confidence?: number | null;
-            /**
-             * Context Label
-             * @enum {string}
-             */
-            context_label: "food" | "correction" | "mixed" | "unresolved" | "manual";
-            /**
-             * Covers Multiple Food Events
-             * @default false
-             */
-            covers_multiple_food_events: boolean;
-            /** Enteredby */
-            enteredBy?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Insulin Type */
-            insulin_type?: string | null;
-            /** Insulin Units */
-            insulin_units?: number | null;
-            /**
-             * Link Source
-             * @enum {string}
-             */
-            link_source: "manual" | "auto" | "none";
-            /** Linked Meal Ids */
-            linked_meal_ids?: string[];
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /** Raw Event Type */
-            raw_event_type?: string | null;
-            /** Reason */
-            reason: string;
-            /** Suggested Meal Ids */
-            suggested_meal_ids?: string[];
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * InsulinLinkGlucoseAnchorResponse
-         * @description CGM value sampled around a food/insulin episode.
-         */
-        InsulinLinkGlucoseAnchorResponse: {
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "actual" | "interpolated";
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-            /** Value */
-            value: number;
-        };
-        /**
-         * InsulinLinkMealResponse
-         * @description Compact food event for one-day insulin review.
-         */
-        InsulinLinkMealResponse: {
-            /**
-             * Eaten At
-             * Format: date-time
-             */
-            eaten_at: string;
-            glucose_minus_30?: components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
-            glucose_plus_2h?: components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Title */
-            title: string;
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Kcal */
-            total_kcal: number;
-        };
-        /**
-         * IssuedTokensResponse
-         * @description Issued access and refresh token response.
-         */
-        IssuedTokensResponse: {
-            /** Access */
-            access: string;
-            /**
-             * Access Expires At
-             * Format: date-time
-             */
-            access_expires_at: string;
-            /** Refresh */
-            refresh: string;
-            /**
-             * Refresh Expires At
-             * Format: date-time
-             */
-            refresh_expires_at: string;
-        };
-        /**
-         * ItemSourceKind
-         * @description Origin of an individual meal item estimate or calculation.
-         * @enum {string}
-         */
-        ItemSourceKind: "photo_estimate" | "label_calc" | "restaurant_db" | "product_db" | "pattern" | "manual";
-        /** KcalBalanceDay */
-        KcalBalanceDay: {
-            /** Activity Source */
-            activity_source?: string | null;
-            /**
-             * Bmr Available
-             * @default false
-             */
-            bmr_available: boolean;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Kcal In */
-            kcal_in: number;
-            /** Net Balance */
-            net_balance?: number | null;
-            /**
-             * Steps
-             * @default 0
-             */
-            steps: number;
-            /** Tdee */
-            tdee?: number | null;
-        };
-        /** KcalBalanceRangeResponse */
-        KcalBalanceRangeResponse: {
-            /** Days */
-            days: components["schemas"]["KcalBalanceDay"][];
-        };
-        /** KcalBalanceResponse */
-        KcalBalanceResponse: {
-            /** Activity Source */
-            activity_source?: string | null;
-            /**
-             * Bmr Available
-             * @default false
-             */
-            bmr_available: boolean;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Kcal Burned */
-            kcal_burned: number;
-            /** Kcal In */
-            kcal_in: number;
-            /** Net Balance */
-            net_balance?: number | null;
-            /**
-             * Steps
-             * @default 0
-             */
-            steps: number;
-            /** Tdee */
-            tdee?: number | null;
-        };
-        /**
-         * LoginRequest
-         * @description Username/password login payload.
-         */
-        LoginRequest: {
-            /** Password */
-            password: string;
-            /** Username */
-            username: string;
-        };
-        /**
-         * LogoutRequest
-         * @description Refresh-token revocation payload.
-         */
-        LogoutRequest: {
-            /** Refresh Token */
-            refresh_token: string;
-        };
-        /**
-         * LowConfidenceItemResponse
-         * @description Low-confidence item row.
-         */
-        LowConfidenceItemResponse: {
-            /** Confidence */
-            confidence?: number | null;
-            /**
-             * Item Id
-             * Format: uuid
-             */
-            item_id: string;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Name */
-            name: string;
-            /** Reason */
-            reason?: string | null;
-        };
-        /**
-         * MealAcceptRequest
-         * @description Accept a draft by replacing its items atomically.
-         * @example {
-         *       "items": [
-         *         {
-         *           "carbs_g": 68,
-         *           "confidence": 0.72,
-         *           "fat_g": 5,
-         *           "fiber_g": 4,
-         *           "grams": 220,
-         *           "kcal": 365,
-         *           "name": "Pasta",
-         *           "protein_g": 12,
-         *           "source_kind": "photo_estimate"
-         *         }
-         *       ]
-         *     }
-         */
-        MealAcceptRequest: {
-            /** Items */
-            items?: components["schemas"]["MealItemCreate"][];
-        };
-        /**
-         * MealCreate
-         * @description Create a meal with optional inline items.
-         * @example {
-         *       "eaten_at": "2026-04-28T08:30:00",
-         *       "idempotency_key": "11111111-1111-1111-1111-111111111111",
-         *       "items": [
-         *         {
-         *           "carbs_g": 8,
-         *           "fat_g": 4,
-         *           "fiber_g": 0,
-         *           "grams": 150,
-         *           "kcal": 128,
-         *           "name": "Greek yogurt",
-         *           "protein_g": 15,
-         *           "source_kind": "manual"
-         *         }
-         *       ],
-         *       "note": "Manual entry",
-         *       "source": "manual",
-         *       "title": "Breakfast"
-         *     }
-         */
-        MealCreate: {
-            /**
-             * Eaten At
-             * Format: date-time
-             */
-            eaten_at?: string;
-            /** Idempotency Key */
-            idempotency_key?: string | null;
-            /** Items */
-            items?: components["schemas"]["MealItemCreate"][];
-            /**
-             * Note
-             * @example Post-run meal
-             */
-            note?: string | null;
-            /** @example manual */
-            source: components["schemas"]["MealSource"];
-            status?: components["schemas"]["MealStatus"] | null;
-            /**
-             * Title
-             * @example Breakfast
-             */
-            title?: string | null;
-        };
-        /**
-         * MealInsulinLinkItem
-         * @description One reviewed many-to-many food/insulin link.
-         */
-        MealInsulinLinkItem: {
-            /** Confidence */
-            confidence?: number | null;
-            /**
-             * Insulin Event Id
-             * Format: uuid
-             */
-            insulin_event_id: string;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Note */
-            note?: string | null;
-            /**
-             * Source
-             * @default manual
-             * @enum {string}
-             */
-            source: "manual" | "auto";
-        };
-        /**
-         * MealItemCreate
-         * @description Create a meal item.
-         * @example {
-         *       "assumptions": [],
-         *       "brand": "Local Dairy",
-         *       "calculation_method": "manual",
-         *       "carbs_g": 8,
-         *       "evidence": {},
-         *       "fat_g": 4,
-         *       "fiber_g": 0,
-         *       "grams": 150,
-         *       "kcal": 128,
-         *       "name": "Greek yogurt",
-         *       "position": 0,
-         *       "protein_g": 15,
-         *       "source_kind": "manual",
-         *       "warnings": []
-         *     }
-         */
-        MealItemCreate: {
-            /** Assumptions */
-            assumptions?: unknown[];
-            /**
-             * Brand
-             * @example Local Dairy
-             */
-            brand?: string | null;
-            /**
-             * Calculation Method
-             * @example manual
-             */
-            calculation_method?: string | null;
-            /**
-             * Carbs G
-             * @default 0
-             * @example 8
-             */
-            carbs_g: number;
-            /**
-             * Confidence
-             * @example 0.9
-             */
-            confidence?: number | null;
-            /**
-             * Confidence Reason
-             * @example Label values
-             */
-            confidence_reason?: string | null;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Fat G
-             * @default 0
-             * @example 4
-             */
-            fat_g: number;
-            /**
-             * Fiber G
-             * @default 0
-             * @example 0
-             */
-            fiber_g: number;
-            /**
-             * Grams
-             * @example 150
-             */
-            grams?: number | null;
-            /**
-             * Kcal
-             * @default 0
-             * @example 128
-             */
-            kcal: number;
-            /**
-             * Name
-             * @example Greek yogurt
-             */
-            name: string;
-            /** Nutrients */
-            nutrients?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /** Pattern Id */
-            pattern_id?: string | null;
-            /** Photo Id */
-            photo_id?: string | null;
-            /**
-             * Position
-             * @default 0
-             * @example 0
-             */
-            position: number;
-            /** Product Id */
-            product_id?: string | null;
-            /**
-             * Protein G
-             * @default 0
-             * @example 15
-             */
-            protein_g: number;
-            /**
-             * Serving Text
-             * @example 1 cup
-             */
-            serving_text?: string | null;
-            /** @default manual */
-            source_kind: components["schemas"]["ItemSourceKind"];
-            /** Warnings */
-            warnings?: unknown[];
-        };
-        /**
-         * MealItemNutrientResponse
-         * @description Stored optional nutrient amount for a meal item.
-         */
-        MealItemNutrientResponse: {
-            /** Amount */
-            amount?: number | null;
-            /** Assumptions Json */
-            assumptions_json?: unknown[];
-            /** Confidence */
-            confidence?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Evidence Json */
-            evidence_json?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Meal Item Id
-             * Format: uuid
-             */
-            meal_item_id: string;
-            /** Nutrient Code */
-            nutrient_code: string;
-            /** Source Kind */
-            source_kind: string;
-            /** Unit */
-            unit: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * MealItemPatch
-         * @description Patch a meal item.
-         * @example {
-         *       "carbs_g": 9.6,
-         *       "fat_g": 4.8,
-         *       "grams": 180,
-         *       "kcal": 154,
-         *       "protein_g": 18
-         *     }
-         */
-        MealItemPatch: {
-            /** Assumptions */
-            assumptions?: unknown[] | null;
-            /** Brand */
-            brand?: string | null;
-            /** Calculation Method */
-            calculation_method?: string | null;
-            /** Carbs G */
-            carbs_g?: number | null;
-            /** Confidence */
-            confidence?: number | null;
-            /** Confidence Reason */
-            confidence_reason?: string | null;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            } | null;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Fiber G */
-            fiber_g?: number | null;
-            /** Grams */
-            grams?: number | null;
-            /** Kcal */
-            kcal?: number | null;
-            /** Name */
-            name?: string | null;
-            /** Nutrients */
-            nutrients?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            } | null;
-            /** Pattern Id */
-            pattern_id?: string | null;
-            /** Photo Id */
-            photo_id?: string | null;
-            /** Position */
-            position?: number | null;
-            /** Product Id */
-            product_id?: string | null;
-            /** Protein G */
-            protein_g?: number | null;
-            /** Serving Text */
-            serving_text?: string | null;
-            source_kind?: components["schemas"]["ItemSourceKind"] | null;
-            /** Warnings */
-            warnings?: unknown[] | null;
-        };
-        /**
-         * MealItemResponse
-         * @description Meal item response.
-         */
-        MealItemResponse: {
-            /** Assumptions */
-            assumptions?: unknown[];
-            /**
-             * Brand
-             * @example Local Dairy
-             */
-            brand?: string | null;
-            /**
-             * Calculation Method
-             * @example manual
-             */
-            calculation_method?: string | null;
-            /**
-             * Carbs G
-             * @default 0
-             * @example 8
-             */
-            carbs_g: number;
-            /**
-             * Confidence
-             * @example 0.9
-             */
-            confidence?: number | null;
-            /**
-             * Confidence Reason
-             * @example Label values
-             */
-            confidence_reason?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Evidence */
-            evidence?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Fat G
-             * @default 0
-             * @example 4
-             */
-            fat_g: number;
-            /**
-             * Fiber G
-             * @default 0
-             * @example 0
-             */
-            fiber_g: number;
-            /**
-             * Grams
-             * @example 150
-             */
-            grams?: number | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Image Cache Path */
-            image_cache_path?: string | null;
-            /** Image Url */
-            image_url?: string | null;
-            /**
-             * Kcal
-             * @default 0
-             * @example 128
-             */
-            kcal: number;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /**
-             * Name
-             * @example Greek yogurt
-             */
-            name: string;
-            /** Nutrients */
-            nutrients?: components["schemas"]["MealItemNutrientResponse"][];
-            /** Pattern Id */
-            pattern_id?: string | null;
-            /** Photo Id */
-            photo_id?: string | null;
-            /**
-             * Position
-             * @default 0
-             * @example 0
-             */
-            position: number;
-            /** Product Id */
-            product_id?: string | null;
-            /**
-             * Protein G
-             * @default 0
-             * @example 15
-             */
-            protein_g: number;
-            /**
-             * Serving Text
-             * @example 1 cup
-             */
-            serving_text?: string | null;
-            /** Source Image Url */
-            source_image_url?: string | null;
-            /** @default manual */
-            source_kind: components["schemas"]["ItemSourceKind"];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Warnings */
-            warnings?: unknown[];
-        };
-        /**
-         * MealItemWeightReuseRequest
-         * @description Create a new meal from an existing item scaled to a target weight.
-         */
-        MealItemWeightReuseRequest: {
-            /** Eaten At */
-            eaten_at?: string | null;
-            /**
-             * Grams
-             * @example 127
-             */
-            grams: number;
-        };
-        /**
-         * MealPageResponse
-         * @description Paginated meal list response.
-         */
-        MealPageResponse: {
-            /** Items */
-            items: components["schemas"]["MealResponse"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * MealPatch
-         * @description Patch editable meal fields.
-         * @example {
-         *       "note": "Corrected note",
-         *       "title": "Updated breakfast"
-         *     }
-         */
-        MealPatch: {
-            /** Eaten At */
-            eaten_at?: string | null;
-            /** Note */
-            note?: string | null;
-            status?: components["schemas"]["MealStatus"] | null;
-            /** Title */
-            title?: string | null;
-        };
-        /**
-         * MealResponse
-         * @description Meal response including backend-calculated totals.
-         */
-        MealResponse: {
-            /** Confidence */
-            confidence?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Derived Categories */
-            derived_categories?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Eaten At
-             * Format: date-time
-             */
-            eaten_at: string;
-            /** Estimate Error */
-            estimate_error?: string | null;
-            /** Estimate Status */
-            estimate_status?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Items */
-            items?: components["schemas"]["MealItemResponse"][];
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /** Nightscout Last Attempt At */
-            nightscout_last_attempt_at?: string | null;
-            /** Nightscout Sync Error */
-            nightscout_sync_error?: string | null;
-            /**
-             * Nightscout Sync Status
-             * @default not_synced
-             */
-            nightscout_sync_status: string;
-            /** Nightscout Synced At */
-            nightscout_synced_at?: string | null;
-            /** Note */
-            note?: string | null;
-            /** Photo Idempotency Key */
-            photo_idempotency_key?: string | null;
-            /** Photos */
-            photos?: components["schemas"]["PhotoResponse"][];
-            /** Postprandial Response */
-            postprandial_response?: {
-                [key: string]: unknown;
-            } | null;
-            source: components["schemas"]["MealSource"];
-            status: components["schemas"]["MealStatus"];
-            /** Tags */
-            tags?: string[];
-            /** Thumbnail Url */
-            thumbnail_url?: string | null;
-            /** Title */
-            title?: string | null;
-            /** Total Carbs G */
-            total_carbs_g: number;
-            /** Total Fat G */
-            total_fat_g: number;
-            /** Total Fiber G */
-            total_fiber_g: number;
-            /** Total Kcal */
-            total_kcal: number;
-            /** Total Protein G */
-            total_protein_g: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * MealSource
-         * @description Origin of a meal journal entry.
-         * @enum {string}
-         */
-        MealSource: "photo" | "pattern" | "manual" | "mixed";
-        /**
-         * MealStatus
-         * @description Lifecycle state for a meal journal entry.
-         * @enum {string}
-         */
-        MealStatus: "draft" | "accepted" | "discarded";
-        /**
-         * MealTotalsResponse
-         * @description Backend-calculated meal totals.
-         */
-        MealTotalsResponse: {
-            /**
-             * Total Carbs G
-             * @example 42
-             */
-            total_carbs_g: number;
-            /**
-             * Total Fat G
-             * @example 12
-             */
-            total_fat_g: number;
-            /**
-             * Total Fiber G
-             * @example 5
-             */
-            total_fiber_g: number;
-            /**
-             * Total Kcal
-             * @example 348
-             */
-            total_kcal: number;
-            /**
-             * Total Protein G
-             * @example 18
-             */
-            total_protein_g: number;
-        };
-        /**
-         * MobilePhotoEstimateLogEvent
-         * @description One Android-side photo estimation pipeline diagnostic event.
-         */
-        MobilePhotoEstimateLogEvent: {
-            /** Android Sdk */
-            android_sdk?: number | null;
-            /** App Flavor */
-            app_flavor?: string | null;
-            /** App Version */
-            app_version?: string | null;
-            /** Attempt */
-            attempt?: number | null;
-            /** Captured At */
-            captured_at?: string | null;
-            /** Detail */
-            detail?: {
-                [key: string]: unknown;
-            };
-            /** Device Model */
-            device_model?: string | null;
-            /** Error Code */
-            error_code?: string | null;
-            /** Error Message */
-            error_message?: string | null;
-            /** Estimate Status */
-            estimate_status?: string | null;
-            /**
-             * Event At
-             * Format: date-time
-             */
-            event_at: string;
-            /** Event Id */
-            event_id: string;
-            /** Event Type */
-            event_type: string;
-            /** Http Status */
-            http_status?: number | null;
-            /** Idempotency Key */
-            idempotency_key?: string | null;
-            /** Outbox Id */
-            outbox_id?: string | null;
-            /** Queued Delay Ms */
-            queued_delay_ms?: number | null;
-            /** Retry Delay Ms */
-            retry_delay_ms?: number | null;
-            /** Server Meal Id */
-            server_meal_id?: string | null;
-            /** Source */
-            source?: string | null;
-            /** Total Elapsed Ms */
-            total_elapsed_ms?: number | null;
-            /** Trace Id */
-            trace_id: string;
-            /** Upload Duration Ms */
-            upload_duration_ms?: number | null;
-        };
-        /**
-         * MobilePhotoEstimateLogRequest
-         * @description Batch of mobile photo-estimation diagnostic events.
-         */
-        MobilePhotoEstimateLogRequest: {
-            /** Client Sent At */
-            client_sent_at?: string | null;
-            /** Events */
-            events: components["schemas"]["MobilePhotoEstimateLogEvent"][];
-        };
-        /**
-         * MobilePhotoEstimateLogResponse
-         * @description Server-side log ingest acknowledgement.
-         */
-        MobilePhotoEstimateLogResponse: {
-            /** Accepted Count */
-            accepted_count: number;
-        };
-        /**
-         * NightscoutDayStatusResponse
-         * @description Nightscout sync status for one diary day.
-         */
-        NightscoutDayStatusResponse: {
-            /** Accepted Meals Count */
-            accepted_meals_count: number;
-            /** Configured */
-            configured: boolean;
-            /** Connected */
-            connected: boolean;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Failed Meals Count */
-            failed_meals_count: number;
-            /** Last Sync At */
-            last_sync_at?: string | null;
-            /** Synced Meals Count */
-            synced_meals_count: number;
-            /** Unsynced Meals Count */
-            unsynced_meals_count: number;
-        };
-        /**
-         * NightscoutEventsResponse
-         * @description Combined read-only Nightscout context events.
-         */
-        NightscoutEventsResponse: {
-            /** Glucose */
-            glucose: components["schemas"]["NightscoutGlucoseEntryResponse"][];
-            /** Insulin */
-            insulin: components["schemas"]["NightscoutInsulinEventResponse"][];
-        };
-        /**
-         * NightscoutGlucoseEntryResponse
-         * @description Read-only Nightscout glucose entry normalized for UI context.
-         */
-        NightscoutGlucoseEntryResponse: {
-            /** Source */
-            source?: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-            /** Trend */
-            trend?: string | null;
-            /**
-             * Unit
-             * @default mmol/L
-             */
-            unit: string;
-            /** Value */
-            value: number;
-        };
-        /**
-         * NightscoutImportRequest
-         * @description Import Nightscout context into the local read-only cache.
-         */
-        NightscoutImportRequest: {
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /**
-             * Import Insulin Events
-             * @default true
-             */
-            import_insulin_events: boolean;
-            /**
-             * Sync Glucose
-             * @default true
-             */
-            sync_glucose: boolean;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * NightscoutImportResponse
-         * @description Nightscout local cache import summary.
-         */
-        NightscoutImportResponse: {
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /** Glucose Imported */
-            glucose_imported: number;
-            /** Glucose Total */
-            glucose_total: number;
-            /** Insulin Imported */
-            insulin_imported: number;
-            /** Insulin Total */
-            insulin_total: number;
-            /** Last Error */
-            last_error?: string | null;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * NightscoutInsulinEntryCreate
-         * @description Manual insulin amount to write as a Nightscout treatment.
-         */
-        NightscoutInsulinEntryCreate: {
-            /** Idempotency Key */
-            idempotency_key?: string | null;
-            /** Insulin Units */
-            insulin_units: number;
-            /** Recorded At */
-            recorded_at?: string | null;
-        };
-        /**
-         * NightscoutInsulinEventResponse
-         * @description Read-only Nightscout insulin event.
-         */
-        NightscoutInsulinEventResponse: {
-            /** Enteredby */
-            enteredBy?: string | null;
-            /** Eventtype */
-            eventType?: string | null;
-            /** Insulin Type */
-            insulin_type?: string | null;
-            /** Insulin Units */
-            insulin_units?: number | null;
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * NightscoutLatestReadingResponse
-         * @description Latest glucose reading from the local Nightscout cache.
-         */
-        NightscoutLatestReadingResponse: {
-            /** Sensor Id */
-            sensor_id?: string | null;
-            /** Timestamp */
-            timestamp?: string | null;
-            /**
-             * Total Entries
-             * @default 0
-             */
-            total_entries: number;
-            /** Trend */
-            trend?: string | null;
-            /** Value Mmol L */
-            value_mmol_l?: number | null;
-        };
-        /**
-         * NightscoutSettingsPatch
-         * @description Update server-side Nightscout settings.
-         */
-        NightscoutSettingsPatch: {
-            /** Allow Meal Send */
-            allow_meal_send?: boolean | null;
-            /** Autosend Meals */
-            autosend_meals?: boolean | null;
-            /** Confirm Before Send */
-            confirm_before_send?: boolean | null;
-            /** Import Insulin Events */
-            import_insulin_events?: boolean | null;
-            /** Nightscout Api Secret */
-            nightscout_api_secret?: string | null;
-            /** Nightscout Enabled */
-            nightscout_enabled?: boolean | null;
-            /** Nightscout Url */
-            nightscout_url?: string | null;
-            /** Show Glucose In Journal */
-            show_glucose_in_journal?: boolean | null;
-            /** Sync Glucose */
-            sync_glucose?: boolean | null;
-        };
-        /**
-         * NightscoutSettingsResponse
-         * @description Masked server-side Nightscout settings response.
-         */
-        NightscoutSettingsResponse: {
-            /** Allow Meal Send */
-            allow_meal_send: boolean;
-            /** Autosend Meals */
-            autosend_meals: boolean;
-            /** Configured */
-            configured: boolean;
-            /** Confirm Before Send */
-            confirm_before_send: boolean;
-            /** Connected */
-            connected: boolean;
-            /** Enabled */
-            enabled: boolean;
-            /** Import Insulin Events */
-            import_insulin_events: boolean;
-            /** Last Error */
-            last_error?: string | null;
-            /** Last Status Check At */
-            last_status_check_at?: string | null;
-            /** Secret Is Set */
-            secret_is_set: boolean;
-            /** Show Glucose In Journal */
-            show_glucose_in_journal: boolean;
-            /** Sync Glucose */
-            sync_glucose: boolean;
-            /** Url */
-            url?: string | null;
-        };
-        /**
-         * NightscoutStatusResponse
-         * @description Nightscout optional integration status.
-         */
-        NightscoutStatusResponse: {
-            /** Configured */
-            configured: boolean;
-            /** Status */
-            status?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * NightscoutSyncResponse
-         * @description Nightscout meal sync response.
-         */
-        NightscoutSyncResponse: {
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /** Nightscout Sync Error */
-            nightscout_sync_error?: string | null;
-            /** Nightscout Sync Status */
-            nightscout_sync_status?: string | null;
-            /** Nightscout Synced At */
-            nightscout_synced_at?: string | null;
-            /** Response */
-            response?: {
-                [key: string]: unknown;
-            } | null;
-            /** Synced */
-            synced: boolean;
-        };
-        /**
-         * NightscoutSyncTodayMealResult
-         * @description Result for one meal in a day sync run.
-         */
-        NightscoutSyncTodayMealResult: {
-            /** Error */
-            error?: string | null;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "sent" | "skipped" | "failed";
-            /** Title */
-            title?: string | null;
-        };
-        /**
-         * NightscoutSyncTodayRequest
-         * @description Request to manually sync one diary day to Nightscout.
-         */
-        NightscoutSyncTodayRequest: {
-            /**
-             * Confirm
-             * @default true
-             */
-            confirm: boolean;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-        };
-        /**
-         * NightscoutSyncTodayResponse
-         * @description Manual day sync summary.
-         */
-        NightscoutSyncTodayResponse: {
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Failed Count */
-            failed_count: number;
-            /** Results */
-            results: components["schemas"]["NightscoutSyncTodayMealResult"][];
-            /** Sent Count */
-            sent_count: number;
-            /** Skipped Count */
-            skipped_count: number;
-            /** Total Candidates */
-            total_candidates: number;
-        };
-        /**
-         * NightscoutTestResponse
-         * @description Nightscout connection test result.
-         */
-        NightscoutTestResponse: {
-            /** Error */
-            error?: string | null;
-            /** Ok */
-            ok: boolean;
-            /** Server Name */
-            server_name?: string | null;
-            /** Status */
-            status?: {
-                [key: string]: unknown;
-            } | null;
-            /** Version */
-            version?: string | null;
-        };
-        /**
-         * NonTypicalPeriodCreate
-         * @description Create a period excluded from day-anchor learning.
-         */
-        NonTypicalPeriodCreate: {
-            /**
-             * End Date
-             * Format: date
-             */
-            end_date: string;
-            /** Note */
-            note?: string | null;
-            /**
-             * Start Date
-             * Format: date
-             */
-            start_date: string;
-        };
-        /**
-         * NonTypicalPeriodResponse
-         * @description Date range excluded from automatic day-anchor learning.
-         */
-        NonTypicalPeriodResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * End Date
-             * Format: date
-             */
-            end_date: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Note */
-            note?: string | null;
-            /**
-             * Start Date
-             * Format: date
-             */
-            start_date: string;
-        };
-        /**
-         * NutrientDefinitionResponse
-         * @description Nutrient catalog entry response.
-         */
-        NutrientDefinitionResponse: {
-            /** Category */
-            category: string;
-            /** Code */
-            code: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Display Name */
-            display_name: string;
-            /** Unit */
-            unit: string;
-        };
-        /**
-         * NutrientInput
-         * @description Optional nutrient input attached to a meal item or seed record.
-         */
-        NutrientInput: {
-            /**
-             * Amount
-             * @example 120
-             */
-            amount?: number | null;
-            /** Assumptions Json */
-            assumptions_json?: unknown[];
-            /**
-             * Confidence
-             * @example 0.95
-             */
-            confidence?: number | null;
-            /** Evidence Json */
-            evidence_json?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Source Kind
-             * @example manual
-             */
-            source_kind?: string | null;
-            /**
-             * Unit
-             * @example mg
-             */
-            unit?: string | null;
-        };
-        /**
-         * PatternCreate
-         * @description Create a reusable meal item pattern.
-         * @example {
-         *       "aliases": [
-         *         "воппер",
-         *         "вопер",
-         *         "whopper"
-         *       ],
-         *       "default_carbs_g": 51,
-         *       "default_fat_g": 35,
-         *       "default_fiber_g": 3,
-         *       "default_grams": 270,
-         *       "default_kcal": 635,
-         *       "default_protein_g": 28,
-         *       "display_name": "Whopper",
-         *       "key": "whopper",
-         *       "prefix": "bk",
-         *       "source_url": "https://origin.bk.com/pdfs/nutrition.pdf"
-         *     }
-         */
-        PatternCreate: {
-            /**
-             * Aliases
-             * @example [
-             *       "воппер"
-             *     ]
-             */
-            aliases?: string[];
-            /**
-             * Default Carbs G
-             * @default 0
-             * @example 51
-             */
-            default_carbs_g: number;
-            /**
-             * Default Fat G
-             * @default 0
-             * @example 35
-             */
-            default_fat_g: number;
-            /**
-             * Default Fiber G
-             * @default 0
-             * @example 3
-             */
-            default_fiber_g: number;
-            /**
-             * Default Grams
-             * @example 270
-             */
-            default_grams?: number | null;
-            /**
-             * Default Kcal
-             * @default 0
-             * @example 635
-             */
-            default_kcal: number;
-            /**
-             * Default Protein G
-             * @default 0
-             * @example 28
-             */
-            default_protein_g: number;
-            /**
-             * Display Name
-             * @example Whopper
-             */
-            display_name: string;
-            /**
-             * Image Url
-             * @example https://example.test/item.png
-             */
-            image_url?: string | null;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean;
-            /**
-             * Key
-             * @example whopper
-             */
-            key: string;
-            /**
-             * Nutrients Json
-             * @example {
-             *       "sodium_mg": {
-             *         "amount": 980,
-             *         "unit": "mg"
-             *       }
-             *     }
-             */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /**
-             * Per 100G Carbs G
-             * @example 19
-             */
-            per_100g_carbs_g?: number | null;
-            /**
-             * Per 100G Fat G
-             * @example 16
-             */
-            per_100g_fat_g?: number | null;
-            /**
-             * Per 100G Kcal
-             * @example 260
-             */
-            per_100g_kcal?: number | null;
-            /**
-             * Per 100G Protein G
-             * @example 10
-             */
-            per_100g_protein_g?: number | null;
-            /**
-             * Prefix
-             * @example bk
-             */
-            prefix: string;
-            /**
-             * Source Confidence
-             * @example official_pdf
-             */
-            source_confidence?: string | null;
-            /**
-             * Source File
-             * @example bk.generated.pdf
-             */
-            source_file?: string | null;
-            /**
-             * Source Name
-             * @example Burger King official PDF
-             */
-            source_name?: string | null;
-            /**
-             * Source Page
-             * @example 1
-             */
-            source_page?: number | null;
-            /**
-             * Source Url
-             * @example https://example.test
-             */
-            source_url?: string | null;
-        };
-        /**
-         * PatternPageResponse
-         * @description Paginated pattern list response.
-         */
-        PatternPageResponse: {
-            /** Items */
-            items: components["schemas"]["PatternResponse"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * PatternPatch
-         * @description Patch a reusable meal item pattern.
-         */
-        PatternPatch: {
-            /** Aliases */
-            aliases?: string[] | null;
-            /** Default Carbs G */
-            default_carbs_g?: number | null;
-            /** Default Fat G */
-            default_fat_g?: number | null;
-            /** Default Fiber G */
-            default_fiber_g?: number | null;
-            /** Default Grams */
-            default_grams?: number | null;
-            /** Default Kcal */
-            default_kcal?: number | null;
-            /** Default Protein G */
-            default_protein_g?: number | null;
-            /** Display Name */
-            display_name?: string | null;
-            /** Image Url */
-            image_url?: string | null;
-            /** Is Archived */
-            is_archived?: boolean | null;
-            /** Is Verified */
-            is_verified?: boolean | null;
-            /** Key */
-            key?: string | null;
-            /** Nutrients Json */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            } | null;
-            /** Per 100G Carbs G */
-            per_100g_carbs_g?: number | null;
-            /** Per 100G Fat G */
-            per_100g_fat_g?: number | null;
-            /** Per 100G Kcal */
-            per_100g_kcal?: number | null;
-            /** Per 100G Protein G */
-            per_100g_protein_g?: number | null;
-            /** Prefix */
-            prefix?: string | null;
-            /** Source Confidence */
-            source_confidence?: string | null;
-            /** Source File */
-            source_file?: string | null;
-            /** Source Name */
-            source_name?: string | null;
-            /** Source Page */
-            source_page?: number | null;
-            /** Source Url */
-            source_url?: string | null;
-        };
-        /**
-         * PatternResponse
-         * @description Pattern response.
-         */
-        PatternResponse: {
-            /** Aliases */
-            aliases?: string[];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Default Carbs G
-             * @default 0
-             * @example 51
-             */
-            default_carbs_g: number;
-            /**
-             * Default Fat G
-             * @default 0
-             * @example 35
-             */
-            default_fat_g: number;
-            /**
-             * Default Fiber G
-             * @default 0
-             * @example 3
-             */
-            default_fiber_g: number;
-            /**
-             * Default Grams
-             * @example 270
-             */
-            default_grams?: number | null;
-            /**
-             * Default Kcal
-             * @default 0
-             * @example 635
-             */
-            default_kcal: number;
-            /**
-             * Default Protein G
-             * @default 0
-             * @example 28
-             */
-            default_protein_g: number;
-            /**
-             * Display Name
-             * @example Whopper
-             */
-            display_name: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Image Url
-             * @example https://example.test/item.png
-             */
-            image_url?: string | null;
-            /** Is Archived */
-            is_archived: boolean;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean;
-            /**
-             * Key
-             * @example whopper
-             */
-            key: string;
-            /** Last Used At */
-            last_used_at?: string | null;
-            /** Matched Alias */
-            matched_alias?: string | null;
-            /**
-             * Nutrients Json
-             * @example {
-             *       "sodium_mg": {
-             *         "amount": 980,
-             *         "unit": "mg"
-             *       }
-             *     }
-             */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /**
-             * Per 100G Carbs G
-             * @example 19
-             */
-            per_100g_carbs_g?: number | null;
-            /**
-             * Per 100G Fat G
-             * @example 16
-             */
-            per_100g_fat_g?: number | null;
-            /**
-             * Per 100G Kcal
-             * @example 260
-             */
-            per_100g_kcal?: number | null;
-            /**
-             * Per 100G Protein G
-             * @example 10
-             */
-            per_100g_protein_g?: number | null;
-            /**
-             * Prefix
-             * @example bk
-             */
-            prefix: string;
-            /**
-             * Source Confidence
-             * @example official_pdf
-             */
-            source_confidence?: string | null;
-            /**
-             * Source File
-             * @example bk.generated.pdf
-             */
-            source_file?: string | null;
-            /**
-             * Source Name
-             * @example Burger King official PDF
-             */
-            source_name?: string | null;
-            /**
-             * Source Page
-             * @example 1
-             */
-            source_page?: number | null;
-            /**
-             * Source Url
-             * @example https://example.test
-             */
-            source_url?: string | null;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Usage Count */
-            usage_count: number;
-        };
-        /**
-         * PhotoCaptureResponse
-         * @description Accepted single-call photo capture response.
-         */
-        PhotoCaptureResponse: {
-            /**
-             * Captured At
-             * Format: date-time
-             */
-            captured_at: string;
-            /**
-             * Estimate Status
-             * @enum {string}
-             */
-            estimate_status: "estimating" | "succeeded" | "failed" | "timeout" | "error";
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Photo Url */
-            photo_url: string;
-        };
-        /**
-         * PhotoReferenceKind
-         * @description Reference object detected or supplied for photo scale estimation.
-         * @enum {string}
-         */
-        PhotoReferenceKind: "coin_5rub" | "card" | "hand" | "fork" | "plate" | "none";
-        /**
-         * PhotoResponse
-         * @description Photo response embedded in meal detail responses.
-         */
-        PhotoResponse: {
-            /** Content Type */
-            content_type?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Gemini Response Raw */
-            gemini_response_raw?: {
-                [key: string]: unknown;
-            } | null;
-            /** Has Reference Object */
-            has_reference_object: boolean;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Original Filename */
-            original_filename?: string | null;
-            /** Path */
-            path: string;
-            reference_kind: components["schemas"]["PhotoReferenceKind"];
-            scenario: components["schemas"]["PhotoScenario"];
-            /** Taken At */
-            taken_at?: string | null;
-        };
-        /**
-         * PhotoScenario
-         * @description Scenario represented by an uploaded meal or label photo.
-         * @enum {string}
-         */
-        PhotoScenario: "label_full" | "label_partial" | "plated" | "barcode" | "reference" | "unknown";
-        /**
-         * ProductCreate
-         * @description Create a saved packaged food product.
-         * @example {
-         *       "aliases": [
-         *         "crackers"
-         *       ],
-         *       "barcode": "4601234567890",
-         *       "brand": "Example Foods",
-         *       "carbs_per_100g": 62,
-         *       "default_grams": 30,
-         *       "default_serving_text": "6 crackers",
-         *       "fat_per_100g": 9,
-         *       "fiber_per_100g": 7,
-         *       "kcal_per_100g": 410,
-         *       "name": "Whole grain crackers",
-         *       "protein_per_100g": 11,
-         *       "source_kind": "manual"
-         *     }
-         */
-        ProductCreate: {
-            /**
-             * Aliases
-             * @example [
-             *       "crackers"
-             *     ]
-             */
-            aliases?: string[];
-            /**
-             * Barcode
-             * @example 4601234567890
-             */
-            barcode?: string | null;
-            /**
-             * Brand
-             * @example Example Foods
-             */
-            brand?: string | null;
-            /**
-             * Carbs Per 100G
-             * @example 62
-             */
-            carbs_per_100g?: number | null;
-            /**
-             * Carbs Per Serving
-             * @example 18.6
-             */
-            carbs_per_serving?: number | null;
-            /**
-             * Default Grams
-             * @example 30
-             */
-            default_grams?: number | null;
-            /**
-             * Default Serving Text
-             * @example 6 crackers
-             */
-            default_serving_text?: string | null;
-            /**
-             * Fat Per 100G
-             * @example 9
-             */
-            fat_per_100g?: number | null;
-            /**
-             * Fat Per Serving
-             * @example 2.7
-             */
-            fat_per_serving?: number | null;
-            /**
-             * Fiber Per 100G
-             * @example 7
-             */
-            fiber_per_100g?: number | null;
-            /**
-             * Fiber Per Serving
-             * @example 2.1
-             */
-            fiber_per_serving?: number | null;
-            /**
-             * Image Url
-             * @example https://example.test/item.png
-             */
-            image_url?: string | null;
-            /**
-             * Kcal Per 100G
-             * @example 410
-             */
-            kcal_per_100g?: number | null;
-            /**
-             * Kcal Per Serving
-             * @example 123
-             */
-            kcal_per_serving?: number | null;
-            /**
-             * Name
-             * @example Whole grain crackers
-             */
-            name: string;
-            /**
-             * Nutrients Json
-             * @example {
-             *       "sodium_mg": {
-             *         "amount": 220,
-             *         "unit": "mg"
-             *       }
-             *     }
-             */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /**
-             * Protein Per 100G
-             * @example 11
-             */
-            protein_per_100g?: number | null;
-            /**
-             * Protein Per Serving
-             * @example 3.3
-             */
-            protein_per_serving?: number | null;
-            /**
-             * Source Kind
-             * @default manual
-             * @example manual
-             */
-            source_kind: string;
-            /**
-             * Source Url
-             * @example https://example.test
-             */
-            source_url?: string | null;
-        };
-        /**
-         * ProductFromLabelRequest
-         * @description Create or update a product from manually confirmed label facts.
-         * @example {
-         *       "aliases": [
-         *         "burn zero peach mango"
-         *       ],
-         *       "barcode": "4601234567890",
-         *       "brand": "Burn",
-         *       "carbs_per_100g": 0,
-         *       "default_grams": 500,
-         *       "default_serving_text": "500 ml",
-         *       "fat_per_100g": 0,
-         *       "fiber_per_100g": 0,
-         *       "kcal_per_100g": 1,
-         *       "name": "Peach Mango Zero Sugar",
-         *       "protein_per_100g": 0,
-         *       "source_kind": "label_manual"
-         *     }
-         */
-        ProductFromLabelRequest: {
-            /**
-             * Aliases
-             * @example [
-             *       "crackers"
-             *     ]
-             */
-            aliases?: string[];
-            /**
-             * Barcode
-             * @example 4601234567890
-             */
-            barcode?: string | null;
-            /**
-             * Brand
-             * @example Example Foods
-             */
-            brand?: string | null;
-            /**
-             * Carbs Per 100G
-             * @example 62
-             */
-            carbs_per_100g?: number | null;
-            /**
-             * Carbs Per Serving
-             * @example 18.6
-             */
-            carbs_per_serving?: number | null;
-            /**
-             * Default Grams
-             * @example 30
-             */
-            default_grams?: number | null;
-            /**
-             * Default Serving Text
-             * @example 6 crackers
-             */
-            default_serving_text?: string | null;
-            /**
-             * Fat Per 100G
-             * @example 9
-             */
-            fat_per_100g?: number | null;
-            /**
-             * Fat Per Serving
-             * @example 2.7
-             */
-            fat_per_serving?: number | null;
-            /**
-             * Fiber Per 100G
-             * @example 7
-             */
-            fiber_per_100g?: number | null;
-            /**
-             * Fiber Per Serving
-             * @example 2.1
-             */
-            fiber_per_serving?: number | null;
-            /**
-             * Image Url
-             * @example https://example.test/item.png
-             */
-            image_url?: string | null;
-            /**
-             * Kcal Per 100G
-             * @example 410
-             */
-            kcal_per_100g?: number | null;
-            /**
-             * Kcal Per Serving
-             * @example 123
-             */
-            kcal_per_serving?: number | null;
-            /**
-             * Name
-             * @example Whole grain crackers
-             */
-            name: string;
-            /**
-             * Nutrients Json
-             * @example {
-             *       "sodium_mg": {
-             *         "amount": 220,
-             *         "unit": "mg"
-             *       }
-             *     }
-             */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /**
-             * Protein Per 100G
-             * @example 11
-             */
-            protein_per_100g?: number | null;
-            /**
-             * Protein Per Serving
-             * @example 3.3
-             */
-            protein_per_serving?: number | null;
-            /**
-             * Source Kind
-             * @default label_manual
-             * @example label_manual
-             */
-            source_kind: string;
-            /**
-             * Source Url
-             * @example https://example.test
-             */
-            source_url?: string | null;
-        };
-        /**
-         * ProductPageResponse
-         * @description Paginated product list response.
-         */
-        ProductPageResponse: {
-            /** Items */
-            items: components["schemas"]["ProductResponse"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * ProductPatch
-         * @description Patch a saved product.
-         * @example {
-         *       "aliases": [
-         *         "crackers"
-         *       ],
-         *       "brand": "Example Foods"
-         *     }
-         */
-        ProductPatch: {
-            /** Aliases */
-            aliases?: string[] | null;
-            /** Barcode */
-            barcode?: string | null;
-            /** Brand */
-            brand?: string | null;
-            /** Carbs Per 100G */
-            carbs_per_100g?: number | null;
-            /** Carbs Per Serving */
-            carbs_per_serving?: number | null;
-            /** Default Grams */
-            default_grams?: number | null;
-            /** Default Serving Text */
-            default_serving_text?: string | null;
-            /** Fat Per 100G */
-            fat_per_100g?: number | null;
-            /** Fat Per Serving */
-            fat_per_serving?: number | null;
-            /** Fiber Per 100G */
-            fiber_per_100g?: number | null;
-            /** Fiber Per Serving */
-            fiber_per_serving?: number | null;
-            /** Image Url */
-            image_url?: string | null;
-            /** Kcal Per 100G */
-            kcal_per_100g?: number | null;
-            /** Kcal Per Serving */
-            kcal_per_serving?: number | null;
-            /** Name */
-            name?: string | null;
-            /** Nutrients Json */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            } | null;
-            /** Protein Per 100G */
-            protein_per_100g?: number | null;
-            /** Protein Per Serving */
-            protein_per_serving?: number | null;
-            /** Source Kind */
-            source_kind?: string | null;
-            /** Source Url */
-            source_url?: string | null;
-        };
-        /**
-         * ProductResponse
-         * @description Product response.
-         */
-        ProductResponse: {
-            /** Aliases */
-            aliases?: string[];
-            /**
-             * Barcode
-             * @example 4601234567890
-             */
-            barcode?: string | null;
-            /**
-             * Brand
-             * @example Example Foods
-             */
-            brand?: string | null;
-            /**
-             * Carbs Per 100G
-             * @example 62
-             */
-            carbs_per_100g?: number | null;
-            /**
-             * Carbs Per Serving
-             * @example 18.6
-             */
-            carbs_per_serving?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Default Grams
-             * @example 30
-             */
-            default_grams?: number | null;
-            /**
-             * Default Serving Text
-             * @example 6 crackers
-             */
-            default_serving_text?: string | null;
-            /**
-             * Fat Per 100G
-             * @example 9
-             */
-            fat_per_100g?: number | null;
-            /**
-             * Fat Per Serving
-             * @example 2.7
-             */
-            fat_per_serving?: number | null;
-            /**
-             * Fiber Per 100G
-             * @example 7
-             */
-            fiber_per_100g?: number | null;
-            /**
-             * Fiber Per Serving
-             * @example 2.1
-             */
-            fiber_per_serving?: number | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Image Url
-             * @example https://example.test/item.png
-             */
-            image_url?: string | null;
-            /**
-             * Kcal Per 100G
-             * @example 410
-             */
-            kcal_per_100g?: number | null;
-            /**
-             * Kcal Per Serving
-             * @example 123
-             */
-            kcal_per_serving?: number | null;
-            /** Last Used At */
-            last_used_at?: string | null;
-            /**
-             * Name
-             * @example Whole grain crackers
-             */
-            name: string;
-            /**
-             * Nutrients Json
-             * @example {
-             *       "sodium_mg": {
-             *         "amount": 220,
-             *         "unit": "mg"
-             *       }
-             *     }
-             */
-            nutrients_json?: {
-                [key: string]: components["schemas"]["NutrientInput"] | number | null;
-            };
-            /**
-             * Protein Per 100G
-             * @example 11
-             */
-            protein_per_100g?: number | null;
-            /**
-             * Protein Per Serving
-             * @example 3.3
-             */
-            protein_per_serving?: number | null;
-            /**
-             * Source Kind
-             * @default manual
-             * @example manual
-             */
-            source_kind: string;
-            /**
-             * Source Url
-             * @example https://example.test
-             */
-            source_url?: string | null;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Usage Count */
-            usage_count: number;
-        };
-        /**
-         * ReestimateMealRequest
-         * @description Request a comparison estimate for an existing photo meal.
-         */
-        ReestimateMealRequest: {
-            /**
-             * Mode
-             * @default compare
-             * @constant
-             */
-            mode: "compare";
-            /**
-             * Model
-             * @default default
-             * @enum {string}
-             */
-            model: "default" | "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-3.1-flash-lite-preview";
-        };
-        /**
-         * ReestimateMealResponse
-         * @description Comparison proposal returned by meal re-estimation.
-         */
-        ReestimateMealResponse: {
-            /**
-             * Ai Run Id
-             * Format: uuid
-             */
-            ai_run_id: string;
-            /** Current Items */
-            current_items: components["schemas"]["MealItemCreate"][];
-            current_totals: components["schemas"]["MealTotalsResponse"];
-            diff: components["schemas"]["EstimateComparisonDiff"];
-            /** Fallback Used */
-            fallback_used: boolean;
-            /** Image Quality Warnings */
-            image_quality_warnings?: string[];
-            /**
-             * Meal Id
-             * Format: uuid
-             */
-            meal_id: string;
-            /** Model Used */
-            model_used: string;
-            /** Proposed Items */
-            proposed_items: components["schemas"]["MealItemCreate"][];
-            proposed_totals: components["schemas"]["MealTotalsResponse"];
-        };
-        /**
-         * RefreshRequest
-         * @description Refresh-token rotation payload.
-         */
-        RefreshRequest: {
-            /** Refresh Token */
-            refresh_token: string;
-        };
-        /**
-         * RememberProductRequest
-         * @description Persist an accepted label item into the product database.
-         */
-        RememberProductRequest: {
-            /**
-             * Aliases
-             * @example [
-             *       "сырок"
-             *     ]
-             */
-            aliases?: string[];
-        };
-        /**
-         * ReportChipResponse
-         * @description Compact report metadata chip.
-         */
-        ReportChipResponse: {
-            /** Label */
-            label: string;
-        };
-        /**
-         * ScheduleOverrideRequest
-         * @description Manual day-anchor override in minutes from midnight.
-         */
-        ScheduleOverrideRequest: {
-            /** Anchor Minutes */
-            anchor_minutes: number;
-        };
-        /**
-         * ScheduleResponse
-         * @description Current adaptive day rhythm and override state.
-         */
-        ScheduleResponse: {
-            /** Anchor Weekday Minutes */
-            anchor_weekday_minutes?: number | null;
-            /** Anchor Weekend Minutes */
-            anchor_weekend_minutes?: number | null;
-            /** Basis */
-            basis?: string | null;
-            /** Effective Anchor Minutes */
-            effective_anchor_minutes?: number | null;
-            /** History */
-            history?: components["schemas"]["DayAnchorHistoryResponse"][];
-            /** Last Shift At */
-            last_shift_at?: string | null;
-            /** Non Typical Periods */
-            non_typical_periods?: components["schemas"]["NonTypicalPeriodResponse"][];
-            /** User Override Minutes */
-            user_override_minutes?: number | null;
-            /** Windows */
-            windows: components["schemas"]["ScheduleWindowResponse"][];
-        };
-        /**
-         * ScheduleWindowResponse
-         * @description Rendered meal-window boundary for the current day rhythm.
-         */
-        ScheduleWindowResponse: {
-            /** End Minute */
-            end_minute: number;
-            /**
-             * Key
-             * @enum {string}
-             */
-            key: "start" | "mid" | "late" | "night_cap";
-            /** Label */
-            label: string;
-            /** Start Minute */
-            start_minute: number;
-        };
-        /**
-         * SensorQualityResponse
-         * @description Computed sensor quality and calibration metrics.
-         */
-        SensorQualityResponse: {
-            active_model?: components["schemas"]["CgmCalibrationModelResponse"] | null;
-            /** B0 Mmol L */
-            b0_mmol_l?: number | null;
-            /** B1 Capped Mmol L Per Day */
-            b1_capped_mmol_l_per_day?: number | null;
-            /** B1 Raw Mmol L Per Day */
-            b1_raw_mmol_l_per_day?: number | null;
-            /** Calibration Basis */
-            calibration_basis?: ("stable_after_48h" | "warmup_after_12h_fallback" | "insufficient") | null;
-            /** Calibration Strategy */
-            calibration_strategy?: ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
-            /**
-             * Confidence
-             * @enum {string}
-             */
-            confidence: "none" | "low" | "medium" | "high";
-            /** Correction Now Mmol L */
-            correction_now_mmol_l?: number | null;
-            /** Delta Max Mmol L */
-            delta_max_mmol_l?: number | null;
-            /** Delta Min Mmol L */
-            delta_min_mmol_l?: number | null;
-            /** Drift Mmol L Per Day */
-            drift_mmol_l_per_day?: number | null;
-            /** Fingerstick Count */
-            fingerstick_count: number;
-            /** Mad Mmol L */
-            mad_mmol_l?: number | null;
-            /** Mard Percent */
-            mard_percent?: number | null;
-            /**
-             * Matched Calibration Points
-             * @default 0
-             */
-            matched_calibration_points: number;
-            /** Median Bias Mmol L */
-            median_bias_mmol_l?: number | null;
-            /** Median Delta Mmol L */
-            median_delta_mmol_l?: number | null;
-            /** Missing Data Pct */
-            missing_data_pct?: number | null;
-            /** Noise Score */
-            noise_score: number;
-            /** Notes */
-            notes?: string[];
-            /** Quality Score */
-            quality_score: number;
-            /** Residual Mad Mmol L */
-            residual_mad_mmol_l?: number | null;
-            sensor?: components["schemas"]["SensorSessionResponse"] | null;
-            /** Sensor Age Days */
-            sensor_age_days?: number | null;
-            /** Sensor Phase */
-            sensor_phase?: ("warmup" | "stable" | "end_of_life") | null;
-            /**
-             * Stable Calibration Points
-             * @default 0
-             */
-            stable_calibration_points: number;
-            /** Suspected Compression Count */
-            suspected_compression_count: number;
-            /** Valid Calibration Points */
-            valid_calibration_points: number;
-            /**
-             * Warmup Calibration Points
-             * @default 0
-             */
-            warmup_calibration_points: number;
-            warmup_metrics?: components["schemas"]["SensorWarmupMetricsResponse"] | null;
-        };
-        /**
-         * SensorSessionCreate
-         * @description Create a display analytics sensor session.
-         */
-        SensorSessionCreate: {
-            /** Ended At */
-            ended_at?: string | null;
-            /**
-             * Excluded From Analytics
-             * @default false
-             */
-            excluded_from_analytics: boolean;
-            /** Exclusion Reason */
-            exclusion_reason?: string | null;
-            /**
-             * Expected Life Days
-             * @default 15
-             */
-            expected_life_days: number;
-            /**
-             * Label
-             * @example Ottai #4
-             */
-            label?: string | null;
-            /**
-             * Model
-             * @example Ottai
-             */
-            model?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Source
-             * @default manual
-             * @example manual
-             */
-            source: string;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Vendor
-             * @example Ottai
-             */
-            vendor?: string | null;
-        };
-        /**
-         * SensorSessionPatch
-         * @description Patch a display analytics sensor session.
-         */
-        SensorSessionPatch: {
-            /** Ended At */
-            ended_at?: string | null;
-            /** Excluded From Analytics */
-            excluded_from_analytics?: boolean | null;
-            /** Exclusion Reason */
-            exclusion_reason?: string | null;
-            /** Expected Life Days */
-            expected_life_days?: number | null;
-            /** Label */
-            label?: string | null;
-            /** Model */
-            model?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /** Source */
-            source?: string | null;
-            /** Started At */
-            started_at?: string | null;
-            /** Vendor */
-            vendor?: string | null;
-        };
-        /**
-         * SensorSessionResponse
-         * @description Stored display analytics sensor session.
-         */
-        SensorSessionResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Ended At */
-            ended_at?: string | null;
-            /**
-             * Excluded From Analytics
-             * @default false
-             */
-            excluded_from_analytics: boolean;
-            /** Exclusion Reason */
-            exclusion_reason?: string | null;
-            /**
-             * Expected Life Days
-             * @default 15
-             */
-            expected_life_days: number;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Label
-             * @example Ottai #4
-             */
-            label?: string | null;
-            /**
-             * Model
-             * @example Ottai
-             */
-            model?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Source
-             * @default manual
-             * @example manual
-             */
-            source: string;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Vendor
-             * @example Ottai
-             */
-            vendor?: string | null;
-        };
-        /**
-         * SensorWarmupMetricsResponse
-         * @description Warmup-only residual metrics for display analytics.
-         */
-        SensorWarmupMetricsResponse: {
-            /** Initial Residual Mmol L */
-            initial_residual_mmol_l?: number | null;
-            /** Max Warmup Residual Mmol L */
-            max_warmup_residual_mmol_l?: number | null;
-            /** Plateau Residual Mmol L */
-            plateau_residual_mmol_l?: number | null;
-            /** Residual Sequence Mmol L */
-            residual_sequence_mmol_l?: number[];
-            /** Time To Stabilize Hours */
-            time_to_stabilize_hours?: number | null;
-            /** Warmup Instability Score */
-            warmup_instability_score?: number | null;
-        };
-        /**
-         * StatsInsightResponse
-         * @description Server-rendered stats observation.
-         */
-        StatsInsightResponse: {
-            /**
-             * Computed At
-             * Format: date-time
-             */
-            computed_at: string;
-            /** Id */
-            id: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "consistent" | "weekday_pattern_sweet" | "time_of_day_eating" | "top_repeat_products" | "late_meal_share" | "today_morning" | "meal_predictability" | "evening_lows" | "hypo_recovery_pattern" | "late_meal_glucose_footprint";
-            /** Supporting Numbers */
-            supporting_numbers?: {
-                [key: string]: string;
-            } | null;
-            /** Text */
-            text: string;
-            /**
-             * Weight
-             * @enum {string}
-             */
-            weight: "primary" | "secondary";
-        };
-        /**
-         * StatsInsightsResponse
-         * @description Stats observation list.
-         */
-        StatsInsightsResponse: {
-            /** Insights */
-            insights: components["schemas"]["StatsInsightResponse"][];
-        };
-        /**
-         * StatsOverviewAnomalyResponse
-         * @description Day whose kcal total differs strongly from the period rhythm.
-         */
-        StatsOverviewAnomalyResponse: {
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Delta Kcal */
-            delta_kcal: number;
-            /**
-             * Direction
-             * @enum {string}
-             */
-            direction: "up" | "down";
-            /** Kcal */
-            kcal: number;
-            /** Reason */
-            reason: string;
-        };
-        /**
-         * StatsOverviewDayResponse
-         * @description One day in the mobile stats kcal chart.
-         */
-        StatsOverviewDayResponse: {
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-            /** Kcal */
-            kcal?: number | null;
-            /** Meal Count */
-            meal_count: number;
-        };
-        /**
-         * StatsOverviewHourlyBucketResponse
-         * @description One 24-hour meal-density bucket.
-         */
-        StatsOverviewHourlyBucketResponse: {
-            /** Hour */
-            hour: number;
-            /** Meal Count */
-            meal_count: number;
-            /** Share */
-            share: number;
-        };
-        /**
-         * StatsOverviewLeadResponse
-         * @description Backend-rendered editorial lead for mobile stats.
-         */
-        StatsOverviewLeadResponse: {
-            /** Descriptor */
-            descriptor: string;
-            /** Detail */
-            detail: string;
-            /** Kicker */
-            kicker: string;
-        };
-        /**
-         * StatsOverviewMacroResponse
-         * @description Average macro row for the selected stats period.
-         */
-        StatsOverviewMacroResponse: {
-            /** Grams */
-            grams?: number | null;
-            /**
-             * Key
-             * @enum {string}
-             */
-            key: "protein" | "fat" | "carbs";
-            /** Label */
-            label: string;
-            /** Percent */
-            percent?: number | null;
-            /** Target Percent */
-            target_percent?: number | null;
-        };
-        /**
-         * StatsOverviewResponse
-         * @description Structured mobile stats aggregate.
-         */
-        StatsOverviewResponse: {
-            /** Anomalies */
-            anomalies: components["schemas"]["StatsOverviewAnomalyResponse"][];
-            /** Average Kcal */
-            average_kcal?: number | null;
-            /** Daily */
-            daily: components["schemas"]["StatsOverviewDayResponse"][];
-            /** Days */
-            days: number;
-            /**
-             * End Date
-             * Format: date
-             */
-            end_date: string;
-            /** Hourly */
-            hourly: components["schemas"]["StatsOverviewHourlyBucketResponse"][];
-            lead: components["schemas"]["StatsOverviewLeadResponse"];
-            /** Macros */
-            macros: components["schemas"]["StatsOverviewMacroResponse"][];
-            /** Normal Kcal High */
-            normal_kcal_high?: number | null;
-            /** Normal Kcal Low */
-            normal_kcal_low?: number | null;
-            /**
-             * Period
-             * @enum {string}
-             */
-            period: "7d" | "14d" | "30d";
-            /** Rhythm Delta Kcal */
-            rhythm_delta_kcal?: number | null;
-            /** Sparse */
-            sparse: boolean;
-            /** Spread Kcal */
-            spread_kcal?: number | null;
-            /**
-             * Start Date
-             * Format: date
-             */
-            start_date: string;
-            /** Top Products */
-            top_products: components["schemas"]["StatsOverviewTopProductResponse"][];
-            /** Tracked Days */
-            tracked_days: number;
-        };
-        /**
-         * StatsOverviewTopProductResponse
-         * @description Frequently repeated food item or product.
-         */
-        StatsOverviewTopProductResponse: {
-            /** Carbs Per 100G */
-            carbs_per_100g?: number | null;
-            /** Count */
-            count: number;
-            /** Fat Per 100G */
-            fat_per_100g?: number | null;
-            /** Image Url */
-            image_url?: string | null;
-            /** Kcal Per 100G */
-            kcal_per_100g?: number | null;
-            /** Name */
-            name: string;
-            /** Protein Per 100G */
-            protein_per_100g?: number | null;
-            /** Rank */
-            rank: number;
-        };
-        /**
-         * TimelineFoodResponse
-         * @description Food-only history timeline response.
-         */
-        TimelineFoodResponse: {
-            /** Episodes */
-            episodes: components["schemas"]["FoodEpisodeFoodResponse"][];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * TimelineGlucoseSummary
-         * @description Small CGM summary for a computed food episode.
-         */
-        TimelineGlucoseSummary: {
-            /** Before Value */
-            before_value?: number | null;
-            /** Latest Value */
-            latest_value?: number | null;
-            /** Max Value */
-            max_value?: number | null;
-            /** Min Value */
-            min_value?: number | null;
-            /** Peak Value */
-            peak_value?: number | null;
-            /**
-             * Unit
-             * @default mmol/L
-             */
-            unit: string;
-        };
-        /**
-         * TimelineInsulinEventResponse
-         * @description Read-only insulin event not grouped into a food episode.
-         */
-        TimelineInsulinEventResponse: {
-            /** Enteredby */
-            enteredBy?: string | null;
-            /** Eventtype */
-            eventType?: string | null;
-            /** Insulin Type */
-            insulin_type?: string | null;
-            /** Insulin Units */
-            insulin_units?: number | null;
-            /** Linked Episode Id */
-            linked_episode_id?: string | null;
-            /** Nightscout Id */
-            nightscout_id?: string | null;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * TimelineResponse
-         * @description History timeline response with backend-owned computed food episodes.
-         */
-        TimelineResponse: {
-            /** Episodes */
-            episodes: components["schemas"]["FoodEpisodeResponse"][];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-            /** Ungrouped Insulin */
-            ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
-        };
-        /**
-         * TwinCurveAnchor
-         * @description Known glucose anchor used by the digital twin curve.
-         */
-        TwinCurveAnchor: {
-            /** Mmol */
-            mmol: number;
-            /**
-             * Source
-             * @default fingerstick
-             * @enum {string}
-             */
-            source: "fingerstick" | "cgm";
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * TwinCurveFoodEvent
-         * @description Food marker included in the digital twin curve.
-         */
-        TwinCurveFoodEvent: {
-            /** Carbs G */
-            carbs_g: number;
-            /** Fat G */
-            fat_g?: number | null;
-            /** Fiber G */
-            fiber_g?: number | null;
-            /** Kcal */
-            kcal?: number | null;
-            /** Protein G */
-            protein_g?: number | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-            /** Title */
-            title: string;
-        };
-        /**
-         * TwinCurveInsulinEvent
-         * @description Read-only insulin marker included in the digital twin curve.
-         */
-        TwinCurveInsulinEvent: {
-            /** Event Type */
-            event_type?: string | null;
-            /** Insulin Type */
-            insulin_type?: string | null;
-            /** Insulin Units */
-            insulin_units: number;
-            /** Notes */
-            notes?: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * TwinCurvePoint
-         * @description One digital twin curve point.
-         */
-        TwinCurvePoint: {
-            /** Ci High */
-            ci_high: number;
-            /** Ci Low */
-            ci_low: number;
-            /** Confidence */
-            confidence: number;
-            /** Mmol */
-            mmol: number;
-            /**
-             * Mode
-             * @enum {string}
-             */
-            mode: "interpolation" | "forecast" | "boundary";
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * TwinCurveResponse
-         * @description Digital twin reconstruction/forecast response.
-         */
-        TwinCurveResponse: {
-            /** Anchors */
-            anchors: components["schemas"]["TwinCurveAnchor"][];
-            /** Food Events */
-            food_events: components["schemas"]["TwinCurveFoodEvent"][];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /** Insulin Events */
-            insulin_events: components["schemas"]["TwinCurveInsulinEvent"][];
-            /** Notes */
-            notes?: string[];
-            params: components["schemas"]["TwinParamsRead"];
-            /** Points */
-            points: components["schemas"]["TwinCurvePoint"][];
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * TwinDataSummaryResponse
-         * @description Data availability summary for automatic twin fitting.
-         */
-        TwinDataSummaryResponse: {
-            /** Cgm Count */
-            cgm_count: number;
-            /** Days With Cgm */
-            days_with_cgm: number;
-            /** Fingerstick Count */
-            fingerstick_count: number;
-            /** First Cgm At */
-            first_cgm_at?: string | null;
-            /** Fit Blockers */
-            fit_blockers?: string[];
-            /**
-             * From Datetime
-             * Format: date-time
-             */
-            from_datetime: string;
-            /** Insulin Count */
-            insulin_count: number;
-            /** Last Cgm At */
-            last_cgm_at?: string | null;
-            /** Meal Count */
-            meal_count: number;
-            /** Ready For Fit */
-            ready_for_fit: boolean;
-            /**
-             * To Datetime
-             * Format: date-time
-             */
-            to_datetime: string;
-        };
-        /**
-         * TwinFitLogEntry
-         * @description One digital twin fit/manual-change history row.
-         */
-        TwinFitLogEntry: {
-            /** Converged */
-            converged?: boolean | null;
-            /** Data From */
-            data_from?: string | null;
-            /** Data To */
-            data_to?: string | null;
-            /**
-             * Fit At
-             * Format: date-time
-             */
-            fit_at: string;
-            /** Holdout Mae Mmol */
-            holdout_mae_mmol?: number | null;
-            /** Holdout Window Count */
-            holdout_window_count?: number | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Iterations */
-            iterations?: number | null;
-            /** Method */
-            method: string;
-            /** Notes */
-            notes?: string | null;
-            /** Params Snapshot */
-            params_snapshot: {
-                [key: string]: unknown;
-            };
-            /** Train Mae Mmol */
-            train_mae_mmol?: number | null;
-            /** Train Window Count */
-            train_window_count?: number | null;
-        };
-        /**
-         * TwinFitRequest
-         * @description Request an automatic digital twin fitting run.
-         */
-        TwinFitRequest: {
-            /** Data From */
-            data_from?: string | null;
-            /** Data To */
-            data_to?: string | null;
-        };
-        /**
-         * TwinFitResponse
-         * @description Automatic digital twin fitting response.
-         */
-        TwinFitResponse: {
-            /** Applied */
-            applied: boolean;
-            /** Notes */
-            notes?: string[];
-            params: components["schemas"]["TwinParamsRead"];
-            previous_params?: components["schemas"]["TwinParamsRead"] | null;
-            result: components["schemas"]["TwinFitResultRead"];
-        };
-        /**
-         * TwinFitResultRead
-         * @description Applied or rejected automatic fit metrics.
-         */
-        TwinFitResultRead: {
-            /** Baseline Drift Per Hour */
-            baseline_drift_per_hour: number;
-            /** Converged */
-            converged: boolean;
-            /** Holdout Mae Mmol */
-            holdout_mae_mmol: number;
-            /** Holdout Window Count */
-            holdout_window_count: number;
-            /** Icr Day */
-            icr_day: number;
-            /** Icr Evening */
-            icr_evening: number;
-            /** Icr Morning */
-            icr_morning: number;
-            /** Isf */
-            isf: number;
-            /** Iterations */
-            iterations: number;
-            /**
-             * Method
-             * @enum {string}
-             */
-            method: "least_squares" | "fallback_to_defaults";
-            /** Per Window Holdout Dates */
-            per_window_holdout_dates?: string[];
-            /** Per Window Holdout Mae */
-            per_window_holdout_mae?: number[];
-            /** Per Window Train Dates */
-            per_window_train_dates?: string[];
-            /** Per Window Train Mae */
-            per_window_train_mae?: number[];
-            /** Train Mae Mmol */
-            train_mae_mmol: number;
-            /** Train Window Count */
-            train_window_count: number;
-        };
-        /**
-         * TwinParamsPatch
-         * @description Manual digital twin parameter override.
-         */
-        TwinParamsPatch: {
-            /** Baseline Drift Per Hour */
-            baseline_drift_per_hour?: number | null;
-            /** Carb Duration Minutes */
-            carb_duration_minutes?: number | null;
-            /** Day Start Minutes */
-            day_start_minutes?: number | null;
-            /** Dia Minutes */
-            dia_minutes?: number | null;
-            /** Evening Start Minutes */
-            evening_start_minutes?: number | null;
-            /** Icr Day */
-            icr_day?: number | null;
-            /** Icr Evening */
-            icr_evening?: number | null;
-            /** Icr Morning */
-            icr_morning?: number | null;
-            /** Isf */
-            isf?: number | null;
-            /** Morning Start Minutes */
-            morning_start_minutes?: number | null;
-        };
-        /**
-         * TwinParamsRead
-         * @description Current per-user digital twin parameters.
-         */
-        TwinParamsRead: {
-            /** Baseline Drift Per Hour */
-            baseline_drift_per_hour: number;
-            /** Carb Duration Minutes */
-            carb_duration_minutes: number;
-            /** Day Start Minutes */
-            day_start_minutes: number;
-            /** Dia Minutes */
-            dia_minutes: number;
-            /** Evening Start Minutes */
-            evening_start_minutes: number;
-            /**
-             * Hint
-             * @enum {string}
-             */
-            hint: "not_fitted" | "ready" | "stale";
-            /** Icr Day */
-            icr_day?: number | null;
-            /** Icr Evening */
-            icr_evening?: number | null;
-            /** Icr Morning */
-            icr_morning?: number | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Is Fitted */
-            is_fitted: boolean;
-            /** Isf */
-            isf?: number | null;
-            /** Last Fit At */
-            last_fit_at?: string | null;
-            /** Last Fit Converged */
-            last_fit_converged?: boolean | null;
-            /** Last Fit Data From */
-            last_fit_data_from?: string | null;
-            /** Last Fit Data To */
-            last_fit_data_to?: string | null;
-            /** Last Fit Holdout Mae Mmol */
-            last_fit_holdout_mae_mmol?: number | null;
-            /** Last Fit Holdout Window Count */
-            last_fit_holdout_window_count?: number | null;
-            /** Last Fit Method */
-            last_fit_method?: string | null;
-            /** Last Fit Train Mae Mmol */
-            last_fit_train_mae_mmol?: number | null;
-            /** Last Fit Train Window Count */
-            last_fit_train_window_count?: number | null;
-            /** Morning Start Minutes */
-            morning_start_minutes: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** UserGoalsResponse */
-        UserGoalsResponse: {
-            /** Carb Goal G Per Day */
-            carb_goal_g_per_day?: number | null;
-            /** Fat Goal G Per Day */
-            fat_goal_g_per_day?: number | null;
-            /**
-             * Goals Setup Completed
-             * @default false
-             */
-            goals_setup_completed: boolean;
-            /** Kcal Goal Per Day */
-            kcal_goal_per_day?: number | null;
-            /** Protein Goal G Per Day */
-            protein_goal_g_per_day?: number | null;
-        };
-        /** UserGoalsUpdate */
-        UserGoalsUpdate: {
-            /** Carb Goal G Per Day */
-            carb_goal_g_per_day?: number | null;
-            /** Fat Goal G Per Day */
-            fat_goal_g_per_day?: number | null;
-            /** Goals Setup Completed */
-            goals_setup_completed?: boolean | null;
-            /** Kcal Goal Per Day */
-            kcal_goal_per_day?: number | null;
-            /** Protein Goal G Per Day */
-            protein_goal_g_per_day?: number | null;
-        };
-        /** UserProfileResponse */
-        UserProfileResponse: {
-            /**
-             * Activity Level
-             * @default moderate
-             */
-            activity_level: string;
-            /** Age Years */
-            age_years?: number | null;
-            /** Height Cm */
-            height_cm?: number | null;
-            /** Sex */
-            sex?: string | null;
-            /** Weight Kg */
-            weight_kg?: number | null;
-        };
-        /** UserProfileUpdate */
-        UserProfileUpdate: {
-            /** Activity Level */
-            activity_level?: string | null;
-            /** Age Years */
-            age_years?: number | null;
-            /** Height Cm */
-            height_cm?: number | null;
-            /** Sex */
-            sex?: string | null;
-            /** Weight Kg */
-            weight_kg?: number | null;
-        };
-        /**
-         * UserRole
-         * @description Supported application roles.
-         * @enum {string}
-         */
-        UserRole: "gluco" | "food";
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
+  schemas: {
+    /**
+     * AIRunResponse
+     * @description AI estimation run audit row.
+     */
+    AIRunResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Error History Json */
+      error_history_json?: unknown[];
+      /**
+       * Fallback Used
+       * @default false
+       */
+      fallback_used: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Model */
+      model: string;
+      /** Model Requested */
+      model_requested?: string | null;
+      /** Model Used */
+      model_used?: string | null;
+      /** Normalized Items Json */
+      normalized_items_json?: unknown[] | null;
+      /** Promoted At */
+      promoted_at?: string | null;
+      /** Promoted By Action */
+      promoted_by_action?: string | null;
+      /** Provider */
+      provider: string;
+      /** Request Summary */
+      request_summary?: {
+        [key: string]: unknown;
+      } | null;
+      /** Request Type */
+      request_type: string;
+      /** Response Raw */
+      response_raw?: {
+        [key: string]: unknown;
+      } | null;
+      /** Source Photo Ids */
+      source_photo_ids?: unknown[];
+      /** Status */
+      status: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** ActivitySyncRequest */
+    ActivitySyncRequest: {
+      /**
+       * Active Minutes
+       * @default 0
+       */
+      active_minutes: number;
+      /**
+       * Calorie Confidence
+       * @default none
+       */
+      calorie_confidence: string;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Heart Rate Avg */
+      heart_rate_avg?: number | null;
+      /** Heart Rate Rest */
+      heart_rate_rest?: number | null;
+      /**
+       * Hr Active Minutes
+       * @default 0
+       */
+      hr_active_minutes: number;
+      /**
+       * Hr Samples
+       * @default 0
+       */
+      hr_samples: number;
+      /**
+       * Kcal Burned
+       * @default 0
+       */
+      kcal_burned: number;
+      /**
+       * Kcal Hr Active
+       * @default 0
+       */
+      kcal_hr_active: number;
+      /**
+       * Kcal No Move Hr
+       * @default 0
+       */
+      kcal_no_move_hr: number;
+      /**
+       * Kcal Steps
+       * @default 0
+       */
+      kcal_steps: number;
+      /**
+       * Source
+       * @default gadgetbridge
+       */
+      source: string;
+      /**
+       * Steps
+       * @default 0
+       */
+      steps: number;
+    };
+    /** ActivitySyncResponse */
+    ActivitySyncResponse: {
+      /** Active Minutes */
+      active_minutes: number;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Heart Rate Avg */
+      heart_rate_avg: number | null;
+      /** Heart Rate Rest */
+      heart_rate_rest: number | null;
+      /** Kcal Burned */
+      kcal_burned: number;
+      /** Source */
+      source: string;
+      /** Steps */
+      steps: number;
+      /**
+       * Synced At
+       * Format: date-time
+       */
+      synced_at: string;
+    };
+    /**
+     * AdminPostprandialResponse
+     * @description Postprandial recompute response.
+     */
+    AdminPostprandialResponse: {
+      /** Meals Analyzed */
+      meals_analyzed: number;
+      /** Meals Total */
+      meals_total: number;
+    };
+    /**
+     * AdminRecalculateResponse
+     * @description Daily total backfill response.
+     */
+    AdminRecalculateResponse: {
+      /** Days Recalculated */
+      days_recalculated: number;
+      /**
+       * From Date
+       * Format: date
+       */
+      from_date: string;
+      /**
+       * To Date
+       * Format: date
+       */
+      to_date: string;
+    };
+    /**
+     * ApplyEstimationRunRequest
+     * @description Apply a stored re-estimation proposal.
+     */
+    ApplyEstimationRunRequest: {
+      /**
+       * Apply Mode
+       * @enum {string}
+       */
+      apply_mode: "replace_current" | "save_as_draft";
+    };
+    /**
+     * ApplyEstimationRunResponse
+     * @description Result of applying a re-estimation proposal.
+     */
+    ApplyEstimationRunResponse: {
+      /**
+       * Ai Run Id
+       * Format: uuid
+       */
+      ai_run_id: string;
+      /**
+       * Apply Mode
+       * @enum {string}
+       */
+      apply_mode: "replace_current" | "save_as_draft";
+      meal: components["schemas"]["MealResponse"];
+    };
+    /**
+     * AutocompleteSuggestion
+     * @description Unified autocomplete suggestion for frontend command palettes.
+     */
+    AutocompleteSuggestion: {
+      /** Carbs G */
+      carbs_g?: number | null;
+      /** Display Name */
+      display_name: string;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Id */
+      id?: string | null;
+      /** Image Url */
+      image_url?: string | null;
+      /** Kcal */
+      kcal?: number | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "pattern" | "product" | "command";
+      /** Matched Alias */
+      matched_alias?: string | null;
+      /** Protein G */
+      protein_g?: number | null;
+      /** Subtitle */
+      subtitle?: string | null;
+      /** Token */
+      token: string;
+      /**
+       * Usage Count
+       * @default 0
+       */
+      usage_count: number;
+    };
+    /**
+     * BiasCurvePoint
+     * @description One sampled point on the estimated bias curve.
+     */
+    BiasCurvePoint: {
+      /** Bias */
+      bias: number;
+      /** Confidence */
+      confidence: string;
+      /** Contributing Fingerstick Count */
+      contributing_fingerstick_count: number;
+      /** Nearest Fingerstick Distance Min */
+      nearest_fingerstick_distance_min?: number | null;
+      /** Sensor Age Hours */
+      sensor_age_hours: number;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * BiasOverLifetimeData
+     * @description Data for the bias-over-sensor-lifetime chart.
+     */
+    BiasOverLifetimeData: {
+      /** Bias Curve */
+      bias_curve: components["schemas"]["BiasCurvePoint"][];
+      /** Phase Markers */
+      phase_markers: components["schemas"]["BiasPhaseMarker"][];
+      /** Residuals */
+      residuals: components["schemas"]["BiasResidualPoint"][];
+      /**
+       * Sensor Started At
+       * Format: date-time
+       */
+      sensor_started_at: string;
+    };
+    /**
+     * BiasPhaseMarker
+     * @description Phase boundary on the bias chart.
+     */
+    BiasPhaseMarker: {
+      /** Label */
+      label: string;
+      /** Sensor Age Hours */
+      sensor_age_hours: number;
+    };
+    /**
+     * BiasResidualPoint
+     * @description One fingerstick residual on the bias chart.
+     */
+    BiasResidualPoint: {
+      /** Exclusion Reason */
+      exclusion_reason?: string | null;
+      /** Fingerstick Value */
+      fingerstick_value: number;
+      /** Included */
+      included: boolean;
+      /**
+       * Measured At
+       * Format: date-time
+       */
+      measured_at: string;
+      /** Raw Cgm Value */
+      raw_cgm_value: number;
+      /** Residual */
+      residual: number;
+      /** Sensor Age Hours */
+      sensor_age_hours: number;
+    };
+    /** Body_createMealFromPhoto */
+    Body_createMealFromPhoto: {
+      /**
+       * Captured At
+       * Format: date-time
+       */
+      captured_at: string;
+      /** Context */
+      context?: string | null;
+      /**
+       * Idempotency Key
+       * Format: uuid
+       */
+      idempotency_key: string;
+      /**
+       * Photo
+       * @description JPEG, PNG, or WebP photo.
+       */
+      photo: string;
+      /**
+       * Source
+       * @default camera
+       * @enum {string}
+       */
+      source: "camera" | "gallery";
+    };
+    /** Body_uploadMealPhoto */
+    Body_uploadMealPhoto: {
+      /**
+       * File
+       * @description JPEG, PNG, or WebP photo.
+       */
+      file: string;
+    };
+    /** Body_uploadPatternImage */
+    Body_uploadPatternImage: {
+      /**
+       * File
+       * @description JPEG, PNG, or WebP image.
+       */
+      file: string;
+    };
+    /** Body_uploadProductImage */
+    Body_uploadProductImage: {
+      /** File */
+      file: string;
+    };
+    /**
+     * CgmCalibrationModelResponse
+     * @description Persisted display-only CGM calibration model.
+     */
+    CgmCalibrationModelResponse: {
+      /** Active */
+      active: boolean;
+      /**
+       * Confidence
+       * @enum {string}
+       */
+      confidence: "none" | "low" | "medium" | "high";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Metrics Json */
+      metrics_json: {
+        [key: string]: unknown;
+      };
+      /** Model Version */
+      model_version: string;
+      /** Params Json */
+      params_json: {
+        [key: string]: unknown;
+      };
+      /**
+       * Sensor Session Id
+       * Format: uuid
+       */
+      sensor_session_id: string;
+    };
+    /**
+     * CurrentUserDetailResponse
+     * @description Authenticated user details.
+     */
+    CurrentUserDetailResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Feature Flags */
+      feature_flags?: {
+        [key: string]: unknown;
+      };
+      /** Features */
+      features?: string[];
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Last Login At */
+      last_login_at?: string | null;
+      role: components["schemas"]["UserRole"];
+      /** Username */
+      username: string;
+    };
+    /**
+     * DashboardDataQualityResponse
+     * @description Dashboard data quality response.
+     */
+    DashboardDataQualityResponse: {
+      /** Assumed Label Count */
+      assumed_label_count: number;
+      /** Exact Label Count */
+      exact_label_count: number;
+      /** Low Confidence Count */
+      low_confidence_count: number;
+      /** Low Confidence Items */
+      low_confidence_items: components["schemas"]["LowConfidenceItemResponse"][];
+      /** Manual Count */
+      manual_count: number;
+      /** Pattern Count */
+      pattern_count: number;
+      /** Product Db Count */
+      product_db_count: number;
+      /** Restaurant Db Count */
+      restaurant_db_count: number;
+      /** Total Item Count */
+      total_item_count: number;
+      /** Visual Estimate Count */
+      visual_estimate_count: number;
+    };
+    /**
+     * DashboardDayResponse
+     * @description Daily dashboard row.
+     */
+    DashboardDayResponse: {
+      /** Carbs G */
+      carbs_g: number;
+      /** Daily Average Kcal For Period */
+      daily_average_kcal_for_period?: number | null;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Fat G */
+      fat_g: number;
+      /** Fiber G */
+      fiber_g: number;
+      /** Kcal */
+      kcal: number;
+      /** Meal Count */
+      meal_count: number;
+      /** Nutrients */
+      nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+      /**
+       * Photo Count
+       * @default 0
+       */
+      photo_count: number;
+      /** Protein G */
+      protein_g: number;
+    };
+    /**
+     * DashboardHeatmapCell
+     * @description Meal heatmap aggregate cell.
+     */
+    DashboardHeatmapCell: {
+      /** Avg Carbs G */
+      avg_carbs_g: number;
+      /** Day Of Week */
+      day_of_week: number;
+      /** Hour */
+      hour: number;
+      /** Meal Count */
+      meal_count: number;
+    };
+    /**
+     * DashboardHeatmapResponse
+     * @description Dashboard meal heatmap response.
+     */
+    DashboardHeatmapResponse: {
+      /** Cells */
+      cells: components["schemas"]["DashboardHeatmapCell"][];
+    };
+    /**
+     * DashboardNutrientTotal
+     * @description Daily or range nutrient total with known-value coverage.
+     */
+    DashboardNutrientTotal: {
+      /** Amount */
+      amount?: number | null;
+      /** Coverage */
+      coverage: number;
+      /** Display Name */
+      display_name: string;
+      /** Known Item Count */
+      known_item_count: number;
+      /** Nutrient Code */
+      nutrient_code: string;
+      /** Total Item Count */
+      total_item_count: number;
+      /** Unit */
+      unit: string;
+    };
+    /**
+     * DashboardRangeResponse
+     * @description Dashboard range response.
+     */
+    DashboardRangeResponse: {
+      /** Days */
+      days: components["schemas"]["DashboardDayResponse"][];
+      summary: components["schemas"]["DashboardRangeSummary"];
+    };
+    /**
+     * DashboardRangeSummary
+     * @description Dashboard range aggregate summary.
+     */
+    DashboardRangeSummary: {
+      /** Avg Carbs G */
+      avg_carbs_g: number;
+      /** Avg Fat G */
+      avg_fat_g: number;
+      /** Avg Fiber G */
+      avg_fiber_g: number;
+      /** Avg Kcal */
+      avg_kcal: number;
+      /** Avg Protein G */
+      avg_protein_g: number;
+      /** Nutrients */
+      nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Fat G */
+      total_fat_g: number;
+      /** Total Fiber G */
+      total_fiber_g: number;
+      /** Total Kcal */
+      total_kcal: number;
+      /** Total Meals */
+      total_meals: number;
+      /** Total Protein G */
+      total_protein_g: number;
+    };
+    /**
+     * DashboardSourceBreakdownResponse
+     * @description Dashboard source kind breakdown.
+     */
+    DashboardSourceBreakdownResponse: {
+      /** Days */
+      days: number;
+      /** Items */
+      items: components["schemas"]["DashboardSourceBreakdownRow"][];
+    };
+    /**
+     * DashboardSourceBreakdownRow
+     * @description Source kind count row.
+     */
+    DashboardSourceBreakdownRow: {
+      /** Count */
+      count: number;
+      source_kind: components["schemas"]["ItemSourceKind"];
+    };
+    /**
+     * DashboardTodayResponse
+     * @description Dashboard summary for today.
+     */
+    DashboardTodayResponse: {
+      /** Carbs G */
+      carbs_g: number;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Fat G */
+      fat_g: number;
+      /** Fiber G */
+      fiber_g: number;
+      /** Hours Since Last Meal */
+      hours_since_last_meal?: number | null;
+      /** Kcal */
+      kcal: number;
+      /** Last Meal At */
+      last_meal_at?: string | null;
+      /** Meal Count */
+      meal_count: number;
+      /** Nutrients */
+      nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+      /** Prev Week Avg Carbs */
+      prev_week_avg_carbs: number;
+      /** Prev Week Avg Kcal */
+      prev_week_avg_kcal: number;
+      /** Protein G */
+      protein_g: number;
+      /** Week Avg Carbs */
+      week_avg_carbs: number;
+      /** Week Avg Kcal */
+      week_avg_kcal: number;
+    };
+    /**
+     * DashboardTodayWithGlucoseResponse
+     * @description Dashboard summary for a role with glucose context enabled.
+     */
+    DashboardTodayWithGlucoseResponse: {
+      /** Carbs G */
+      carbs_g: number;
+      /** Current Glucose */
+      current_glucose: number | null;
+      /** Current Glucose At */
+      current_glucose_at: string | null;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Fat G */
+      fat_g: number;
+      /** Fiber G */
+      fiber_g: number;
+      /** Hours Since Last Meal */
+      hours_since_last_meal?: number | null;
+      /** Kcal */
+      kcal: number;
+      /** Last Meal At */
+      last_meal_at?: string | null;
+      /** Meal Count */
+      meal_count: number;
+      /** Nutrients */
+      nutrients?: components["schemas"]["DashboardNutrientTotal"][];
+      /** Prev Week Avg Carbs */
+      prev_week_avg_carbs: number;
+      /** Prev Week Avg Kcal */
+      prev_week_avg_kcal: number;
+      /** Protein G */
+      protein_g: number;
+      /** Week Avg Carbs */
+      week_avg_carbs: number;
+      /** Week Avg Kcal */
+      week_avg_kcal: number;
+    };
+    /**
+     * DashboardTopPatternResponse
+     * @description Top used pattern response row.
+     */
+    DashboardTopPatternResponse: {
+      /** Count */
+      count: number;
+      /** Display Name */
+      display_name: string;
+      /**
+       * Pattern Id
+       * Format: uuid
+       */
+      pattern_id: string;
+      /** Token */
+      token: string;
+    };
+    /**
+     * DatabaseItemPageResponse
+     * @description Paginated food database response.
+     */
+    DatabaseItemPageResponse: {
+      /** Items */
+      items: components["schemas"]["DatabaseItemResponse"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * DatabaseItemResponse
+     * @description Unified food database row for desktop database management.
+     */
+    DatabaseItemResponse: {
+      /** Aliases */
+      aliases?: string[];
+      /** Carbs G */
+      carbs_g?: number | null;
+      /** Default Grams */
+      default_grams?: number | null;
+      /** Display Name */
+      display_name: string;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Fiber G */
+      fiber_g?: number | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Image Cache Path */
+      image_cache_path?: string | null;
+      /** Image Url */
+      image_url?: string | null;
+      /**
+       * Is Verified
+       * @default false
+       */
+      is_verified: boolean;
+      /** Kcal */
+      kcal?: number | null;
+      /** Key */
+      key?: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "pattern" | "product" | "restaurant";
+      /** Last Used At */
+      last_used_at?: string | null;
+      /** Nutrients Json */
+      nutrients_json?: {
+        [key: string]: unknown;
+      };
+      /** Prefix */
+      prefix?: string | null;
+      /** Protein G */
+      protein_g?: number | null;
+      /** Quality Warnings */
+      quality_warnings?: string[];
+      /** Source Confidence */
+      source_confidence?: string | null;
+      /** Source File */
+      source_file?: string | null;
+      /** Source Name */
+      source_name?: string | null;
+      /** Source Page */
+      source_page?: number | null;
+      /** Source Url */
+      source_url?: string | null;
+      /** Subtitle */
+      subtitle?: string | null;
+      /** Token */
+      token?: string | null;
+      /**
+       * Usage Count
+       * @default 0
+       */
+      usage_count: number;
+    };
+    /**
+     * DayAnchorHistoryResponse
+     * @description One effective day-anchor history row.
+     */
+    DayAnchorHistoryResponse: {
+      /** Anchor Weekday Minutes */
+      anchor_weekday_minutes?: number | null;
+      /** Anchor Weekend Minutes */
+      anchor_weekend_minutes?: number | null;
+      /** Basis */
+      basis: string;
+      /** Duration Days */
+      duration_days?: number | null;
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /** Effective To */
+      effective_to?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
+      /** Shift From Previous Minutes */
+      shift_from_previous_minutes?: number | null;
+    };
+    /**
+     * DayEpisodeInsulinResponse
+     * @description One insulin event inside a grouped episode (gluco feature only).
+     */
+    DayEpisodeInsulinResponse: {
+      /** Anchor Meal Id */
+      anchor_meal_id?: string | null;
+      /**
+       * Editable
+       * @default false
+       */
+      editable: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "food" | "correction";
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * DayEpisodeResponse
+     * @description One grouped meal/insulin episode for client attribution.
+     */
+    DayEpisodeResponse: {
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /** Insulin */
+      insulin: components["schemas"]["DayEpisodeInsulinResponse"][];
+      /** Key */
+      key: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "food" | "food_only" | "correction";
+      /** Meal Ids */
+      meal_ids: string[];
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Insulin Units */
+      total_insulin_units: number;
+      /** Total Kcal */
+      total_kcal: number;
+    };
+    /**
+     * DayEpisodesResponse
+     * @description Grouped episodes for a local wall-clock range.
+     */
+    DayEpisodesResponse: {
+      /** Episodes */
+      episodes: components["schemas"]["DayEpisodeResponse"][];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * DeleteResponse
+     * @description Generic delete response.
+     */
+    DeleteResponse: {
+      /**
+       * Deleted
+       * @example true
+       */
+      deleted: boolean;
+    };
+    /**
+     * EndocrinologistAdaptiveScheduleResponse
+     * @description Adaptive rhythm banner for the report.
+     */
+    EndocrinologistAdaptiveScheduleResponse: {
+      /** Basis */
+      basis: string;
+      /** Ribbon */
+      ribbon: string;
+      /** Summary */
+      summary: string;
+      /** Title */
+      title: string;
+      /** Windows */
+      windows: components["schemas"]["EndocrinologistScheduleWindowResponse"][];
+    };
+    /**
+     * EndocrinologistBottomMetric
+     * @description Bottom strip report metric.
+     */
+    EndocrinologistBottomMetric: {
+      /** Label */
+      label: string;
+      /** Unit */
+      unit?: string | null;
+      /** Value */
+      value: string;
+    };
+    /**
+     * EndocrinologistDailySummaryRow
+     * @description Daily report table row.
+     */
+    EndocrinologistDailySummaryRow: {
+      /** Breakfast */
+      breakfast: string;
+      /** Carbs */
+      carbs: string;
+      /** Date */
+      date: string;
+      /** Date Label */
+      date_label: string;
+      /** Dinner */
+      dinner: string;
+      /** Flagged */
+      flagged: boolean;
+      /** Hypo */
+      hypo: string;
+      /** Insulin */
+      insulin: string;
+      /** Lunch */
+      lunch: string;
+      /** Spikes */
+      spikes: string;
+      /** Tir */
+      tir: string;
+      /** Windows */
+      windows: string;
+    };
+    /**
+     * EndocrinologistMealProfileRow
+     * @description Meal profile report table row.
+     */
+    EndocrinologistMealProfileRow: {
+      /** Carbs */
+      carbs: string;
+      /** Episodes */
+      episodes: string;
+      /** Glucose After */
+      glucose_after: string;
+      /** Glucose Before */
+      glucose_before: string;
+      /** Insulin */
+      insulin: string;
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      /** Observed Ratio */
+      observed_ratio: string;
+    };
+    /**
+     * EndocrinologistReportKpi
+     * @description Top report KPI tile.
+     */
+    EndocrinologistReportKpi: {
+      /** Caption */
+      caption: string;
+      /** Label */
+      label: string;
+      /** Unit */
+      unit: string;
+      /** Value */
+      value: string;
+    };
+    /**
+     * EndocrinologistReportResponse
+     * @description Presentation-ready endocrinologist report data.
+     */
+    EndocrinologistReportResponse: {
+      adaptive_schedule: components["schemas"]["EndocrinologistAdaptiveScheduleResponse"];
+      /** App Name */
+      app_name: string;
+      /** Bottom Metrics */
+      bottom_metrics: components["schemas"]["EndocrinologistBottomMetric"][];
+      /** Chips */
+      chips: components["schemas"]["ReportChipResponse"][];
+      daily_median_row: components["schemas"]["EndocrinologistDailySummaryRow"];
+      /** Daily Rows */
+      daily_rows: components["schemas"]["EndocrinologistDailySummaryRow"][];
+      /** Daily Rows Note */
+      daily_rows_note?: string | null;
+      /** Footer */
+      footer: string;
+      /** Generated Label */
+      generated_label: string;
+      /**
+       * Glucose Mode
+       * @default raw
+       * @enum {string}
+       */
+      glucose_mode: "raw" | "normalized";
+      /**
+       * Glucose Mode Label
+       * @default исходная CGM
+       */
+      glucose_mode_label: string;
+      /** Glycemic Profile */
+      glycemic_profile: components["schemas"]["EndocrinologistReportKpi"][];
+      /** Hypo Concentration Line */
+      hypo_concentration_line: string;
+      /** Kpis */
+      kpis: components["schemas"]["EndocrinologistReportKpi"][];
+      /** Meal Profile Rows */
+      meal_profile_rows: components["schemas"]["EndocrinologistMealProfileRow"][];
+      /** Notes */
+      notes?: string[];
+      /** Period Label */
+      period_label: string;
+      /** Shown Daily Rows */
+      shown_daily_rows: components["schemas"]["EndocrinologistDailySummaryRow"][];
+      /** Title */
+      title: string;
+      /** Warning */
+      warning?: string | null;
+    };
+    /**
+     * EndocrinologistScheduleWindowResponse
+     * @description Adaptive report window with rendered wall-clock range.
+     */
+    EndocrinologistScheduleWindowResponse: {
+      /** End Label */
+      end_label: string;
+      /** End Minute */
+      end_minute: number;
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      /** Start Label */
+      start_label: string;
+      /** Start Minute */
+      start_minute: number;
+    };
+    /**
+     * EstimateCalculationBreakdown
+     * @description Readable backend-prepared calculation evidence for one suggested item.
+     */
+    EstimateCalculationBreakdown: {
+      /** Assumptions */
+      assumptions?: string[];
+      calculated_per_unit?:
+        components["schemas"]["EstimateMacroBreakdown"] | null;
+      calculated_total: components["schemas"]["EstimateMacroBreakdown"];
+      /** Calculation Steps */
+      calculation_steps?: string[];
+      /** Count Detected */
+      count_detected?: number | null;
+      /** Evidence */
+      evidence?: string[];
+      /** Name */
+      name: string;
+      /** Net Weight Per Unit G */
+      net_weight_per_unit_g?: number | null;
+      nutrition_per_100g?:
+        components["schemas"]["EstimateMacroBreakdown"] | null;
+      /** Position */
+      position: number;
+      /** Total Weight G */
+      total_weight_g?: number | null;
+    };
+    /**
+     * EstimateComparisonDiff
+     * @description Structured comparison between current and proposed item lists.
+     */
+    EstimateComparisonDiff: {
+      /** Added Items */
+      added_items?: components["schemas"]["EstimateItemChange"][];
+      /** Changed Items */
+      changed_items?: components["schemas"]["EstimateItemChange"][];
+      /** Confidence Delta */
+      confidence_delta?: number | null;
+      /** Current Model */
+      current_model?: string | null;
+      /** Proposed Model */
+      proposed_model?: string | null;
+      /** Removed Items */
+      removed_items?: components["schemas"]["EstimateItemChange"][];
+      totals: components["schemas"]["EstimateDiffTotals"];
+      /** Warnings */
+      warnings?: string[];
+    };
+    /**
+     * EstimateCreatedDraftResponse
+     * @description One draft journal row created from an estimated item.
+     */
+    EstimateCreatedDraftResponse: {
+      item: components["schemas"]["MealItemCreate"];
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Source Photo Id */
+      source_photo_id?: string | null;
+      /** Thumbnail Url */
+      thumbnail_url?: string | null;
+      /** Title */
+      title: string;
+      totals: components["schemas"]["MealTotalsResponse"];
+    };
+    /**
+     * EstimateDiffTotals
+     * @description Macro/kcal delta between current and proposed estimates.
+     */
+    EstimateDiffTotals: {
+      /** Carbs Delta */
+      carbs_delta: number;
+      /** Fat Delta */
+      fat_delta: number;
+      /** Fiber Delta */
+      fiber_delta: number;
+      /** Kcal Delta */
+      kcal_delta: number;
+      /** Protein Delta */
+      protein_delta: number;
+    };
+    /**
+     * EstimateItemChange
+     * @description Item-level change in an estimate comparison.
+     */
+    EstimateItemChange: {
+      current?: components["schemas"]["MealItemCreate"] | null;
+      /** Name */
+      name: string;
+      proposed?: components["schemas"]["MealItemCreate"] | null;
+    };
+    /**
+     * EstimateMacroBreakdown
+     * @description Macro/kcal values used in an estimation calculation breakdown.
+     */
+    EstimateMacroBreakdown: {
+      /** Carbs G */
+      carbs_g?: number | null;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Fiber G */
+      fiber_g?: number | null;
+      /** Kcal */
+      kcal?: number | null;
+      /** Protein G */
+      protein_g?: number | null;
+    };
+    /**
+     * EstimateMealRequest
+     * @description Optional local context to include in a photo estimation request.
+     * @example {
+     *       "context_note": "100 г варёного риса на тарелке",
+     *       "model": "default",
+     *       "scenario_hint": "PLATED",
+     *       "use_patterns": [],
+     *       "use_products": []
+     *     }
+     */
+    EstimateMealRequest: {
+      /**
+       * Context Note
+       * @description User-provided context for the photos, such as known component weights or corrections. This is evidence for Gemini, not authoritative macro math.
+       */
+      context_note?: string | null;
+      /**
+       * Model
+       * @default default
+       * @enum {string}
+       */
+      model:
+        | "default"
+        | "gemini-3-flash-preview"
+        | "gemini-2.5-flash"
+        | "gemini-3.1-flash-lite-preview";
+      /** Scenario Hint */
+      scenario_hint?:
+        | ("LABEL_FULL" | "LABEL_PARTIAL" | "PLATED" | "BARCODE" | "UNKNOWN")
+        | null;
+      /** Use Patterns */
+      use_patterns?: string[];
+      /** Use Products */
+      use_products?: string[];
+    };
+    /**
+     * EstimateMealResponse
+     * @description Photo estimation response containing draft item suggestions.
+     * @example {
+     *       "ai_run_id": "22222222-2222-2222-2222-222222222222",
+     *       "gemini_notes": "Nutrition label is readable.",
+     *       "image_quality_warnings": [],
+     *       "meal_id": "11111111-1111-1111-1111-111111111111",
+     *       "reference_detected": "none",
+     *       "suggested_items": [
+     *         {
+     *           "assumptions": [],
+     *           "brand": "Example",
+     *           "calculation_method": "label_visible_weight_backend_calc",
+     *           "carbs_g": 28,
+     *           "confidence": 0.92,
+     *           "confidence_reason": "Full label and weight are visible.",
+     *           "evidence": {
+     *             "scenario": "LABEL_FULL"
+     *           },
+     *           "fat_g": 12,
+     *           "fiber_g": 2,
+     *           "grams": 50,
+     *           "kcal": 232,
+     *           "name": "Chocolate bar",
+     *           "protein_g": 3,
+     *           "source_kind": "label_calc",
+     *           "warnings": []
+     *         }
+     *       ],
+     *       "suggested_totals": {
+     *         "total_carbs_g": 28,
+     *         "total_fat_g": 12,
+     *         "total_fiber_g": 2,
+     *         "total_kcal": 232,
+     *         "total_protein_g": 3
+     *       }
+     *     }
+     */
+    EstimateMealResponse: {
+      /**
+       * Ai Run Id
+       * Format: uuid
+       */
+      ai_run_id: string;
+      /** Calculation Breakdowns */
+      calculation_breakdowns?: components["schemas"]["EstimateCalculationBreakdown"][];
+      /** Created Drafts */
+      created_drafts?: components["schemas"]["EstimateCreatedDraftResponse"][];
+      /** Gemini Notes */
+      gemini_notes: string;
+      /** Image Quality Warnings */
+      image_quality_warnings: string[];
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Raw Gemini Response */
+      raw_gemini_response?: {
+        [key: string]: unknown;
+      } | null;
+      reference_detected: components["schemas"]["PhotoReferenceKind"];
+      /** Source Photos */
+      source_photos?: components["schemas"]["EstimateSourcePhotoResponse"][];
+      /** Suggested Items */
+      suggested_items: components["schemas"]["MealItemCreate"][];
+      suggested_totals: components["schemas"]["MealTotalsResponse"];
+    };
+    /**
+     * EstimateSourcePhotoResponse
+     * @description Source photo reference for an estimation response.
+     */
+    EstimateSourcePhotoResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Index */
+      index: number;
+      /** Original Filename */
+      original_filename?: string | null;
+      /** Thumbnail Url */
+      thumbnail_url: string;
+      /** Url */
+      url: string;
+    };
+    /**
+     * FingerstickReadingCreate
+     * @description Create a manual capillary glucose reading.
+     */
+    FingerstickReadingCreate: {
+      /** Glucose Mmol L */
+      glucose_mmol_l: number;
+      /**
+       * Measured At
+       * Format: date-time
+       */
+      measured_at: string;
+      /** Meter Name */
+      meter_name?: string | null;
+      /** Notes */
+      notes?: string | null;
+    };
+    /**
+     * FingerstickReadingPatch
+     * @description Patch a manual capillary glucose reading.
+     */
+    FingerstickReadingPatch: {
+      /** Glucose Mmol L */
+      glucose_mmol_l?: number | null;
+      /** Measured At */
+      measured_at?: string | null;
+      /** Meter Name */
+      meter_name?: string | null;
+      /** Notes */
+      notes?: string | null;
+    };
+    /**
+     * FingerstickReadingResponse
+     * @description Stored manual capillary glucose reading.
+     */
+    FingerstickReadingResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Glucose Mmol L */
+      glucose_mmol_l: number;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Measured At
+       * Format: date-time
+       */
+      measured_at: string;
+      /** Meter Name */
+      meter_name?: string | null;
+      /** Notes */
+      notes?: string | null;
+    };
+    /**
+     * FoodEpisodeFoodResponse
+     * @description Computed food-only episode.
+     */
+    FoodEpisodeFoodResponse: {
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /** Id */
+      id: string;
+      /** Meals */
+      meals: components["schemas"]["MealResponse"][];
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+      /** Title */
+      title: string;
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Kcal */
+      total_kcal: number;
+    };
+    /**
+     * FoodEpisodeResponse
+     * @description Computed grouping of meal, insulin, and local CGM context.
+     */
+    FoodEpisodeResponse: {
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /** Glucose */
+      glucose?: components["schemas"]["NightscoutGlucoseEntryResponse"][];
+      glucose_summary: components["schemas"]["TimelineGlucoseSummary"];
+      /** Id */
+      id: string;
+      /** Insulin */
+      insulin?: components["schemas"]["NightscoutInsulinEventResponse"][];
+      /** Meals */
+      meals: components["schemas"]["MealResponse"][];
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+      /** Title */
+      title: string;
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Kcal */
+      total_kcal: number;
+    };
+    /**
+     * GlucoseArtifactInterval
+     * @description Suspected artifact interval for display shading.
+     */
+    GlucoseArtifactInterval: {
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "compression_suspected"
+        | "jump_suspected"
+        | "gap"
+        | "low_confidence_calibration"
+        | "end_of_life_noise";
+      /** Label */
+      label: string;
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+    };
+    /**
+     * GlucoseDashboardFoodEvent
+     * @description Food marker for glucose dashboard overlays.
+     */
+    GlucoseDashboardFoodEvent: {
+      /** Absorption Confidence */
+      absorption_confidence?: ("none" | "low" | "medium" | "high") | null;
+      /** Absorption Fast Weight */
+      absorption_fast_weight?: number | null;
+      /** Absorption Minutes */
+      absorption_minutes?: number | null;
+      /** Absorption Model Source */
+      absorption_model_source?:
+        ("macro_prior" | "personalized_meal" | "personalized_category") | null;
+      /** Absorption Normal Weight */
+      absorption_normal_weight?: number | null;
+      /** Absorption Profile */
+      absorption_profile?: string | null;
+      /** Absorption Slow Weight */
+      absorption_slow_weight?: number | null;
+      /** Carbs G */
+      carbs_g: number;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Fiber G */
+      fiber_g?: number | null;
+      /** Kcal */
+      kcal?: number | null;
+      /** Protein G */
+      protein_g?: number | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+      /** Title */
+      title: string;
+    };
+    /**
+     * GlucoseDashboardInsulinEvent
+     * @description Read-only insulin marker for glucose dashboard overlays.
+     */
+    GlucoseDashboardInsulinEvent: {
+      /** Event Type */
+      event_type?: string | null;
+      /** Insulin Type */
+      insulin_type?: string | null;
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * GlucoseDashboardPoint
+     * @description One glucose dashboard display point.
+     */
+    GlucoseDashboardPoint: {
+      /** Bias Confidence */
+      bias_confidence?: string | null;
+      /** Contributing Fingerstick Count */
+      contributing_fingerstick_count?: number | null;
+      /** Correction Mmol L */
+      correction_mmol_l?: number | null;
+      /** Display Value */
+      display_value: number;
+      /** Flags */
+      flags?: string[];
+      /** Nearest Fingerstick Distance Min */
+      nearest_fingerstick_distance_min?: number | null;
+      /** Normalized Value */
+      normalized_value?: number | null;
+      /** Raw Value */
+      raw_value: number;
+      /** Smoothed Value */
+      smoothed_value?: number | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * GlucoseDashboardResponse
+     * @description Nightscout-like glucose dashboard response.
+     */
+    GlucoseDashboardResponse: {
+      /** Artifacts */
+      artifacts: components["schemas"]["GlucoseArtifactInterval"][];
+      bias_over_lifetime?: components["schemas"]["BiasOverLifetimeData"] | null;
+      current_sensor?: components["schemas"]["SensorSessionResponse"] | null;
+      /** Fingersticks */
+      fingersticks: components["schemas"]["FingerstickReadingResponse"][];
+      /** Food Events */
+      food_events: components["schemas"]["GlucoseDashboardFoodEvent"][];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /** Insulin Events */
+      insulin_events: components["schemas"]["GlucoseDashboardInsulinEvent"][];
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "raw" | "smoothed" | "normalized";
+      /** Notes */
+      notes?: string[];
+      /** Points */
+      points: components["schemas"]["GlucoseDashboardPoint"][];
+      quality: components["schemas"]["SensorQualityResponse"];
+      /** Sensors */
+      sensors: components["schemas"]["SensorSessionResponse"][];
+      summary: components["schemas"]["GlucoseDashboardSummary"];
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * GlucoseDashboardSummary
+     * @description Compact dashboard status values.
+     */
+    GlucoseDashboardSummary: {
+      /** Bias Mmol L */
+      bias_mmol_l?: number | null;
+      /**
+       * Calibration Confidence
+       * @enum {string}
+       */
+      calibration_confidence: "none" | "low" | "medium" | "high";
+      /**
+       * Cob G
+       * @default 0
+       */
+      cob_g: number;
+      /**
+       * Cob Minutes Remaining
+       * @default 0
+       */
+      cob_minutes_remaining: number;
+      /**
+       * Cob Model Confidence
+       * @default none
+       * @enum {string}
+       */
+      cob_model_confidence: "none" | "low" | "medium" | "high";
+      /**
+       * Cob Model Source
+       * @default macro_prior
+       * @enum {string}
+       */
+      cob_model_source: "macro_prior" | "personalized";
+      /** Current Glucose */
+      current_glucose?: number | null;
+      /** Current Glucose At */
+      current_glucose_at?: string | null;
+      /** Drift Mmol L Per Day */
+      drift_mmol_l_per_day?: number | null;
+      /**
+       * Iob Minutes Remaining
+       * @default 0
+       */
+      iob_minutes_remaining: number;
+      /**
+       * Iob Model Confidence
+       * @default none
+       * @enum {string}
+       */
+      iob_model_confidence: "none" | "low" | "medium" | "high";
+      /**
+       * Iob Model Source
+       * @default population
+       * @enum {string}
+       */
+      iob_model_source: "population" | "personalized";
+      /**
+       * Iob Units
+       * @default 0
+       */
+      iob_units: number;
+      /** Sensor Age Days */
+      sensor_age_days?: number | null;
+      /** Suspected Compression Count */
+      suspected_compression_count: number;
+    };
+    /**
+     * GlucoseTirDailyResponse
+     * @description Daily TIR distribution for a stats period (gluco feature only).
+     */
+    GlucoseTirDailyResponse: {
+      /** Days */
+      days: components["schemas"]["GlucoseTirDayResponse"][];
+      /**
+       * Period
+       * @enum {string}
+       */
+      period: "7d" | "14d" | "30d";
+    };
+    /**
+     * GlucoseTirDayResponse
+     * @description Per-day share of CGM points across display TIR bands (gluco only).
+     */
+    GlucoseTirDayResponse: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** High Pct */
+      high_pct?: number | null;
+      /** In Range Pct */
+      in_range_pct?: number | null;
+      /** Low Pct */
+      low_pct?: number | null;
+      /** Points */
+      points: number;
+      /** Very High Pct */
+      very_high_pct?: number | null;
+      /** Very Low Pct */
+      very_low_pct?: number | null;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /**
+     * HealthResponse
+     * @description Service health response.
+     */
+    HealthResponse: {
+      /**
+       * Db
+       * @example not_checked
+       */
+      db: string;
+      /**
+       * Status
+       * @example ok
+       */
+      status: string;
+      /**
+       * Version
+       * @example 0.1.0
+       */
+      version: string;
+    };
+    /**
+     * InsulinLinkDayPutRequest
+     * @description Replace reviewed food/insulin links for one day atomically.
+     */
+    InsulinLinkDayPutRequest: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Links */
+      links?: components["schemas"]["MealInsulinLinkItem"][];
+      /** Reviewed Insulin Event Ids */
+      reviewed_insulin_event_ids?: string[];
+    };
+    /**
+     * InsulinLinkDayResponse
+     * @description One-day workspace for reviewing food and insulin event links.
+     */
+    InsulinLinkDayResponse: {
+      /** Auto Links */
+      auto_links: components["schemas"]["MealInsulinLinkItem"][];
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Insulin Events */
+      insulin_events: components["schemas"]["InsulinLinkEventResponse"][];
+      /** Links */
+      links: components["schemas"]["MealInsulinLinkItem"][];
+      /** Meals */
+      meals: components["schemas"]["InsulinLinkMealResponse"][];
+      /** Reviewed Insulin Event Ids */
+      reviewed_insulin_event_ids?: string[];
+    };
+    /**
+     * InsulinLinkEventResponse
+     * @description Insulin event with backend-owned contextual label and link hints.
+     */
+    InsulinLinkEventResponse: {
+      /** Confidence */
+      confidence?: number | null;
+      /**
+       * Context Label
+       * @enum {string}
+       */
+      context_label: "food" | "correction" | "mixed" | "unresolved" | "manual";
+      /**
+       * Covers Multiple Food Events
+       * @default false
+       */
+      covers_multiple_food_events: boolean;
+      /** Enteredby */
+      enteredBy?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Insulin Type */
+      insulin_type?: string | null;
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /**
+       * Link Source
+       * @enum {string}
+       */
+      link_source: "manual" | "auto" | "none";
+      /** Linked Meal Ids */
+      linked_meal_ids?: string[];
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /** Raw Event Type */
+      raw_event_type?: string | null;
+      /** Reason */
+      reason: string;
+      /** Suggested Meal Ids */
+      suggested_meal_ids?: string[];
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * InsulinLinkGlucoseAnchorResponse
+     * @description CGM value sampled around a food/insulin episode.
+     */
+    InsulinLinkGlucoseAnchorResponse: {
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "actual" | "interpolated";
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+      /** Value */
+      value: number;
+    };
+    /**
+     * InsulinLinkMealResponse
+     * @description Compact food event for one-day insulin review.
+     */
+    InsulinLinkMealResponse: {
+      /**
+       * Eaten At
+       * Format: date-time
+       */
+      eaten_at: string;
+      glucose_minus_30?:
+        components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
+      glucose_plus_2h?:
+        components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Kcal */
+      total_kcal: number;
+    };
+    /**
+     * IssuedTokensResponse
+     * @description Issued access and refresh token response.
+     */
+    IssuedTokensResponse: {
+      /** Access */
+      access: string;
+      /**
+       * Access Expires At
+       * Format: date-time
+       */
+      access_expires_at: string;
+      /** Refresh */
+      refresh: string;
+      /**
+       * Refresh Expires At
+       * Format: date-time
+       */
+      refresh_expires_at: string;
+    };
+    /**
+     * ItemSourceKind
+     * @description Origin of an individual meal item estimate or calculation.
+     * @enum {string}
+     */
+    ItemSourceKind:
+      | "photo_estimate"
+      | "label_calc"
+      | "restaurant_db"
+      | "product_db"
+      | "pattern"
+      | "manual";
+    /** KcalBalanceDay */
+    KcalBalanceDay: {
+      /** Activity Source */
+      activity_source?: string | null;
+      /**
+       * Bmr Available
+       * @default false
+       */
+      bmr_available: boolean;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Kcal In */
+      kcal_in: number;
+      /** Net Balance */
+      net_balance?: number | null;
+      /**
+       * Steps
+       * @default 0
+       */
+      steps: number;
+      /** Tdee */
+      tdee?: number | null;
+    };
+    /** KcalBalanceRangeResponse */
+    KcalBalanceRangeResponse: {
+      /** Days */
+      days: components["schemas"]["KcalBalanceDay"][];
+    };
+    /** KcalBalanceResponse */
+    KcalBalanceResponse: {
+      /** Activity Source */
+      activity_source?: string | null;
+      /**
+       * Bmr Available
+       * @default false
+       */
+      bmr_available: boolean;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Kcal Burned */
+      kcal_burned: number;
+      /** Kcal In */
+      kcal_in: number;
+      /** Net Balance */
+      net_balance?: number | null;
+      /**
+       * Steps
+       * @default 0
+       */
+      steps: number;
+      /** Tdee */
+      tdee?: number | null;
+    };
+    /**
+     * LoginRequest
+     * @description Username/password login payload.
+     */
+    LoginRequest: {
+      /** Password */
+      password: string;
+      /** Username */
+      username: string;
+    };
+    /**
+     * LogoutRequest
+     * @description Refresh-token revocation payload.
+     */
+    LogoutRequest: {
+      /** Refresh Token */
+      refresh_token: string;
+    };
+    /**
+     * LowConfidenceItemResponse
+     * @description Low-confidence item row.
+     */
+    LowConfidenceItemResponse: {
+      /** Confidence */
+      confidence?: number | null;
+      /**
+       * Item Id
+       * Format: uuid
+       */
+      item_id: string;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Name */
+      name: string;
+      /** Reason */
+      reason?: string | null;
+    };
+    /**
+     * MealAcceptRequest
+     * @description Accept a draft by replacing its items atomically.
+     * @example {
+     *       "items": [
+     *         {
+     *           "carbs_g": 68,
+     *           "confidence": 0.72,
+     *           "fat_g": 5,
+     *           "fiber_g": 4,
+     *           "grams": 220,
+     *           "kcal": 365,
+     *           "name": "Pasta",
+     *           "protein_g": 12,
+     *           "source_kind": "photo_estimate"
+     *         }
+     *       ]
+     *     }
+     */
+    MealAcceptRequest: {
+      /** Items */
+      items?: components["schemas"]["MealItemCreate"][];
+    };
+    /**
+     * MealCreate
+     * @description Create a meal with optional inline items.
+     * @example {
+     *       "eaten_at": "2026-04-28T08:30:00",
+     *       "idempotency_key": "11111111-1111-1111-1111-111111111111",
+     *       "items": [
+     *         {
+     *           "carbs_g": 8,
+     *           "fat_g": 4,
+     *           "fiber_g": 0,
+     *           "grams": 150,
+     *           "kcal": 128,
+     *           "name": "Greek yogurt",
+     *           "protein_g": 15,
+     *           "source_kind": "manual"
+     *         }
+     *       ],
+     *       "note": "Manual entry",
+     *       "source": "manual",
+     *       "title": "Breakfast"
+     *     }
+     */
+    MealCreate: {
+      /**
+       * Eaten At
+       * Format: date-time
+       */
+      eaten_at?: string;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+      /** Items */
+      items?: components["schemas"]["MealItemCreate"][];
+      /**
+       * Note
+       * @example Post-run meal
+       */
+      note?: string | null;
+      /** @example manual */
+      source: components["schemas"]["MealSource"];
+      status?: components["schemas"]["MealStatus"] | null;
+      /**
+       * Title
+       * @example Breakfast
+       */
+      title?: string | null;
+    };
+    /**
+     * MealInsulinLinkItem
+     * @description One reviewed many-to-many food/insulin link.
+     */
+    MealInsulinLinkItem: {
+      /** Confidence */
+      confidence?: number | null;
+      /**
+       * Insulin Event Id
+       * Format: uuid
+       */
+      insulin_event_id: string;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Note */
+      note?: string | null;
+      /**
+       * Source
+       * @default manual
+       * @enum {string}
+       */
+      source: "manual" | "auto";
+    };
+    /**
+     * MealItemCreate
+     * @description Create a meal item.
+     * @example {
+     *       "assumptions": [],
+     *       "brand": "Local Dairy",
+     *       "calculation_method": "manual",
+     *       "carbs_g": 8,
+     *       "evidence": {},
+     *       "fat_g": 4,
+     *       "fiber_g": 0,
+     *       "grams": 150,
+     *       "kcal": 128,
+     *       "name": "Greek yogurt",
+     *       "position": 0,
+     *       "protein_g": 15,
+     *       "source_kind": "manual",
+     *       "warnings": []
+     *     }
+     */
+    MealItemCreate: {
+      /** Assumptions */
+      assumptions?: unknown[];
+      /**
+       * Brand
+       * @example Local Dairy
+       */
+      brand?: string | null;
+      /**
+       * Calculation Method
+       * @example manual
+       */
+      calculation_method?: string | null;
+      /**
+       * Carbs G
+       * @default 0
+       * @example 8
+       */
+      carbs_g: number;
+      /**
+       * Confidence
+       * @example 0.9
+       */
+      confidence?: number | null;
+      /**
+       * Confidence Reason
+       * @example Label values
+       */
+      confidence_reason?: string | null;
+      /** Evidence */
+      evidence?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Fat G
+       * @default 0
+       * @example 4
+       */
+      fat_g: number;
+      /**
+       * Fiber G
+       * @default 0
+       * @example 0
+       */
+      fiber_g: number;
+      /**
+       * Grams
+       * @example 150
+       */
+      grams?: number | null;
+      /**
+       * Kcal
+       * @default 0
+       * @example 128
+       */
+      kcal: number;
+      /**
+       * Name
+       * @example Greek yogurt
+       */
+      name: string;
+      /** Nutrients */
+      nutrients?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /** Pattern Id */
+      pattern_id?: string | null;
+      /** Photo Id */
+      photo_id?: string | null;
+      /**
+       * Position
+       * @default 0
+       * @example 0
+       */
+      position: number;
+      /** Product Id */
+      product_id?: string | null;
+      /**
+       * Protein G
+       * @default 0
+       * @example 15
+       */
+      protein_g: number;
+      /**
+       * Serving Text
+       * @example 1 cup
+       */
+      serving_text?: string | null;
+      /** @default manual */
+      source_kind: components["schemas"]["ItemSourceKind"];
+      /** Warnings */
+      warnings?: unknown[];
+    };
+    /**
+     * MealItemNutrientResponse
+     * @description Stored optional nutrient amount for a meal item.
+     */
+    MealItemNutrientResponse: {
+      /** Amount */
+      amount?: number | null;
+      /** Assumptions Json */
+      assumptions_json?: unknown[];
+      /** Confidence */
+      confidence?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Evidence Json */
+      evidence_json?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Meal Item Id
+       * Format: uuid
+       */
+      meal_item_id: string;
+      /** Nutrient Code */
+      nutrient_code: string;
+      /** Source Kind */
+      source_kind: string;
+      /** Unit */
+      unit: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * MealItemPatch
+     * @description Patch a meal item.
+     * @example {
+     *       "carbs_g": 9.6,
+     *       "fat_g": 4.8,
+     *       "grams": 180,
+     *       "kcal": 154,
+     *       "protein_g": 18
+     *     }
+     */
+    MealItemPatch: {
+      /** Assumptions */
+      assumptions?: unknown[] | null;
+      /** Brand */
+      brand?: string | null;
+      /** Calculation Method */
+      calculation_method?: string | null;
+      /** Carbs G */
+      carbs_g?: number | null;
+      /** Confidence */
+      confidence?: number | null;
+      /** Confidence Reason */
+      confidence_reason?: string | null;
+      /** Evidence */
+      evidence?: {
+        [key: string]: unknown;
+      } | null;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Fiber G */
+      fiber_g?: number | null;
+      /** Grams */
+      grams?: number | null;
+      /** Kcal */
+      kcal?: number | null;
+      /** Name */
+      name?: string | null;
+      /** Nutrients */
+      nutrients?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      } | null;
+      /** Pattern Id */
+      pattern_id?: string | null;
+      /** Photo Id */
+      photo_id?: string | null;
+      /** Position */
+      position?: number | null;
+      /** Product Id */
+      product_id?: string | null;
+      /** Protein G */
+      protein_g?: number | null;
+      /** Serving Text */
+      serving_text?: string | null;
+      source_kind?: components["schemas"]["ItemSourceKind"] | null;
+      /** Warnings */
+      warnings?: unknown[] | null;
+    };
+    /**
+     * MealItemResponse
+     * @description Meal item response.
+     */
+    MealItemResponse: {
+      /** Assumptions */
+      assumptions?: unknown[];
+      /**
+       * Brand
+       * @example Local Dairy
+       */
+      brand?: string | null;
+      /**
+       * Calculation Method
+       * @example manual
+       */
+      calculation_method?: string | null;
+      /**
+       * Carbs G
+       * @default 0
+       * @example 8
+       */
+      carbs_g: number;
+      /**
+       * Confidence
+       * @example 0.9
+       */
+      confidence?: number | null;
+      /**
+       * Confidence Reason
+       * @example Label values
+       */
+      confidence_reason?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Evidence */
+      evidence?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Fat G
+       * @default 0
+       * @example 4
+       */
+      fat_g: number;
+      /**
+       * Fiber G
+       * @default 0
+       * @example 0
+       */
+      fiber_g: number;
+      /**
+       * Grams
+       * @example 150
+       */
+      grams?: number | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Image Cache Path */
+      image_cache_path?: string | null;
+      /** Image Url */
+      image_url?: string | null;
+      /**
+       * Kcal
+       * @default 0
+       * @example 128
+       */
+      kcal: number;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /**
+       * Name
+       * @example Greek yogurt
+       */
+      name: string;
+      /** Nutrients */
+      nutrients?: components["schemas"]["MealItemNutrientResponse"][];
+      /** Pattern Id */
+      pattern_id?: string | null;
+      /** Photo Id */
+      photo_id?: string | null;
+      /**
+       * Position
+       * @default 0
+       * @example 0
+       */
+      position: number;
+      /** Product Id */
+      product_id?: string | null;
+      /**
+       * Protein G
+       * @default 0
+       * @example 15
+       */
+      protein_g: number;
+      /**
+       * Serving Text
+       * @example 1 cup
+       */
+      serving_text?: string | null;
+      /** Source Image Url */
+      source_image_url?: string | null;
+      /** @default manual */
+      source_kind: components["schemas"]["ItemSourceKind"];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Warnings */
+      warnings?: unknown[];
+    };
+    /**
+     * MealItemWeightReuseRequest
+     * @description Create a new meal from an existing item scaled to a target weight.
+     */
+    MealItemWeightReuseRequest: {
+      /** Eaten At */
+      eaten_at?: string | null;
+      /**
+       * Grams
+       * @example 127
+       */
+      grams: number;
+    };
+    /**
+     * MealPageResponse
+     * @description Paginated meal list response.
+     */
+    MealPageResponse: {
+      /** Items */
+      items: components["schemas"]["MealResponse"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * MealPatch
+     * @description Patch editable meal fields.
+     * @example {
+     *       "note": "Corrected note",
+     *       "title": "Updated breakfast"
+     *     }
+     */
+    MealPatch: {
+      /** Eaten At */
+      eaten_at?: string | null;
+      /** Note */
+      note?: string | null;
+      status?: components["schemas"]["MealStatus"] | null;
+      /** Title */
+      title?: string | null;
+    };
+    /**
+     * MealResponse
+     * @description Meal response including backend-calculated totals.
+     */
+    MealResponse: {
+      /** Confidence */
+      confidence?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Derived Categories */
+      derived_categories?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Eaten At
+       * Format: date-time
+       */
+      eaten_at: string;
+      /** Estimate Error */
+      estimate_error?: string | null;
+      /** Estimate Status */
+      estimate_status?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Items */
+      items?: components["schemas"]["MealItemResponse"][];
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /** Nightscout Last Attempt At */
+      nightscout_last_attempt_at?: string | null;
+      /** Nightscout Sync Error */
+      nightscout_sync_error?: string | null;
+      /**
+       * Nightscout Sync Status
+       * @default not_synced
+       */
+      nightscout_sync_status: string;
+      /** Nightscout Synced At */
+      nightscout_synced_at?: string | null;
+      /** Note */
+      note?: string | null;
+      /** Photo Idempotency Key */
+      photo_idempotency_key?: string | null;
+      /** Photos */
+      photos?: components["schemas"]["PhotoResponse"][];
+      /** Postprandial Response */
+      postprandial_response?: {
+        [key: string]: unknown;
+      } | null;
+      source: components["schemas"]["MealSource"];
+      status: components["schemas"]["MealStatus"];
+      /** Tags */
+      tags?: string[];
+      /** Thumbnail Url */
+      thumbnail_url?: string | null;
+      /** Title */
+      title?: string | null;
+      /** Total Carbs G */
+      total_carbs_g: number;
+      /** Total Fat G */
+      total_fat_g: number;
+      /** Total Fiber G */
+      total_fiber_g: number;
+      /** Total Kcal */
+      total_kcal: number;
+      /** Total Protein G */
+      total_protein_g: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * MealSource
+     * @description Origin of a meal journal entry.
+     * @enum {string}
+     */
+    MealSource: "photo" | "pattern" | "manual" | "mixed";
+    /**
+     * MealStatus
+     * @description Lifecycle state for a meal journal entry.
+     * @enum {string}
+     */
+    MealStatus: "draft" | "accepted" | "discarded";
+    /**
+     * MealTotalsResponse
+     * @description Backend-calculated meal totals.
+     */
+    MealTotalsResponse: {
+      /**
+       * Total Carbs G
+       * @example 42
+       */
+      total_carbs_g: number;
+      /**
+       * Total Fat G
+       * @example 12
+       */
+      total_fat_g: number;
+      /**
+       * Total Fiber G
+       * @example 5
+       */
+      total_fiber_g: number;
+      /**
+       * Total Kcal
+       * @example 348
+       */
+      total_kcal: number;
+      /**
+       * Total Protein G
+       * @example 18
+       */
+      total_protein_g: number;
+    };
+    /**
+     * MobilePhotoEstimateLogEvent
+     * @description One Android-side photo estimation pipeline diagnostic event.
+     */
+    MobilePhotoEstimateLogEvent: {
+      /** Android Sdk */
+      android_sdk?: number | null;
+      /** App Flavor */
+      app_flavor?: string | null;
+      /** App Version */
+      app_version?: string | null;
+      /** Attempt */
+      attempt?: number | null;
+      /** Captured At */
+      captured_at?: string | null;
+      /** Detail */
+      detail?: {
+        [key: string]: unknown;
+      };
+      /** Device Model */
+      device_model?: string | null;
+      /** Error Code */
+      error_code?: string | null;
+      /** Error Message */
+      error_message?: string | null;
+      /** Estimate Status */
+      estimate_status?: string | null;
+      /**
+       * Event At
+       * Format: date-time
+       */
+      event_at: string;
+      /** Event Id */
+      event_id: string;
+      /** Event Type */
+      event_type: string;
+      /** Http Status */
+      http_status?: number | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+      /** Outbox Id */
+      outbox_id?: string | null;
+      /** Queued Delay Ms */
+      queued_delay_ms?: number | null;
+      /** Retry Delay Ms */
+      retry_delay_ms?: number | null;
+      /** Server Meal Id */
+      server_meal_id?: string | null;
+      /** Source */
+      source?: string | null;
+      /** Total Elapsed Ms */
+      total_elapsed_ms?: number | null;
+      /** Trace Id */
+      trace_id: string;
+      /** Upload Duration Ms */
+      upload_duration_ms?: number | null;
+    };
+    /**
+     * MobilePhotoEstimateLogRequest
+     * @description Batch of mobile photo-estimation diagnostic events.
+     */
+    MobilePhotoEstimateLogRequest: {
+      /** Client Sent At */
+      client_sent_at?: string | null;
+      /** Events */
+      events: components["schemas"]["MobilePhotoEstimateLogEvent"][];
+    };
+    /**
+     * MobilePhotoEstimateLogResponse
+     * @description Server-side log ingest acknowledgement.
+     */
+    MobilePhotoEstimateLogResponse: {
+      /** Accepted Count */
+      accepted_count: number;
+    };
+    /**
+     * NightscoutDayStatusResponse
+     * @description Nightscout sync status for one diary day.
+     */
+    NightscoutDayStatusResponse: {
+      /** Accepted Meals Count */
+      accepted_meals_count: number;
+      /** Configured */
+      configured: boolean;
+      /** Connected */
+      connected: boolean;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Failed Meals Count */
+      failed_meals_count: number;
+      /** Last Sync At */
+      last_sync_at?: string | null;
+      /** Synced Meals Count */
+      synced_meals_count: number;
+      /** Unsynced Meals Count */
+      unsynced_meals_count: number;
+    };
+    /**
+     * NightscoutEventsResponse
+     * @description Combined read-only Nightscout context events.
+     */
+    NightscoutEventsResponse: {
+      /** Glucose */
+      glucose: components["schemas"]["NightscoutGlucoseEntryResponse"][];
+      /** Insulin */
+      insulin: components["schemas"]["NightscoutInsulinEventResponse"][];
+    };
+    /**
+     * NightscoutGlucoseEntryResponse
+     * @description Read-only Nightscout glucose entry normalized for UI context.
+     */
+    NightscoutGlucoseEntryResponse: {
+      /** Source */
+      source?: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+      /** Trend */
+      trend?: string | null;
+      /**
+       * Unit
+       * @default mmol/L
+       */
+      unit: string;
+      /** Value */
+      value: number;
+    };
+    /**
+     * NightscoutImportRequest
+     * @description Import Nightscout context into the local read-only cache.
+     */
+    NightscoutImportRequest: {
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /**
+       * Import Insulin Events
+       * @default true
+       */
+      import_insulin_events: boolean;
+      /**
+       * Sync Glucose
+       * @default true
+       */
+      sync_glucose: boolean;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * NightscoutImportResponse
+     * @description Nightscout local cache import summary.
+     */
+    NightscoutImportResponse: {
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /** Glucose Imported */
+      glucose_imported: number;
+      /** Glucose Total */
+      glucose_total: number;
+      /** Insulin Imported */
+      insulin_imported: number;
+      /** Insulin Total */
+      insulin_total: number;
+      /** Last Error */
+      last_error?: string | null;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * NightscoutInsulinDeleteResponse
+     * @description Confirmation that a manual insulin treatment was deleted remotely.
+     */
+    NightscoutInsulinDeleteResponse: {
+      /**
+       * Deleted
+       * @default true
+       */
+      deleted: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Nightscout Id */
+      nightscout_id: string;
+    };
+    /**
+     * NightscoutInsulinEntryCreate
+     * @description Manual insulin amount to write as a Nightscout treatment.
+     */
+    NightscoutInsulinEntryCreate: {
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+      /** Insulin Units */
+      insulin_units: number;
+      /** Recorded At */
+      recorded_at?: string | null;
+    };
+    /**
+     * NightscoutInsulinEntryPatch
+     * @description Editable fields for a Glucotracker-created insulin treatment.
+     */
+    NightscoutInsulinEntryPatch: {
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /** Recorded At */
+      recorded_at?: string | null;
+    };
+    /**
+     * NightscoutInsulinEventResponse
+     * @description Nightscout insulin event, editable only when created by Glucotracker.
+     */
+    NightscoutInsulinEventResponse: {
+      /**
+       * Editable
+       * @default false
+       */
+      editable: boolean;
+      /** Enteredby */
+      enteredBy?: string | null;
+      /** Eventtype */
+      eventType?: string | null;
+      /** Id */
+      id?: string | null;
+      /** Insulin Type */
+      insulin_type?: string | null;
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * NightscoutLatestReadingResponse
+     * @description Latest glucose reading from the local Nightscout cache.
+     */
+    NightscoutLatestReadingResponse: {
+      /** Sensor Id */
+      sensor_id?: string | null;
+      /** Timestamp */
+      timestamp?: string | null;
+      /**
+       * Total Entries
+       * @default 0
+       */
+      total_entries: number;
+      /** Trend */
+      trend?: string | null;
+      /** Value Mmol L */
+      value_mmol_l?: number | null;
+    };
+    /**
+     * NightscoutSettingsPatch
+     * @description Update server-side Nightscout settings.
+     */
+    NightscoutSettingsPatch: {
+      /** Allow Meal Send */
+      allow_meal_send?: boolean | null;
+      /** Autosend Meals */
+      autosend_meals?: boolean | null;
+      /** Confirm Before Send */
+      confirm_before_send?: boolean | null;
+      /** Import Insulin Events */
+      import_insulin_events?: boolean | null;
+      /** Nightscout Api Secret */
+      nightscout_api_secret?: string | null;
+      /** Nightscout Enabled */
+      nightscout_enabled?: boolean | null;
+      /** Nightscout Url */
+      nightscout_url?: string | null;
+      /** Show Glucose In Journal */
+      show_glucose_in_journal?: boolean | null;
+      /** Sync Glucose */
+      sync_glucose?: boolean | null;
+    };
+    /**
+     * NightscoutSettingsResponse
+     * @description Masked server-side Nightscout settings response.
+     */
+    NightscoutSettingsResponse: {
+      /** Allow Meal Send */
+      allow_meal_send: boolean;
+      /** Autosend Meals */
+      autosend_meals: boolean;
+      /** Configured */
+      configured: boolean;
+      /** Confirm Before Send */
+      confirm_before_send: boolean;
+      /** Connected */
+      connected: boolean;
+      /** Enabled */
+      enabled: boolean;
+      /** Import Insulin Events */
+      import_insulin_events: boolean;
+      /** Last Error */
+      last_error?: string | null;
+      /** Last Status Check At */
+      last_status_check_at?: string | null;
+      /** Secret Is Set */
+      secret_is_set: boolean;
+      /** Show Glucose In Journal */
+      show_glucose_in_journal: boolean;
+      /** Sync Glucose */
+      sync_glucose: boolean;
+      /** Url */
+      url?: string | null;
+    };
+    /**
+     * NightscoutStatusResponse
+     * @description Nightscout optional integration status.
+     */
+    NightscoutStatusResponse: {
+      /** Configured */
+      configured: boolean;
+      /** Status */
+      status?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * NightscoutSyncResponse
+     * @description Nightscout meal sync response.
+     */
+    NightscoutSyncResponse: {
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /** Nightscout Sync Error */
+      nightscout_sync_error?: string | null;
+      /** Nightscout Sync Status */
+      nightscout_sync_status?: string | null;
+      /** Nightscout Synced At */
+      nightscout_synced_at?: string | null;
+      /** Response */
+      response?: {
+        [key: string]: unknown;
+      } | null;
+      /** Synced */
+      synced: boolean;
+    };
+    /**
+     * NightscoutSyncTodayMealResult
+     * @description Result for one meal in a day sync run.
+     */
+    NightscoutSyncTodayMealResult: {
+      /** Error */
+      error?: string | null;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "sent" | "skipped" | "failed";
+      /** Title */
+      title?: string | null;
+    };
+    /**
+     * NightscoutSyncTodayRequest
+     * @description Request to manually sync one diary day to Nightscout.
+     */
+    NightscoutSyncTodayRequest: {
+      /**
+       * Confirm
+       * @default true
+       */
+      confirm: boolean;
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+    };
+    /**
+     * NightscoutSyncTodayResponse
+     * @description Manual day sync summary.
+     */
+    NightscoutSyncTodayResponse: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Failed Count */
+      failed_count: number;
+      /** Results */
+      results: components["schemas"]["NightscoutSyncTodayMealResult"][];
+      /** Sent Count */
+      sent_count: number;
+      /** Skipped Count */
+      skipped_count: number;
+      /** Total Candidates */
+      total_candidates: number;
+    };
+    /**
+     * NightscoutTestResponse
+     * @description Nightscout connection test result.
+     */
+    NightscoutTestResponse: {
+      /** Error */
+      error?: string | null;
+      /** Ok */
+      ok: boolean;
+      /** Server Name */
+      server_name?: string | null;
+      /** Status */
+      status?: {
+        [key: string]: unknown;
+      } | null;
+      /** Version */
+      version?: string | null;
+    };
+    /**
+     * NonTypicalPeriodCreate
+     * @description Create a period excluded from day-anchor learning.
+     */
+    NonTypicalPeriodCreate: {
+      /**
+       * End Date
+       * Format: date
+       */
+      end_date: string;
+      /** Note */
+      note?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date: string;
+    };
+    /**
+     * NonTypicalPeriodResponse
+     * @description Date range excluded from automatic day-anchor learning.
+     */
+    NonTypicalPeriodResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * End Date
+       * Format: date
+       */
+      end_date: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Note */
+      note?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date: string;
+    };
+    /**
+     * NutrientDefinitionResponse
+     * @description Nutrient catalog entry response.
+     */
+    NutrientDefinitionResponse: {
+      /** Category */
+      category: string;
+      /** Code */
+      code: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      /** Unit */
+      unit: string;
+    };
+    /**
+     * NutrientInput
+     * @description Optional nutrient input attached to a meal item or seed record.
+     */
+    NutrientInput: {
+      /**
+       * Amount
+       * @example 120
+       */
+      amount?: number | null;
+      /** Assumptions Json */
+      assumptions_json?: unknown[];
+      /**
+       * Confidence
+       * @example 0.95
+       */
+      confidence?: number | null;
+      /** Evidence Json */
+      evidence_json?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Source Kind
+       * @example manual
+       */
+      source_kind?: string | null;
+      /**
+       * Unit
+       * @example mg
+       */
+      unit?: string | null;
+    };
+    /**
+     * PatternCreate
+     * @description Create a reusable meal item pattern.
+     * @example {
+     *       "aliases": [
+     *         "воппер",
+     *         "вопер",
+     *         "whopper"
+     *       ],
+     *       "default_carbs_g": 51,
+     *       "default_fat_g": 35,
+     *       "default_fiber_g": 3,
+     *       "default_grams": 270,
+     *       "default_kcal": 635,
+     *       "default_protein_g": 28,
+     *       "display_name": "Whopper",
+     *       "key": "whopper",
+     *       "prefix": "bk",
+     *       "source_url": "https://origin.bk.com/pdfs/nutrition.pdf"
+     *     }
+     */
+    PatternCreate: {
+      /**
+       * Aliases
+       * @example [
+       *       "воппер"
+       *     ]
+       */
+      aliases?: string[];
+      /**
+       * Default Carbs G
+       * @default 0
+       * @example 51
+       */
+      default_carbs_g: number;
+      /**
+       * Default Fat G
+       * @default 0
+       * @example 35
+       */
+      default_fat_g: number;
+      /**
+       * Default Fiber G
+       * @default 0
+       * @example 3
+       */
+      default_fiber_g: number;
+      /**
+       * Default Grams
+       * @example 270
+       */
+      default_grams?: number | null;
+      /**
+       * Default Kcal
+       * @default 0
+       * @example 635
+       */
+      default_kcal: number;
+      /**
+       * Default Protein G
+       * @default 0
+       * @example 28
+       */
+      default_protein_g: number;
+      /**
+       * Display Name
+       * @example Whopper
+       */
+      display_name: string;
+      /**
+       * Image Url
+       * @example https://example.test/item.png
+       */
+      image_url?: string | null;
+      /**
+       * Is Verified
+       * @default false
+       */
+      is_verified: boolean;
+      /**
+       * Key
+       * @example whopper
+       */
+      key: string;
+      /**
+       * Nutrients Json
+       * @example {
+       *       "sodium_mg": {
+       *         "amount": 980,
+       *         "unit": "mg"
+       *       }
+       *     }
+       */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /**
+       * Per 100G Carbs G
+       * @example 19
+       */
+      per_100g_carbs_g?: number | null;
+      /**
+       * Per 100G Fat G
+       * @example 16
+       */
+      per_100g_fat_g?: number | null;
+      /**
+       * Per 100G Kcal
+       * @example 260
+       */
+      per_100g_kcal?: number | null;
+      /**
+       * Per 100G Protein G
+       * @example 10
+       */
+      per_100g_protein_g?: number | null;
+      /**
+       * Prefix
+       * @example bk
+       */
+      prefix: string;
+      /**
+       * Source Confidence
+       * @example official_pdf
+       */
+      source_confidence?: string | null;
+      /**
+       * Source File
+       * @example bk.generated.pdf
+       */
+      source_file?: string | null;
+      /**
+       * Source Name
+       * @example Burger King official PDF
+       */
+      source_name?: string | null;
+      /**
+       * Source Page
+       * @example 1
+       */
+      source_page?: number | null;
+      /**
+       * Source Url
+       * @example https://example.test
+       */
+      source_url?: string | null;
+    };
+    /**
+     * PatternPageResponse
+     * @description Paginated pattern list response.
+     */
+    PatternPageResponse: {
+      /** Items */
+      items: components["schemas"]["PatternResponse"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * PatternPatch
+     * @description Patch a reusable meal item pattern.
+     */
+    PatternPatch: {
+      /** Aliases */
+      aliases?: string[] | null;
+      /** Default Carbs G */
+      default_carbs_g?: number | null;
+      /** Default Fat G */
+      default_fat_g?: number | null;
+      /** Default Fiber G */
+      default_fiber_g?: number | null;
+      /** Default Grams */
+      default_grams?: number | null;
+      /** Default Kcal */
+      default_kcal?: number | null;
+      /** Default Protein G */
+      default_protein_g?: number | null;
+      /** Display Name */
+      display_name?: string | null;
+      /** Image Url */
+      image_url?: string | null;
+      /** Is Archived */
+      is_archived?: boolean | null;
+      /** Is Verified */
+      is_verified?: boolean | null;
+      /** Key */
+      key?: string | null;
+      /** Nutrients Json */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      } | null;
+      /** Per 100G Carbs G */
+      per_100g_carbs_g?: number | null;
+      /** Per 100G Fat G */
+      per_100g_fat_g?: number | null;
+      /** Per 100G Kcal */
+      per_100g_kcal?: number | null;
+      /** Per 100G Protein G */
+      per_100g_protein_g?: number | null;
+      /** Prefix */
+      prefix?: string | null;
+      /** Source Confidence */
+      source_confidence?: string | null;
+      /** Source File */
+      source_file?: string | null;
+      /** Source Name */
+      source_name?: string | null;
+      /** Source Page */
+      source_page?: number | null;
+      /** Source Url */
+      source_url?: string | null;
+    };
+    /**
+     * PatternResponse
+     * @description Pattern response.
+     */
+    PatternResponse: {
+      /** Aliases */
+      aliases?: string[];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Default Carbs G
+       * @default 0
+       * @example 51
+       */
+      default_carbs_g: number;
+      /**
+       * Default Fat G
+       * @default 0
+       * @example 35
+       */
+      default_fat_g: number;
+      /**
+       * Default Fiber G
+       * @default 0
+       * @example 3
+       */
+      default_fiber_g: number;
+      /**
+       * Default Grams
+       * @example 270
+       */
+      default_grams?: number | null;
+      /**
+       * Default Kcal
+       * @default 0
+       * @example 635
+       */
+      default_kcal: number;
+      /**
+       * Default Protein G
+       * @default 0
+       * @example 28
+       */
+      default_protein_g: number;
+      /**
+       * Display Name
+       * @example Whopper
+       */
+      display_name: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Image Url
+       * @example https://example.test/item.png
+       */
+      image_url?: string | null;
+      /** Is Archived */
+      is_archived: boolean;
+      /**
+       * Is Verified
+       * @default false
+       */
+      is_verified: boolean;
+      /**
+       * Key
+       * @example whopper
+       */
+      key: string;
+      /** Last Used At */
+      last_used_at?: string | null;
+      /** Matched Alias */
+      matched_alias?: string | null;
+      /**
+       * Nutrients Json
+       * @example {
+       *       "sodium_mg": {
+       *         "amount": 980,
+       *         "unit": "mg"
+       *       }
+       *     }
+       */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /**
+       * Per 100G Carbs G
+       * @example 19
+       */
+      per_100g_carbs_g?: number | null;
+      /**
+       * Per 100G Fat G
+       * @example 16
+       */
+      per_100g_fat_g?: number | null;
+      /**
+       * Per 100G Kcal
+       * @example 260
+       */
+      per_100g_kcal?: number | null;
+      /**
+       * Per 100G Protein G
+       * @example 10
+       */
+      per_100g_protein_g?: number | null;
+      /**
+       * Prefix
+       * @example bk
+       */
+      prefix: string;
+      /**
+       * Source Confidence
+       * @example official_pdf
+       */
+      source_confidence?: string | null;
+      /**
+       * Source File
+       * @example bk.generated.pdf
+       */
+      source_file?: string | null;
+      /**
+       * Source Name
+       * @example Burger King official PDF
+       */
+      source_name?: string | null;
+      /**
+       * Source Page
+       * @example 1
+       */
+      source_page?: number | null;
+      /**
+       * Source Url
+       * @example https://example.test
+       */
+      source_url?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Usage Count */
+      usage_count: number;
+    };
+    /**
+     * PhotoCaptureResponse
+     * @description Accepted single-call photo capture response.
+     */
+    PhotoCaptureResponse: {
+      /**
+       * Captured At
+       * Format: date-time
+       */
+      captured_at: string;
+      /**
+       * Estimate Status
+       * @enum {string}
+       */
+      estimate_status:
+        "estimating" | "succeeded" | "failed" | "timeout" | "error";
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Photo Url */
+      photo_url: string;
+    };
+    /**
+     * PhotoReferenceKind
+     * @description Reference object detected or supplied for photo scale estimation.
+     * @enum {string}
+     */
+    PhotoReferenceKind:
+      "coin_5rub" | "card" | "hand" | "fork" | "plate" | "none";
+    /**
+     * PhotoResponse
+     * @description Photo response embedded in meal detail responses.
+     */
+    PhotoResponse: {
+      /** Content Type */
+      content_type?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Gemini Response Raw */
+      gemini_response_raw?: {
+        [key: string]: unknown;
+      } | null;
+      /** Has Reference Object */
+      has_reference_object: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Original Filename */
+      original_filename?: string | null;
+      /** Path */
+      path: string;
+      reference_kind: components["schemas"]["PhotoReferenceKind"];
+      scenario: components["schemas"]["PhotoScenario"];
+      /** Taken At */
+      taken_at?: string | null;
+    };
+    /**
+     * PhotoScenario
+     * @description Scenario represented by an uploaded meal or label photo.
+     * @enum {string}
+     */
+    PhotoScenario:
+      | "label_full"
+      | "label_partial"
+      | "plated"
+      | "barcode"
+      | "reference"
+      | "unknown";
+    /**
+     * ProductCreate
+     * @description Create a saved packaged food product.
+     * @example {
+     *       "aliases": [
+     *         "crackers"
+     *       ],
+     *       "barcode": "4601234567890",
+     *       "brand": "Example Foods",
+     *       "carbs_per_100g": 62,
+     *       "default_grams": 30,
+     *       "default_serving_text": "6 crackers",
+     *       "fat_per_100g": 9,
+     *       "fiber_per_100g": 7,
+     *       "kcal_per_100g": 410,
+     *       "name": "Whole grain crackers",
+     *       "protein_per_100g": 11,
+     *       "source_kind": "manual"
+     *     }
+     */
+    ProductCreate: {
+      /**
+       * Aliases
+       * @example [
+       *       "crackers"
+       *     ]
+       */
+      aliases?: string[];
+      /**
+       * Barcode
+       * @example 4601234567890
+       */
+      barcode?: string | null;
+      /**
+       * Brand
+       * @example Example Foods
+       */
+      brand?: string | null;
+      /**
+       * Carbs Per 100G
+       * @example 62
+       */
+      carbs_per_100g?: number | null;
+      /**
+       * Carbs Per Serving
+       * @example 18.6
+       */
+      carbs_per_serving?: number | null;
+      /**
+       * Default Grams
+       * @example 30
+       */
+      default_grams?: number | null;
+      /**
+       * Default Serving Text
+       * @example 6 crackers
+       */
+      default_serving_text?: string | null;
+      /**
+       * Fat Per 100G
+       * @example 9
+       */
+      fat_per_100g?: number | null;
+      /**
+       * Fat Per Serving
+       * @example 2.7
+       */
+      fat_per_serving?: number | null;
+      /**
+       * Fiber Per 100G
+       * @example 7
+       */
+      fiber_per_100g?: number | null;
+      /**
+       * Fiber Per Serving
+       * @example 2.1
+       */
+      fiber_per_serving?: number | null;
+      /**
+       * Image Url
+       * @example https://example.test/item.png
+       */
+      image_url?: string | null;
+      /**
+       * Kcal Per 100G
+       * @example 410
+       */
+      kcal_per_100g?: number | null;
+      /**
+       * Kcal Per Serving
+       * @example 123
+       */
+      kcal_per_serving?: number | null;
+      /**
+       * Name
+       * @example Whole grain crackers
+       */
+      name: string;
+      /**
+       * Nutrients Json
+       * @example {
+       *       "sodium_mg": {
+       *         "amount": 220,
+       *         "unit": "mg"
+       *       }
+       *     }
+       */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /**
+       * Protein Per 100G
+       * @example 11
+       */
+      protein_per_100g?: number | null;
+      /**
+       * Protein Per Serving
+       * @example 3.3
+       */
+      protein_per_serving?: number | null;
+      /**
+       * Source Kind
+       * @default manual
+       * @example manual
+       */
+      source_kind: string;
+      /**
+       * Source Url
+       * @example https://example.test
+       */
+      source_url?: string | null;
+    };
+    /**
+     * ProductFromLabelRequest
+     * @description Create or update a product from manually confirmed label facts.
+     * @example {
+     *       "aliases": [
+     *         "burn zero peach mango"
+     *       ],
+     *       "barcode": "4601234567890",
+     *       "brand": "Burn",
+     *       "carbs_per_100g": 0,
+     *       "default_grams": 500,
+     *       "default_serving_text": "500 ml",
+     *       "fat_per_100g": 0,
+     *       "fiber_per_100g": 0,
+     *       "kcal_per_100g": 1,
+     *       "name": "Peach Mango Zero Sugar",
+     *       "protein_per_100g": 0,
+     *       "source_kind": "label_manual"
+     *     }
+     */
+    ProductFromLabelRequest: {
+      /**
+       * Aliases
+       * @example [
+       *       "crackers"
+       *     ]
+       */
+      aliases?: string[];
+      /**
+       * Barcode
+       * @example 4601234567890
+       */
+      barcode?: string | null;
+      /**
+       * Brand
+       * @example Example Foods
+       */
+      brand?: string | null;
+      /**
+       * Carbs Per 100G
+       * @example 62
+       */
+      carbs_per_100g?: number | null;
+      /**
+       * Carbs Per Serving
+       * @example 18.6
+       */
+      carbs_per_serving?: number | null;
+      /**
+       * Default Grams
+       * @example 30
+       */
+      default_grams?: number | null;
+      /**
+       * Default Serving Text
+       * @example 6 crackers
+       */
+      default_serving_text?: string | null;
+      /**
+       * Fat Per 100G
+       * @example 9
+       */
+      fat_per_100g?: number | null;
+      /**
+       * Fat Per Serving
+       * @example 2.7
+       */
+      fat_per_serving?: number | null;
+      /**
+       * Fiber Per 100G
+       * @example 7
+       */
+      fiber_per_100g?: number | null;
+      /**
+       * Fiber Per Serving
+       * @example 2.1
+       */
+      fiber_per_serving?: number | null;
+      /**
+       * Image Url
+       * @example https://example.test/item.png
+       */
+      image_url?: string | null;
+      /**
+       * Kcal Per 100G
+       * @example 410
+       */
+      kcal_per_100g?: number | null;
+      /**
+       * Kcal Per Serving
+       * @example 123
+       */
+      kcal_per_serving?: number | null;
+      /**
+       * Name
+       * @example Whole grain crackers
+       */
+      name: string;
+      /**
+       * Nutrients Json
+       * @example {
+       *       "sodium_mg": {
+       *         "amount": 220,
+       *         "unit": "mg"
+       *       }
+       *     }
+       */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /**
+       * Protein Per 100G
+       * @example 11
+       */
+      protein_per_100g?: number | null;
+      /**
+       * Protein Per Serving
+       * @example 3.3
+       */
+      protein_per_serving?: number | null;
+      /**
+       * Source Kind
+       * @default label_manual
+       * @example label_manual
+       */
+      source_kind: string;
+      /**
+       * Source Url
+       * @example https://example.test
+       */
+      source_url?: string | null;
+    };
+    /**
+     * ProductPageResponse
+     * @description Paginated product list response.
+     */
+    ProductPageResponse: {
+      /** Items */
+      items: components["schemas"]["ProductResponse"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * ProductPatch
+     * @description Patch a saved product.
+     * @example {
+     *       "aliases": [
+     *         "crackers"
+     *       ],
+     *       "brand": "Example Foods"
+     *     }
+     */
+    ProductPatch: {
+      /** Aliases */
+      aliases?: string[] | null;
+      /** Barcode */
+      barcode?: string | null;
+      /** Brand */
+      brand?: string | null;
+      /** Carbs Per 100G */
+      carbs_per_100g?: number | null;
+      /** Carbs Per Serving */
+      carbs_per_serving?: number | null;
+      /** Default Grams */
+      default_grams?: number | null;
+      /** Default Serving Text */
+      default_serving_text?: string | null;
+      /** Fat Per 100G */
+      fat_per_100g?: number | null;
+      /** Fat Per Serving */
+      fat_per_serving?: number | null;
+      /** Fiber Per 100G */
+      fiber_per_100g?: number | null;
+      /** Fiber Per Serving */
+      fiber_per_serving?: number | null;
+      /** Image Url */
+      image_url?: string | null;
+      /** Kcal Per 100G */
+      kcal_per_100g?: number | null;
+      /** Kcal Per Serving */
+      kcal_per_serving?: number | null;
+      /** Name */
+      name?: string | null;
+      /** Nutrients Json */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      } | null;
+      /** Protein Per 100G */
+      protein_per_100g?: number | null;
+      /** Protein Per Serving */
+      protein_per_serving?: number | null;
+      /** Source Kind */
+      source_kind?: string | null;
+      /** Source Url */
+      source_url?: string | null;
+    };
+    /**
+     * ProductResponse
+     * @description Product response.
+     */
+    ProductResponse: {
+      /** Aliases */
+      aliases?: string[];
+      /**
+       * Barcode
+       * @example 4601234567890
+       */
+      barcode?: string | null;
+      /**
+       * Brand
+       * @example Example Foods
+       */
+      brand?: string | null;
+      /**
+       * Carbs Per 100G
+       * @example 62
+       */
+      carbs_per_100g?: number | null;
+      /**
+       * Carbs Per Serving
+       * @example 18.6
+       */
+      carbs_per_serving?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Default Grams
+       * @example 30
+       */
+      default_grams?: number | null;
+      /**
+       * Default Serving Text
+       * @example 6 crackers
+       */
+      default_serving_text?: string | null;
+      /**
+       * Fat Per 100G
+       * @example 9
+       */
+      fat_per_100g?: number | null;
+      /**
+       * Fat Per Serving
+       * @example 2.7
+       */
+      fat_per_serving?: number | null;
+      /**
+       * Fiber Per 100G
+       * @example 7
+       */
+      fiber_per_100g?: number | null;
+      /**
+       * Fiber Per Serving
+       * @example 2.1
+       */
+      fiber_per_serving?: number | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Image Url
+       * @example https://example.test/item.png
+       */
+      image_url?: string | null;
+      /**
+       * Kcal Per 100G
+       * @example 410
+       */
+      kcal_per_100g?: number | null;
+      /**
+       * Kcal Per Serving
+       * @example 123
+       */
+      kcal_per_serving?: number | null;
+      /** Last Used At */
+      last_used_at?: string | null;
+      /**
+       * Name
+       * @example Whole grain crackers
+       */
+      name: string;
+      /**
+       * Nutrients Json
+       * @example {
+       *       "sodium_mg": {
+       *         "amount": 220,
+       *         "unit": "mg"
+       *       }
+       *     }
+       */
+      nutrients_json?: {
+        [key: string]: components["schemas"]["NutrientInput"] | number | null;
+      };
+      /**
+       * Protein Per 100G
+       * @example 11
+       */
+      protein_per_100g?: number | null;
+      /**
+       * Protein Per Serving
+       * @example 3.3
+       */
+      protein_per_serving?: number | null;
+      /**
+       * Source Kind
+       * @default manual
+       * @example manual
+       */
+      source_kind: string;
+      /**
+       * Source Url
+       * @example https://example.test
+       */
+      source_url?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Usage Count */
+      usage_count: number;
+    };
+    /**
+     * ReestimateMealRequest
+     * @description Request a comparison estimate for an existing photo meal.
+     */
+    ReestimateMealRequest: {
+      /**
+       * Mode
+       * @default compare
+       * @constant
+       */
+      mode: "compare";
+      /**
+       * Model
+       * @default default
+       * @enum {string}
+       */
+      model:
+        | "default"
+        | "gemini-3-flash-preview"
+        | "gemini-2.5-flash"
+        | "gemini-3.1-flash-lite-preview";
+    };
+    /**
+     * ReestimateMealResponse
+     * @description Comparison proposal returned by meal re-estimation.
+     */
+    ReestimateMealResponse: {
+      /**
+       * Ai Run Id
+       * Format: uuid
+       */
+      ai_run_id: string;
+      /** Current Items */
+      current_items: components["schemas"]["MealItemCreate"][];
+      current_totals: components["schemas"]["MealTotalsResponse"];
+      diff: components["schemas"]["EstimateComparisonDiff"];
+      /** Fallback Used */
+      fallback_used: boolean;
+      /** Image Quality Warnings */
+      image_quality_warnings?: string[];
+      /**
+       * Meal Id
+       * Format: uuid
+       */
+      meal_id: string;
+      /** Model Used */
+      model_used: string;
+      /** Proposed Items */
+      proposed_items: components["schemas"]["MealItemCreate"][];
+      proposed_totals: components["schemas"]["MealTotalsResponse"];
+    };
+    /**
+     * RefreshRequest
+     * @description Refresh-token rotation payload.
+     */
+    RefreshRequest: {
+      /** Refresh Token */
+      refresh_token: string;
+    };
+    /**
+     * RememberProductRequest
+     * @description Persist an accepted label item into the product database.
+     */
+    RememberProductRequest: {
+      /**
+       * Aliases
+       * @example [
+       *       "сырок"
+       *     ]
+       */
+      aliases?: string[];
+    };
+    /**
+     * ReportChipResponse
+     * @description Compact report metadata chip.
+     */
+    ReportChipResponse: {
+      /** Label */
+      label: string;
+    };
+    /**
+     * ScheduleOverrideRequest
+     * @description Manual day-anchor override in minutes from midnight.
+     */
+    ScheduleOverrideRequest: {
+      /** Anchor Minutes */
+      anchor_minutes: number;
+    };
+    /**
+     * ScheduleResponse
+     * @description Current adaptive day rhythm and override state.
+     */
+    ScheduleResponse: {
+      /** Anchor Weekday Minutes */
+      anchor_weekday_minutes?: number | null;
+      /** Anchor Weekend Minutes */
+      anchor_weekend_minutes?: number | null;
+      /** Basis */
+      basis?: string | null;
+      /** Effective Anchor Minutes */
+      effective_anchor_minutes?: number | null;
+      /** History */
+      history?: components["schemas"]["DayAnchorHistoryResponse"][];
+      /** Last Shift At */
+      last_shift_at?: string | null;
+      /** Non Typical Periods */
+      non_typical_periods?: components["schemas"]["NonTypicalPeriodResponse"][];
+      /** User Override Minutes */
+      user_override_minutes?: number | null;
+      /** Windows */
+      windows: components["schemas"]["ScheduleWindowResponse"][];
+    };
+    /**
+     * ScheduleWindowResponse
+     * @description Rendered meal-window boundary for the current day rhythm.
+     */
+    ScheduleWindowResponse: {
+      /** End Minute */
+      end_minute: number;
+      /**
+       * Key
+       * @enum {string}
+       */
+      key: "start" | "mid" | "late" | "night_cap";
+      /** Label */
+      label: string;
+      /** Start Minute */
+      start_minute: number;
+    };
+    /**
+     * SensorQualityResponse
+     * @description Computed sensor quality and calibration metrics.
+     */
+    SensorQualityResponse: {
+      active_model?:
+        components["schemas"]["CgmCalibrationModelResponse"] | null;
+      /** B0 Mmol L */
+      b0_mmol_l?: number | null;
+      /** B1 Capped Mmol L Per Day */
+      b1_capped_mmol_l_per_day?: number | null;
+      /** B1 Raw Mmol L Per Day */
+      b1_raw_mmol_l_per_day?: number | null;
+      /** Calibration Basis */
+      calibration_basis?:
+        | ("stable_after_48h" | "warmup_after_12h_fallback" | "insufficient")
+        | null;
+      /** Calibration Strategy */
+      calibration_strategy?:
+        ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
+      /**
+       * Confidence
+       * @enum {string}
+       */
+      confidence: "none" | "low" | "medium" | "high";
+      /** Correction Now Mmol L */
+      correction_now_mmol_l?: number | null;
+      /** Delta Max Mmol L */
+      delta_max_mmol_l?: number | null;
+      /** Delta Min Mmol L */
+      delta_min_mmol_l?: number | null;
+      /** Drift Mmol L Per Day */
+      drift_mmol_l_per_day?: number | null;
+      /** Fingerstick Count */
+      fingerstick_count: number;
+      /** Mad Mmol L */
+      mad_mmol_l?: number | null;
+      /** Mard Percent */
+      mard_percent?: number | null;
+      /**
+       * Matched Calibration Points
+       * @default 0
+       */
+      matched_calibration_points: number;
+      /** Median Bias Mmol L */
+      median_bias_mmol_l?: number | null;
+      /** Median Delta Mmol L */
+      median_delta_mmol_l?: number | null;
+      /** Missing Data Pct */
+      missing_data_pct?: number | null;
+      /** Noise Score */
+      noise_score: number;
+      /** Notes */
+      notes?: string[];
+      /** Quality Score */
+      quality_score: number;
+      /** Residual Mad Mmol L */
+      residual_mad_mmol_l?: number | null;
+      sensor?: components["schemas"]["SensorSessionResponse"] | null;
+      /** Sensor Age Days */
+      sensor_age_days?: number | null;
+      /** Sensor Phase */
+      sensor_phase?: ("warmup" | "stable" | "end_of_life") | null;
+      /**
+       * Stable Calibration Points
+       * @default 0
+       */
+      stable_calibration_points: number;
+      /** Suspected Compression Count */
+      suspected_compression_count: number;
+      /** Valid Calibration Points */
+      valid_calibration_points: number;
+      /**
+       * Warmup Calibration Points
+       * @default 0
+       */
+      warmup_calibration_points: number;
+      warmup_metrics?:
+        components["schemas"]["SensorWarmupMetricsResponse"] | null;
+    };
+    /**
+     * SensorSessionCreate
+     * @description Create a display analytics sensor session.
+     */
+    SensorSessionCreate: {
+      /** Ended At */
+      ended_at?: string | null;
+      /**
+       * Excluded From Analytics
+       * @default false
+       */
+      excluded_from_analytics: boolean;
+      /** Exclusion Reason */
+      exclusion_reason?: string | null;
+      /**
+       * Expected Life Days
+       * @default 15
+       */
+      expected_life_days: number;
+      /**
+       * Label
+       * @example Ottai #4
+       */
+      label?: string | null;
+      /**
+       * Model
+       * @example Ottai
+       */
+      model?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Source
+       * @default manual
+       * @example manual
+       */
+      source: string;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /**
+       * Vendor
+       * @example Ottai
+       */
+      vendor?: string | null;
+    };
+    /**
+     * SensorSessionPatch
+     * @description Patch a display analytics sensor session.
+     */
+    SensorSessionPatch: {
+      /** Ended At */
+      ended_at?: string | null;
+      /** Excluded From Analytics */
+      excluded_from_analytics?: boolean | null;
+      /** Exclusion Reason */
+      exclusion_reason?: string | null;
+      /** Expected Life Days */
+      expected_life_days?: number | null;
+      /** Label */
+      label?: string | null;
+      /** Model */
+      model?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /** Source */
+      source?: string | null;
+      /** Started At */
+      started_at?: string | null;
+      /** Vendor */
+      vendor?: string | null;
+    };
+    /**
+     * SensorSessionResponse
+     * @description Stored display analytics sensor session.
+     */
+    SensorSessionResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Ended At */
+      ended_at?: string | null;
+      /**
+       * Excluded From Analytics
+       * @default false
+       */
+      excluded_from_analytics: boolean;
+      /** Exclusion Reason */
+      exclusion_reason?: string | null;
+      /**
+       * Expected Life Days
+       * @default 15
+       */
+      expected_life_days: number;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Label
+       * @example Ottai #4
+       */
+      label?: string | null;
+      /**
+       * Model
+       * @example Ottai
+       */
+      model?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Source
+       * @default manual
+       * @example manual
+       */
+      source: string;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Vendor
+       * @example Ottai
+       */
+      vendor?: string | null;
+    };
+    /**
+     * SensorWarmupMetricsResponse
+     * @description Warmup-only residual metrics for display analytics.
+     */
+    SensorWarmupMetricsResponse: {
+      /** Initial Residual Mmol L */
+      initial_residual_mmol_l?: number | null;
+      /** Max Warmup Residual Mmol L */
+      max_warmup_residual_mmol_l?: number | null;
+      /** Plateau Residual Mmol L */
+      plateau_residual_mmol_l?: number | null;
+      /** Residual Sequence Mmol L */
+      residual_sequence_mmol_l?: number[];
+      /** Time To Stabilize Hours */
+      time_to_stabilize_hours?: number | null;
+      /** Warmup Instability Score */
+      warmup_instability_score?: number | null;
+    };
+    /**
+     * StatsInsightResponse
+     * @description Server-rendered stats observation.
+     */
+    StatsInsightResponse: {
+      /**
+       * Computed At
+       * Format: date-time
+       */
+      computed_at: string;
+      /** Id */
+      id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "consistent"
+        | "weekday_pattern_sweet"
+        | "time_of_day_eating"
+        | "top_repeat_products"
+        | "late_meal_share"
+        | "today_morning"
+        | "meal_predictability"
+        | "evening_lows"
+        | "hypo_recovery_pattern"
+        | "late_meal_glucose_footprint";
+      /** Supporting Numbers */
+      supporting_numbers?: {
+        [key: string]: string;
+      } | null;
+      /** Text */
+      text: string;
+      /**
+       * Weight
+       * @enum {string}
+       */
+      weight: "primary" | "secondary";
+    };
+    /**
+     * StatsInsightsResponse
+     * @description Stats observation list.
+     */
+    StatsInsightsResponse: {
+      /** Insights */
+      insights: components["schemas"]["StatsInsightResponse"][];
+    };
+    /**
+     * StatsOverviewAnomalyResponse
+     * @description Day whose kcal total differs strongly from the period rhythm.
+     */
+    StatsOverviewAnomalyResponse: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Delta Kcal */
+      delta_kcal: number;
+      /**
+       * Direction
+       * @enum {string}
+       */
+      direction: "up" | "down";
+      /** Kcal */
+      kcal: number;
+      /** Reason */
+      reason: string;
+    };
+    /**
+     * StatsOverviewDayResponse
+     * @description One day in the mobile stats kcal chart.
+     */
+    StatsOverviewDayResponse: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Kcal */
+      kcal?: number | null;
+      /** Meal Count */
+      meal_count: number;
+    };
+    /**
+     * StatsOverviewHourlyBucketResponse
+     * @description One 24-hour meal-density bucket.
+     */
+    StatsOverviewHourlyBucketResponse: {
+      /** Hour */
+      hour: number;
+      /** Meal Count */
+      meal_count: number;
+      /** Share */
+      share: number;
+    };
+    /**
+     * StatsOverviewLeadResponse
+     * @description Backend-rendered editorial lead for mobile stats.
+     */
+    StatsOverviewLeadResponse: {
+      /** Descriptor */
+      descriptor: string;
+      /** Detail */
+      detail: string;
+      /** Kicker */
+      kicker: string;
+    };
+    /**
+     * StatsOverviewMacroResponse
+     * @description Average macro row for the selected stats period.
+     */
+    StatsOverviewMacroResponse: {
+      /** Grams */
+      grams?: number | null;
+      /**
+       * Key
+       * @enum {string}
+       */
+      key: "protein" | "fat" | "carbs";
+      /** Label */
+      label: string;
+      /** Percent */
+      percent?: number | null;
+      /** Target Percent */
+      target_percent?: number | null;
+    };
+    /**
+     * StatsOverviewResponse
+     * @description Structured mobile stats aggregate.
+     */
+    StatsOverviewResponse: {
+      /** Anomalies */
+      anomalies: components["schemas"]["StatsOverviewAnomalyResponse"][];
+      /** Average Kcal */
+      average_kcal?: number | null;
+      /** Daily */
+      daily: components["schemas"]["StatsOverviewDayResponse"][];
+      /** Days */
+      days: number;
+      /**
+       * End Date
+       * Format: date
+       */
+      end_date: string;
+      /** Hourly */
+      hourly: components["schemas"]["StatsOverviewHourlyBucketResponse"][];
+      lead: components["schemas"]["StatsOverviewLeadResponse"];
+      /** Macros */
+      macros: components["schemas"]["StatsOverviewMacroResponse"][];
+      /** Normal Kcal High */
+      normal_kcal_high?: number | null;
+      /** Normal Kcal Low */
+      normal_kcal_low?: number | null;
+      /**
+       * Period
+       * @enum {string}
+       */
+      period: "7d" | "14d" | "30d";
+      /** Rhythm Delta Kcal */
+      rhythm_delta_kcal?: number | null;
+      /** Sparse */
+      sparse: boolean;
+      /** Spread Kcal */
+      spread_kcal?: number | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date: string;
+      /** Top Products */
+      top_products: components["schemas"]["StatsOverviewTopProductResponse"][];
+      /** Tracked Days */
+      tracked_days: number;
+    };
+    /**
+     * StatsOverviewTopProductResponse
+     * @description Frequently repeated food item or product.
+     */
+    StatsOverviewTopProductResponse: {
+      /** Carbs Per 100G */
+      carbs_per_100g?: number | null;
+      /** Count */
+      count: number;
+      /** Fat Per 100G */
+      fat_per_100g?: number | null;
+      /** Image Url */
+      image_url?: string | null;
+      /** Kcal Per 100G */
+      kcal_per_100g?: number | null;
+      /** Name */
+      name: string;
+      /** Protein Per 100G */
+      protein_per_100g?: number | null;
+      /** Rank */
+      rank: number;
+    };
+    /**
+     * TimelineFoodResponse
+     * @description Food-only history timeline response.
+     */
+    TimelineFoodResponse: {
+      /** Episodes */
+      episodes: components["schemas"]["FoodEpisodeFoodResponse"][];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * TimelineGlucoseSummary
+     * @description Small CGM summary for a computed food episode.
+     */
+    TimelineGlucoseSummary: {
+      /** Before Value */
+      before_value?: number | null;
+      /** Latest Value */
+      latest_value?: number | null;
+      /** Max Value */
+      max_value?: number | null;
+      /** Min Value */
+      min_value?: number | null;
+      /** Peak Value */
+      peak_value?: number | null;
+      /**
+       * Unit
+       * @default mmol/L
+       */
+      unit: string;
+    };
+    /**
+     * TimelineInsulinEventResponse
+     * @description Read-only insulin event not grouped into a food episode.
+     */
+    TimelineInsulinEventResponse: {
+      /**
+       * Editable
+       * @default false
+       */
+      editable: boolean;
+      /** Enteredby */
+      enteredBy?: string | null;
+      /** Eventtype */
+      eventType?: string | null;
+      /** Id */
+      id?: string | null;
+      /** Insulin Type */
+      insulin_type?: string | null;
+      /** Insulin Units */
+      insulin_units?: number | null;
+      /** Linked Episode Id */
+      linked_episode_id?: string | null;
+      /** Nightscout Id */
+      nightscout_id?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * TimelineResponse
+     * @description History timeline response with backend-owned computed food episodes.
+     */
+    TimelineResponse: {
+      /** Episodes */
+      episodes: components["schemas"]["FoodEpisodeResponse"][];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+      /** Ungrouped Insulin */
+      ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
+    };
+    /**
+     * TwinCurveAnchor
+     * @description Known glucose anchor used by the digital twin curve.
+     */
+    TwinCurveAnchor: {
+      /** Mmol */
+      mmol: number;
+      /**
+       * Source
+       * @default fingerstick
+       * @enum {string}
+       */
+      source: "fingerstick" | "cgm";
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * TwinCurveFoodEvent
+     * @description Food marker included in the digital twin curve.
+     */
+    TwinCurveFoodEvent: {
+      /** Carbs G */
+      carbs_g: number;
+      /** Fat G */
+      fat_g?: number | null;
+      /** Fiber G */
+      fiber_g?: number | null;
+      /** Kcal */
+      kcal?: number | null;
+      /** Protein G */
+      protein_g?: number | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+      /** Title */
+      title: string;
+    };
+    /**
+     * TwinCurveInsulinEvent
+     * @description Read-only insulin marker included in the digital twin curve.
+     */
+    TwinCurveInsulinEvent: {
+      /** Event Type */
+      event_type?: string | null;
+      /** Insulin Type */
+      insulin_type?: string | null;
+      /** Insulin Units */
+      insulin_units: number;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * TwinCurvePoint
+     * @description One digital twin curve point.
+     */
+    TwinCurvePoint: {
+      /** Ci High */
+      ci_high: number;
+      /** Ci Low */
+      ci_low: number;
+      /** Confidence */
+      confidence: number;
+      /** Mmol */
+      mmol: number;
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "interpolation" | "forecast" | "boundary";
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /**
+     * TwinCurveResponse
+     * @description Digital twin reconstruction/forecast response.
+     */
+    TwinCurveResponse: {
+      /** Anchors */
+      anchors: components["schemas"]["TwinCurveAnchor"][];
+      /** Food Events */
+      food_events: components["schemas"]["TwinCurveFoodEvent"][];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /** Insulin Events */
+      insulin_events: components["schemas"]["TwinCurveInsulinEvent"][];
+      /** Notes */
+      notes?: string[];
+      params: components["schemas"]["TwinParamsRead"];
+      /** Points */
+      points: components["schemas"]["TwinCurvePoint"][];
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * TwinDataSummaryResponse
+     * @description Data availability summary for automatic twin fitting.
+     */
+    TwinDataSummaryResponse: {
+      /** Cgm Count */
+      cgm_count: number;
+      /** Days With Cgm */
+      days_with_cgm: number;
+      /** Fingerstick Count */
+      fingerstick_count: number;
+      /** First Cgm At */
+      first_cgm_at?: string | null;
+      /** Fit Blockers */
+      fit_blockers?: string[];
+      /**
+       * From Datetime
+       * Format: date-time
+       */
+      from_datetime: string;
+      /** Insulin Count */
+      insulin_count: number;
+      /** Last Cgm At */
+      last_cgm_at?: string | null;
+      /** Meal Count */
+      meal_count: number;
+      /** Ready For Fit */
+      ready_for_fit: boolean;
+      /**
+       * To Datetime
+       * Format: date-time
+       */
+      to_datetime: string;
+    };
+    /**
+     * TwinFitLogEntry
+     * @description One digital twin fit/manual-change history row.
+     */
+    TwinFitLogEntry: {
+      /** Converged */
+      converged?: boolean | null;
+      /** Data From */
+      data_from?: string | null;
+      /** Data To */
+      data_to?: string | null;
+      /**
+       * Fit At
+       * Format: date-time
+       */
+      fit_at: string;
+      /** Holdout Mae Mmol */
+      holdout_mae_mmol?: number | null;
+      /** Holdout Window Count */
+      holdout_window_count?: number | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Iterations */
+      iterations?: number | null;
+      /** Method */
+      method: string;
+      /** Notes */
+      notes?: string | null;
+      /** Params Snapshot */
+      params_snapshot: {
+        [key: string]: unknown;
+      };
+      /** Train Mae Mmol */
+      train_mae_mmol?: number | null;
+      /** Train Window Count */
+      train_window_count?: number | null;
+    };
+    /**
+     * TwinFitRequest
+     * @description Request an automatic digital twin fitting run.
+     */
+    TwinFitRequest: {
+      /** Data From */
+      data_from?: string | null;
+      /** Data To */
+      data_to?: string | null;
+    };
+    /**
+     * TwinFitResponse
+     * @description Automatic digital twin fitting response.
+     */
+    TwinFitResponse: {
+      /** Applied */
+      applied: boolean;
+      /** Notes */
+      notes?: string[];
+      params: components["schemas"]["TwinParamsRead"];
+      previous_params?: components["schemas"]["TwinParamsRead"] | null;
+      result: components["schemas"]["TwinFitResultRead"];
+    };
+    /**
+     * TwinFitResultRead
+     * @description Applied or rejected automatic fit metrics.
+     */
+    TwinFitResultRead: {
+      /** Baseline Drift Per Hour */
+      baseline_drift_per_hour: number;
+      /** Converged */
+      converged: boolean;
+      /** Holdout Mae Mmol */
+      holdout_mae_mmol: number;
+      /** Holdout Window Count */
+      holdout_window_count: number;
+      /** Icr Day */
+      icr_day: number;
+      /** Icr Evening */
+      icr_evening: number;
+      /** Icr Morning */
+      icr_morning: number;
+      /** Isf */
+      isf: number;
+      /** Iterations */
+      iterations: number;
+      /**
+       * Method
+       * @enum {string}
+       */
+      method: "least_squares" | "fallback_to_defaults";
+      /** Per Window Holdout Dates */
+      per_window_holdout_dates?: string[];
+      /** Per Window Holdout Mae */
+      per_window_holdout_mae?: number[];
+      /** Per Window Train Dates */
+      per_window_train_dates?: string[];
+      /** Per Window Train Mae */
+      per_window_train_mae?: number[];
+      /** Train Mae Mmol */
+      train_mae_mmol: number;
+      /** Train Window Count */
+      train_window_count: number;
+    };
+    /**
+     * TwinParamsPatch
+     * @description Manual digital twin parameter override.
+     */
+    TwinParamsPatch: {
+      /** Baseline Drift Per Hour */
+      baseline_drift_per_hour?: number | null;
+      /** Carb Duration Minutes */
+      carb_duration_minutes?: number | null;
+      /** Day Start Minutes */
+      day_start_minutes?: number | null;
+      /** Dia Minutes */
+      dia_minutes?: number | null;
+      /** Evening Start Minutes */
+      evening_start_minutes?: number | null;
+      /** Icr Day */
+      icr_day?: number | null;
+      /** Icr Evening */
+      icr_evening?: number | null;
+      /** Icr Morning */
+      icr_morning?: number | null;
+      /** Isf */
+      isf?: number | null;
+      /** Morning Start Minutes */
+      morning_start_minutes?: number | null;
+    };
+    /**
+     * TwinParamsRead
+     * @description Current per-user digital twin parameters.
+     */
+    TwinParamsRead: {
+      /** Baseline Drift Per Hour */
+      baseline_drift_per_hour: number;
+      /** Carb Duration Minutes */
+      carb_duration_minutes: number;
+      /** Day Start Minutes */
+      day_start_minutes: number;
+      /** Dia Minutes */
+      dia_minutes: number;
+      /** Evening Start Minutes */
+      evening_start_minutes: number;
+      /**
+       * Hint
+       * @enum {string}
+       */
+      hint: "not_fitted" | "ready" | "stale";
+      /** Icr Day */
+      icr_day?: number | null;
+      /** Icr Evening */
+      icr_evening?: number | null;
+      /** Icr Morning */
+      icr_morning?: number | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Is Fitted */
+      is_fitted: boolean;
+      /** Isf */
+      isf?: number | null;
+      /** Last Fit At */
+      last_fit_at?: string | null;
+      /** Last Fit Converged */
+      last_fit_converged?: boolean | null;
+      /** Last Fit Data From */
+      last_fit_data_from?: string | null;
+      /** Last Fit Data To */
+      last_fit_data_to?: string | null;
+      /** Last Fit Holdout Mae Mmol */
+      last_fit_holdout_mae_mmol?: number | null;
+      /** Last Fit Holdout Window Count */
+      last_fit_holdout_window_count?: number | null;
+      /** Last Fit Method */
+      last_fit_method?: string | null;
+      /** Last Fit Train Mae Mmol */
+      last_fit_train_mae_mmol?: number | null;
+      /** Last Fit Train Window Count */
+      last_fit_train_window_count?: number | null;
+      /** Morning Start Minutes */
+      morning_start_minutes: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** UserGoalsResponse */
+    UserGoalsResponse: {
+      /** Carb Goal G Per Day */
+      carb_goal_g_per_day?: number | null;
+      /** Fat Goal G Per Day */
+      fat_goal_g_per_day?: number | null;
+      /**
+       * Goals Setup Completed
+       * @default false
+       */
+      goals_setup_completed: boolean;
+      /** Kcal Goal Per Day */
+      kcal_goal_per_day?: number | null;
+      /** Protein Goal G Per Day */
+      protein_goal_g_per_day?: number | null;
+    };
+    /** UserGoalsUpdate */
+    UserGoalsUpdate: {
+      /** Carb Goal G Per Day */
+      carb_goal_g_per_day?: number | null;
+      /** Fat Goal G Per Day */
+      fat_goal_g_per_day?: number | null;
+      /** Goals Setup Completed */
+      goals_setup_completed?: boolean | null;
+      /** Kcal Goal Per Day */
+      kcal_goal_per_day?: number | null;
+      /** Protein Goal G Per Day */
+      protein_goal_g_per_day?: number | null;
+    };
+    /** UserProfileResponse */
+    UserProfileResponse: {
+      /**
+       * Activity Level
+       * @default moderate
+       */
+      activity_level: string;
+      /** Age Years */
+      age_years?: number | null;
+      /** Height Cm */
+      height_cm?: number | null;
+      /** Sex */
+      sex?: string | null;
+      /** Weight Kg */
+      weight_kg?: number | null;
+    };
+    /** UserProfileUpdate */
+    UserProfileUpdate: {
+      /** Activity Level */
+      activity_level?: string | null;
+      /** Age Years */
+      age_years?: number | null;
+      /** Height Cm */
+      height_cm?: number | null;
+      /** Sex */
+      sex?: string | null;
+      /** Weight Kg */
+      weight_kg?: number | null;
+    };
+    /**
+     * UserRole
+     * @description Supported application roles.
+     * @enum {string}
+     */
+    UserRole: "gluco" | "food";
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getKcalBalance: {
-        parameters: {
-            query: {
-                day: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KcalBalanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getKcalBalanceRange: {
-        parameters: {
-            query: {
-                from_date: string;
-                to_date: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KcalBalanceRangeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    syncActivity: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActivitySyncRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActivitySyncResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    adminRecomputePostprandial: {
-        parameters: {
-            query?: {
-                from?: string | null;
-                to?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminPostprandialResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    adminRecalculateDailyTotals: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminRecalculateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IssuedTokensResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LogoutRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getAuthMe: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CurrentUserDetailResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    refreshAuthToken: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IssuedTokensResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    autocomplete: {
-        parameters: {
-            query?: {
-                q?: string;
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AutocompleteSuggestion"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardDataQuality: {
-        parameters: {
-            query?: {
-                days?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardDataQualityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardHeatmap: {
-        parameters: {
-            query?: {
-                weeks?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardHeatmapResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardRange: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardRangeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardSourceBreakdown: {
-        parameters: {
-            query?: {
-                days?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardSourceBreakdownResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardToday: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardTodayWithGlucoseResponse"] | components["schemas"]["DashboardTodayResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getDashboardTopPatterns: {
-        parameters: {
-            query?: {
-                days?: number;
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardTopPatternResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listDatabaseItems: {
-        parameters: {
-            query?: {
-                type?: string | null;
-                source?: string | null;
-                q?: string | null;
-                needs_review?: boolean | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DatabaseItemPageResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listFingersticks: {
-        parameters: {
-            query?: {
-                from?: string | null;
-                to?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FingerstickReadingResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createFingerstick: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FingerstickReadingCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FingerstickReadingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteFingerstick: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                fingerstick_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchFingerstick: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                fingerstick_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FingerstickReadingPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FingerstickReadingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getGlucoseDashboard: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                mode?: "raw" | "smoothed" | "normalized";
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GlucoseDashboardResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getGlucoseEpisodes: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DayEpisodesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getGlucoseTirDaily: {
-        parameters: {
-            query?: {
-                period?: "7d" | "14d" | "30d";
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GlucoseTirDailyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthResponse"];
-                };
-            };
-        };
-    };
-    getMyGoals: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserGoalsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    updateMyGoals: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserGoalsUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserGoalsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getMySchedule: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createMyNonTypicalPeriod: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NonTypicalPeriodCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NonTypicalPeriodResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteMyNonTypicalPeriod: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                period_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    putMyScheduleOverride: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScheduleOverrideRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteMyScheduleOverride: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteMealItem: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchMealItem: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealItemPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealItemResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createMealFromMealItemWeight: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealItemWeightReuseRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    rememberProductFromMealItem: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RememberProductRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listMeals: {
-        parameters: {
-            query?: {
-                from?: string | null;
-                to?: string | null;
-                limit?: number;
-                offset?: number;
-                q?: string | null;
-                status?: components["schemas"]["MealStatus"] | null;
-                tag?: ("sweet" | "breakfast") | null;
-                sweet?: boolean;
-                breakfast?: boolean;
-                photo_only?: boolean;
-                low_confidence?: boolean;
-                idempotency_key?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealPageResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createMeal: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createMealFromPhoto: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_createMealFromPhoto"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PhotoCaptureResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getMeal: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteMeal: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchMeal: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    acceptMealDraft: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealAcceptRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listMealAiRuns: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIRunResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    applyEstimationRun: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApplyEstimationRunRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplyEstimationRunResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    discardMealDraft: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    estimateMealPhotos: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EstimateMealRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EstimateMealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    estimateAndSaveMealDraft: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EstimateMealRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EstimateMealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    replaceMealItems: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealItemCreate"][];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    addMealItem: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MealItemCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MealItemResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    uploadMealPhoto: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_uploadMealPhoto"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PhotoResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reestimateMealPhotos: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReestimateMealRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReestimateMealResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    syncMealToNightscout: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutSyncResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    unsyncMealFromNightscout: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                meal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutSyncResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    submitMobilePhotoEstimateLogs: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MobilePhotoEstimateLogRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MobilePhotoEstimateLogResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutDayStatus: {
-        parameters: {
-            query: {
-                date: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutDayStatusResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutEvents: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutEventsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutGlucose: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutGlucoseEntryResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    importNightscoutContext: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NightscoutImportRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutImportResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutInsulin: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutInsulinEventResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createNightscoutInsulin: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NightscoutInsulinEntryCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutInsulinEventResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutLatestReading: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutLatestReadingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutStatus: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutStatusResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    syncTodayToNightscout: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NightscoutSyncTodayRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutSyncTodayResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listNutrientDefinitions: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NutrientDefinitionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listPatterns: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternPageResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createPattern: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatternCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    searchPatterns: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getPattern: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                pattern_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deletePattern: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                pattern_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchPattern: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                pattern_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatternPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    uploadPatternImage: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                pattern_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_uploadPatternImage"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getPatternImageFile: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                pattern_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deletePhoto: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                photo_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getPhotoFile: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                photo_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listProducts: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductPageResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createProduct: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProductCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createOrUpdateProductFromLabel: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProductFromLabelRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    searchProducts: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getProduct: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deleteProduct: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchProduct: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProductPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    uploadProductImage: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_uploadProductImage"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getProductImageFile: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getUserProfile: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserProfileResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    updateUserProfile: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserProfileUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserProfileResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getEndocrinologistReport: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                /** @description Glucose series used for report metrics. */
-                glucose_mode?: "raw" | "normalized";
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EndocrinologistReportResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listSensors: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensorSessionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createSensor: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SensorSessionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensorSessionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchSensor: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                sensor_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SensorSessionPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensorSessionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getSensorQuality: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                sensor_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensorQualityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    recalculateSensorCalibration: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                sensor_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CgmCalibrationModelResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getNightscoutSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutSettingsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    updateNightscoutSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NightscoutSettingsPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutSettingsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    testNightscoutConnection: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NightscoutTestResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getStatsInsights: {
-        parameters: {
-            query?: {
-                period?: "7d" | "14d" | "30d";
-                slot?: "today" | "stats";
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatsInsightsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getStatsOverview: {
-        parameters: {
-            query?: {
-                period?: "7d" | "14d" | "30d";
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatsOverviewResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTimeline: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimelineResponse"] | components["schemas"]["TimelineFoodResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTimelineInsulinLinks: {
-        parameters: {
-            query: {
-                date: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InsulinLinkDayResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    putTimelineInsulinLinks: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InsulinLinkDayPutRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InsulinLinkDayResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTwinCurve: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                step_minutes?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinCurveResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTwinDataSummary: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinDataSummaryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    fitTwin: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TwinFitRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinFitResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTwinFitHistory: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinFitLogEntry"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getTwinParams: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinParamsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patchTwinParams: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TwinParamsPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinParamsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resetTwinParams: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwinParamsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
+  getKcalBalance: {
+    parameters: {
+      query: {
+        day: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KcalBalanceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getKcalBalanceRange: {
+    parameters: {
+      query: {
+        from_date: string;
+        to_date: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KcalBalanceRangeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  syncActivity: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ActivitySyncRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActivitySyncResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  adminRecomputePostprandial: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminPostprandialResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  adminRecalculateDailyTotals: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRecalculateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IssuedTokensResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LogoutRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getAuthMe: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CurrentUserDetailResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  refreshAuthToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IssuedTokensResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  autocomplete: {
+    parameters: {
+      query?: {
+        q?: string;
+        limit?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutocompleteSuggestion"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardDataQuality: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardDataQualityResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardHeatmap: {
+    parameters: {
+      query?: {
+        weeks?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardHeatmapResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardRange: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardRangeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardSourceBreakdown: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardSourceBreakdownResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardToday: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["DashboardTodayWithGlucoseResponse"]
+            | components["schemas"]["DashboardTodayResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getDashboardTopPatterns: {
+    parameters: {
+      query?: {
+        days?: number;
+        limit?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardTopPatternResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listDatabaseItems: {
+    parameters: {
+      query?: {
+        type?: string | null;
+        source?: string | null;
+        q?: string | null;
+        needs_review?: boolean | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DatabaseItemPageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listFingersticks: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerstickReadingResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createFingerstick: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FingerstickReadingCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerstickReadingResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteFingerstick: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        fingerstick_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchFingerstick: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        fingerstick_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FingerstickReadingPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerstickReadingResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getGlucoseDashboard: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        mode?: "raw" | "smoothed" | "normalized";
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GlucoseDashboardResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getGlucoseEpisodes: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DayEpisodesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getGlucoseTirDaily: {
+    parameters: {
+      query?: {
+        period?: "7d" | "14d" | "30d";
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GlucoseTirDailyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getHealth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
+  getMyGoals: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserGoalsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  updateMyGoals: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserGoalsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserGoalsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getMySchedule: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createMyNonTypicalPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NonTypicalPeriodCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NonTypicalPeriodResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteMyNonTypicalPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        period_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  putMyScheduleOverride: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScheduleOverrideRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteMyScheduleOverride: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteMealItem: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchMealItem: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealItemPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealItemResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createMealFromMealItemWeight: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealItemWeightReuseRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rememberProductFromMealItem: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RememberProductRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listMeals: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+        limit?: number;
+        offset?: number;
+        q?: string | null;
+        status?: components["schemas"]["MealStatus"] | null;
+        tag?: ("sweet" | "breakfast") | null;
+        sweet?: boolean;
+        breakfast?: boolean;
+        photo_only?: boolean;
+        low_confidence?: boolean;
+        idempotency_key?: string | null;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealPageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createMeal: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createMealFromPhoto: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_createMealFromPhoto"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PhotoCaptureResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getMeal: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteMeal: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchMeal: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  acceptMealDraft: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealAcceptRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listMealAiRuns: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIRunResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  applyEstimationRun: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApplyEstimationRunRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplyEstimationRunResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  discardMealDraft: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  estimateMealPhotos: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EstimateMealRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EstimateMealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  estimateAndSaveMealDraft: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EstimateMealRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EstimateMealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  replaceMealItems: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealItemCreate"][];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  addMealItem: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MealItemCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MealItemResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  uploadMealPhoto: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_uploadMealPhoto"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PhotoResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reestimateMealPhotos: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReestimateMealRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReestimateMealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  syncMealToNightscout: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutSyncResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  unsyncMealFromNightscout: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        meal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutSyncResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  submitMobilePhotoEstimateLogs: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MobilePhotoEstimateLogRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MobilePhotoEstimateLogResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutDayStatus: {
+    parameters: {
+      query: {
+        date: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutDayStatusResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutEvents: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutEventsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutGlucose: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutGlucoseEntryResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  importNightscoutContext: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NightscoutImportRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutImportResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutInsulin: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutInsulinEventResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createNightscoutInsulin: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NightscoutInsulinEntryCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutInsulinEventResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteNightscoutInsulin: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        event_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutInsulinDeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  updateNightscoutInsulin: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        event_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NightscoutInsulinEntryPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutInsulinEventResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutLatestReading: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutLatestReadingResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutStatus: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutStatusResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  syncTodayToNightscout: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NightscoutSyncTodayRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutSyncTodayResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listNutrientDefinitions: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NutrientDefinitionResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listPatterns: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternPageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createPattern: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatternCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  searchPatterns: {
+    parameters: {
+      query: {
+        q: string;
+        limit?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getPattern: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        pattern_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deletePattern: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        pattern_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchPattern: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        pattern_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatternPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  uploadPatternImage: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        pattern_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_uploadPatternImage"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PatternResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getPatternImageFile: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        pattern_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deletePhoto: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        photo_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getPhotoFile: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        photo_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listProducts: {
+    parameters: {
+      query?: {
+        q?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductPageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createProduct: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createOrUpdateProductFromLabel: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductFromLabelRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  searchProducts: {
+    parameters: {
+      query: {
+        q: string;
+        limit?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getProduct: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        product_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  deleteProduct: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        product_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchProduct: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        product_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  uploadProductImage: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        product_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_uploadProductImage"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getProductImageFile: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        product_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getUserProfile: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserProfileResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  updateUserProfile: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserProfileUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserProfileResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getEndocrinologistReport: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        /** @description Glucose series used for report metrics. */
+        glucose_mode?: "raw" | "normalized";
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EndocrinologistReportResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  listSensors: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SensorSessionResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  createSensor: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SensorSessionCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SensorSessionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchSensor: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        sensor_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SensorSessionPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SensorSessionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getSensorQuality: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        sensor_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SensorQualityResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recalculateSensorCalibration: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        sensor_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CgmCalibrationModelResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getNightscoutSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutSettingsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  updateNightscoutSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NightscoutSettingsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutSettingsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  testNightscoutConnection: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NightscoutTestResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getStatsInsights: {
+    parameters: {
+      query?: {
+        period?: "7d" | "14d" | "30d";
+        slot?: "today" | "stats";
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StatsInsightsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getStatsOverview: {
+    parameters: {
+      query?: {
+        period?: "7d" | "14d" | "30d";
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StatsOverviewResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTimeline: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["TimelineResponse"]
+            | components["schemas"]["TimelineFoodResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTimelineInsulinLinks: {
+    parameters: {
+      query: {
+        date: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InsulinLinkDayResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  putTimelineInsulinLinks: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InsulinLinkDayPutRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InsulinLinkDayResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTwinCurve: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        step_minutes?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinCurveResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTwinDataSummary: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinDataSummaryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  fitTwin: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TwinFitRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinFitResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTwinFitHistory: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinFitLogEntry"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  getTwinParams: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinParamsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patchTwinParams: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TwinParamsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinParamsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resetTwinParams: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TwinParamsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
 }

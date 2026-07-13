@@ -1,6 +1,7 @@
 package com.local.glucotracker.domain.repository
 
 import com.local.glucotracker.domain.model.CachedView
+import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
@@ -23,6 +24,8 @@ interface NightscoutRepository {
 
 interface SensorRepository {
     fun observeSensors(): Flow<CachedView<List<SensorSession>>>
+    fun observeFingersticks(from: Instant, to: Instant): Flow<CachedView<List<FingerstickReading>>>
     suspend fun refreshSensors()
+    suspend fun refreshFingersticks(from: Instant, to: Instant)
     suspend fun sensorQuality(sensorId: String): SensorQuality
 }

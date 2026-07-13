@@ -78,6 +78,7 @@ class InsulinRepository @Inject constructor(
                     doseUnits = dose,
                     kind = event.kind.value,
                     anchorMealId = event.anchorMealId?.toString(),
+                    isEditable = event.editable == true,
                     fetchedAt = fetchedAt,
                 )
             }
@@ -102,5 +103,5 @@ private fun CachedInsulinEventEntity.toDomain(): InsulinEvent =
         } else {
             InsulinEventType.Bolus
         },
-        isReadOnly = true,
+        isReadOnly = !isEditable,
     )

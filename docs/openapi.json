@@ -1864,6 +1864,11 @@
             ],
             "title": "Anchor Meal Id"
           },
+          "editable": {
+            "default": false,
+            "title": "Editable",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -6622,6 +6627,31 @@
         "title": "NightscoutImportResponse",
         "type": "object"
       },
+      "NightscoutInsulinDeleteResponse": {
+        "description": "Confirmation that a manual insulin treatment was deleted remotely.",
+        "properties": {
+          "deleted": {
+            "default": true,
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "nightscout_id": {
+            "title": "Nightscout Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nightscout_id"
+        ],
+        "title": "NightscoutInsulinDeleteResponse",
+        "type": "object"
+      },
       "NightscoutInsulinEntryCreate": {
         "description": "Manual insulin amount to write as a Nightscout treatment.",
         "properties": {
@@ -6663,9 +6693,46 @@
         "title": "NightscoutInsulinEntryCreate",
         "type": "object"
       },
-      "NightscoutInsulinEventResponse": {
-        "description": "Read-only Nightscout insulin event.",
+      "NightscoutInsulinEntryPatch": {
+        "description": "Editable fields for a Glucotracker-created insulin treatment.",
         "properties": {
+          "insulin_units": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Units"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          }
+        },
+        "title": "NightscoutInsulinEntryPatch",
+        "type": "object"
+      },
+      "NightscoutInsulinEventResponse": {
+        "description": "Nightscout insulin event, editable only when created by Glucotracker.",
+        "properties": {
+          "editable": {
+            "default": false,
+            "title": "Editable",
+            "type": "boolean"
+          },
           "enteredBy": {
             "anyOf": [
               {
@@ -6687,6 +6754,18 @@
               }
             ],
             "title": "Eventtype"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
           },
           "insulin_type": {
             "anyOf": [
@@ -11408,6 +11487,11 @@
       "TimelineInsulinEventResponse": {
         "description": "Read-only insulin event not grouped into a food episode.",
         "properties": {
+          "editable": {
+            "default": false,
+            "title": "Editable",
+            "type": "boolean"
+          },
           "enteredBy": {
             "anyOf": [
               {
@@ -11429,6 +11513,18 @@
               }
             ],
             "title": "Eventtype"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
           },
           "insulin_type": {
             "anyOf": [
@@ -17259,6 +17355,150 @@
           }
         ],
         "summary": "Create Nightscout Insulin",
+        "tags": [
+          "nightscout"
+        ],
+        "x-glucotracker-required-feature": "nightscout",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/nightscout/insulin/{event_id}": {
+      "delete": {
+        "description": "Delete an owned insulin treatment originally created by Glucotracker.",
+        "operationId": "deleteNightscoutInsulin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutInsulinDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Delete Nightscout Insulin",
+        "tags": [
+          "nightscout"
+        ],
+        "x-glucotracker-required-feature": "nightscout",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      },
+      "patch": {
+        "description": "Update an owned insulin treatment originally created by Glucotracker.",
+        "operationId": "updateNightscoutInsulin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NightscoutInsulinEntryPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NightscoutInsulinEventResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Update Nightscout Insulin",
         "tags": [
           "nightscout"
         ],

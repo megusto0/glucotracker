@@ -127,7 +127,10 @@ def _manual_insulin_treatment_payload(
     identifier = (
         f"glucotracker:manual-insulin:{idempotency_key}"
         if idempotency_key
-        else f"glucotracker:manual-insulin:{_nightscout_mills(recorded_at)}:{insulin_units:g}"
+        else (
+            "glucotracker:manual-insulin:"
+            f"{_nightscout_mills(recorded_at)}:{insulin_units:g}"
+        )
     )
     payload: dict[str, Any] = {
         "eventType": "Insulin",
@@ -282,6 +285,25 @@ class NightscoutClient:
         return await self._request(
             "POST",
             "/api/v1/treatments",
+            json_payload=_manual_insulin_treatment_payload(
+                insulin_units=insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+            ),
+        )
+
+    async def update_insulin_treatment(
+        self,
+        nightscout_id: str,
+        *,
+        insulin_units: float,
+        recorded_at: datetime,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a Glucotracker-created insulin treatment by remote id."""
+        return await self._request(
+            "PUT",
+            f"/api/v1/treatments/{nightscout_id}",
             json_payload=_manual_insulin_treatment_payload(
                 insulin_units=insulin_units,
                 recorded_at=recorded_at,

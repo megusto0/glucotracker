@@ -206,7 +206,7 @@ private fun InsulinEntrySheet(
     }
 }
 
-private fun sanitizeUnitsInput(raw: String): String {
+internal fun sanitizeUnitsInput(raw: String): String {
     var hasSeparator = false
     val cleaned = buildString {
         raw.forEach { char ->

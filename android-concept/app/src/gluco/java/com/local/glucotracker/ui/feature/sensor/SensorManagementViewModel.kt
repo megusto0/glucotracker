@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
+import com.local.glucotracker.domain.model.FingerstickReading
+import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.PatchSensorOutboxKind
 import com.local.glucotracker.domain.model.SensorQuality
@@ -32,6 +34,17 @@ data class SensorManagementState(
     val loadFailed: Boolean = false,
     val pendingSensorIds: Set<String> = emptySet(),
     val pendingCreateCount: Int = 0,
+    val fingersticks: List<FingerstickHistoryItem> = emptyList(),
+    val fingersticksRefreshing: Boolean = false,
+)
+
+data class FingerstickHistoryItem(
+    val id: String,
+    val measuredAt: kotlinx.datetime.Instant,
+    val glucoseMmolL: Double,
+    val meterName: String?,
+    val notes: String?,
+    val syncState: OutboxState?,
 )
 
 private data class QualityState(
@@ -48,15 +61,22 @@ class SensorManagementViewModel @Inject constructor(
 ) : ViewModel() {
     private val selectedSensorId = MutableStateFlow<String?>(null)
     private val quality = MutableStateFlow(QualityState())
+    private val historyAnchor = Clock.System.now()
+    private val historyFrom = historyAnchor.shiftMillis(-FingerstickHistoryWindowMillis)
+    private val historyTo = historyAnchor.shiftMillis(FingerstickHistoryFutureSlackMillis)
 
     val state = combine(
         sensorRepository.observeSensors(),
+        sensorRepository.observeFingersticks(historyFrom, historyTo),
         selectedSensorId,
         quality,
         outboxRepository.observe(),
-    ) { cached, selectedId, qualityState, outbox ->
+    ) { cached, cachedFingersticks, selectedId, qualityState, outbox ->
         val activeOutbox = outbox.filter { it.state != OutboxState.Confirmed }
-        val sensors = cached.value.orEmpty()
+        val sensors = cached.value.orEmpty().sortedWith(
+            compareBy<SensorSession> { it.endedAt != null }
+                .thenByDescending { it.startedAt },
+        )
         val resolvedSelection = selectedId?.takeIf { id -> sensors.any { it.id == id } }
             ?: sensors.firstOrNull { it.endedAt == null }?.id
             ?: sensors.firstOrNull()?.id
@@ -71,6 +91,11 @@ class SensorManagementViewModel @Inject constructor(
                 (item.kind as? PatchSensorOutboxKind)?.sensorId
             }.toSet(),
             pendingCreateCount = activeOutbox.count { it.kind is CreateSensorOutboxKind },
+            fingersticks = mergeFingerstickHistory(
+                server = cachedFingersticks.value.orEmpty(),
+                outbox = activeOutbox,
+            ),
+            fingersticksRefreshing = cachedFingersticks.isRefreshing,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -98,19 +123,29 @@ class SensorManagementViewModel @Inject constructor(
                 .map { items ->
                     items.count { item ->
                         item.state == OutboxState.Confirmed &&
-                            (item.kind is CreateSensorOutboxKind || item.kind is PatchSensorOutboxKind)
+                            (
+                                item.kind is CreateSensorOutboxKind ||
+                                    item.kind is PatchSensorOutboxKind ||
+                                    item.kind is CreateFingerstickOutboxKind
+                            )
                     }
                 }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { sensorRepository.refreshSensors() }
+                .collect {
+                    sensorRepository.refreshSensors()
+                    sensorRepository.refreshFingersticks(historyFrom, historyTo)
+                }
         }
-        viewModelScope.launch { sensorRepository.refreshSensors() }
+        viewModelScope.launch {
+            sensorRepository.refreshSensors()
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
             sensorRepository.refreshSensors()
+            sensorRepository.refreshFingersticks(historyFrom, historyTo)
             val selected = selectedSensorId.value
             if (selected != null) selectSensor(selected)
         }
@@ -183,4 +218,46 @@ class SensorManagementViewModel @Inject constructor(
     }
 }
 
+private fun mergeFingerstickHistory(
+    server: List<FingerstickReading>,
+    outbox: List<OutboxItem>,
+): List<FingerstickHistoryItem> {
+    val pending = outbox.mapNotNull { item ->
+        val kind = item.kind as? CreateFingerstickOutboxKind ?: return@mapNotNull null
+        FingerstickHistoryItem(
+            id = "outbox-${item.id}",
+            measuredAt = kind.measuredAt,
+            glucoseMmolL = kind.glucoseMmolL,
+            meterName = kind.meterName,
+            notes = kind.notes,
+            syncState = item.state,
+        )
+    }
+    val accepted = server
+        .filterNot { reading -> pending.any { it.matches(reading) } }
+        .map { reading ->
+            FingerstickHistoryItem(
+                id = reading.id,
+                measuredAt = reading.measuredAt,
+                glucoseMmolL = reading.glucoseMmolL,
+                meterName = reading.meterName,
+                notes = reading.notes,
+                syncState = null,
+            )
+        }
+    return (pending + accepted).sortedByDescending { it.measuredAt }
+}
+
+private fun FingerstickHistoryItem.matches(reading: FingerstickReading): Boolean =
+    kotlin.math.abs(glucoseMmolL - reading.glucoseMmolL) < 0.01 &&
+        kotlin.math.abs(
+            measuredAt.toEpochMilliseconds() - reading.measuredAt.toEpochMilliseconds(),
+        ) <= 2 * 60 * 1_000L
+
+private fun kotlinx.datetime.Instant.shiftMillis(delta: Long): kotlinx.datetime.Instant =
+    kotlinx.datetime.Instant.fromEpochMilliseconds(toEpochMilliseconds() + delta)
+
 private fun String?.cleanOrNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+private const val FingerstickHistoryWindowMillis = 30L * 24L * 60L * 60L * 1_000L
+private const val FingerstickHistoryFutureSlackMillis = 24L * 60L * 60L * 1_000L

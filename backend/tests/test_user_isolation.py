@@ -1431,6 +1431,60 @@ class TestMutationIsolation:
         assert str(row.owner_id) == str(self.bob)
         s.close()
 
+    @pytest.mark.parametrize("method", ["patch", "delete"])
+    def test_nightscout_insulin_mutation_isolation(self, method: str):
+        """Alice cannot update or delete Bob's manual insulin cache row."""
+        sf = self.env["session_factory"]
+        s = sf()
+        row = NightscoutInsulinEvent(
+            owner_id=self.bob,
+            source_key=f"manual_insulin:bob-{method}",
+            nightscout_id=f"ns-bob-{method}",
+            timestamp=datetime(2026, 4, 1, 10, tzinfo=UTC),
+            insulin_units=1.5,
+            entered_by="glucotracker",
+            raw_json={"request": {"idempotency_key": f"bob-{method}"}},
+        )
+        s.add(row)
+        s.commit()
+        event_id = row.id
+        s.close()
+
+        class FakeNightscoutClient:
+            configured = True
+            calls: list[str] = []
+
+            async def update_insulin_treatment(self, *_args, **_kwargs) -> dict:
+                self.calls.append("patch")
+                return {}
+
+            async def delete_treatment(self, _nightscout_id: str) -> dict:
+                self.calls.append("delete")
+                return {}
+
+        fake = FakeNightscoutClient()
+        app.dependency_overrides[get_nightscout_client] = lambda: fake
+        try:
+            if method == "patch":
+                response = self.client.patch(
+                    f"/nightscout/insulin/{event_id}",
+                    json={"insulin_units": 2.0},
+                    headers=self.alice_headers,
+                )
+            else:
+                response = self.client.delete(
+                    f"/nightscout/insulin/{event_id}",
+                    headers=self.alice_headers,
+                )
+        finally:
+            app.dependency_overrides.pop(get_nightscout_client, None)
+
+        assert response.status_code == 404
+        assert fake.calls == []
+        s = sf()
+        assert s.get(NightscoutInsulinEvent, event_id) is not None
+        s.close()
+
     def test_create_sensor_ownership(self):
         r = self.client.post(
             "/sensors",

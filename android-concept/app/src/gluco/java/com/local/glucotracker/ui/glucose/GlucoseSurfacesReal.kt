@@ -66,6 +66,7 @@ import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
+import com.local.glucotracker.ui.feature.insulin.InsulinManagementSheet
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
@@ -495,6 +496,7 @@ private sealed interface InsulinTimelineItem<out T> {
 @Composable
 private fun InlineInsulinLine(event: InsulinEvent) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
+    var showManagement by remember(event.id) { mutableStateOf(false) }
     LaunchedEffect(showTooltip) {
         if (showTooltip) {
             delay(1_500)
@@ -503,12 +505,20 @@ private fun InlineInsulinLine(event: InsulinEvent) {
     }
     Column(modifier = Modifier.padding(top = 3.dp)) {
         Row(
-            modifier = Modifier.pointerInput(event.id) {
-                detectTapGestures(
-                    onTap = {},
-                    onLongPress = { showTooltip = true },
-                )
-            },
+            modifier = Modifier
+                .heightIn(min = 44.dp)
+                .pointerInput(event.id, event.isReadOnly, event.isPending) {
+                    detectTapGestures(
+                        onTap = {
+                            if (!event.isReadOnly && !event.isPending) {
+                                showManagement = true
+                            } else {
+                                showTooltip = true
+                            }
+                        },
+                        onLongPress = { showTooltip = true },
+                    )
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -529,6 +539,12 @@ private fun InlineInsulinLine(event: InsulinEvent) {
             InsulinTooltip(event = event)
         }
     }
+    if (showManagement) {
+        InsulinManagementSheet(
+            event = event,
+            onDismiss = { showManagement = false },
+        )
+    }
 }
 
 @Composable
@@ -537,6 +553,7 @@ private fun OrphanInsulinRow(
     onOpenResponse: (() -> Unit)? = null,
 ) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
+    var showManagement by remember(event.id) { mutableStateOf(false) }
     LaunchedEffect(showTooltip) {
         if (showTooltip) {
             delay(1_500)
@@ -547,10 +564,16 @@ private fun OrphanInsulinRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 28.dp)
-                .pointerInput(event.id, onOpenResponse) {
+                .heightIn(min = 44.dp)
+                .pointerInput(event.id, onOpenResponse, event.isReadOnly, event.isPending) {
                     detectTapGestures(
-                        onTap = { onOpenResponse?.invoke() },
+                        onTap = {
+                            if (!event.isReadOnly && !event.isPending) {
+                                showManagement = true
+                            } else {
+                                onOpenResponse?.invoke()
+                            }
+                        },
                         onLongPress = { showTooltip = true },
                     )
                 }
@@ -593,6 +616,12 @@ private fun OrphanInsulinRow(
         if (showTooltip) {
             InsulinTooltip(event = event)
         }
+    }
+    if (showManagement) {
+        InsulinManagementSheet(
+            event = event,
+            onDismiss = { showManagement = false },
+        )
     }
 }
 
@@ -1123,6 +1152,7 @@ private fun MoreGlucoseSettingsSurface(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val alarms by settingsViewModel.alarmToggles.collectAsStateWithLifecycle()
+    val normalizedDisplay by settingsViewModel.normalizedGlucoseDisplay.collectAsStateWithLifecycle()
     val connected = state.status.connectionState == NightscoutConnectionState.Connected
     val statusLabel = when {
         state.isRefreshing -> stringResource(R.string.more_ns_checking)
@@ -1171,6 +1201,26 @@ private fun MoreGlucoseSettingsSurface(
                     description = stringResource(R.string.more_gluco_calibration_desc),
                     locked = true,
                     action = { GlucoDesktopPill() },
+                )
+            }
+        }
+
+        GlucoSettingsSection(
+            title = stringResource(R.string.more_gluco_display_section),
+            note = stringResource(R.string.more_gluco_display_note),
+        ) {
+            GlucoSettingsGroup {
+                GlucoSettingsRow(
+                    title = stringResource(R.string.more_gluco_normalized_title),
+                    description = stringResource(R.string.more_gluco_normalized_desc),
+                    action = {
+                        GlucoSettingsSwitch(
+                            checked = normalizedDisplay,
+                            accent = GT.colors.info,
+                            onToggle = settingsViewModel::toggleNormalizedGlucoseDisplay,
+                        )
+                    },
+                    onClick = settingsViewModel::toggleNormalizedGlucoseDisplay,
                 )
             }
         }

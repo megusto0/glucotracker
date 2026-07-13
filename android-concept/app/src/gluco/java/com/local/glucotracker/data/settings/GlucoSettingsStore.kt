@@ -35,6 +35,18 @@ class GlucoSettingsStore @Inject constructor(
             )
         }
 
+    val normalizedGlucoseDisplay: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[Keys.NormalizedGlucoseDisplay] ?: false
+        }
+
+    suspend fun toggleNormalizedGlucoseDisplay() {
+        dataStore.edit { preferences ->
+            preferences[Keys.NormalizedGlucoseDisplay] =
+                !(preferences[Keys.NormalizedGlucoseDisplay] ?: false)
+        }
+    }
+
     suspend fun toggleAlarm(key: String) {
         dataStore.edit { preferences ->
             val prefKey = when (key) {
@@ -51,5 +63,6 @@ class GlucoSettingsStore @Inject constructor(
         val LowAlarm = booleanPreferencesKey("low_alarm")
         val HighAlarm = booleanPreferencesKey("high_alarm")
         val SensorSignalLoss = booleanPreferencesKey("sensor_signal_loss")
+        val NormalizedGlucoseDisplay = booleanPreferencesKey("normalized_glucose_display")
     }
 }

@@ -9,8 +9,11 @@ import com.local.glucotracker.R
 import com.local.glucotracker.data.auth.AuthRepository
 import com.local.glucotracker.data.auth.installAuthPlugin
 import com.local.glucotracker.data.local.CachedGlucoseDao
+import com.local.glucotracker.data.local.CachedFingerstickDao
 import com.local.glucotracker.data.local.CachedInsulinEventDao
 import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_1_2
+import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_2_3
+import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_3_4
 import com.local.glucotracker.data.local.GlucoseCacheDatabase
 import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
 import com.local.glucotracker.data.repository.MealContextProvider
@@ -110,12 +113,20 @@ object GlucoFlavorModule {
             GlucoseCacheDatabase::class.java,
             "glucotracker-glucose.db",
         )
-            .addMigrations(GLUCOSE_CACHE_MIGRATION_1_2)
+            .addMigrations(
+                GLUCOSE_CACHE_MIGRATION_1_2,
+                GLUCOSE_CACHE_MIGRATION_2_3,
+                GLUCOSE_CACHE_MIGRATION_3_4,
+            )
             .build()
 
     @Provides
     fun provideCachedGlucoseDao(database: GlucoseCacheDatabase): CachedGlucoseDao =
         database.cachedGlucoseDao()
+
+    @Provides
+    fun provideCachedFingerstickDao(database: GlucoseCacheDatabase): CachedFingerstickDao =
+        database.cachedFingerstickDao()
 
     @Provides
     fun provideCachedInsulinEventDao(database: GlucoseCacheDatabase): CachedInsulinEventDao =

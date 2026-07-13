@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.api.schemas import (
@@ -234,10 +234,16 @@ class NightscoutContextImportService:
         normalized = _normalize_insulin_row(row)
         if normalized is None:
             return False
+        nightscout_id = normalized["nightscout_id"]
         existing = self.session.scalar(
             select(NightscoutInsulinEvent).where(
-                NightscoutInsulinEvent.source_key == normalized["source_key"],
                 NightscoutInsulinEvent.owner_id == self.user_id,
+                or_(
+                    NightscoutInsulinEvent.source_key == normalized["source_key"],
+                    NightscoutInsulinEvent.nightscout_id == nightscout_id,
+                )
+                if nightscout_id
+                else NightscoutInsulinEvent.source_key == normalized["source_key"],
             )
         )
         if existing is None:
@@ -245,8 +251,16 @@ class NightscoutContextImportService:
                 NightscoutInsulinEvent(owner_id=self.user_id, **normalized)
             )
             return True
+        is_manual = existing.source_key.startswith("manual_insulin:")
         for key, value in normalized.items():
+            if is_manual and key in {"source_key", "raw_json"}:
+                continue
             setattr(existing, key, value)
+        if is_manual:
+            existing.raw_json = {
+                **existing.raw_json,
+                "imported_treatment": normalized["raw_json"],
+            }
         existing.updated_at = utc_now()
         existing.fetched_at = utc_now()
         return True

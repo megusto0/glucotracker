@@ -20,6 +20,15 @@ data class GlucoseRange(
     val readings: List<GlucoseReading>,
 )
 
+data class FingerstickReading(
+    val id: String,
+    val measuredAt: Instant,
+    val glucoseMmolL: Double,
+    val meterName: String?,
+    val notes: String?,
+    val createdAt: Instant,
+)
+
 data class SensorSession(
     val id: String,
     val startedAt: Instant,
@@ -93,6 +102,22 @@ data class CreateNightscoutInsulinOutboxKind(
     val recordedAt: Instant,
     val insulinUnits: Double,
     val idempotencyKey: String,
+) : OutboxKind
+
+@Serializable
+@SerialName("update_nightscout_insulin")
+data class UpdateNightscoutInsulinOutboxKind(
+    val eventId: String,
+    val originalRecordedAt: Instant,
+    val recordedAt: Instant,
+    val insulinUnits: Double,
+) : OutboxKind
+
+@Serializable
+@SerialName("delete_nightscout_insulin")
+data class DeleteNightscoutInsulinOutboxKind(
+    val eventId: String,
+    val recordedAt: Instant,
 ) : OutboxKind
 
 enum class NightscoutConnectionState {

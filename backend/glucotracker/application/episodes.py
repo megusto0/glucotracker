@@ -91,9 +91,7 @@ def auto_links(
             window_start = meal.eaten_at - INSULIN_WINDOW_BEFORE
             window_end = meal.eaten_at + INSULIN_WINDOW_AFTER
             if window_start <= event_time <= window_end:
-                delta_minutes = (
-                    abs((event_time - meal.eaten_at).total_seconds()) / 60
-                )
+                delta_minutes = abs((event_time - meal.eaten_at).total_seconds()) / 60
                 links.append(
                     AutoLink(
                         meal_id=meal.id,
@@ -220,9 +218,7 @@ def anchor_meal_id(
 ) -> UUID | None:
     """Nearest meal of the episode — where the insulin line renders on mobile."""
     paired_meal_ids = {
-        pair.meal_id
-        for pair in component.pairs
-        if pair.insulin_event_id == event.id
+        pair.meal_id for pair in component.pairs if pair.insulin_event_id == event.id
     }
     candidates = [
         meal for meal in component.meals if meal.id in paired_meal_ids
@@ -270,17 +266,19 @@ class EpisodeQueryService:
         )
         utc_from = utc_instant_from_local_wall(local_from)
         utc_to = utc_instant_from_local_wall(local_to)
-        insulin = list(
-            self.session.scalars(
-                select(NightscoutInsulinEvent)
-                .where(
-                    NightscoutInsulinEvent.owner_id == self.user_id,
-                    NightscoutInsulinEvent.timestamp
-                    >= utc_from - EPISODE_INSULIN_BUFFER,
-                    NightscoutInsulinEvent.timestamp
-                    < utc_to + EPISODE_INSULIN_BUFFER,
+        insulin = _dedupe_insulin_events(
+            list(
+                self.session.scalars(
+                    select(NightscoutInsulinEvent)
+                    .where(
+                        NightscoutInsulinEvent.owner_id == self.user_id,
+                        NightscoutInsulinEvent.timestamp
+                        >= utc_from - EPISODE_INSULIN_BUFFER,
+                        NightscoutInsulinEvent.timestamp
+                        < utc_to + EPISODE_INSULIN_BUFFER,
+                    )
+                    .order_by(NightscoutInsulinEvent.timestamp.asc())
                 )
-                .order_by(NightscoutInsulinEvent.timestamp.asc())
             )
         )
         visible_insulin = [
@@ -324,3 +322,19 @@ class EpisodeQueryService:
             if link.insulin_event_id not in manual_by_insulin
         )
         return group_components(meals, visible_insulin, pairs)
+
+
+def _dedupe_insulin_events(
+    events: list[NightscoutInsulinEvent],
+) -> list[NightscoutInsulinEvent]:
+    """Collapse historical cache duplicates without deleting source records."""
+    by_remote_key: dict[str, NightscoutInsulinEvent] = {}
+    for event in events:
+        key = event.nightscout_id or event.source_key
+        current = by_remote_key.get(key)
+        if current is None or (
+            event.source_key.startswith("manual_insulin:")
+            and not current.source_key.startswith("manual_insulin:")
+        ):
+            by_remote_key[key] = event
+    return sorted(by_remote_key.values(), key=lambda event: event.timestamp)

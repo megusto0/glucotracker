@@ -15,7 +15,9 @@ from glucotracker.api.schemas import (
     NightscoutDayStatusResponse,
     NightscoutEventsResponse,
     NightscoutGlucoseEntryResponse,
+    NightscoutInsulinDeleteResponse,
     NightscoutInsulinEntryCreate,
+    NightscoutInsulinEntryPatch,
     NightscoutInsulinEventResponse,
     NightscoutSettingsPatch,
     NightscoutSettingsResponse,
@@ -124,8 +126,9 @@ class NightscoutSettingsService:
         return NightscoutSettingsResponse(
             enabled=row.enabled,
             configured=configured,
-            connected=bool(connected) if connected is not None else configured
-            and not row.last_error,
+            connected=bool(connected)
+            if connected is not None
+            else configured and not row.last_error,
             url=effective_url,
             secret_is_set=bool(effective_secret),
             last_status_check_at=row.last_status_check_at,
@@ -490,7 +493,33 @@ class NightscoutSyncService:
             rows = await nightscout.fetch_insulin_events(from_datetime, to_datetime)
         except Exception as exc:
             raise self.map_error(exc) from exc
-        return [_insulin_response(row) for row in rows if _insulin_response(row)]
+        remote_ids = {
+            str(row.get("_id") or row.get("id"))
+            for row in rows
+            if row.get("_id") or row.get("id")
+        }
+        cached_by_remote_id = (
+            {
+                row.nightscout_id: row
+                for row in self.session.scalars(
+                    select(NightscoutInsulinEvent).where(
+                        NightscoutInsulinEvent.owner_id == self.user_id,
+                        NightscoutInsulinEvent.nightscout_id.in_(remote_ids),
+                    )
+                )
+                if row.nightscout_id
+            }
+            if remote_ids
+            else {}
+        )
+        responses = (
+            _insulin_response(
+                row,
+                cached=cached_by_remote_id.get(str(row.get("_id") or row.get("id"))),
+            )
+            for row in rows
+        )
+        return [response for response in responses if response is not None]
 
     async def events(
         self,
@@ -575,6 +604,100 @@ class NightscoutSyncService:
         self.session.add(row)
         self.session.commit()
         return _cached_insulin_response(row)
+
+    async def update_insulin_entry(
+        self,
+        event_id: UUID,
+        payload: NightscoutInsulinEntryPatch,
+    ) -> NightscoutInsulinEventResponse:
+        """Update one owned Glucotracker-created treatment and its local cache."""
+        row = self._editable_insulin_entry(event_id)
+        nightscout = self._require_client()
+        remote_id = row.nightscout_id
+        assert remote_id is not None
+        insulin_units = (
+            payload.insulin_units
+            if payload.insulin_units is not None
+            else row.insulin_units
+        )
+        if insulin_units is None or insulin_units <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "insulin_entry_invalid"},
+            )
+        recorded_at = (
+            _absolute_timestamp(payload.recorded_at)
+            if payload.recorded_at is not None
+            else _absolute_timestamp(row.timestamp)
+        )
+        idempotency_key = _cached_insulin_idempotency_key(row)
+        self._release_connection()
+        try:
+            response = await nightscout.update_insulin_treatment(
+                remote_id,
+                insulin_units=insulin_units,
+                recorded_at=recorded_at,
+                idempotency_key=idempotency_key,
+            )
+        except Exception as exc:
+            raise self.map_error(exc) from exc
+
+        row.timestamp = recorded_at
+        row.insulin_units = insulin_units
+        row.raw_json = {
+            "request": {
+                "insulin_units": insulin_units,
+                "recorded_at": recorded_at.isoformat(),
+                "idempotency_key": idempotency_key,
+            },
+            "response": response,
+        }
+        row.fetched_at = utc_now()
+        row.updated_at = utc_now()
+        self.session.commit()
+        return _cached_insulin_response(row)
+
+    async def delete_insulin_entry(
+        self,
+        event_id: UUID,
+    ) -> NightscoutInsulinDeleteResponse:
+        """Delete one owned Glucotracker-created treatment remotely and locally."""
+        row = self._editable_insulin_entry(event_id)
+        nightscout = self._require_client()
+        remote_id = row.nightscout_id
+        assert remote_id is not None
+        self._release_connection()
+        try:
+            await nightscout.delete_treatment(remote_id)
+        except Exception as exc:
+            raise self.map_error(exc) from exc
+        self.session.delete(row)
+        self.session.commit()
+        return NightscoutInsulinDeleteResponse(
+            id=event_id,
+            nightscout_id=remote_id,
+        )
+
+    def _editable_insulin_entry(self, event_id: UUID) -> NightscoutInsulinEvent:
+        row = self.session.scalar(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.id == event_id,
+                NightscoutInsulinEvent.owner_id == self.user_id,
+            )
+        )
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if not _is_editable_insulin(row):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "insulin_entry_read_only"},
+            )
+        if not row.nightscout_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "insulin_entry_not_synced"},
+            )
+        return row
 
     def _get_meal(self, meal_id: UUID) -> Meal:
         meal = self.session.get(
@@ -863,6 +986,7 @@ def _cached_insulin_response(
     row: NightscoutInsulinEvent,
 ) -> NightscoutInsulinEventResponse:
     return NightscoutInsulinEventResponse(
+        id=row.id,
         timestamp=row.timestamp,
         insulin_units=row.insulin_units,
         eventType=row.event_type,
@@ -870,7 +994,22 @@ def _cached_insulin_response(
         enteredBy=row.entered_by,
         notes=row.notes,
         nightscout_id=row.nightscout_id,
+        editable=_is_editable_insulin(row),
     )
+
+
+def _is_editable_insulin(row: NightscoutInsulinEvent) -> bool:
+    return (
+        row.source_key.startswith("manual_insulin:")
+        and row.entered_by == "glucotracker"
+        and bool(row.nightscout_id)
+    )
+
+
+def _cached_insulin_idempotency_key(row: NightscoutInsulinEvent) -> str | None:
+    request = row.raw_json.get("request") if isinstance(row.raw_json, dict) else None
+    value = request.get("idempotency_key") if isinstance(request, dict) else None
+    return str(value) if value else None
 
 
 def _status_server_name(payload: dict[str, Any]) -> str | None:
@@ -954,11 +1093,16 @@ def _glucose_response(row: dict[str, Any]) -> NightscoutGlucoseEntryResponse | N
     )
 
 
-def _insulin_response(row: dict[str, Any]) -> NightscoutInsulinEventResponse | None:
+def _insulin_response(
+    row: dict[str, Any],
+    *,
+    cached: NightscoutInsulinEvent | None = None,
+) -> NightscoutInsulinEventResponse | None:
     timestamp = _timestamp_from_row(row)
     if timestamp is None:
         return None
     return NightscoutInsulinEventResponse(
+        id=cached.id if cached else None,
         timestamp=timestamp,
         insulin_units=_as_float(row.get("insulin")),
         eventType=str(row.get("eventType")) if row.get("eventType") else None,
@@ -968,4 +1112,5 @@ def _insulin_response(row: dict[str, Any]) -> NightscoutInsulinEventResponse | N
         nightscout_id=str(row.get("_id") or row.get("id"))
         if row.get("_id") or row.get("id")
         else None,
+        editable=_is_editable_insulin(cached) if cached else False,
     )

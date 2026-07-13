@@ -3,6 +3,7 @@ package com.local.glucotracker.data.api
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.model.DayEpisodesResponse
+import com.local.glucotracker.generated.model.FingerstickReadingResponse
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.GlucoseTirDailyResponse
 import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
@@ -34,6 +35,9 @@ class GlucoseApi @Inject constructor(
 
     suspend fun sensorQuality(sensorId: java.util.UUID): SensorQualityResponse =
         glucoseApi.getSensorQuality(sensorId).body()
+
+    suspend fun fingersticks(from: Instant, to: Instant): List<FingerstickReadingResponse> =
+        glucoseApi.listFingersticks(from = from, to = to).body()
 }
 
 class NightscoutApi @Inject constructor(

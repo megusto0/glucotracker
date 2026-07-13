@@ -119,15 +119,20 @@ private fun String.toPhotoCaptureSource(): String =
 private fun Instant.toWallClockIso(): String =
     toLocalDateTime(TimeZone.currentSystemDefault()).toString()
 
-private const val MaxServerPhotoBytes = 10 * 1024 * 1024
-
 private fun File.bytesForUpload(): ByteArray {
     val optimized = PhotoStorage.optimizedUploadBytes(this)
-    if (optimized != null) return optimized
+    if (optimized != null && optimized.size <= PhotoStorage.ServerMultipartPhotoByteLimit) {
+        return optimized
+    }
 
     val raw = readBytes()
-    if (raw.size > MaxServerPhotoBytes) {
-        throw IOException("photo is ${raw.size / 1024 / 1024}MB; unable to optimize under the 10MB server limit")
+    if (raw.size <= PhotoStorage.ServerMultipartPhotoByteLimit) {
+        return raw
     }
-    return raw
+
+    val bestSize = minOf(raw.size, optimized?.size ?: Int.MAX_VALUE)
+    throw IOException(
+        "photo is ${bestSize / 1024}KB; unable to optimize under the " +
+            "${PhotoStorage.ServerMultipartPhotoByteLimit / 1024}KB server multipart limit",
+    )
 }

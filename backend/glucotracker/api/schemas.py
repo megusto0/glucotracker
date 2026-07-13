@@ -161,6 +161,7 @@ class DayEpisodeInsulinResponse(BaseModel):
     # when it stands alone. Display attribution only, never advice.
     kind: Literal["food", "correction"]
     anchor_meal_id: UUID | None = None
+    editable: bool = False
 
 
 class DayEpisodeResponse(BaseModel):
@@ -1287,8 +1288,9 @@ class NightscoutGlucoseEntryResponse(BaseModel):
 
 
 class NightscoutInsulinEventResponse(BaseModel):
-    """Read-only Nightscout insulin event."""
+    """Nightscout insulin event, editable only when created by Glucotracker."""
 
+    id: UUID | None = None
     timestamp: datetime
     insulin_units: float | None = None
     eventType: str | None = None
@@ -1296,6 +1298,7 @@ class NightscoutInsulinEventResponse(BaseModel):
     enteredBy: str | None = None
     notes: str | None = None
     nightscout_id: str | None = None
+    editable: bool = False
 
 
 class NightscoutInsulinEntryCreate(BaseModel):
@@ -1304,6 +1307,27 @@ class NightscoutInsulinEntryCreate(BaseModel):
     insulin_units: float = Field(gt=0, le=100)
     recorded_at: datetime | None = None
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class NightscoutInsulinEntryPatch(BaseModel):
+    """Editable fields for a Glucotracker-created insulin treatment."""
+
+    insulin_units: float | None = Field(default=None, gt=0, le=100)
+    recorded_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def require_change(self) -> NightscoutInsulinEntryPatch:
+        if self.insulin_units is None and self.recorded_at is None:
+            raise ValueError("At least one insulin field is required")
+        return self
+
+
+class NightscoutInsulinDeleteResponse(BaseModel):
+    """Confirmation that a manual insulin treatment was deleted remotely."""
+
+    id: UUID
+    nightscout_id: str
+    deleted: bool = True
 
 
 class NightscoutEventsResponse(BaseModel):

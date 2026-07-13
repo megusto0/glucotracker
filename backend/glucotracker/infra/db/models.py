@@ -1041,7 +1041,7 @@ class NightscoutGlucoseEntry(Base, TimestampMixin):
 
 
 class NightscoutInsulinEvent(Base, TimestampMixin):
-    """Locally cached read-only insulin treatment imported from Nightscout."""
+    """Owned insulin cache; imported rows are read-only, manual rows editable."""
 
     __tablename__ = "nightscout_insulin_events"
     __table_args__ = (
