@@ -690,16 +690,32 @@ class GlucoseDashboardService:
             )
             .order_by(NightscoutInsulinEvent.timestamp.asc())
         ).all()
-        return [
-            GlucoseDashboardInsulinEvent(
-                timestamp=_local_wall_from_utc(row.timestamp),
-                insulin_units=row.insulin_units,
-                event_type=row.event_type,
-                insulin_type=row.insulin_type,
-                notes=row.notes,
+        # Re-imports can leave near-duplicate rows (same NS id / same second).
+        # Keep one marker per logical bolus so the chart does not double-stack.
+        events: list[GlucoseDashboardInsulinEvent] = []
+        seen: set[str] = set()
+        for row in rows:
+            ns_key = (row.nightscout_id or "").strip()
+            second = int(row.timestamp.timestamp())
+            units = (
+                f"{float(row.insulin_units):.3f}"
+                if row.insulin_units is not None
+                else "null"
             )
-            for row in rows
-        ]
+            dedupe_key = ns_key or f"{second}:{units}:{row.event_type or ''}"
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            events.append(
+                GlucoseDashboardInsulinEvent(
+                    timestamp=_local_wall_from_utc(row.timestamp),
+                    insulin_units=row.insulin_units,
+                    event_type=row.event_type,
+                    insulin_type=row.insulin_type,
+                    notes=row.notes,
+                )
+            )
+        return events
 
     def _calibration(
         self,

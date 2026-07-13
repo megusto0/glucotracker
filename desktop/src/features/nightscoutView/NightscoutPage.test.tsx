@@ -128,7 +128,7 @@ describe("NightscoutPage", () => {
     );
   });
 
-  test("shows on-board status and anchors treatments to CGM points", () => {
+  test("shows on-board status and keeps treatments on separate top rails", () => {
     const { container } = render(
       <MemoryRouter>
         <NightscoutPage />
@@ -146,16 +146,58 @@ describe("NightscoutPage", () => {
       1,
     );
 
+    // Same clock as CGM samples → same X; food and insulin stay on fixed rails (not CGM Y).
     const glucosePoints = container.querySelectorAll(".ns-point");
     const foodMarker = container.querySelector(".ns-treatment--food");
     const insulinMarker = container.querySelector(".ns-treatment--insulin");
-    expect(foodMarker).toHaveAttribute(
-      "transform",
-      `translate(${glucosePoints[0]?.getAttribute("cx")} ${glucosePoints[0]?.getAttribute("cy")})`,
+    const foodCx = glucosePoints[0]?.getAttribute("cx");
+    const insulinCx = glucosePoints[1]?.getAttribute("cx");
+    const foodTransform = foodMarker?.getAttribute("transform") ?? "";
+    const insulinTransform = insulinMarker?.getAttribute("transform") ?? "";
+    expect(foodTransform).toMatch(new RegExp(`^translate\\(${foodCx} `));
+    expect(insulinTransform).toMatch(new RegExp(`^translate\\(${insulinCx} `));
+    const foodY = Number(foodTransform.match(/translate\([^ ]+ ([^)]+)\)/)?.[1]);
+    const insulinY = Number(
+      insulinTransform.match(/translate\([^ ]+ ([^)]+)\)/)?.[1],
     );
-    expect(insulinMarker).toHaveAttribute(
-      "transform",
-      `translate(${glucosePoints[1]?.getAttribute("cx")} ${glucosePoints[1]?.getAttribute("cy")})`,
+    const glucoseY = Number(glucosePoints[0]?.getAttribute("cy"));
+    expect(foodY).toBeLessThan(glucoseY);
+    expect(insulinY).toBeLessThan(glucoseY);
+    expect(insulinY).toBeGreaterThan(foodY);
+  });
+
+  test("dedupes near-identical insulin markers from re-import", () => {
+    mockedUseDashboard.mockImplementation(
+      (_from, _to, mode) =>
+        ({
+          data: {
+            ...dashboard(mode),
+            insulin_events: [
+              {
+                event_type: "Insulin",
+                insulin_units: 1.5,
+                notes: null,
+                timestamp: "2026-07-12T07:00:00.000Z",
+              },
+              {
+                event_type: "Insulin",
+                insulin_units: 1.5,
+                notes: null,
+                timestamp: "2026-07-12T07:00:00.774Z",
+              },
+            ],
+          },
+          error: null,
+          isLoading: false,
+        }) as ReturnType<typeof useGlucoseDashboard>,
     );
+
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(1);
   });
 });

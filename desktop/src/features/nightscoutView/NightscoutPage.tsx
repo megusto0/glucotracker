@@ -22,15 +22,6 @@ type HoverPoint = {
   x: number;
   y: number;
 };
-type ChartTreatment = {
-  ariaLabel: string;
-  detail: string;
-  key: string;
-  kind: "food" | "insulin";
-  timestamp: string;
-  valueLabel: string;
-};
-
 const HOUR_OPTIONS = [2, 3, 4, 6, 12, 24] as const;
 const MAIN_Y_TICKS = [2, 3, 4, 6, 10, 14, 22] as const;
 const REFRESH_INTERVAL_MS = 60 * 1000;
@@ -83,6 +74,51 @@ function pointAgeMinutes(point?: DashboardPoint) {
   const timestamp = Date.parse(point.timestamp);
   if (!Number.isFinite(timestamp)) return null;
   return Math.max(0, Math.round((Date.now() - timestamp) / 60_000));
+}
+
+/** Drop near-duplicate insulin rows (same second + units from re-import). */
+function dedupeInsulinEvents(
+  events: GlucoseDashboardResponse["insulin_events"],
+): GlucoseDashboardResponse["insulin_events"] {
+  const seen = new Set<string>();
+  const unique: GlucoseDashboardResponse["insulin_events"] = [];
+  for (const event of events) {
+    const second = Math.floor(Date.parse(event.timestamp) / 1000);
+    const units =
+      typeof event.insulin_units === "number"
+        ? event.insulin_units.toFixed(3)
+        : "null";
+    const key = `${Number.isFinite(second) ? second : event.timestamp}:${units}:${event.event_type ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(event);
+  }
+  return unique;
+}
+
+/**
+ * Small horizontal fan for markers that share nearly the same clock X on one
+ * rail (food or insulin). Keeps the classic Nightscout top-band layout clean.
+ */
+function railOffsets(
+  xs: number[],
+  spacing: number,
+): number[] {
+  const groups = new Map<number, number[]>();
+  xs.forEach((x, index) => {
+    const bucket = Math.round(x / Math.max(spacing, 1));
+    const list = groups.get(bucket) ?? [];
+    list.push(index);
+    groups.set(bucket, list);
+  });
+  const offsets = xs.map(() => 0);
+  groups.forEach((indexes) => {
+    if (indexes.length < 2) return;
+    indexes.forEach((index, order) => {
+      offsets[index] = (order - (indexes.length - 1) / 2) * spacing;
+    });
+  });
+  return offsets;
 }
 
 export function NightscoutPage() {
@@ -365,7 +401,7 @@ function NightscoutChart({
 
   const points = data?.points ?? [];
   const foodEvents = data?.food_events ?? [];
-  const insulinEvents = data?.insulin_events ?? [];
+  const insulinEvents = dedupeInsulinEvents(data?.insulin_events ?? []);
   const overviewPoints = overview?.points ?? [];
   const fromMs = data ? Date.parse(data.from_datetime) : Date.now() - 3 * 3_600_000;
   const toMs = data ? Date.parse(data.to_datetime) : Date.now();
@@ -399,62 +435,55 @@ function NightscoutChart({
   const selectionX =
     left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
   const selectionWidth = Math.max((duration / overviewDuration) * chartWidth, 2);
-  const nearestPoint = (timestamp: string) => {
-    if (points.length === 0) return null;
-    const eventTime = Date.parse(timestamp);
-    return points.reduce((best, point) =>
-      Math.abs(Date.parse(point.timestamp) - eventTime) <
-      Math.abs(Date.parse(best.timestamp) - eventTime)
-        ? point
-        : best,
-    );
-  };
-  const treatments: ChartTreatment[] = [
-    ...foodEvents.map((event, index) => ({
-      ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
-      detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
-      key: `food-${event.timestamp}-${index}`,
-      kind: "food" as const,
-      timestamp: event.timestamp,
-      valueLabel: `${event.carbs_g.toFixed(0)}g`,
+  // Classic Nightscout layout: food and insulin on separate top rails.
+  // Do NOT glue markers to the CGM curve — that caused piles and "drift".
+  const foodRailY = chartTop + treatmentRadius + 4;
+  const insulinRailY = chartTop + treatmentRadius * 3.6 + 10;
+  const fanSpacing = treatmentRadius * 2 + 6;
+
+  const foodMarkers = foodEvents.map((event, index) => ({
+    ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
+    detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
+    key: `food-${event.timestamp}-${index}`,
+    kind: "food" as const,
+    timestamp: event.timestamp,
+    valueLabel: `${event.carbs_g.toFixed(0)}g`,
+    x: scaleX(event.timestamp),
+    y: foodRailY,
+  }));
+  const foodFan = railOffsets(
+    foodMarkers.map((marker) => marker.x),
+    fanSpacing,
+  );
+  const insulinMarkers = insulinEvents.map((event, index) => ({
+    ariaLabel: `Инсулин: ${event.insulin_units?.toFixed(2) ?? "—"} единиц`,
+    detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
+      event.notes ? ` · ${event.notes}` : ""
+    }`,
+    key: `insulin-${event.timestamp}-${index}`,
+    kind: "insulin" as const,
+    timestamp: event.timestamp,
+    valueLabel:
+      typeof event.insulin_units === "number"
+        ? `${event.insulin_units.toFixed(1)}U`
+        : "—",
+    x: scaleX(event.timestamp),
+    y: insulinRailY,
+  }));
+  const insulinFan = railOffsets(
+    insulinMarkers.map((marker) => marker.x),
+    fanSpacing,
+  );
+  const treatmentMarkers = [
+    ...foodMarkers.map((marker, index) => ({
+      ...marker,
+      xOffset: foodFan[index] ?? 0,
     })),
-    ...insulinEvents.map((event, index) => ({
-      ariaLabel: `Инсулин: ${event.insulin_units?.toFixed(2) ?? "—"} единиц`,
-      detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
-        event.notes ? ` · ${event.notes}` : ""
-      }`,
-      key: `insulin-${event.timestamp}-${index}`,
-      kind: "insulin" as const,
-      timestamp: event.timestamp,
-      valueLabel:
-        typeof event.insulin_units === "number"
-          ? `${event.insulin_units.toFixed(1)}U`
-          : "—",
+    ...insulinMarkers.map((marker, index) => ({
+      ...marker,
+      xOffset: insulinFan[index] ?? 0,
     })),
   ];
-  const anchoredTreatments = treatments.flatMap((treatment) => {
-    const anchor = nearestPoint(treatment.timestamp);
-    return anchor ? [{ ...treatment, anchor }] : [];
-  });
-  const treatmentCounts = new Map<string, number>();
-  anchoredTreatments.forEach(({ anchor }) => {
-    treatmentCounts.set(
-      anchor.timestamp,
-      (treatmentCounts.get(anchor.timestamp) ?? 0) + 1,
-    );
-  });
-  const treatmentIndexes = new Map<string, number>();
-  const treatmentMarkers = anchoredTreatments.map((treatment) => {
-    const clusterKey = treatment.anchor.timestamp;
-    const clusterIndex = treatmentIndexes.get(clusterKey) ?? 0;
-    const clusterSize = treatmentCounts.get(clusterKey) ?? 1;
-    treatmentIndexes.set(clusterKey, clusterIndex + 1);
-    return {
-      ...treatment,
-      xOffset:
-        (clusterIndex - (clusterSize - 1) / 2) * (treatmentRadius * 2 + 5),
-    };
-  });
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!svgRef.current || points.length === 0) return;
@@ -571,37 +600,23 @@ function NightscoutChart({
         })}
 
         {treatmentMarkers.map((treatment) => {
-          const anchorX = scaleX(treatment.anchor.timestamp);
-          const anchorY = scaleY(displayValue(treatment.anchor, mode));
+          const x = treatment.x + treatment.xOffset;
           return (
             <g
               aria-label={treatment.ariaLabel}
               className={`ns-treatment ns-treatment--${treatment.kind}`}
               key={treatment.key}
               role="img"
-              transform={`translate(${anchorX + treatment.xOffset} ${anchorY})`}
+              transform={`translate(${x} ${treatment.y})`}
             >
               <title>{treatment.detail}</title>
-              {treatment.xOffset !== 0 ? (
-                <line
-                  className="ns-treatment-link"
-                  x1={-treatment.xOffset}
-                  x2="0"
-                  y1="0"
-                  y2="0"
-                />
-              ) : null}
               <circle r={treatmentRadius} />
               <text className="ns-treatment-symbol" dy="0.35em">
                 {treatment.kind === "food" ? "C" : "I"}
               </text>
               <text
                 className="ns-treatment-value"
-                y={
-                  treatment.kind === "food"
-                    ? -treatmentRadius - 5
-                    : treatmentRadius + 14
-                }
+                y={treatmentRadius + 13}
               >
                 {treatment.valueLabel}
               </text>

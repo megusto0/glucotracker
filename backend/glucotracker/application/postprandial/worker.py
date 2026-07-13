@@ -53,6 +53,8 @@ class PostprandialSweeper:
             cutoff = datetime.now() - timedelta(
                 minutes=DEFERRED_WORKER_DELAY_MINUTES
             )
+            # Oldest-first so a large backlog is drained instead of
+            # re-picking an undefined slice of the same unanalyzed meals.
             meal_ids = list(
                 session.execute(
                     select(Meal.id)
@@ -61,6 +63,7 @@ class PostprandialSweeper:
                         Meal.postprandial_response.is_(None),
                         Meal.eaten_at <= cutoff,
                     )
+                    .order_by(Meal.eaten_at.asc())
                     .limit(MAX_MEALS_PER_RUN)
                 )
                 .scalars()
@@ -73,17 +76,25 @@ class PostprandialSweeper:
             analyzed = 0
             for mid in meal_ids:
                 try:
-                    recompute_postprandial(mid, session=session)
-                    analyzed += 1
+                    if recompute_postprandial(mid, session=session):
+                        analyzed += 1
                 except Exception:
                     logger.exception(
                         "Failed to compute postprandial for meal %s", mid
                     )
 
+            # recompute_postprandial only flushes when given a shared session;
+            # without commit the whole sweep was rolled back on close.
             if analyzed:
+                session.commit()
                 logger.info(
                     "Postprandial sweeper: analyzed %d meals", analyzed
                 )
+            else:
+                session.rollback()
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()
 
