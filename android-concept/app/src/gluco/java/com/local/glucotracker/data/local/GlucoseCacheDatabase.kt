@@ -1,5 +1,6 @@
 package com.local.glucotracker.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -97,7 +98,7 @@ data class CachedInsulinEventEntity(
     val doseUnits: Double,
     val kind: String,
     val anchorMealId: String?,
-    val isEditable: Boolean,
+    @ColumnInfo(defaultValue = "0") val isEditable: Boolean,
     val fetchedAt: Instant,
 )
 
