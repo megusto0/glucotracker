@@ -12,6 +12,7 @@ from glucotracker.infra.gemini.client import (
     PhotoInput,
 )
 from glucotracker.infra.gemini.flash_lite import FlashLiteClient
+from glucotracker.infra.gemini.quota_cooldown import GeminiQuotaCooldownStore
 from glucotracker.infra.gemini.schemas import EstimatedItem, EstimationResult
 
 FakeGeminiResult = EstimationResult | Exception
@@ -44,14 +45,22 @@ class RoutingGeminiClient(GeminiClient):
         self,
         results_by_model: dict[str, FakeGeminiResult | list[FakeGeminiResult]],
     ) -> None:
-        super().__init__(api_key="test-key", model="gemini-2.5-flash")
+        super().__init__(
+            api_key="test-key",
+            model="gemini-2.5-flash",
+            quota_cooldowns=GeminiQuotaCooldownStore(None),
+        )
         self.cheap_model = "gemini-2.5-flash-lite"
         self.free_test_model = "gemini-3.1-flash-lite-preview"
         self.fallback_model = "gemini-3-flash-preview"
         self.fallback_models = [self.fallback_model]
+        self.fallback_api_key = None
         self.max_retries_per_model = 2
         self.results_by_model = results_by_model
         self.calls: list[str] = []
+        self.key_calls: list[str] = []
+        # Isolate unit tests from host SuperGrok session / Grok fallback.
+        self.settings.grok_photo_fallback_enabled = False
 
     def _sleep(self, seconds: float) -> None:
         """Avoid slowing retry tests."""
@@ -65,11 +74,17 @@ class RoutingGeminiClient(GeminiClient):
         patterns_context: list[dict[str, Any]] | None = None,
         products_context: list[dict[str, Any]] | None = None,
         user_context: str | None = None,
+        api_key: str | None = None,
     ) -> EstimationResult:
         """Record the routed model and return a fake result."""
         self._ensure_not_pro_model(model)
         self.calls.append(model)
-        configured = self.results_by_model[model]
+        self.key_calls.append(api_key or self.api_key or "")
+        # Allow per-key fake results: "fallback-key::model"
+        key = api_key or self.api_key or ""
+        configured = self.results_by_model.get(f"{key}::{model}")
+        if configured is None:
+            configured = self.results_by_model[model]
         if isinstance(configured, list):
             next_value = configured.pop(0)
         else:
@@ -84,26 +99,15 @@ def _photo_inputs() -> list[PhotoInput]:
     return [PhotoInput(path=Path("photo.jpg"), content_type="image/jpeg")]
 
 
-def test_label_full_routes_to_free_test_model() -> None:
-    """LABEL_FULL uses the configured free-test lite model first."""
-    client = RoutingGeminiClient({"gemini-3.1-flash-lite-preview": _result(0.9)})
+def test_label_full_routes_to_main_model() -> None:
+    """LABEL_FULL uses the same configured main model as other photos."""
+    client = RoutingGeminiClient({"gemini-2.5-flash": _result(0.9)})
 
     client.estimate_photos(_photo_inputs(), scenario_hint="LABEL_FULL")
 
-    assert client.calls == ["gemini-3.1-flash-lite-preview"]
-    assert client.last_used_model == "gemini-3.1-flash-lite-preview"
-    assert client.last_routing_reason == "label_full_lite"
-
-
-def test_label_full_falls_back_to_cheap_model_when_free_test_empty() -> None:
-    """LABEL_FULL uses 2.5 Flash-Lite when the free-test model is disabled."""
-    client = RoutingGeminiClient({"gemini-2.5-flash-lite": _result(0.9)})
-    client.free_test_model = None
-
-    client.estimate_photos(_photo_inputs(), scenario_hint="LABEL_FULL")
-
-    assert client.calls == ["gemini-2.5-flash-lite"]
-    assert client.last_used_model == "gemini-2.5-flash-lite"
+    assert client.calls == ["gemini-2.5-flash"]
+    assert client.last_used_model == "gemini-2.5-flash"
+    assert client.last_routing_reason == "label_full_default"
 
 
 @pytest.mark.parametrize("scenario_hint", ["LABEL_PARTIAL", "PLATED"])
@@ -163,6 +167,7 @@ def test_503_retries_primary_model_once_then_succeeds() -> None:
     assert client.last_used_model == "gemini-2.5-flash"
     assert client.last_fallback_used is False
     assert client.last_error_history[0]["code"] == 503
+    assert client.quota_cooldowns.active_until("gemini-2.5-flash") is None
 
 
 def test_503_falls_back_after_primary_retries_exhausted() -> None:
@@ -197,6 +202,45 @@ def test_503_falls_back_after_primary_retries_exhausted() -> None:
     ]
     assert client.last_used_model == "gemini-3-flash-preview"
     assert client.last_fallback_used is True
+
+
+def test_503_cooldown_skips_model_on_later_estimates() -> None:
+    """An overloaded model is skipped after its retries are exhausted."""
+    client = RoutingGeminiClient(
+        {
+            "gemini-2.5-flash": [
+                GeminiRequestError(
+                    "temporary overload",
+                    category="overload",
+                    code=503,
+                    status="UNAVAILABLE",
+                ),
+                GeminiRequestError(
+                    "temporary overload",
+                    category="overload",
+                    code=503,
+                    status="UNAVAILABLE",
+                ),
+            ],
+            "gemini-3-flash-preview": [
+                _result(0.8, name="first fallback"),
+                _result(0.8, name="second fallback"),
+            ],
+        }
+    )
+
+    first = client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+    second = client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+
+    assert first.items[0].name == "first fallback"
+    assert second.items[0].name == "second fallback"
+    assert client.calls == [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3-flash-preview",
+    ]
+    assert client.last_attempts[0]["reason"] == "model_cooldown"
 
 
 def test_503_all_models_exhausted_returns_controlled_error() -> None:
@@ -247,7 +291,7 @@ def test_503_all_models_exhausted_returns_controlled_error() -> None:
 
 
 def test_429_quota_error_does_not_retry() -> None:
-    """Quota errors do not spam retries or fallback models."""
+    """Quota errors do not spam retries of the same model on one key."""
     client = RoutingGeminiClient(
         {
             "gemini-2.5-flash": GeminiRequestError(
@@ -266,6 +310,65 @@ def test_429_quota_error_does_not_retry() -> None:
         client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
 
     assert client.calls == ["gemini-2.5-flash"]
+
+
+def test_429_cooldown_is_global_across_api_keys() -> None:
+    """A quota-blocked model is not retried with another configured key."""
+    client = RoutingGeminiClient(
+        {
+            "test-key::gemini-2.5-flash": GeminiRequestError(
+                "quota exhausted",
+                category="quota",
+                code=429,
+                status="RESOURCE_EXHAUSTED",
+                http_status_code=429,
+            ),
+        }
+    )
+    client.fallback_models = []
+    client.fallback_model = ""
+    client.fallback_api_key = "fallback-key"
+
+    with pytest.raises(GeminiClientError, match="Дневной лимит Gemini"):
+        client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+
+    assert client.calls == ["gemini-2.5-flash"]
+    assert client.key_calls == ["test-key"]
+    assert any(
+        attempt.get("reason") == "model_cooldown"
+        for attempt in client.last_attempts
+    )
+
+
+def test_429_skips_model_on_later_estimates() -> None:
+    """Once a model returns quota, later estimates go straight to fallback."""
+    client = RoutingGeminiClient(
+        {
+            "gemini-2.5-flash": GeminiRequestError(
+                "quota exhausted",
+                category="quota",
+                code=429,
+                status="RESOURCE_EXHAUSTED",
+                http_status_code=429,
+            ),
+            "gemini-3-flash-preview": [
+                _result(0.85, name="first fallback"),
+                _result(0.85, name="second fallback"),
+            ],
+        }
+    )
+
+    first = client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+    second = client.estimate_photos(_photo_inputs(), scenario_hint="PLATED")
+
+    assert first.items[0].name == "first fallback"
+    assert second.items[0].name == "second fallback"
+    assert client.calls == [
+        "gemini-2.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3-flash-preview",
+    ]
+    assert client.last_attempts[0]["reason"] == "model_cooldown"
 
 
 def test_automatic_routing_rejects_pro_models() -> None:

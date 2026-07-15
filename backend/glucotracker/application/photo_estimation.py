@@ -121,7 +121,7 @@ class PhotoEstimationService:
                 meal_id=meal.id,
                 model=ai_summary["model_used"],
                 prompt_version=PHOTO_ESTIMATION_PROMPT_VERSION,
-                provider="gemini",
+                provider=str(ai_summary.get("provider") or "gemini"),
                 model_requested=ai_summary["model_requested"],
                 model_used=ai_summary["model_used"],
                 fallback_used=ai_summary["fallback_used"],
@@ -170,7 +170,11 @@ class PhotoEstimationService:
             model=getattr(self.gemini_client, "last_used_model", None)
             or self.gemini_client.model,
             prompt_version=PHOTO_ESTIMATION_PROMPT_VERSION,
-            provider="gemini",
+            provider=str(
+                getattr(self.gemini_client, "last_provider", None)
+                or ai_summary.get("provider")
+                or "gemini"
+            ),
             model_requested=ai_summary["model_requested"],
             model_used=ai_summary["model_used"],
             fallback_used=ai_summary["fallback_used"],
@@ -222,6 +226,7 @@ class PhotoEstimationService:
                 result=result,
                 photos=ordered_photos,
                 session=self.session,
+                model_used=ai_summary["model_used"],
             )
             if created_drafts:
                 meal.estimate_status = "succeeded"

@@ -198,7 +198,7 @@ export function App() {
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Shell />
         </BrowserRouter>
       </QueryClientProvider>

@@ -839,6 +839,7 @@ class MealResponse(BaseModel):
     total_fiber_g: float
     total_kcal: float
     confidence: float | None = None
+    model_used: str | None = None
     estimate_status: str | None = None
     estimate_error: str | None = None
     nightscout_synced_at: datetime | None = None

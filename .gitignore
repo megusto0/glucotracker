@@ -32,6 +32,7 @@ build/
 *.sqlite3
 backend/data/
 backend/exports/
+docs/reports/
 backend/.antigravitycli/
 desktop/data/
 glucotracker-db-env-backup-*.zip

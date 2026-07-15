@@ -245,6 +245,7 @@ class Meal(Base, TimestampMixin):
         nullable=False,
     )
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    model_used: Mapped[str | None] = mapped_column(String, nullable=True)
     estimate_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     estimate_error: Mapped[str | None] = mapped_column(String, nullable=True)
     photo_idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -323,7 +324,6 @@ class Meal(Base, TimestampMixin):
         ):
             tags.append("sweet")
         return tags
-
 
 class MealItem(Base, TimestampMixin):
     """Single food item attached to a meal."""

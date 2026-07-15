@@ -281,7 +281,7 @@
     <string name="stack_macro_grams">%1$s г</string>
     <string name="stack_meta_source">источник</string>
     <string name="stack_meta_status">статус</string>
-    <string name="stack_meta_source_photo">фото · модель v3</string>
+    <string name="stack_meta_source_photo">фото · модель %1$s</string>
     <string name="stack_status_confirmed">принято</string>
     <string name="stack_status_stuck">ошибка · повторить</string>
     <string name="stack_edit_close">Закрыть правку</string>

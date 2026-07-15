@@ -174,6 +174,7 @@ data class Meal(
     val estimateStatus: String? = null,
     val estimateError: String? = null,
     val photoIdempotencyKey: String? = null,
+    val modelUsed: String? = null,
 )
 
 @Serializable

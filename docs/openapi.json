@@ -6023,6 +6023,17 @@
             "title": "Items",
             "type": "array"
           },
+          "model_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Used"
+          },
           "nightscout_id": {
             "anyOf": [
               {

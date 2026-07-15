@@ -1422,6 +1422,16 @@ async def accept_meal(
     for item in final_items:
         _increment_usage_counters(session, current_user.id, item)
     MealDraftService(session, current_user.id).accept(meal, final_items)
+    if meal.source == MealSource.photo and meal.model_used is None:
+        estimate_runs = [
+            run
+            for run in meal.ai_runs
+            if run.status == "success"
+            and run.request_type in {"estimate", "initial_estimate"}
+        ]
+        if estimate_runs:
+            latest_run = max(estimate_runs, key=lambda run: run.created_at)
+            meal.model_used = latest_run.model_used or latest_run.model
     _audit_meal(session, current_user.id, "accepted", meal, {"via": "accept_meal"})
 
     session.commit()

@@ -61,6 +61,17 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("GEMINI_API_KEY", "GLUCOTRACKER_GEMINI_API_KEY"),
     )
+    # Second Google AI Studio / Gemini project key. Used when the primary key
+    # hits quota/rate limits so photo estimate can continue on another project.
+    gemini_fallback_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GEMINI_FALLBACK_API_KEY",
+            "GLUCOTRACKER_GEMINI_FALLBACK_API_KEY",
+            "GEMINI_API_KEY_FALLBACK",
+            "GLUCOTRACKER_GEMINI_API_KEY_FALLBACK",
+        ),
+    )
     gemini_proxy_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -106,7 +117,9 @@ class Settings(BaseSettings):
         ),
     )
     gemini_fallback_models: str = Field(
-        default="gemini-2.5-flash,gemini-3.1-flash-lite-preview",
+        default=(
+            "gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-2.5-flash"
+        ),
         validation_alias=AliasChoices(
             "GEMINI_FALLBACK_MODELS",
             "GLUCOTRACKER_GEMINI_FALLBACK_MODELS",
@@ -128,6 +141,75 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "GEMINI_LOW_CONFIDENCE_RETRY_THRESHOLD",
             "GLUCOTRACKER_GEMINI_LOW_CONFIDENCE_RETRY_THRESHOLD",
+        ),
+    )
+    gemini_quota_cooldown_hours: float = Field(
+        default=30,
+        gt=0,
+        validation_alias=AliasChoices(
+            "GEMINI_QUOTA_COOLDOWN_HOURS",
+            "GLUCOTRACKER_GEMINI_QUOTA_COOLDOWN_HOURS",
+        ),
+    )
+    gemini_overload_cooldown_hours: float = Field(
+        default=4,
+        gt=0,
+        validation_alias=AliasChoices(
+            "GEMINI_OVERLOAD_COOLDOWN_HOURS",
+            "GLUCOTRACKER_GEMINI_OVERLOAD_COOLDOWN_HOURS",
+        ),
+    )
+    gemini_quota_cooldown_path: Path = Field(
+        default=Path(
+            "/media/megusto/storage/glucotracker/runtime/"
+            "gemini-quota-cooldowns.json"
+        ),
+        validation_alias=AliasChoices(
+            "GEMINI_QUOTA_COOLDOWN_PATH",
+            "GLUCOTRACKER_GEMINI_QUOTA_COOLDOWN_PATH",
+        ),
+    )
+    # Final photo-estimate fallback after Gemini primary + Gemini fallbacks fail.
+    # Auth: SuperGrok session (~/.grok/auth.json from `grok login`) preferred,
+    # then optional console XAI_API_KEY. OpenAI-compatible https://api.x.ai/v1.
+    xai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "XAI_API_KEY",
+            "GLUCOTRACKER_XAI_API_KEY",
+            "GROK_API_KEY",
+            "GLUCOTRACKER_GROK_API_KEY",
+        ),
+    )
+    xai_base_url: str = Field(
+        default="https://api.x.ai/v1",
+        validation_alias=AliasChoices(
+            "XAI_BASE_URL",
+            "GLUCOTRACKER_XAI_BASE_URL",
+            "GROK_CLI_CHAT_PROXY_BASE_URL",
+        ),
+    )
+    grok_auth_json: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GROK_AUTH_JSON",
+            "GLUCOTRACKER_GROK_AUTH_JSON",
+        ),
+    )
+    grok_photo_model: str = Field(
+        default="grok-4.5",
+        validation_alias=AliasChoices(
+            "GROK_PHOTO_MODEL",
+            "GLUCOTRACKER_GROK_PHOTO_MODEL",
+            "XAI_PHOTO_MODEL",
+            "GLUCOTRACKER_XAI_PHOTO_MODEL",
+        ),
+    )
+    grok_photo_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "GROK_PHOTO_FALLBACK_ENABLED",
+            "GLUCOTRACKER_GROK_PHOTO_FALLBACK_ENABLED",
         ),
     )
     nightscout_url: str | None = Field(

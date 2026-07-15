@@ -72,6 +72,7 @@ data class MealCard(
     val state: MealCardState,
     val statusHint: MealCardStatusHint,
     val errorMessage: String?,
+    val modelUsed: String? = null,
 )
 
 enum class MealCardSource {
@@ -373,6 +374,7 @@ private fun Meal.toMealCard(
         state = hint.toCardState(isBackendDraft = isBackendDraft),
         statusHint = hint,
         errorMessage = activeItem?.errorMessage ?: estimateError.takeIf { isBackendDraft },
+        modelUsed = modelUsed,
     )
 }
 

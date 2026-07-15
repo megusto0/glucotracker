@@ -918,6 +918,7 @@ def _save_suggested_items_as_drafts(
     result: EstimationResult,
     photos: list[Photo],
     session: SessionDep,
+    model_used: str | None = None,
 ) -> list[EstimateCreatedDraftResponse]:
     """Persist estimated items as accepted journal rows."""
     session.execute(
@@ -955,6 +956,7 @@ def _save_suggested_items_as_drafts(
         draft_meal.title = _draft_title(item)
         draft_meal.status = MealStatus.accepted
         draft_meal.source = MealSource.photo
+        draft_meal.model_used = model_used
 
         item.position = 0
         draft_meal.items = [
@@ -1131,6 +1133,8 @@ def _ai_run_summary(gemini_client: GeminiClient) -> dict[str, Any]:
         "model_used": getattr(gemini_client, "last_used_model", None)
         or gemini_client.model,
         "fallback_used": getattr(gemini_client, "last_fallback_used", False),
+        "provider": getattr(gemini_client, "last_provider", "gemini"),
+        "api_key_slot": getattr(gemini_client, "last_api_key_slot", "primary"),
         "attempts": getattr(gemini_client, "last_attempts", []),
         "error_history": getattr(gemini_client, "last_error_history", []),
         "latency_ms": getattr(gemini_client, "last_latency_ms", None),
@@ -1290,6 +1294,7 @@ def apply_estimation_run(
     ]
     old_eaten_at = meal.eaten_at
     if payload.apply_mode == "replace_current":
+        meal.model_used = run.model_used or run.model
         meal.items = [
             _build_item(item, meal.id, session, current_user.id)
             for item in proposed_items
@@ -1324,6 +1329,7 @@ def apply_estimation_run(
             note=meal.note,
             status=MealStatus.draft,
             source=MealSource.photo,
+            model_used=run.model_used or run.model,
         )
         session.add(draft)
         session.flush()

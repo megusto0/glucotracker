@@ -446,6 +446,7 @@ def test_reestimate_creates_comparison_without_changing_meal(
 
     unchanged = api_client.get(f"/meals/{meal['id']}").json()
     assert unchanged["total_carbs_g"] == pytest.approx(32)
+    assert unchanged["model_used"] is None
 
     with Session(db_engine) as session:
         ai_run = session.get(AIRun, UUID(body["ai_run_id"]))
@@ -493,6 +494,7 @@ def test_apply_reestimate_replace_current_preserves_photos(
     body = response.json()
     assert body["meal"]["id"] == meal["id"]
     assert body["meal"]["total_carbs_g"] == pytest.approx(24)
+    assert body["meal"]["model_used"] == "gemini-3-flash-preview"
     assert body["meal"]["photos"][0]["id"] == meal["photos"][0]["id"]
 
     with Session(db_engine) as session:
@@ -540,8 +542,10 @@ def test_apply_reestimate_save_as_draft_keeps_original(
     assert draft["id"] != meal["id"]
     assert draft["status"] == "draft"
     assert draft["total_carbs_g"] == pytest.approx(24)
+    assert draft["model_used"] == "gemini-3-flash-preview"
     original = api_client.get(f"/meals/{meal['id']}").json()
     assert original["total_carbs_g"] == pytest.approx(32)
+    assert original["model_used"] is None
 
 
 def test_reestimate_without_photos_returns_clear_400(api_client: TestClient) -> None:
@@ -1954,6 +1958,7 @@ def test_estimate_and_save_draft_stores_raw_ai_run_and_items(
 
     meal_response = api_client.get(f"/meals/{meal['id']}").json()
     assert meal_response["status"] == "accepted"
+    assert meal_response["model_used"] == "fake-gemini"
     assert len(meal_response["items"]) == 1
     assert meal_response["total_kcal"] == 414
     assert meal_response["photos"][0]["gemini_response_raw"]["overall_notes"]

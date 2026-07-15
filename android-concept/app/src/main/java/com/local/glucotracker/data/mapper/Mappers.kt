@@ -173,6 +173,7 @@ fun MealResponse.toCachedEntity(
         photoIdempotencyKey = photoIdempotencyKey,
         estimateStatus = estimateStatus,
         estimateError = estimateError,
+        modelUsed = modelUsed,
         mealRole = derivedCategories
             ?.get("meal_role")
             ?.jsonPrimitive
@@ -209,6 +210,7 @@ fun CachedMealEntity.toDomain(): Meal =
         estimateStatus = estimateStatus,
         estimateError = estimateError,
         photoIdempotencyKey = photoIdempotencyKey,
+        modelUsed = modelUsed,
     )
 
 private fun String?.toPostprandialResponse(): PostprandialResponse? {

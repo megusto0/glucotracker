@@ -463,6 +463,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/health-connect/records:sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sync Health Connect Records
+     * @description Idempotently mirror raw records and deletions from Health Connect.
+     */
+    post: operations["syncHealthConnectRecords"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/me/goals": {
     parameters: {
       query?: never;
@@ -2868,7 +2888,8 @@ export interface components {
       /** Assumptions */
       assumptions?: string[];
       calculated_per_unit?:
-        components["schemas"]["EstimateMacroBreakdown"] | null;
+        | components["schemas"]["EstimateMacroBreakdown"]
+        | null;
       calculated_total: components["schemas"]["EstimateMacroBreakdown"];
       /** Calculation Steps */
       calculation_steps?: string[];
@@ -2881,7 +2902,8 @@ export interface components {
       /** Net Weight Per Unit G */
       net_weight_per_unit_g?: number | null;
       nutrition_per_100g?:
-        components["schemas"]["EstimateMacroBreakdown"] | null;
+        | components["schemas"]["EstimateMacroBreakdown"]
+        | null;
       /** Position */
       position: number;
       /** Total Weight G */
@@ -3249,7 +3271,8 @@ export interface components {
       absorption_minutes?: number | null;
       /** Absorption Model Source */
       absorption_model_source?:
-        ("macro_prior" | "personalized_meal" | "personalized_category") | null;
+        | ("macro_prior" | "personalized_meal" | "personalized_category")
+        | null;
       /** Absorption Normal Weight */
       absorption_normal_weight?: number | null;
       /** Absorption Profile */
@@ -3469,6 +3492,51 @@ export interface components {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
     };
+    /** HealthConnectRecordUpload */
+    HealthConnectRecordUpload: {
+      /** Client Record Id */
+      client_record_id?: string | null;
+      /**
+       * Client Record Version
+       * Format: int64
+       * @default 0
+       */
+      client_record_version: number;
+      /** Data Origin */
+      data_origin?: string | null;
+      /** End Time */
+      end_time?: string | null;
+      /** Last Modified Time */
+      last_modified_time?: string | null;
+      /** Payload */
+      payload: {
+        [key: string]: unknown;
+      };
+      /** Record Id */
+      record_id: string;
+      /** Record Type */
+      record_type: string;
+      /** Recording Method */
+      recording_method?: number | null;
+      /** Start Time */
+      start_time?: string | null;
+    };
+    /** HealthConnectSyncRequest */
+    HealthConnectSyncRequest: {
+      /** Deleted Record Ids */
+      deleted_record_ids?: string[];
+      /** Records */
+      records?: components["schemas"]["HealthConnectRecordUpload"][];
+    };
+    /** HealthConnectSyncResponse */
+    HealthConnectSyncResponse: {
+      /** Deleted */
+      deleted: number;
+      /** Received */
+      received: number;
+      /** Upserted */
+      upserted: number;
+    };
     /**
      * HealthResponse
      * @description Service health response.
@@ -3606,9 +3674,11 @@ export interface components {
        */
       eaten_at: string;
       glucose_minus_30?:
-        components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
+        | components["schemas"]["InsulinLinkGlucoseAnchorResponse"]
+        | null;
       glucose_plus_2h?:
-        components["schemas"]["InsulinLinkGlucoseAnchorResponse"] | null;
+        | components["schemas"]["InsulinLinkGlucoseAnchorResponse"]
+        | null;
       /**
        * Id
        * Format: uuid
@@ -4258,6 +4328,8 @@ export interface components {
       id: string;
       /** Items */
       items?: components["schemas"]["MealItemResponse"][];
+      /** Model Used */
+      model_used?: string | null;
       /** Nightscout Id */
       nightscout_id?: string | null;
       /** Nightscout Last Attempt At */
@@ -5261,7 +5333,11 @@ export interface components {
        * @enum {string}
        */
       estimate_status:
-        "estimating" | "succeeded" | "failed" | "timeout" | "error";
+        | "estimating"
+        | "succeeded"
+        | "failed"
+        | "timeout"
+        | "error";
       /**
        * Meal Id
        * Format: uuid
@@ -5276,7 +5352,12 @@ export interface components {
      * @enum {string}
      */
     PhotoReferenceKind:
-      "coin_5rub" | "card" | "hand" | "fork" | "plate" | "none";
+      | "coin_5rub"
+      | "card"
+      | "hand"
+      | "fork"
+      | "plate"
+      | "none";
     /**
      * PhotoResponse
      * @description Photo response embedded in meal detail responses.
@@ -5923,7 +6004,8 @@ export interface components {
      */
     SensorQualityResponse: {
       active_model?:
-        components["schemas"]["CgmCalibrationModelResponse"] | null;
+        | components["schemas"]["CgmCalibrationModelResponse"]
+        | null;
       /** B0 Mmol L */
       b0_mmol_l?: number | null;
       /** B1 Capped Mmol L Per Day */
@@ -5936,7 +6018,8 @@ export interface components {
         | null;
       /** Calibration Strategy */
       calibration_strategy?:
-        ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
+        | ("median_delta" | "warmup_blend" | "linear" | "insufficient")
+        | null;
       /**
        * Confidence
        * @enum {string}
@@ -5995,7 +6078,8 @@ export interface components {
        */
       warmup_calibration_points: number;
       warmup_metrics?:
-        components["schemas"]["SensorWarmupMetricsResponse"] | null;
+        | components["schemas"]["SensorWarmupMetricsResponse"]
+        | null;
     };
     /**
      * SensorSessionCreate
@@ -7688,6 +7772,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
+  syncHealthConnectRecords: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HealthConnectSyncRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthConnectSyncResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

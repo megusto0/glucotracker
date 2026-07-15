@@ -49,6 +49,7 @@ object DatabaseModule {
             Migration11To12,
             Migration12To13,
             Migration13To14,
+            Migration14To15,
         ).build()
 
     @Provides
@@ -194,6 +195,12 @@ object DatabaseModule {
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS index_photo_estimate_logs_sentAt ON photo_estimate_logs(sentAt)")
             db.execSQL("CREATE INDEX IF NOT EXISTS index_photo_estimate_logs_traceId ON photo_estimate_logs(traceId)")
+        }
+    }
+
+    private val Migration14To15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cached_meals ADD COLUMN modelUsed TEXT")
         }
     }
 

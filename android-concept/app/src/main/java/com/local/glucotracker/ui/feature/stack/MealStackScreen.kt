@@ -1034,7 +1034,9 @@ private fun sourceSubtitleLabel(source: MealCardSource): String =
 @Composable
 private fun sourceMeta(card: MealCard): String =
     if (card.source == MealCardSource.Photo) {
-        stringResource(R.string.stack_meta_source_photo)
+        card.modelUsed?.takeIf { it.isNotBlank() }?.let { model ->
+            stringResource(R.string.stack_meta_source_photo, model)
+        } ?: stringResource(R.string.today_source_photo)
     } else {
         sourceSubtitleLabel(card.source)
     }

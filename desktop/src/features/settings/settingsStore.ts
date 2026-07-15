@@ -7,11 +7,20 @@ import type {
   IssuedTokensResponse,
 } from "../../api/client";
 
-export const defaultBackendUrl =
+const configuredBackendUrl =
   import.meta.env.VITE_API_BASE_URL ??
   (import.meta.env.PROD
     ? "https://megusto.duckdns.org:1338"
     : "http://127.0.0.1:8000");
+const localBackendUrl = "http://127.0.0.1:8000";
+const isLoopbackFrontend =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost");
+
+export const defaultBackendUrl = isLoopbackFrontend
+  ? localBackendUrl
+  : configuredBackendUrl;
 
 export type Theme = "light" | "dark" | "system";
 
@@ -80,6 +89,18 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "glucotracker.settings",
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<SettingsState>;
+        const savedBaseUrl = saved.baseUrl;
+        return {
+          ...current,
+          ...saved,
+          baseUrl:
+            isLoopbackFrontend && savedBaseUrl === configuredBackendUrl
+              ? localBackendUrl
+              : (savedBaseUrl ?? current.baseUrl),
+        };
+      },
       partialize: ({
         accessExpiresAt,
         baseUrl,

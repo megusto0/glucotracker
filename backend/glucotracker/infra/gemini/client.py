@@ -7,10 +7,12 @@ import logging
 import random
 import time
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from glucotracker.config import get_settings
+from glucotracker.infra.gemini.quota_cooldown import GeminiQuotaCooldownStore
 from glucotracker.infra.gemini.schemas import EstimationResult, GeminiScenario
 
 logger = logging.getLogger(__name__)
@@ -209,10 +211,16 @@ class GeminiRequestError(GeminiClientError):
 class GeminiClient:
     """Thin wrapper around the Google GenAI SDK."""
 
-    def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        quota_cooldowns: GeminiQuotaCooldownStore | None = None,
+    ) -> None:
         settings = get_settings()
         self.settings = settings
         self.api_key = api_key if api_key is not None else settings.gemini_api_key
+        self.fallback_api_key = settings.gemini_fallback_api_key
         self.model = model if model is not None else settings.gemini_model
         self.cheap_model = settings.gemini_cheap_model
         self.free_test_model = settings.gemini_free_test_model
@@ -224,6 +232,11 @@ class GeminiClient:
         self.low_confidence_retry_threshold = (
             settings.gemini_low_confidence_retry_threshold
         )
+        self.overload_cooldown_hours = settings.gemini_overload_cooldown_hours
+        self.quota_cooldowns = quota_cooldowns or GeminiQuotaCooldownStore(
+            settings.gemini_quota_cooldown_path,
+            cooldown_hours=settings.gemini_quota_cooldown_hours,
+        )
         self.last_used_model: str | None = None
         self.last_requested_model: str | None = None
         self.last_fallback_used = False
@@ -232,6 +245,8 @@ class GeminiClient:
         self.last_error_history: list[dict[str, Any]] = []
         self.last_latency_ms: int | None = None
         self.last_routing_reason: str | None = None
+        self.last_provider: str = "gemini"
+        self.last_api_key_slot: str = "primary"  # primary | fallback_api
 
     def estimate_photos(
         self,
@@ -264,71 +279,219 @@ class GeminiClient:
             else self._routing_reason(scenario_hint)
         )
 
+        # Pass 1: primary API key + primary model + fallback models.
+        # Pass 2 (if configured): GEMINI_FALLBACK_API_KEY with the same model list
+        # when the primary key is exhausted (quota) or all models fail.
+        key_slots = self._api_key_slots()
         candidate_result: EstimationResult | None = None
         last_error: GeminiRequestError | None = None
+        saw_quota = False
 
-        try:
-            result = self._run_model_with_retries(
-                primary_model,
-                photos,
-                patterns_context=patterns_context,
-                products_context=products_context,
-                user_context=user_context,
-                fallback_used=False,
-            )
-        except GeminiRequestError as exc:
-            last_error = exc
-            if exc.category == "invalid_request":
-                self.last_latency_ms = self._elapsed_ms(start)
-                raise self._friendly_client_error(exc) from exc
-        else:
-            if not self._has_low_confidence(result):
-                self.last_latency_ms = self._elapsed_ms(start)
-                return result
-            candidate_result = result
-            self.last_routing_reason = "low_confidence_retry"
+        for slot_index, (slot_name, api_key) in enumerate(key_slots):
+            self.last_api_key_slot = slot_name
+            models = [primary_model, *self._fallback_models(primary_model)]
+            # De-dupe while preserving order. Never auto-skip the primary model
+            # via _should_skip_model — Pro rejection must raise for that case.
+            seen_models: set[str] = set()
+            ordered_models: list[str] = []
+            for index, model in enumerate(models):
+                if model in seen_models:
+                    continue
+                if self._model_cooldown_active(model):
+                    continue
+                if index > 0 and self._should_skip_model(model):
+                    continue
+                seen_models.add(model)
+                ordered_models.append(model)
 
-        for fallback_model in self._fallback_models(primary_model):
-            if self._should_skip_model(fallback_model):
-                continue
-            try:
-                result = self._run_model_with_retries(
-                    fallback_model,
-                    photos,
-                    patterns_context=patterns_context,
-                    products_context=products_context,
-                    user_context=user_context,
-                    fallback_used=True,
-                )
-            except GeminiRequestError as exc:
-                last_error = exc
-                if exc.category == "invalid_request" and self._looks_unsupported(exc):
-                    logger.warning(
-                        "Skipping unsupported Gemini fallback model=%s error=%s",
-                        fallback_model,
-                        exc,
+            for model_index, model in enumerate(ordered_models):
+                fallback_used = slot_index > 0 or model != primary_model
+                try:
+                    result = self._run_model_with_retries(
+                        model,
+                        photos,
+                        patterns_context=patterns_context,
+                        products_context=products_context,
+                        user_context=user_context,
+                        fallback_used=fallback_used,
+                        api_key=api_key,
+                        api_key_slot=slot_name,
                     )
+                except GeminiRequestError as exc:
+                    last_error = exc
+                    if exc.category == "quota":
+                        saw_quota = True
+                        # Exhausted this model on this key — try next model / key.
+                        continue
+                    if exc.category == "invalid_request" and self._looks_unsupported(
+                        exc
+                    ):
+                        logger.warning(
+                            "Skipping unsupported Gemini model=%s key=%s error=%s",
+                            model,
+                            slot_name,
+                            exc,
+                        )
+                        continue
+                    if exc.category == "invalid_request":
+                        self.last_latency_ms = self._elapsed_ms(start)
+                        raise self._friendly_client_error(exc) from exc
+                    # overload/parse already retried inside _run_model_with_retries
                     continue
-                if exc.category == "quota":
+                else:
+                    if (
+                        not self._has_low_confidence(result)
+                        or fallback_used
+                        or model_index == len(ordered_models) - 1
+                    ):
+                        if slot_index > 0:
+                            result.image_quality_warnings.append(
+                                "Основной Gemini API key исчерпан; "
+                                "использован GEMINI_FALLBACK_API_KEY."
+                            )
+                        self.last_latency_ms = self._elapsed_ms(start)
+                        return result
+                    # Low confidence on first model of primary key — keep and try more.
+                    candidate_result = result
+                    self.last_routing_reason = "low_confidence_retry"
                     continue
-                if exc.category == "invalid_request":
-                    self.last_latency_ms = self._elapsed_ms(start)
-                    raise self._friendly_client_error(exc) from exc
+
+            # If primary key only hit quota, jump to fallback key immediately.
+            if (
+                slot_index == 0
+                and saw_quota
+                and len(key_slots) > 1
+                and candidate_result is None
+            ):
+                logger.info(
+                    "Primary Gemini API key exhausted (quota); "
+                    "switching to GEMINI_FALLBACK_API_KEY"
+                )
+                self.last_routing_reason = "fallback_api_key_quota"
                 continue
-            else:
-                self.last_latency_ms = self._elapsed_ms(start)
-                return result
 
         if candidate_result is not None:
             self.last_latency_ms = self._elapsed_ms(start)
             return candidate_result
 
+        # Final fallback: xAI Grok vision (when configured).
+        grok_result = self._try_grok_fallback(
+            photos,
+            patterns_context=patterns_context,
+            products_context=products_context,
+            user_context=user_context,
+            start=start,
+        )
+        if grok_result is not None:
+            return grok_result
+
         self.last_latency_ms = self._elapsed_ms(start)
+        grok_errors = [
+            err
+            for err in self.last_error_history
+            if err.get("provider") == "grok" or err.get("category") == "grok_failed"
+        ]
+        if grok_errors:
+            msg = str(grok_errors[-1].get("message") or "Grok fallback failed")
+            raise GeminiClientError(msg)
         if last_error is not None:
             raise self._friendly_client_error(last_error) from last_error
         raise GeminiClientError(
             "Gemini не смог обработать фото. Попробуйте повторить оценку.",
         )
+
+    def _api_key_slots(self) -> list[tuple[str, str]]:
+        """Return ordered (slot_name, api_key) pairs for photo estimate."""
+        slots: list[tuple[str, str]] = []
+        if self.api_key and self.api_key.strip():
+            slots.append(("primary", self.api_key.strip()))
+        fallback = (self.fallback_api_key or "").strip()
+        if fallback and fallback not in {key for _, key in slots}:
+            slots.append(("fallback_api", fallback))
+        return slots
+
+    def _try_grok_fallback(
+        self,
+        photos: list[PhotoInput],
+        *,
+        patterns_context: list[dict[str, Any]] | None,
+        products_context: list[dict[str, Any]] | None,
+        user_context: str | None,
+        start: float,
+    ) -> EstimationResult | None:
+        """Attempt Grok vision estimate as the final automatic fallback."""
+        settings = self.settings
+        if not settings.grok_photo_fallback_enabled:
+            return None
+
+        from glucotracker.infra.grok.client import GrokClientError, GrokPhotoClient
+
+        grok = GrokPhotoClient()
+        if not grok.configured:
+            logger.info(
+                "Grok photo fallback skipped: no SuperGrok session "
+                "(~/.grok/auth.json / GROK_AUTH_JSON) and no XAI_API_KEY"
+            )
+            return None
+        model = grok.model
+        attempt_meta: dict[str, Any] = {
+            "model": model,
+            "attempt": 1,
+            "fallback_used": True,
+            "provider": "grok",
+        }
+        self.last_model_attempts.append(model)
+        self.last_attempts.append(attempt_meta)
+        self.last_routing_reason = "grok_final_fallback"
+        logger.info("Grok final photo-estimate fallback model=%s", model)
+        try:
+            result = grok.estimate_photos(
+                photos,
+                patterns_context=patterns_context,
+                products_context=products_context,
+                user_context=user_context,
+            )
+        except GrokClientError as exc:
+            attempt_meta.update(
+                {
+                    "status": "error",
+                    "error_category": "grok_failed",
+                    "message": str(exc),
+                    "auth_source": grok.last_auth_source,
+                }
+            )
+            self.last_error_history.append(
+                {
+                    "model": model,
+                    "attempt": 1,
+                    "category": "grok_failed",
+                    "message": str(exc),
+                    "provider": "grok",
+                }
+            )
+            logger.warning("Grok photo fallback failed model=%s error=%s", model, exc)
+            return None
+
+        attempt_meta["status"] = "success"
+        attempt_meta["auth_source"] = grok.last_auth_source
+        self.last_used_model = grok.last_used_model or model
+        self.last_fallback_used = True
+        self.last_provider = "grok"
+        self.last_latency_ms = self._elapsed_ms(start)
+        logger.info(
+            "Grok photo fallback succeeded model=%s auth=%s",
+            self.last_used_model,
+            grok.last_auth_source,
+        )
+        auth_note = (
+            "SuperGrok session"
+            if grok.last_auth_source == "session"
+            else "XAI API key"
+        )
+        warning = f"Gemini недоступен; использован запасной Grok ({auth_note})."
+        if warning not in result.image_quality_warnings:
+            result.image_quality_warnings.append(warning)
+        return result
 
     def _run_model_with_retries(
         self,
@@ -339,24 +502,29 @@ class GeminiClient:
         products_context: list[dict[str, Any]] | None,
         user_context: str | None,
         fallback_used: bool,
+        api_key: str | None = None,
+        api_key_slot: str = "primary",
     ) -> EstimationResult:
         """Run one model with bounded retry handling."""
         self._ensure_not_pro_model(model)
         last_error: GeminiRequestError | None = None
+        active_key = api_key or self.api_key
 
         for attempt in range(1, self.max_retries_per_model + 1):
             attempt_meta: dict[str, Any] = {
                 "model": model,
                 "attempt": attempt,
                 "fallback_used": fallback_used,
+                "api_key_slot": api_key_slot,
             }
             self.last_model_attempts.append(model)
             self.last_attempts.append(attempt_meta)
             logger.info(
-                "Gemini estimate attempt model=%s attempt=%s fallback=%s",
+                "Gemini estimate attempt model=%s attempt=%s fallback=%s key=%s",
                 model,
                 attempt,
                 fallback_used,
+                api_key_slot,
             )
 
             try:
@@ -366,6 +534,7 @@ class GeminiClient:
                     patterns_context=patterns_context,
                     products_context=products_context,
                     user_context=user_context,
+                    api_key=active_key,
                 )
             except GeminiRequestError as exc:
                 last_error = exc
@@ -386,21 +555,30 @@ class GeminiClient:
                         "status": exc.status,
                         "category": exc.category,
                         "message": str(exc),
+                        "api_key_slot": api_key_slot,
                     }
                 )
                 logger.warning(
                     (
                         "Gemini attempt failed model=%s attempt=%s code=%s "
-                        "status=%s category=%s"
+                        "status=%s category=%s key=%s"
                     ),
                     model,
                     attempt,
                     exc.code,
                     exc.status,
                     exc.category,
+                    api_key_slot,
                 )
 
                 if exc.category in {"quota", "invalid_request"}:
+                    if exc.category == "quota":
+                        expires_at = self.quota_cooldowns.block(model)
+                        logger.warning(
+                            "Gemini model quota cooldown opened model=%s until=%s",
+                            model,
+                            expires_at.isoformat(),
+                        )
                     raise exc
 
                 retryable = exc.category in {"overload", "parse"}
@@ -410,16 +588,29 @@ class GeminiClient:
                         self._sleep(self._retry_delay_seconds(attempt))
                         continue
 
+                if exc.category == "overload":
+                    expires_at = self.quota_cooldowns.block(
+                        model,
+                        duration=timedelta(hours=self.overload_cooldown_hours),
+                    )
+                    logger.warning(
+                        "Gemini model overload cooldown opened model=%s until=%s",
+                        model,
+                        expires_at.isoformat(),
+                    )
+
                 raise exc
 
             attempt_meta["status"] = "success"
             self.last_used_model = model
             self.last_fallback_used = fallback_used
+            self.last_api_key_slot = api_key_slot
             logger.info(
-                "Gemini estimate succeeded model=%s attempt=%s fallback=%s",
+                "Gemini estimate succeeded model=%s attempt=%s fallback=%s key=%s",
                 model,
                 attempt,
                 fallback_used,
+                api_key_slot,
             )
             return result
 
@@ -438,6 +629,7 @@ class GeminiClient:
         patterns_context: list[dict[str, Any]] | None = None,
         products_context: list[dict[str, Any]] | None = None,
         user_context: str | None = None,
+        api_key: str | None = None,
     ) -> EstimationResult:
         """Estimate visible meal items with a specific non-Pro Gemini model."""
         self._ensure_not_pro_model(model)
@@ -447,6 +639,10 @@ class GeminiClient:
         except ImportError as exc:
             msg = "google-genai is not installed"
             raise GeminiClientError(msg) from exc
+
+        active_key = (api_key or self.api_key or "").strip()
+        if not active_key:
+            raise GeminiClientError("GEMINI_API_KEY is not configured")
 
         context = {
             "patterns": patterns_context or [],
@@ -483,7 +679,7 @@ class GeminiClient:
             )
 
         client = genai.Client(
-            api_key=self.api_key,
+            api_key=active_key,
             http_options=self._http_options(),
         )
         try:
@@ -512,11 +708,7 @@ class GeminiClient:
             ) from exc
 
     def _select_primary_model(self, scenario_hint: GeminiScenario | None) -> str:
-        """Select the primary model for the requested photo scenario."""
-        if scenario_hint == "LABEL_FULL":
-            return self.free_test_model or self.cheap_model
-        if scenario_hint in {"LABEL_PARTIAL", "PLATED"}:
-            return self.model
+        """Use the configured main model for every automatic photo estimate."""
         return self.model
 
     def _fallback_models(self, primary_model: str) -> list[str]:
@@ -561,6 +753,8 @@ class GeminiClient:
         self.last_error_history = []
         self.last_latency_ms = None
         self.last_routing_reason = None
+        self.last_provider = "gemini"
+        self.last_api_key_slot = "primary"
 
     def _should_skip_model(self, model: str) -> bool:
         """Skip known models that should not be routed automatically."""
@@ -572,6 +766,26 @@ class GeminiClient:
                 "model": model,
                 "status": "skipped",
                 "reason": "automatic_pro_routing_disabled",
+            }
+        )
+        return True
+
+    def _model_cooldown_active(self, model: str) -> bool:
+        """Skip a model while its persistent quota cooldown is active."""
+        expires_at = self.quota_cooldowns.active_until(model)
+        if expires_at is None:
+            return False
+        logger.info(
+            "Skipping Gemini model in quota cooldown model=%s until=%s",
+            model,
+            expires_at.isoformat(),
+        )
+        self.last_attempts.append(
+            {
+                "model": model,
+                "status": "skipped",
+                "reason": "model_cooldown",
+                "cooldown_until": expires_at.isoformat(),
             }
         )
         return True
@@ -724,7 +938,7 @@ class GeminiClient:
     def _routing_reason(self, scenario_hint: GeminiScenario | None) -> str:
         """Return a compact routing reason for audit metadata."""
         if scenario_hint == "LABEL_FULL":
-            return "label_full_lite"
+            return "label_full_default"
         if scenario_hint == "LABEL_PARTIAL":
             return "label_partial_default"
         if scenario_hint == "PLATED":
