@@ -18,6 +18,7 @@ from glucotracker.api.routers import (
     database_router,
     glucose_router,
     goals_router,
+    health_connect_router,
     meals_router,
     mobile_logs_router,
     nightscout_router,
@@ -109,6 +110,7 @@ app.include_router(dashboard_router)
 app.include_router(database_router)
 app.include_router(glucose_router)
 app.include_router(goals_router)
+app.include_router(health_connect_router)
 app.include_router(meals_router)
 app.include_router(mobile_logs_router)
 app.include_router(nightscout_router)

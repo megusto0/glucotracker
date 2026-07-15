@@ -359,7 +359,7 @@
     <string name="more_base_open">Открыть</string>
     <string name="more_health_connect_title">Health Connect</string>
     <string name="more_health_connect_connect">Подключить</string>
-    <string name="more_health_connect_hint">Шаги, пульс и расход энергии для баланса калорий.</string>
+    <string name="more_health_connect_hint">Все разрешённые данные Health Connect сохраняются в вашем профиле на сервере.</string>
     <string name="more_rhythm_title">Мой ритм</string>
     <string name="more_rhythm_anchor">Начало дня: %1$s · %2$s</string>
     <string name="more_rhythm_clear">Снять ручной</string>

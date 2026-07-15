@@ -181,4 +181,6 @@
     <string name="more_gluco_alarm_high_desc">Уведомление при выходе за верхнюю границу</string>
     <string name="more_gluco_alarm_signal_title">Потеря сигнала сенсора</string>
     <string name="more_gluco_alarm_signal_desc">Если данные не приходят больше 20 мин</string>
+    <string name="health_connect_rationale_title">Health Connect</string>
+    <string name="health_connect_rationale_body">Glucotracker читает все доступные записи Health Connect, на которые вы дали разрешение, и сохраняет их в вашем личном профиле на сервере. Данные используются только для личной статистики и не передаются другим пользователям.</string>
 </resources>

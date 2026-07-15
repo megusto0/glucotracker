@@ -2648,6 +2648,102 @@ components:
           type: array
       title: HTTPValidationError
       type: object
+    HealthConnectRecordUpload:
+      properties:
+        client_record_id:
+          anyOf:
+          - maxLength: 255
+            type: string
+          - type: 'null'
+          title: Client Record Id
+        client_record_version:
+          default: 0
+          format: int64
+          minimum: 0.0
+          title: Client Record Version
+          type: integer
+        data_origin:
+          anyOf:
+          - maxLength: 255
+            type: string
+          - type: 'null'
+          title: Data Origin
+        end_time:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: End Time
+        last_modified_time:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Modified Time
+        payload:
+          additionalProperties: true
+          title: Payload
+          type: object
+        record_id:
+          maxLength: 255
+          minLength: 1
+          title: Record Id
+          type: string
+        record_type:
+          maxLength: 100
+          minLength: 1
+          title: Record Type
+          type: string
+        recording_method:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Recording Method
+        start_time:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Start Time
+      required:
+      - record_id
+      - record_type
+      - payload
+      title: HealthConnectRecordUpload
+      type: object
+    HealthConnectSyncRequest:
+      properties:
+        deleted_record_ids:
+          items:
+            type: string
+          maxItems: 1000
+          title: Deleted Record Ids
+          type: array
+        records:
+          items:
+            $ref: '#/components/schemas/HealthConnectRecordUpload'
+          maxItems: 500
+          title: Records
+          type: array
+      title: HealthConnectSyncRequest
+      type: object
+    HealthConnectSyncResponse:
+      properties:
+        deleted:
+          title: Deleted
+          type: integer
+        received:
+          title: Received
+          type: integer
+        upserted:
+          title: Upserted
+          type: integer
+      required:
+      - received
+      - upserted
+      - deleted
+      title: HealthConnectSyncResponse
+      type: object
     HealthResponse:
       description: Service health response.
       properties:
@@ -9038,6 +9134,43 @@ paths:
       summary: Health
       tags:
       - system
+  /health-connect/records:sync:
+    post:
+      description: Idempotently mirror raw records and deletions from Health Connect.
+      operationId: syncHealthConnectRecords
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthConnectSyncRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthConnectSyncResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Sync Health Connect Records
+      tags:
+      - health-connect
   /me/goals:
     get:
       operationId: getMyGoals

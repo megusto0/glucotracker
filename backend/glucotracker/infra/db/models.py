@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -1891,6 +1892,67 @@ class DailyActivity(Base):
         DateTime(timezone=True),
         default=utc_now,
         server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    owner: Mapped[User] = relationship()
+
+
+class HealthConnectRecord(Base, TimestampMixin):
+    """Owner-scoped raw record mirrored from Android Health Connect."""
+
+    __tablename__ = "health_connect_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "record_id",
+            name="uq_health_connect_records_owner_record",
+        ),
+        Index(
+            "ix_health_connect_records_owner_type_start",
+            "owner_id",
+            "record_type",
+            "start_time",
+        ),
+        Index(
+            "ix_health_connect_records_owner_modified",
+            "owner_id",
+            "last_modified_time",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    record_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    record_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    client_record_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    client_record_version: Mapped[int] = mapped_column(
+        BigInteger,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    data_origin: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recording_method: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    start_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    end_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_modified_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
         nullable=False,
     )
     owner: Mapped[User] = relationship()

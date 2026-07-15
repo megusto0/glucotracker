@@ -218,7 +218,15 @@ tasks.register<JavaExec>("generateApiClient") {
             from(generatedRoot)
             into(foodRoot)
         }
-        val bannedClassTerms = listOf("Glucose", "Nightscout", "Cgm", "Fingerstick", "Tir", "Endocrinologist")
+        val bannedClassTerms = listOf(
+            "Glucose",
+            "Nightscout",
+            "Cgm",
+            "Fingerstick",
+            "Tir",
+            "Endocrinologist",
+            "HealthConnect",
+        )
         val ktFiles = foodRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .toList()
@@ -248,7 +256,15 @@ tasks.named("preBuild") {
     dependsOn("generateApiClient")
 }
 
-val foodClassBannedTerms = listOf("Glucose", "Nightscout", "Cgm", "Fingerstick", "Tir", "Endocrinologist")
+val foodClassBannedTerms = listOf(
+    "Glucose",
+    "Nightscout",
+    "Cgm",
+    "Fingerstick",
+    "Tir",
+    "Endocrinologist",
+    "HealthConnect",
+)
 val allowedFoodClassPrefixes = listOf(
     "com/local/glucotracker/ui/glucose/",
 )
@@ -500,7 +516,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.startup.runtime)
-    debugImplementation(libs.health.connect.client)
+    "glucoImplementation"(libs.health.connect.client)
     implementation(libs.guava.android)
 
     implementation(platform(libs.compose.bom))

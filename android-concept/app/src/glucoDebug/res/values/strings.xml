@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="health_connect_rationale_title">Health Connect</string>
-    <string name="health_connect_rationale_body">Debug-сборка читает шаги, пульс и расход энергии из Health Connect, чтобы показать дневной баланс калорий. Данные используются только для личной статистики.</string>
-</resources>

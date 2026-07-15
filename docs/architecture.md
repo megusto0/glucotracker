@@ -35,6 +35,8 @@ The backend is the product authority. It owns:
 - digital twin research-mode parameter fitting and reconstructed curves;
 - validated per-user IOB/COB timing fits with append-only audit history and
   population fallback;
+- owner-scoped raw Health Connect records mirrored idempotently by Health
+  Connect record ID, including upstream edits and deletions;
 - OpenAPI generation.
 
 Key entry points:
@@ -137,6 +139,11 @@ Android is local-first and flavor-aware:
 - Room caches meals, day totals, products, templates, outbox rows, and gluco-only
   CGM cache;
 - WorkManager handles outbox and cache pruning.
+- The `gluco` source set reads every Health Connect record type supported by
+  the pinned client library after explicit user permission. It performs a
+  paged initial history import and then uses a separate changes token per type;
+  the `food` source set contains neither Health Connect code nor its generated
+  API models.
 
 The food flavor must compile without glucose feature code except the shared no-op
 surface contracts required for dependency injection. This is enforced by Gradle

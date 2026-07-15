@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.local.glucotracker.data.api.SyncApi
 import com.local.glucotracker.data.sync.OutboxWorkScheduler
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.ui.design.GTTheme
@@ -23,14 +22,13 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     @Inject lateinit var outboxRepository: OutboxRepository
     @Inject @Named("apiBaseUrl") lateinit var apiBaseUrl: String
-    @Inject lateinit var syncApi: SyncApi
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        installDebugHealthConnect()
+        installHealthConnect()
         setContent {
             GTTheme {
                 GlucotrackerApp()
@@ -55,11 +53,11 @@ class MainActivity : ComponentActivity() {
         return caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 
-    private fun installDebugHealthConnect() {
+    private fun installHealthConnect() {
         runCatching {
             Class.forName("com.local.glucotracker.healthconnect.DebugHealthConnectSync")
-                .getMethod("install", ComponentActivity::class.java, SyncApi::class.java)
-                .invoke(null, this, syncApi)
+                .getMethod("install", ComponentActivity::class.java)
+                .invoke(null, this)
         }
     }
 }
