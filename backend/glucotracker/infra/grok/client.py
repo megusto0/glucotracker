@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from glucotracker.config import get_settings
-from glucotracker.infra.gemini.client import PHOTO_ESTIMATION_PROMPT_V1, PhotoInput
+from glucotracker.infra.gemini.client import PHOTO_ESTIMATION_PROMPT_V2, PhotoInput
 from glucotracker.infra.gemini.schemas import EstimationResult
 from glucotracker.infra.grok.auth import GrokCredentials, resolve_grok_credentials
 
@@ -254,7 +254,7 @@ class GrokPhotoClient:
         }
         schema = EstimationResult.model_json_schema()
         parts = [
-            PHOTO_ESTIMATION_PROMPT_V1,
+            PHOTO_ESTIMATION_PROMPT_V2,
             "PHOTO MANIFEST JSON:",
             json.dumps(manifest, ensure_ascii=False),
             "Known context JSON:",

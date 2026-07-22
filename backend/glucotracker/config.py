@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         ),
     )
     gemini_model: str = Field(
-        default="gemini-3-flash-preview",
+        default="gemini-3.6-flash",
         validation_alias=AliasChoices(
             "GEMINI_MODEL_PHOTO",
             "GLUCOTRACKER_GEMINI_MODEL_PHOTO",
@@ -110,16 +110,14 @@ class Settings(BaseSettings):
         ),
     )
     gemini_fallback_model: str = Field(
-        default="gemini-3-flash-preview",
+        default="gemini-3.1-flash-lite",
         validation_alias=AliasChoices(
             "GEMINI_FALLBACK_MODEL",
             "GLUCOTRACKER_GEMINI_FALLBACK_MODEL",
         ),
     )
     gemini_fallback_models: str = Field(
-        default=(
-            "gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-2.5-flash"
-        ),
+        default="gemini-3.5-flash,gemini-3.5-flash-lite",
         validation_alias=AliasChoices(
             "GEMINI_FALLBACK_MODELS",
             "GLUCOTRACKER_GEMINI_FALLBACK_MODELS",

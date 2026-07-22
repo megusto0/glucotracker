@@ -17,8 +17,8 @@ from glucotracker.infra.gemini.schemas import EstimationResult, GeminiScenario
 
 logger = logging.getLogger(__name__)
 
-PHOTO_ESTIMATION_PROMPT_VERSION = "PHOTO_ESTIMATION_PROMPT_V1"
-PHOTO_ESTIMATION_PROMPT_V1 = """\
+PHOTO_ESTIMATION_PROMPT_VERSION = "PHOTO_ESTIMATION_PROMPT_V2"
+PHOTO_ESTIMATION_PROMPT_V2 = """\
 You are a nutrition estimator for a personal food diary. The user is a
 type-1 diabetic who logs meals to track macros, but this is NOT used for
 insulin dosing. Do not recommend insulin, bolus, correction or treatment.
@@ -82,13 +82,30 @@ save it. For each item, one of these must be true:
   visible, assumed, net, or total weight is present.
 - top-level grams_mid, carbs_g_mid, protein_g_mid, fat_g_mid, and kcal_mid are
   all non-null for the total visible/eaten amount.
-If an exact nutrition label is unreadable but the packaged food is
-identifiable, estimate typical values for that exact product/category and use
-the second option. It is forbidden to return a packaged food item with only
-name/weight and null macros. Use confidence 0.55..0.75 when macros are generic
-estimates rather than readable label values, and explain this in Russian
-assumptions/evidence. A useful approximate macro estimate is better than an
-unsavable null-macro item.
+If an exact nutrition label is incomplete or unreadable but the packaged food
+is identifiable, estimate typical values for that exact product/category and
+use the second option. This also applies when only some facts are readable, for
+example weight and protein but not carbohydrates, fat, or kcal.
+
+Mandatory packaged-food fallback:
+- Preserve every readable label value in visible_label_facts.
+- Use the visible package weight/volume for grams_mid when available; otherwise
+  estimate the package size.
+- Fill ALL of grams_mid, carbs_g_mid, protein_g_mid, fat_g_mid, fiber_g_mid, and
+  kcal_mid with numeric values for the total package/visible amount. Never leave
+  any of these fields null. Fiber may be 0 only when a low-fiber estimate is
+  plausible; other missing fields must be realistic category estimates, not
+  placeholder zeroes.
+- Keep readable facts consistent with the estimates. Estimate only the missing
+  facts from the identified product or closest food category.
+- Add a Russian assumption stating exactly which values were estimated and
+  lower confidence to 0.55..0.75.
+
+Before returning JSON, validate every packaged-food item. If the complete
+nutrition_per_100g option is not usable, the six top-level numeric fields above
+MUST all be present. Repair any null packaged-food macro before returning. It is
+forbidden to return a packaged food item with only name/weight or partial macros.
+A useful approximate macro estimate is better than an unsavable null-macro item.
 
 Do not merge unrelated photos:
 If multiple photos show different food/drink items, return separate
@@ -657,7 +674,7 @@ class GeminiClient:
             for position, photo in enumerate(photos, start=1)
         ]
         contents: list[Any] = [
-            PHOTO_ESTIMATION_PROMPT_V1,
+            PHOTO_ESTIMATION_PROMPT_V2,
             "PHOTO MANIFEST JSON:",
             json.dumps(manifest, ensure_ascii=False),
             "Known context JSON:",
