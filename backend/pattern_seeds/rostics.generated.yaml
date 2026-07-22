@@ -429,13 +429,13 @@ items:
   per_100g_carbs_g: 15.8
   per_100g_protein_g: 14.1
   per_100g_fat_g: 14.1
-  image_url: null
+  image_url: https://i.kafushka.ru/i/c2/f6/c2f6720dc6bf565f6aeee14456a0595c.jpg
   aliases:
   - наггетсы 3 шт
   - naggetsy 3 sht
   - nuggets_3
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87965
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 2
   source_confidence: official_pdf
@@ -452,13 +452,13 @@ items:
   per_100g_carbs_g: 15.8
   per_100g_protein_g: 14.1
   per_100g_fat_g: 14.1
-  image_url: null
+  image_url: https://i.kafushka.ru/i/92/de/92de5840dc2ccf1104d6adc561afe682.jpg
   aliases:
   - наггетсы 6 шт
   - naggetsy 6 sht
   - nuggets_6
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87965
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 2
   source_confidence: official_pdf
@@ -475,13 +475,13 @@ items:
   per_100g_carbs_g: 15.8
   per_100g_protein_g: 14.1
   per_100g_fat_g: 14.1
-  image_url: null
+  image_url: https://i.kafushka.ru/i/b6/70/b670938fad0fef20a3cb87e238aeef2d.jpg
   aliases:
   - наггетсы 9 шт
   - naggetsy 9 sht
   - nuggets_9
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87965
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 2
   source_confidence: official_pdf
@@ -498,13 +498,13 @@ items:
   per_100g_carbs_g: 15.8
   per_100g_protein_g: 14.1
   per_100g_fat_g: 14.1
-  image_url: null
+  image_url: https://i.kafushka.ru/i/db/98/db98ab7ec9a1e3a2335a7404fb5e4a09.jpg
   aliases:
   - наггетсы 18 шт
   - naggetsy 18 sht
   - naggetsy_18_sht
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87965
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 2
   source_confidence: official_pdf
@@ -2074,7 +2074,7 @@ items:
   source_confidence: official_pdf
   is_verified: false
 - key: rostmaster_speshl_originalnyi
-  display_name: Ростмастер спешл оригинальный
+  display_name: Ростмастер оригинальный
   default_grams: 274.0
   default_carbs_g: 60.1
   default_protein_g: 32.0
@@ -2085,19 +2085,20 @@ items:
   per_100g_carbs_g: 20.9
   per_100g_protein_g: 11.2
   per_100g_fat_g: 11.2
-  image_url: null
+  image_url: https://i.kafushka.ru/i/dd/ff/ddff04d80776c6c042cb6e56464c77d3.jpg
   aliases:
+  - ростмастер оригинальный
   - ростмастер спешл оригинальный
   - rostmaster speshl originalnyi
   - rostmaster_speshl_originalnyi
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87296
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 26
   source_confidence: official_pdf
   is_verified: false
 - key: rostmaster_speshl_ostryi
-  display_name: Ростмастер спешл острый
+  display_name: Ростмастер острый
   default_grams: 271.0
   default_carbs_g: 59.3
   default_protein_g: 31.1
@@ -2108,13 +2109,14 @@ items:
   per_100g_carbs_g: 21.0
   per_100g_protein_g: 11.0
   per_100g_fat_g: 11.8
-  image_url: null
+  image_url: https://i.kafushka.ru/i/3e/af/3eaf34c9b4094f9d981197e993be668c.jpg
   aliases:
+  - ростмастер острый
   - ростмастер спешл острый
   - rostmaster speshl ostryi
   - rostmaster_speshl_ostryi
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/87298
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 26
   source_confidence: official_pdf
@@ -2522,13 +2524,13 @@ items:
   per_100g_carbs_g: 22.1
   per_100g_protein_g: 13.7
   per_100g_fat_g: 12.6
-  image_url: null
+  image_url: https://i.kafushka.ru/i/93/01/9301db5a1218fa38dde61ede5b415d85.jpg
   aliases:
   - ростмастер чиз классический
   - rostmaster chiz klassicheskii
   - rostmaster_chiz_klassicheskii
   source_name: Rostic's official PDF
-  source_url: https://rostics.ru/
+  source_url: https://rostics.ru/product/88463
   source_file: ge05lqbp77w47px8pzq8bag9rpbf.pdf
   source_page: 31
   source_confidence: official_pdf

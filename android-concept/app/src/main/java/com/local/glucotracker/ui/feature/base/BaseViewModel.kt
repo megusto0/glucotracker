@@ -80,7 +80,7 @@ class BaseViewModel @Inject constructor(
     }
 }
 
-private fun buildItems(
+internal fun buildItems(
     products: List<Product>,
     templates: List<Template>,
     query: String,
@@ -92,9 +92,12 @@ private fun buildItems(
     val allItems = productItems + templateItems
     val filtered = when (filter) {
         BaseFilter.Frequent -> allItems.sortedByDescending { it.usageCount }
-        BaseFilter.Restaurants -> productItems.filter { item ->
-            item.product.kind.lowercase().contains("restaurant") || item.product.subtitle != null
-        }
+        BaseFilter.Restaurants ->
+            productItems.filter { item ->
+                item.product.kind.lowercase().contains("restaurant") || item.product.subtitle != null
+            } + templateItems.filter { item ->
+                item.template.prefix.lowercase() in RestaurantTemplatePrefixes
+            }
         BaseFilter.Products -> productItems
         BaseFilter.Templates -> templateItems
         BaseFilter.NeedsReview -> productItems.filter { item ->
@@ -109,6 +112,8 @@ private fun buildItems(
         name.lowercase().contains(q)
     }
 }
+
+private val RestaurantTemplatePrefixes = setOf("bk", "mc", "kfc", "rostics", "vit")
 
 private val BaseItem.usageCount: Int
     get() = when (this) {
