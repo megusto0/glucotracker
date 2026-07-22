@@ -14,6 +14,9 @@ from glucotracker.infra.db.session import get_session_factory
 from glucotracker.infra.storage import photo_store
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
 from glucotracker.workers.episode_snapshots import EpisodeSnapshotWorker
+from glucotracker.workers.glucose_prediction_outcomes import (
+    GlucosePredictionOutcomeWorker,
+)
 from glucotracker.workers.on_board_fit import OnBoardFitWorker
 
 logger = logging.getLogger(__name__)
@@ -53,7 +56,8 @@ async def run_workers() -> None:
         asyncio.create_task(PostprandialSweeper().run_forever()),
         asyncio.create_task(PhotoTombstoneCleanupWorker().run_forever()),
         asyncio.create_task(EpisodeSnapshotWorker().run_forever()),
-        # Personalized IOB/COB timing (only runs in web when RUN_BACKGROUND_TASKS_IN_WEB).
+        asyncio.create_task(GlucosePredictionOutcomeWorker().run_forever()),
+        # Personalized IOB/COB timing also runs in the web process when enabled.
         asyncio.create_task(OnBoardFitWorker().run_forever()),
     ]
     if settings.nightscout_background_import_enabled:

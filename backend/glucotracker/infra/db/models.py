@@ -1041,6 +1041,175 @@ class NightscoutGlucoseEntry(Base, TimestampMixin):
     owner: Mapped[User] = relationship()
 
 
+class GlucosePredictionRun(Base):
+    """Immutable prospective forecast snapshot for later evaluation."""
+
+    __tablename__ = "glucose_prediction_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "anchor_timestamp",
+            "model_version",
+            "horizon_minutes",
+            "step_minutes",
+            name="uq_glucose_prediction_runs_owner_anchor_model_config",
+        ),
+        Index(
+            "ix_glucose_prediction_runs_owner_generated",
+            "owner_id",
+            "generated_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    anchor_timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    anchor_value_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    algorithm: Mapped[str] = mapped_column(String(120), nullable=False)
+    horizon_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    step_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    model_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    inputs_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    notes_json: Mapped[list[str]] = mapped_column(
+        JSON,
+        default=list,
+        server_default=text("'[]'"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    owner: Mapped[User] = relationship()
+    points: Mapped[list[GlucosePredictionPointAudit]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class GlucosePredictionPointAudit(Base):
+    """One forecast horizon and its eventual observed raw CGM outcome."""
+
+    __tablename__ = "glucose_prediction_points"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "horizon_minutes",
+            name="uq_glucose_prediction_points_run_horizon",
+        ),
+        CheckConstraint(
+            "evaluation_status IN ('pending', 'evaluated', 'missing', 'intervened')",
+            name="ck_glucose_prediction_points_status",
+        ),
+        Index(
+            "ix_glucose_prediction_points_owner_target",
+            "owner_id",
+            "target_timestamp",
+        ),
+        Index(
+            "ix_glucose_prediction_points_status_target",
+            "evaluation_status",
+            "target_timestamp",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("glucose_prediction_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    horizon_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    predicted_value_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    ci_low_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    ci_high_mmol_l: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    predicted_band: Mapped[str] = mapped_column(String(20), nullable=False)
+    evaluation_status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+        server_default="pending",
+        nullable=False,
+    )
+    intervention_detected: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )
+    actual_glucose_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("nightscout_glucose_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actual_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    actual_value_mmol_l: Mapped[float | None] = mapped_column(Float, nullable=True)
+    signed_error_mmol_l: Mapped[float | None] = mapped_column(Float, nullable=True)
+    absolute_error_mmol_l: Mapped[float | None] = mapped_column(Float, nullable=True)
+    baseline_absolute_error_mmol_l: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    direction_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    within_interval: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    evaluated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    run: Mapped[GlucosePredictionRun] = relationship(back_populates="points")
+    owner: Mapped[User] = relationship()
+    actual_glucose_entry: Mapped[NightscoutGlucoseEntry | None] = relationship()
+
+
 class NightscoutInsulinEvent(Base, TimestampMixin):
     """Owned insulin cache; imported rows are read-only, manual rows editable."""
 

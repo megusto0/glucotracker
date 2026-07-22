@@ -1742,6 +1742,86 @@ class GlucoseDashboardResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class GlucosePredictionPoint(BaseModel):
+    """One display-only future point from the personal historical model."""
+
+    timestamp: datetime
+    horizon_minutes: int = Field(ge=1, le=90)
+    raw_value: float
+    raw_ci_low: float
+    raw_ci_high: float
+    normalized_value: float | None = None
+    display_value: float
+    ci_low: float
+    ci_high: float
+    confidence: float = Field(ge=0, le=1)
+    band: Literal["low", "in_range", "high"]
+
+
+class GlucosePredictionInputs(BaseModel):
+    """Current context incorporated into one prediction run."""
+
+    carbs_g_4h: float = 0.0
+    cob_remaining_g: float = 0.0
+    carb_absorption_next_30m_g: float = 0.0
+    insulin_units_5h: float = 0.0
+    iob_remaining_units: float = 0.0
+    insulin_action_next_30m_units: float = 0.0
+    heart_rate_bpm: float | None = None
+    resting_heart_rate_bpm: float | None = None
+    active_kcal_3h: float = 0.0
+    exercise_minutes_3h: float = 0.0
+    asleep: bool = False
+    sleep_hours_24h: float = 0.0
+
+
+class GlucosePredictionModel(BaseModel):
+    """Validation and provenance metadata for the personal model."""
+
+    version: str
+    algorithm: str
+    forecast_assumption: Literal[
+        "observed_policy", "no_new_food_or_insulin"
+    ] = "observed_policy"
+    training_from: datetime | None = None
+    training_to: datetime | None = None
+    sample_count: int = 0
+    day_count: int = 0
+    validation_mae_mmol: float | None = None
+    baseline_mae_mmol: float | None = None
+    validation_post_meal_count: int = 0
+    validation_post_meal_mae_30_mmol: float | None = None
+    validation_post_meal_mae_60_mmol: float | None = None
+    validation_post_meal_mae_90_mmol: float | None = None
+    validation_post_meal_baseline_mae_90_mmol: float | None = None
+    validation_low_count: int = 0
+    validation_low_mae_mmol: float | None = None
+    validation_low_miss_pct: float | None = None
+    validation_high_count: int = 0
+    validation_high_mae_mmol: float | None = None
+    validation_high_miss_pct: float | None = None
+    confidence: Literal["none", "low", "medium", "high"] = "none"
+    alpha: float | None = None
+    features_used: list[str] = Field(default_factory=list)
+    feature_coverage: dict[str, bool] = Field(default_factory=dict)
+
+
+class GlucosePredictionResponse(BaseModel):
+    """Personal 90-minute glucose forecast for informational display only."""
+
+    generated_at: datetime
+    anchor_timestamp: datetime | None = None
+    anchor_value: float | None = None
+    raw_anchor_value: float | None = None
+    horizon_minutes: int = Field(ge=5, le=90)
+    step_minutes: int = Field(ge=5, le=30)
+    mode: Literal["raw", "normalized"]
+    points: list[GlucosePredictionPoint]
+    model: GlucosePredictionModel
+    inputs: GlucosePredictionInputs
+    notes: list[str] = Field(default_factory=list)
+
+
 class TwinParamsRead(BaseModel):
     """Current per-user digital twin parameters."""
 

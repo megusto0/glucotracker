@@ -19,6 +19,7 @@ from glucotracker.api.schemas import (
     FingerstickReadingPatch,
     FingerstickReadingResponse,
     GlucoseDashboardResponse,
+    GlucosePredictionResponse,
     GlucoseTirDailyResponse,
     GlucoseTirDayResponse,
     SensorQualityResponse,
@@ -31,6 +32,10 @@ from glucotracker.application.episodes import (
     anchor_meal_id,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.glucose_prediction import GlucosePredictionService
+from glucotracker.application.glucose_prediction_audit import (
+    GlucosePredictionAuditService,
+)
 from glucotracker.application.stats_insights import (
     InsightPeriod,
     generate_glucose_tir_daily,
@@ -60,6 +65,29 @@ async def get_glucose_dashboard(
         to_datetime,
         mode,
     )
+
+
+@router.get(
+    "/glucose/prediction",
+    response_model=GlucosePredictionResponse,
+    operation_id="getGlucosePrediction",
+)
+def get_glucose_prediction(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    mode: Literal["raw", "normalized"] = "normalized",
+    horizon_minutes: Annotated[int, Query(ge=5, le=90)] = 90,
+    step_minutes: Annotated[int, Query(ge=5, le=30)] = 5,
+) -> GlucosePredictionResponse:
+    """Return a validated personal forecast for informational display only."""
+    prediction = GlucosePredictionService(session, current_user.id).predict(
+        mode=mode,
+        horizon_minutes=horizon_minutes,
+        step_minutes=step_minutes,
+    )
+    GlucosePredictionAuditService(session, current_user.id).record(prediction)
+    session.commit()
+    return prediction
 
 
 @router.get(

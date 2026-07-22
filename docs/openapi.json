@@ -3884,6 +3884,483 @@
         "title": "GlucoseDashboardSummary",
         "type": "object"
       },
+      "GlucosePredictionInputs": {
+        "description": "Current context incorporated into one prediction run.",
+        "properties": {
+          "active_kcal_3h": {
+            "default": 0.0,
+            "title": "Active Kcal 3H",
+            "type": "number"
+          },
+          "asleep": {
+            "default": false,
+            "title": "Asleep",
+            "type": "boolean"
+          },
+          "carb_absorption_next_30m_g": {
+            "default": 0.0,
+            "title": "Carb Absorption Next 30M G",
+            "type": "number"
+          },
+          "carbs_g_4h": {
+            "default": 0.0,
+            "title": "Carbs G 4H",
+            "type": "number"
+          },
+          "cob_remaining_g": {
+            "default": 0.0,
+            "title": "Cob Remaining G",
+            "type": "number"
+          },
+          "exercise_minutes_3h": {
+            "default": 0.0,
+            "title": "Exercise Minutes 3H",
+            "type": "number"
+          },
+          "heart_rate_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Bpm"
+          },
+          "insulin_action_next_30m_units": {
+            "default": 0.0,
+            "title": "Insulin Action Next 30M Units",
+            "type": "number"
+          },
+          "insulin_units_5h": {
+            "default": 0.0,
+            "title": "Insulin Units 5H",
+            "type": "number"
+          },
+          "iob_remaining_units": {
+            "default": 0.0,
+            "title": "Iob Remaining Units",
+            "type": "number"
+          },
+          "resting_heart_rate_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resting Heart Rate Bpm"
+          },
+          "sleep_hours_24h": {
+            "default": 0.0,
+            "title": "Sleep Hours 24H",
+            "type": "number"
+          }
+        },
+        "title": "GlucosePredictionInputs",
+        "type": "object"
+      },
+      "GlucosePredictionModel": {
+        "description": "Validation and provenance metadata for the personal model.",
+        "properties": {
+          "algorithm": {
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "alpha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alpha"
+          },
+          "baseline_mae_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Mae Mmol"
+          },
+          "confidence": {
+            "default": "none",
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "day_count": {
+            "default": 0,
+            "title": "Day Count",
+            "type": "integer"
+          },
+          "feature_coverage": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Feature Coverage",
+            "type": "object"
+          },
+          "features_used": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features Used",
+            "type": "array"
+          },
+          "forecast_assumption": {
+            "default": "observed_policy",
+            "enum": [
+              "observed_policy",
+              "no_new_food_or_insulin"
+            ],
+            "title": "Forecast Assumption",
+            "type": "string"
+          },
+          "sample_count": {
+            "default": 0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "training_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training From"
+          },
+          "training_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training To"
+          },
+          "validation_high_count": {
+            "default": 0,
+            "title": "Validation High Count",
+            "type": "integer"
+          },
+          "validation_high_mae_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation High Mae Mmol"
+          },
+          "validation_high_miss_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation High Miss Pct"
+          },
+          "validation_low_count": {
+            "default": 0,
+            "title": "Validation Low Count",
+            "type": "integer"
+          },
+          "validation_low_mae_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Low Mae Mmol"
+          },
+          "validation_low_miss_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Low Miss Pct"
+          },
+          "validation_mae_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Mae Mmol"
+          },
+          "validation_post_meal_baseline_mae_90_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Post Meal Baseline Mae 90 Mmol"
+          },
+          "validation_post_meal_count": {
+            "default": 0,
+            "title": "Validation Post Meal Count",
+            "type": "integer"
+          },
+          "validation_post_meal_mae_30_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Post Meal Mae 30 Mmol"
+          },
+          "validation_post_meal_mae_60_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Post Meal Mae 60 Mmol"
+          },
+          "validation_post_meal_mae_90_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Post Meal Mae 90 Mmol"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "algorithm"
+        ],
+        "title": "GlucosePredictionModel",
+        "type": "object"
+      },
+      "GlucosePredictionPoint": {
+        "description": "One display-only future point from the personal historical model.",
+        "properties": {
+          "band": {
+            "enum": [
+              "low",
+              "in_range",
+              "high"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "ci_high": {
+            "title": "Ci High",
+            "type": "number"
+          },
+          "ci_low": {
+            "title": "Ci Low",
+            "type": "number"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "display_value": {
+            "title": "Display Value",
+            "type": "number"
+          },
+          "horizon_minutes": {
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Horizon Minutes",
+            "type": "integer"
+          },
+          "normalized_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Value"
+          },
+          "raw_ci_high": {
+            "title": "Raw Ci High",
+            "type": "number"
+          },
+          "raw_ci_low": {
+            "title": "Raw Ci Low",
+            "type": "number"
+          },
+          "raw_value": {
+            "title": "Raw Value",
+            "type": "number"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "horizon_minutes",
+          "raw_value",
+          "raw_ci_low",
+          "raw_ci_high",
+          "display_value",
+          "ci_low",
+          "ci_high",
+          "confidence",
+          "band"
+        ],
+        "title": "GlucosePredictionPoint",
+        "type": "object"
+      },
+      "GlucosePredictionResponse": {
+        "description": "Personal 90-minute glucose forecast for informational display only.",
+        "properties": {
+          "anchor_timestamp": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Timestamp"
+          },
+          "anchor_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Value"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "horizon_minutes": {
+            "maximum": 90.0,
+            "minimum": 5.0,
+            "title": "Horizon Minutes",
+            "type": "integer"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/GlucosePredictionInputs"
+          },
+          "mode": {
+            "enum": [
+              "raw",
+              "normalized"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/GlucosePredictionModel"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/GlucosePredictionPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "raw_anchor_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Anchor Value"
+          },
+          "step_minutes": {
+            "maximum": 30.0,
+            "minimum": 5.0,
+            "title": "Step Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated_at",
+          "horizon_minutes",
+          "step_minutes",
+          "mode",
+          "points",
+          "model",
+          "inputs"
+        ],
+        "title": "GlucosePredictionResponse",
+        "type": "object"
+      },
       "GlucoseTirDailyResponse": {
         "description": "Daily TIR distribution for a stats period (gluco feature only).",
         "properties": {
@@ -14755,6 +15232,102 @@
           }
         ],
         "summary": "Get Glucose Episodes",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/prediction": {
+      "get": {
+        "description": "Return a validated personal forecast for informational display only.",
+        "operationId": "getGlucosePrediction",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "normalized",
+              "enum": [
+                "raw",
+                "normalized"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "horizon_minutes",
+            "required": false,
+            "schema": {
+              "default": 90,
+              "maximum": 90,
+              "minimum": 5,
+              "title": "Horizon Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "step_minutes",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 30,
+              "minimum": 5,
+              "title": "Step Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlucosePredictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Prediction",
         "tags": [
           "glucose"
         ],

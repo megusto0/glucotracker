@@ -1,15 +1,25 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { GlucoseDashboardResponse, GlucoseMode } from "../../api/client";
-import { useGlucoseDashboard } from "../glucose/useGlucoseDashboard";
+import type {
+  GlucoseDashboardResponse,
+  GlucoseMode,
+  GlucosePredictionMode,
+  GlucosePredictionResponse,
+} from "../../api/client";
+import {
+  useGlucoseDashboard,
+  useGlucosePrediction,
+} from "../glucose/useGlucoseDashboard";
 import { NightscoutPage } from "./NightscoutPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
   useGlucoseDashboard: vi.fn(),
+  useGlucosePrediction: vi.fn(),
 }));
 
 const mockedUseDashboard = vi.mocked(useGlucoseDashboard);
+const mockedUsePrediction = vi.mocked(useGlucosePrediction);
 
 function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
   const normalized = mode === "normalized";
@@ -90,6 +100,65 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
   };
 }
 
+function prediction(mode: GlucosePredictionMode): GlucosePredictionResponse {
+  return {
+    anchor_timestamp: "2026-07-12T07:00:00Z",
+    anchor_value: mode === "normalized" ? 6.2 : 5.5,
+    raw_anchor_value: 5.5,
+    generated_at: "2026-07-12T07:01:00Z",
+    horizon_minutes: 90,
+    inputs: {
+      active_kcal_3h: 130,
+      asleep: false,
+      carb_absorption_next_30m_g: 8.4,
+      carbs_g_4h: 42,
+      cob_remaining_g: 21,
+      exercise_minutes_3h: 45,
+      heart_rate_bpm: 92,
+      insulin_units_5h: 3.5,
+      insulin_action_next_30m_units: 0.24,
+      iob_remaining_units: 1.75,
+      resting_heart_rate_bpm: 58,
+      sleep_hours_24h: 7.4,
+    },
+    mode,
+    model: {
+      algorithm: "known_input_kinetic_shape_ensemble",
+      baseline_mae_mmol: 1.7,
+      confidence: "medium",
+      day_count: 30,
+      sample_count: 1600,
+      forecast_assumption: "no_new_food_or_insulin",
+      validation_mae_mmol: 1.45,
+      validation_post_meal_count: 320,
+      validation_high_count: 20,
+      validation_low_count: 40,
+      version: "personal_known_input_shape_scenario_v4",
+    },
+    notes: ["Исследовательский прогноз."],
+    points: Array.from({ length: 18 }, (_, index) => {
+      const horizon = (index + 1) * 5;
+      const value = (mode === "normalized" ? 6.2 : 5.5) + index * 0.08;
+      return {
+        band: index === 17 ? "high" : "in_range",
+        ci_high: value + 1.2,
+        ci_low: value - 1.2,
+        confidence: 0.64 - index * 0.01,
+        display_value: value,
+        horizon_minutes: horizon,
+        normalized_value: mode === "normalized" ? value : null,
+        raw_ci_high: value + 1.2,
+        raw_ci_low: value - 1.2,
+        raw_value: value,
+        timestamp: new Date(
+          Date.parse("2026-07-12T07:00:00Z") + horizon * 60_000,
+        ).toISOString(),
+      };
+    }),
+    step_minutes: 5,
+  };
+}
+
 describe("NightscoutPage", () => {
   beforeEach(() => {
     mockedUseDashboard.mockImplementation(
@@ -99,6 +168,14 @@ describe("NightscoutPage", () => {
           error: null,
           isLoading: false,
         }) as ReturnType<typeof useGlucoseDashboard>,
+    );
+    mockedUsePrediction.mockImplementation(
+      (mode) =>
+        ({
+          data: prediction(mode),
+          error: null,
+          isLoading: false,
+        }) as ReturnType<typeof useGlucosePrediction>,
     );
   });
 
@@ -233,5 +310,26 @@ describe("NightscoutPage", () => {
     expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(
       1,
     );
+  });
+
+  test("renders the 90-minute personal forecast as colored points", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelectorAll(".ns-forecast-point")).toHaveLength(18);
+    expect(
+      container.querySelectorAll(".ns-forecast-point--in_range"),
+    ).toHaveLength(17);
+    expect(container.querySelectorAll(".ns-forecast-point--high")).toHaveLength(
+      1,
+    );
+    expect(screen.getByText(/\+90 мин/)).toBeInTheDocument();
+    expect(screen.getByText(/MAE 1\.45/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Нормализованный" }));
+    expect(mockedUsePrediction).toHaveBeenCalledWith("normalized");
   });
 });

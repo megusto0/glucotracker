@@ -4,6 +4,7 @@ import {
   type FingerstickReadingCreate,
   type FingerstickReadingPatch,
   type GlucoseMode,
+  type GlucosePredictionMode,
   type NightscoutLatestReadingResponse,
   type SensorSessionCreate,
   type SensorSessionPatch,
@@ -21,6 +22,22 @@ export function useGlucoseDashboard(from: string, to: string, mode: GlucoseMode)
     gcTime: 30 * 60 * 1000,
     placeholderData: (previousData) => previousData,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useGlucosePrediction(mode: GlucosePredictionMode) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.glucosePrediction(mode),
+    queryFn: () => apiClient.getGlucosePrediction(config, mode),
+    enabled: Boolean(config.token.trim()),
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: "always",
+    retry: 1,
+    staleTime: 30 * 1000,
   });
 }
 

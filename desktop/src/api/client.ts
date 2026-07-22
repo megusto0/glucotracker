@@ -97,6 +97,9 @@ export type ReportGlucoseMode =
   NonNullable<EndocrinologistReportResponse["glucose_mode"]>;
 export type GlucoseDashboardResponse =
   components["schemas"]["GlucoseDashboardResponse"];
+export type GlucosePredictionResponse =
+  components["schemas"]["GlucosePredictionResponse"];
+export type GlucosePredictionMode = GlucosePredictionResponse["mode"];
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
 export type FingerstickReadingCreate =
   components["schemas"]["FingerstickReadingCreate"];
@@ -891,6 +894,21 @@ export const apiClient = {
   ) =>
     apiRequest<GlucoseDashboardResponse>("/glucose/dashboard", config, {
       query: { from, to, mode },
+    }),
+
+  getGlucosePrediction: (
+    config: ApiConfig,
+    mode: GlucosePredictionMode = "normalized",
+    horizonMinutes = 90,
+    stepMinutes = 5,
+  ) =>
+    apiRequest<GlucosePredictionResponse>("/glucose/prediction", config, {
+      query: {
+        mode,
+        horizon_minutes: horizonMinutes,
+        step_minutes: stepMinutes,
+      },
+      timeoutMs: 30_000,
     }),
 
   listFingersticks: (

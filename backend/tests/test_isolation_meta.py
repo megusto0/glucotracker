@@ -56,6 +56,7 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "GET /dashboard/source_breakdown",
     "GET /dashboard/data_quality",
     "GET /glucose/dashboard",
+    "GET /glucose/prediction",
     "GET /glucose/tir-daily",
     "GET /glucose/episodes",
     "POST /fingersticks",

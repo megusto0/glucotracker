@@ -669,6 +669,23 @@ class TestGETIsolation:
         assert data["summary"]["iob_units"] == pytest.approx(2.0)
         assert data["summary"]["iob_minutes_remaining"] == 270
 
+    def test_glucose_prediction(self):
+        alice_response = self.client.get(
+            "/glucose/prediction", headers=self.alice_headers
+        )
+        assert alice_response.status_code == 200
+        alice_data = alice_response.json()
+
+        bob_response = self.client.get(
+            "/glucose/prediction", headers=self.bob_headers
+        )
+        assert bob_response.status_code == 200
+        bob_data = bob_response.json()
+
+        assert alice_data["anchor_timestamp"] != bob_data["anchor_timestamp"]
+        assert alice_data["model"]["sample_count"] == 0
+        assert bob_data["model"]["sample_count"] == 0
+
     def test_twin_params(self):
         r = self.client.get("/twin/params", headers=self.alice_headers)
         assert r.status_code == 200

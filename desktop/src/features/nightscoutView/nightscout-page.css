@@ -436,6 +436,40 @@
   vector-effect: non-scaling-stroke;
 }
 
+.ns-forecast-boundary {
+  stroke: #777;
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.ns-forecast-path {
+  fill: none;
+  stroke: #a5a5a5;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  opacity: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.ns-forecast-point {
+  stroke: #111;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.ns-forecast-point--in_range {
+  fill: #ffb300;
+}
+
+.ns-forecast-point--low {
+  fill: #ff5252;
+}
+
+.ns-forecast-point--high {
+  fill: #f06292;
+}
+
 .ns-treatment {
   pointer-events: auto;
 }
@@ -501,6 +535,10 @@
   vector-effect: non-scaling-stroke;
 }
 
+.ns-hover-point--forecast {
+  stroke: #ffb300;
+}
+
 .ns-overview-point {
   fill: #666;
   opacity: 0.8;
@@ -531,6 +569,45 @@
 
 .ns-tooltip span {
   display: block;
+}
+
+.ns-forecast-summary {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  left: 10px;
+  display: grid;
+  grid-template-columns: 10px auto;
+  align-items: center;
+  column-gap: 7px;
+  min-height: 38px;
+  padding: 5px 9px;
+  border: 1px solid #5d5d5d;
+  border-radius: 6px;
+  color: #eee;
+  background: rgb(17 17 17 / 90%);
+  font: 600 13px/1.2 "JetBrains Mono", Consolas, monospace;
+  pointer-events: none;
+}
+
+.ns-forecast-summary-dot {
+  grid-row: 1 / 3;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffb300;
+}
+
+.ns-forecast-summary small {
+  grid-column: 2;
+  color: #aaa;
+  font-size: 10px;
+}
+
+.ns-forecast-summary--error {
+  display: block;
+  min-height: 0;
+  color: #aaa;
 }
 
 .ns-chart-message,

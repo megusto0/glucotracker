@@ -7,18 +7,35 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import type { GlucoseDashboardResponse, GlucoseMode } from "../../api/client";
-import { useGlucoseDashboard } from "../glucose/useGlucoseDashboard";
+import type {
+  GlucoseDashboardResponse,
+  GlucoseMode,
+  GlucosePredictionResponse,
+} from "../../api/client";
+import {
+  useGlucoseDashboard,
+  useGlucosePrediction,
+} from "../glucose/useGlucoseDashboard";
 import "./nightscout-page.css";
 
 type DisplayMode = Extract<GlucoseMode, "raw" | "normalized">;
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
-type HoverPoint = {
-  point: DashboardPoint;
-  value: number;
-  x: number;
-  y: number;
-};
+type ForecastPoint = GlucosePredictionResponse["points"][number];
+type HoverPoint =
+  | {
+      kind: "history";
+      point: DashboardPoint;
+      value: number;
+      x: number;
+      y: number;
+    }
+  | {
+      kind: "forecast";
+      point: ForecastPoint;
+      value: number;
+      x: number;
+      y: number;
+    };
 const HOUR_OPTIONS = [2, 3, 4, 6, 12, 24] as const;
 const MAIN_Y_TICKS = [2, 3, 4, 6, 10, 14, 22] as const;
 const REFRESH_INTERVAL_MS = 60 * 1000;
@@ -147,6 +164,7 @@ export function NightscoutPage() {
     overviewRange.to,
     mode,
   );
+  const prediction = useGlucosePrediction(mode);
   const points = dashboard.data?.points ?? [];
   const latest = points[points.length - 1];
   const previous = points[points.length - 2];
@@ -161,7 +179,10 @@ export function NightscoutPage() {
   const summary = dashboard.data?.summary;
   const isUrgent = latestValue !== null && latestValue < 3.0;
 
-  const refresh = () => setRefreshAnchor(new Date());
+  const refresh = () => {
+    setRefreshAnchor(new Date());
+    void prediction.refetch();
+  };
 
   return (
     <div className={`ns-page${isUrgent ? " ns-page--urgent" : ""}`}>
@@ -303,6 +324,8 @@ export function NightscoutPage() {
         loading={dashboard.isLoading}
         mode={mode}
         overview={overview.data}
+        prediction={prediction.data}
+        predictionError={Boolean(prediction.error)}
       />
     </div>
   );
@@ -314,12 +337,16 @@ function NightscoutChart({
   loading,
   mode,
   overview,
+  prediction,
+  predictionError,
 }: {
   data?: GlucoseDashboardResponse;
   error: boolean;
   loading: boolean;
   mode: DisplayMode;
   overview?: GlucoseDashboardResponse;
+  prediction?: GlucosePredictionResponse;
+  predictionError: boolean;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -390,8 +417,16 @@ function NightscoutChart({
   const chartBottom = mainHeight - 6;
   const plotHeight = Math.max(1, chartBottom - chartTop);
   const overviewTop = mainHeight + labelBand + overviewGap;
+  const points = data?.points ?? [];
+  const forecastPoints = prediction?.points ?? [];
+  const plottedValues = [
+    ...points.map((point) => displayValue(point, mode)),
+    ...forecastPoints.map((point) => point.display_value),
+  ].filter(Number.isFinite);
+  const plottedMax = plottedValues.length ? Math.max(...plottedValues) : 10;
   const yMin = 2;
-  const yMax = 16; // tighter than 22 so typical 3–10 mmol/L isn't a thin strip
+  // Discrete domains avoid visual jitter while keeping ordinary changes legible.
+  const yMax = plottedMax <= 9 ? 10 : plottedMax <= 15 ? 16 : 22;
   const ySpan = yMax - yMin;
   const yTicks = MAIN_Y_TICKS.filter((tick) => tick >= yMin && tick <= yMax);
   const pointRadius = Math.max(
@@ -401,15 +436,19 @@ function NightscoutChart({
   const overviewRadius = Math.max(2, pointRadius * 0.55);
   const treatmentRadius = Math.max(12, Math.min(16, pointRadius * 3.1));
 
-  const points = data?.points ?? [];
   const foodEvents = data?.food_events ?? [];
   const insulinEvents = dedupeInsulinEvents(data?.insulin_events ?? []);
   const overviewPoints = overview?.points ?? [];
   const fromMs = data
     ? Date.parse(data.from_datetime)
     : Date.now() - 3 * 3_600_000;
-  const toMs = data ? Date.parse(data.to_datetime) : Date.now();
+  const historicalToMs = data ? Date.parse(data.to_datetime) : Date.now();
+  const forecastToMs = forecastPoints.length
+    ? Date.parse(forecastPoints[forecastPoints.length - 1]!.timestamp)
+    : historicalToMs;
+  const toMs = Math.max(historicalToMs, forecastToMs);
   const duration = Math.max(toMs - fromMs, 1);
+  const historicalDuration = Math.max(historicalToMs - fromMs, 1);
   const overviewFrom = overview
     ? Date.parse(overview.from_datetime)
     : Date.now() - 24 * 3_600_000;
@@ -430,20 +469,38 @@ function NightscoutChart({
       overviewTop + overviewHeight - ((clamped - yMin) / ySpan) * overviewHeight
     );
   };
+  const xTickCount = width < 600 ? 4 : width < 900 ? 5 : 7;
+  const overviewTickCount = width < 600 ? 3 : 5;
   const xTicks = Array.from(
-    { length: 7 },
-    (_, index) => fromMs + (duration * index) / 6,
+    { length: xTickCount },
+    (_, index) => fromMs + (duration * index) / (xTickCount - 1),
   );
   const overviewTicks = Array.from(
-    { length: 5 },
-    (_, index) => overviewFrom + (overviewDuration * index) / 4,
+    { length: overviewTickCount },
+    (_, index) =>
+      overviewFrom + (overviewDuration * index) / (overviewTickCount - 1),
   );
   const selectionX =
     left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
   const selectionWidth = Math.max(
-    (duration / overviewDuration) * chartWidth,
+    (historicalDuration / overviewDuration) * chartWidth,
     2,
   );
+  const latestHistorical = points[points.length - 1];
+  const forecastPath = [
+    latestHistorical
+      ? `${scaleX(latestHistorical.timestamp)},${scaleY(displayValue(latestHistorical, mode))}`
+      : null,
+    ...forecastPoints.map(
+      (point) =>
+        `${scaleX(point.timestamp)},${scaleY(point.display_value)}`,
+    ),
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" ");
+  const forecastAnchorX = prediction?.anchor_timestamp
+    ? scaleX(prediction.anchor_timestamp)
+    : null;
   const nearestPoint = (timestamp: string) => {
     if (points.length === 0) return null;
     const eventTime = Date.parse(timestamp);
@@ -513,23 +570,51 @@ function NightscoutChart({
   ];
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (!svgRef.current || points.length === 0) return;
+    if (!svgRef.current || points.length + forecastPoints.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
     const svgX = ((event.clientX - rect.left) / rect.width) * width;
     const timestamp = fromMs + ((svgX - left) / chartWidth) * duration;
-    const nearest = points.reduce((best, point) =>
-      Math.abs(Date.parse(point.timestamp) - timestamp) <
-      Math.abs(Date.parse(best.timestamp) - timestamp)
-        ? point
-        : best,
-    );
-    const value = displayValue(nearest, mode);
-    setHover({
-      point: nearest,
-      value,
-      x: scaleX(nearest.timestamp),
-      y: scaleY(value),
-    });
+    const historical = points.length
+      ? points.reduce((best, point) =>
+          Math.abs(Date.parse(point.timestamp) - timestamp) <
+          Math.abs(Date.parse(best.timestamp) - timestamp)
+            ? point
+            : best,
+        )
+      : null;
+    const forecast = forecastPoints.length
+      ? forecastPoints.reduce((best, point) =>
+          Math.abs(Date.parse(point.timestamp) - timestamp) <
+          Math.abs(Date.parse(best.timestamp) - timestamp)
+            ? point
+            : best,
+        )
+      : null;
+    const useForecast =
+      forecast !== null &&
+      (historical === null ||
+        Math.abs(Date.parse(forecast.timestamp) - timestamp) <
+          Math.abs(Date.parse(historical.timestamp) - timestamp));
+    if (useForecast && forecast) {
+      setHover({
+        kind: "forecast",
+        point: forecast,
+        value: forecast.display_value,
+        x: scaleX(forecast.timestamp),
+        y: scaleY(forecast.display_value),
+      });
+      return;
+    }
+    if (historical) {
+      const value = displayValue(historical, mode);
+      setHover({
+        kind: "history",
+        point: historical,
+        value,
+        x: scaleX(historical.timestamp),
+        y: scaleY(value),
+      });
+    }
   };
 
   if (loading && points.length === 0) {
@@ -583,7 +668,7 @@ function NightscoutChart({
           y1={chartBottom}
           y2={chartBottom}
         />
-        {xTicks.map((tick) => {
+        {xTicks.map((tick, index) => {
           const x = left + ((tick - fromMs) / duration) * chartWidth;
           return (
             <g key={tick}>
@@ -596,7 +681,13 @@ function NightscoutChart({
               />
               <text
                 className="ns-axis-label"
-                textAnchor="middle"
+                textAnchor={
+                  index === 0
+                    ? "start"
+                    : index === xTicks.length - 1
+                      ? "end"
+                      : "middle"
+                }
                 x={x}
                 y={chartBottom + labelBand - 6}
               >
@@ -632,6 +723,30 @@ function NightscoutChart({
             />
           );
         })}
+
+        {forecastAnchorX !== null && forecastPoints.length ? (
+          <line
+            className="ns-forecast-boundary"
+            x1={forecastAnchorX}
+            x2={forecastAnchorX}
+            y1={chartTop}
+            y2={chartBottom}
+          />
+        ) : null}
+        {forecastPoints.length ? (
+          <polyline className="ns-forecast-path" points={forecastPath} />
+        ) : null}
+        {forecastPoints.map((point) => (
+          <circle
+            aria-label={`Прогноз через ${point.horizon_minutes} минут: ${formatMmol(point.display_value)} ммоль/л`}
+            className={`ns-forecast-point ns-forecast-point--${point.band}`}
+            cx={scaleX(point.timestamp)}
+            cy={scaleY(point.display_value)}
+            key={`forecast-${point.timestamp}`}
+            r={pointRadius + 0.8}
+            role="img"
+          />
+        ))}
 
         {treatmentMarkers.map((treatment) => {
           const anchorX = scaleX(treatment.anchor.timestamp);
@@ -695,7 +810,7 @@ function NightscoutChart({
               y2={chartBottom}
             />
             <circle
-              className="ns-hover-point"
+              className={`ns-hover-point${hover.kind === "forecast" ? " ns-hover-point--forecast" : ""}`}
               cx={hover.x}
               cy={hover.y}
               r={pointRadius + 2.5}
@@ -733,14 +848,20 @@ function NightscoutChart({
           y1={overviewTop + overviewHeight}
           y2={overviewTop + overviewHeight}
         />
-        {overviewTicks.map((tick) => {
+        {overviewTicks.map((tick, index) => {
           const x =
             left + ((tick - overviewFrom) / overviewDuration) * chartWidth;
           return (
             <text
               className="ns-axis-label"
               key={tick}
-              textAnchor="middle"
+              textAnchor={
+                index === 0
+                  ? "start"
+                  : index === overviewTicks.length - 1
+                    ? "end"
+                    : "middle"
+              }
               x={x}
               y={height - 6}
             >
@@ -763,7 +884,17 @@ function NightscoutChart({
           }}
         >
           <b>BG: {formatMmol(hover.value)}</b>
-          <span>Noise: ~~~</span>
+          {hover.kind === "forecast" ? (
+            <>
+              <span>Прогноз: +{hover.point.horizon_minutes} мин</span>
+              <span>
+                80%: {formatMmol(hover.point.ci_low)}–{formatMmol(hover.point.ci_high)}
+              </span>
+              <span>Доверие: {Math.round(hover.point.confidence * 100)}%</span>
+            </>
+          ) : (
+            <span>Noise: ~~~</span>
+          )}
           <span>
             Time:{" "}
             {new Intl.DateTimeFormat("en-US", {
@@ -771,9 +902,35 @@ function NightscoutChart({
               minute: "2-digit",
             }).format(new Date(hover.point.timestamp))}
           </span>
-          {mode === "normalized" ? (
+          {mode === "normalized" && hover.kind === "history" ? (
             <span>Standard: {formatMmol(hover.point.raw_value)}</span>
           ) : null}
+        </div>
+      ) : null}
+
+      {forecastPoints.length ? (
+        <div
+          aria-label="Исследовательский прогноз глюкозы"
+          className="ns-forecast-summary"
+        >
+          <span className="ns-forecast-summary-dot" />
+          <b>
+            +{forecastPoints[forecastPoints.length - 1]!.horizon_minutes} мин ·{" "}
+            {formatMmol(
+              forecastPoints[forecastPoints.length - 1]!.display_value,
+            )}
+          </b>
+          <small>
+            {prediction?.model.confidence ?? "none"}
+            {typeof prediction?.model.validation_mae_mmol === "number"
+              ? ` · MAE ${prediction.model.validation_mae_mmol.toFixed(2)}`
+              : ""}
+            {" · справочно"}
+          </small>
+        </div>
+      ) : predictionError ? (
+        <div className="ns-forecast-summary ns-forecast-summary--error">
+          Прогноз недоступен
         </div>
       ) : null}
 

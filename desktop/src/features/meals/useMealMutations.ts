@@ -19,6 +19,7 @@ const MEAL_INVALIDATION_KEYS = [
   ["feed-meals"],
   ["timeline"],
   ["dashboard"],
+  ["glucose"],
   ["autocomplete"],
   ["database"],
   ["database-items"],
