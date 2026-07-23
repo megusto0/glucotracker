@@ -223,7 +223,7 @@ object OutboxWorkScheduler {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             ImmediateWorkName,
-            ExistingWorkPolicy.REPLACE,
+            ImmediateWorkPolicy,
             request,
         )
     }
@@ -285,3 +285,5 @@ object OutboxWorkScheduler {
         )
     }
 }
+
+internal val ImmediateWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE
