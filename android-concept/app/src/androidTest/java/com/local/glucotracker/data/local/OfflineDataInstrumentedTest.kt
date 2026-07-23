@@ -7,6 +7,7 @@ import com.local.glucotracker.data.api.OpenApiJson
 import com.local.glucotracker.data.api.ProductsApi
 import com.local.glucotracker.data.cache.CacheBudget
 import com.local.glucotracker.data.repository.ProductsRepositoryImpl
+import com.local.glucotracker.data.sync.MealReconciler
 import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
@@ -148,6 +149,50 @@ class OfflineDataInstrumentedTest {
         assertEquals(0, database.cachedMealDao().countAll())
         assertEquals(1, database.outboxDao().countAll())
         assertTrue(database.outboxDao().countAll() > 0)
+    }
+
+    @Test
+    fun reconciliationKeepsConfirmedHandoffRowUntilAcceptedMealIsCached() = runTest {
+        val capturedAt = Instant.parse("2026-05-05T12:00:00Z")
+        val idempotencyKey = "photo-key-1"
+        database.outboxDao().upsert(
+            OutboxEntity(
+                id = "outbox-photo-1",
+                kindType = "captured_meal",
+                kindJson = OpenApiJson.json.encodeToString<OutboxKind>(
+                    OutboxKind.CapturedMeal(
+                        localPhotoPath = "/photos/photo-1.jpg",
+                        capturedAt = capturedAt,
+                        source = "photo",
+                        idempotencyKey = idempotencyKey,
+                    ),
+                ),
+                state = OutboxState.Queued,
+                createdAt = capturedAt,
+                lastAttemptAt = capturedAt,
+                nextAttemptAt = null,
+                attempts = 1,
+                serverIdOnSuccess = null,
+                errorMessage = null,
+                enteredCurrentStateAt = capturedAt,
+                lastErrorCode = null,
+                lastErrorMessage = null,
+                draftJson = null,
+                localPhotoPath = "/photos/photo-1.jpg",
+            ),
+        )
+
+        MealReconciler(database.outboxDao()).reconcileByKey(
+            idempotencyKey = idempotencyKey,
+            mealId = "meal-1",
+        )
+
+        val reconciled = database.outboxDao()
+            .findInStates(listOf(OutboxState.Confirmed))
+            .single()
+        assertEquals("outbox-photo-1", reconciled.id)
+        assertEquals("meal-1", reconciled.serverIdOnSuccess)
+        assertEquals("meal-1", reconciled.linkedMealId)
     }
 
     @Test

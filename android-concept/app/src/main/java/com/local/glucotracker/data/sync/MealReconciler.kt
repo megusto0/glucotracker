@@ -76,7 +76,6 @@ class MealReconciler @Inject constructor(
             linkedMealId = mealId,
             reconciledAt = Clock.System.now(),
         )
-        outboxDao.deleteById(item.id)
     }
 }
 

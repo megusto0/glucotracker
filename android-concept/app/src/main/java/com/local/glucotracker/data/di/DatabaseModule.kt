@@ -50,7 +50,12 @@ object DatabaseModule {
             Migration12To13,
             Migration13To14,
             Migration14To15,
-        ).build()
+        )
+            // OutboxWorker deliberately opens its own Room instance. Keep the
+            // UI instance informed when the worker changes queue/meal rows so
+            // optimistic entries are replaced without a manual refresh.
+            .enableMultiInstanceInvalidation()
+            .build()
 
     @Provides
     fun provideOutboxDao(database: GlucotrackerDatabase): OutboxDao =

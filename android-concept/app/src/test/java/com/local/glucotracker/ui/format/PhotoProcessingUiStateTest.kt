@@ -34,6 +34,20 @@ class PhotoProcessingUiStateTest {
     }
 
     @Test
+    fun firstQueuedPhotoDoesNotMentionPreviousPhotos() {
+        val state = mapOutboxAndMealToPhotoProcessingUiState(
+            outboxItem = outboxItem(state = OutboxState.Queued),
+            queuePosition = 1,
+            queueSize = 1,
+        )
+
+        assertEquals(PhotoProcessingStage.WaitingUpload, state?.stage)
+        assertEquals("ждёт отправки", state?.statusText)
+        assertNull(state?.helperText)
+        assertNull(state?.queuePositionText)
+    }
+
+    @Test
     fun uploadingPhotoUsesOnlyRealProgress() {
         val state = mapOutboxAndMealToPhotoProcessingUiState(
             outboxItem = outboxItem(state = OutboxState.Uploading),
@@ -70,6 +84,21 @@ class PhotoProcessingUiStateTest {
     }
 
     @Test
+    fun stuckPhotoLinkedToServerIsShownAsEstimateFailure() {
+        val state = mapOutboxAndMealToPhotoProcessingUiState(
+            outboxItem = outboxItem(
+                state = OutboxState.Stuck,
+                linkedMealId = "meal-1",
+            ),
+        )
+
+        assertEquals(PhotoProcessingStage.Stuck, state?.stage)
+        assertEquals(PhotoProcessingFailureStep.Estimate, state?.failureStep)
+        assertEquals("оценка не пришла · исправляем", state?.statusText)
+        assertFalse(state?.statusText.orEmpty().contains("UPDATE statement"))
+    }
+
+    @Test
     fun acceptedMealDoesNotGetPendingPipeline() {
         val state = mapOutboxAndMealToPhotoProcessingUiState(
             meal = meal(status = "accepted", estimateStatus = null),
@@ -79,7 +108,10 @@ class PhotoProcessingUiStateTest {
         assertNull(state)
     }
 
-    private fun outboxItem(state: OutboxState): OutboxItem =
+    private fun outboxItem(
+        state: OutboxState,
+        linkedMealId: String? = null,
+    ): OutboxItem =
         OutboxItem(
             id = "outbox-1",
             kind = capturedKind,
@@ -91,6 +123,7 @@ class PhotoProcessingUiStateTest {
             errorMessage = "UPDATE statement failed",
             enteredCurrentStateAt = now,
             lastErrorMessage = "UPDATE statement failed",
+            linkedMealId = linkedMealId,
         )
 
     private fun meal(

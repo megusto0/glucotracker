@@ -55,7 +55,9 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
                     stage = PhotoProcessingStage.WaitingUpload,
                     title = "Фото",
                     statusText = listOfNotNull("ждёт отправки", queueText).joinToString(" · "),
-                    helperText = "начнём после предыдущих фото",
+                    helperText = "начнём после предыдущих фото".takeIf {
+                        queuePosition != null && queuePosition > 1
+                    },
                     queuePositionText = queueText,
                     uploadProgress = null,
                     estimateElapsedSeconds = null,
@@ -93,18 +95,22 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
             estimateDeadlineSeconds = null,
             canRetry = false,
         )
-        OutboxState.Stuck -> PhotoProcessingUiState(
-            stage = PhotoProcessingStage.Stuck,
-            title = "Фото",
-            statusText = "не отправилось · повторить",
-            helperText = "проверьте сеть или повторите отправку",
-            queuePositionText = queueText,
-            uploadProgress = null,
-            estimateElapsedSeconds = null,
-            estimateDeadlineSeconds = null,
-            canRetry = true,
-            failureStep = PhotoProcessingFailureStep.Upload,
-        )
+        OutboxState.Stuck -> if (outboxItem.linkedMealId != null) {
+            estimateStuckState()
+        } else {
+            PhotoProcessingUiState(
+                stage = PhotoProcessingStage.Stuck,
+                title = "Фото",
+                statusText = "не отправилось · повторить",
+                helperText = "проверьте сеть или повторите отправку",
+                queuePositionText = queueText,
+                uploadProgress = null,
+                estimateElapsedSeconds = null,
+                estimateDeadlineSeconds = null,
+                canRetry = true,
+                failureStep = PhotoProcessingFailureStep.Upload,
+            )
+        }
     }
 }
 
@@ -177,7 +183,7 @@ fun estimateStuckState(): PhotoProcessingUiState =
     )
 
 private fun queuePositionText(position: Int?, size: Int?): String? =
-    if (position != null && size != null && position > 0 && size > 0) {
+    if (position != null && size != null && position > 0 && size > 1) {
         "очередь $position из $size"
     } else {
         null

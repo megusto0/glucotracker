@@ -27,16 +27,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
@@ -223,6 +225,7 @@ class TodayViewModel @Inject constructor(
     init {
         requestSyncInBackground()
         refreshDayWhenOutboxConfirms()
+        refreshDayWhilePhotoEstimateIsPending()
     }
 
     /**
@@ -240,8 +243,48 @@ class TodayViewModel @Inject constructor(
                         .toSet()
                 }
                 .distinctUntilChanged()
-                .drop(1)
-                .collect { dayRefreshTick.value += 1 }
+                .collect { confirmedIds ->
+                    if (confirmedIds.isNotEmpty()) {
+                        dayRefreshTick.update { it + 1 }
+                    }
+                }
+        }
+    }
+
+    /**
+     * Keep the local-first day stream active while a server-side photo
+     * estimate is running, and periodically reconcile it with the backend.
+     * This lets the row replace "estimating" with the accepted server record
+     * even while the camera route temporarily covers Today.
+     */
+    private fun refreshDayWhilePhotoEstimateIsPending() {
+        viewModelScope.launch {
+            state
+                .map { todayState ->
+                    (todayState as? TodayState.Day)
+                        ?.rows
+                        ?.any { row ->
+                            row.kind == TodayMealRowKind.Pending &&
+                                row.source == TodayMealSource.Photo &&
+                                row.status == TodayMealStatus.Estimating
+                        } == true
+                }
+                .distinctUntilChanged()
+                .flatMapLatest { isEstimating ->
+                    if (!isEstimating) {
+                        emptyFlow()
+                    } else {
+                        flow {
+                            while (true) {
+                                delay(PhotoEstimateDayRefreshIntervalMs)
+                                emit(Unit)
+                            }
+                        }
+                    }
+                }
+                .collect {
+                    dayRefreshTick.update { it + 1 }
+                }
         }
     }
 
@@ -347,10 +390,7 @@ private fun toTodayState(
     val backendDrafts = serverMeals.filter { it.isDraftStatus() }
     // Confirmed creations stay visible until the accepted meal lands in the
     // day cache, so the row never blinks out between confirm and refetch.
-    val activeOutbox = outbox
-        .filter { it.state.isVisibleQueueState() || it.isConfirmedCreation() }
-        .filterNot { item -> item.isAlreadyAccepted(acceptedMeals) }
-        .filterNot { it.isZombie }
+    val activeOutbox = visibleTodayOutbox(outbox, acceptedMeals)
     val pendingCount = activeOutbox.count { item ->
         item.state.countsInSyncQueue() && item.affectsDay(date, acceptedMeals)
     }
@@ -394,6 +434,20 @@ private fun toTodayState(
         typicalKcal14d = typicalKcal14d,
     )
 }
+
+/**
+ * Keep a photo creation visible after upload links it to a server draft. The
+ * linked id is also used to suppress that draft below, so retaining the local
+ * row does not create a duplicate. It is removed only after the accepted meal
+ * has reached the local day cache.
+ */
+internal fun visibleTodayOutbox(
+    outbox: List<OutboxItem>,
+    acceptedMeals: List<Meal>,
+): List<OutboxItem> =
+    outbox
+        .filter { it.state.isVisibleQueueState() || it.isConfirmedCreation() }
+        .filterNot { item -> item.isAlreadyAccepted(acceptedMeals) }
 
 private fun UserGoals.withHealthConnectKcalGoal(totals: DayTotals): UserGoals {
     val healthConnectGoal = totals.healthConnectTdeeKcal() ?: return this
@@ -713,6 +767,7 @@ private fun Instant.localDate(): LocalDate =
 
 private const val TypicalKcalWindowDays = 14
 private const val TypicalKcalMinTrackedDays = 7
+private const val PhotoEstimateDayRefreshIntervalMs = 4_000L
 
 private fun List<Double>.medianKcalOrNull(minDays: Int): Int? {
     if (size < minDays) return null

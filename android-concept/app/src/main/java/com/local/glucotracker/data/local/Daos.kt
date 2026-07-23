@@ -117,8 +117,8 @@ interface OutboxDao {
     @Query("DELETE FROM outbox WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("DELETE FROM outbox WHERE linkedMealId IS NOT NULL")
-    suspend fun deleteLinkedItems(): Int
+    @Query("DELETE FROM outbox WHERE linkedMealId IS NOT NULL AND state = 'Confirmed'")
+    suspend fun deleteConfirmedLinkedItems(): Int
 
     @Query(
         """

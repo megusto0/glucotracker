@@ -28,9 +28,9 @@ class OutboxStartupReconciler : Initializer<Unit> {
                     staleBefore = now - 5.minutes,
                     queuedAt = now,
                 )
-                database.outboxDao().deleteLinkedItems()
+                database.outboxDao().deleteConfirmedLinkedItems()
                 reconcileLocal(database)
-                database.outboxDao().deleteLinkedItems()
+                database.outboxDao().deleteConfirmedLinkedItems()
             }
         } finally {
             database.close()

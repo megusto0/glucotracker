@@ -269,13 +269,21 @@ private fun CameraPreviewScreen(
                     captureError = false
                 },
                 onSend = {
-                    captureState = CameraCaptureState.Saving
-                    // enqueueCameraPhoto copies into storage and deletes the
-                    // temp file itself, so we don't delete it here.
-                    viewModel.enqueueCameraPhoto(photo.file, photo.capturedAt) { outboxId ->
-                        captureState = CameraCaptureState.Queued
-                        capturedPhoto = null
-                        onPhotoQueued(outboxId)
+                    // MutableState changes synchronously. This guard prevents
+                    // a second tap before Compose has recomposed the disabled
+                    // button from enqueueing the same capture twice.
+                    if (captureState == CameraCaptureState.Idle) {
+                        captureState = CameraCaptureState.Saving
+                        // enqueueCameraPhoto copies into storage and deletes the
+                        // temp file itself, so we don't delete it here.
+                        viewModel.enqueueCameraPhoto(photo.file, photo.capturedAt) { outboxId ->
+                            captureState = CameraCaptureState.Queued
+                            capturedPhoto = null
+                            // The photo is durable in the outbox now, so close the
+                            // modal camera before routing back to Today.
+                            onClose()
+                            onPhotoQueued(outboxId)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
