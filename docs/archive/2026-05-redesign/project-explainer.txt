@@ -10,9 +10,6 @@ glucotracker is a personal food diary for a type-1 diabetic. It logs meals,
 macros, calories, photos, product labels, restaurant shortcuts, and optional
 nutrients for journaling only.
 
-It is not used for insulin dosing. The app must never recommend insulin, bolus,
-correction, treatment, or medical decisions.
-
 Core rule:
 
   Backend is the product.
@@ -402,7 +399,7 @@ Nightscout timeline:
 
 - Nightscout insulin is read-only context imported from Nightscout.
 - Insulin context is shown as a manual Nightscout event, not as a local meal
-  item and never as dosing advice.
+  item.
 - Food remains a stream of meal rows. The backend computes food episodes for
   history display; it does not merge or replace the underlying meals.
 - Episode grouping rule: consecutive accepted meals within 30 minutes belong to
@@ -416,8 +413,7 @@ Nightscout timeline:
 
 Endocrinologist report:
 
-- The report is informational only.
-- The label is "НАБЛЮДАЕМЫЙ УК" / "Наблюдаемый УК", never "recommended".
+- The label is "НАБЛЮДАЕМЫЙ УК" / "Наблюдаемый УК".
 - Observed UK uses grams of carbs per registered meal-linked insulin unit:
   Σ carbs / Σ meal-linked insulin.
 - Unlinked insulin/corrections count in daily total insulin but must not
@@ -569,9 +565,8 @@ The source of truth is:
 
 Clean readable version of the current prompt intent:
 
-  You are a nutrition estimator for a personal food diary. The user is a
-  type-1 diabetic who logs meals to track macros, but this is NOT used for
-  insulin dosing. Do not recommend insulin, bolus, correction, or treatment.
+  You are a nutrition estimator for a personal food diary. The user logs meals
+  to track macros.
 
   Input: one or more photos of one meal/snack. The user may attach multiple
   photos. Each photo is identified in the PHOTO MANIFEST and image parts are
@@ -581,8 +576,7 @@ Clean readable version of the current prompt intent:
   component weights, eaten quantity, or corrections like "100 г вареного риса".
   Use this as user-provided evidence. Do not ignore visible photo evidence. If
   it gives a known weight/count for a visible component, apply that context and
-  explain it in evidence or assumptions. Do not use user context for insulin or
-  medical treatment advice.
+  explain it in evidence or assumptions.
 
   For each distinct visible item:
 
@@ -757,7 +751,6 @@ Manual UI flow:
 Important safety checks
 -----------------------
 
-- No insulin advice.
 - No frontend Gemini key.
 - No Nightscout secrets in frontend.
 - Draft totals do not count in accepted daily totals.

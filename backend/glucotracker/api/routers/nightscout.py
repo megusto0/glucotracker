@@ -225,7 +225,7 @@ async def get_nightscout_insulin(
     from_datetime: Annotated[datetime, Query(alias="from")],
     to_datetime: Annotated[datetime, Query(alias="to")],
 ) -> list[NightscoutInsulinEventResponse]:
-    """Return read-only Nightscout insulin events without linking to dosing."""
+    """Return read-only Nightscout insulin events."""
     return await NightscoutSyncService(session, current_user.id, client).insulin(
         from_datetime,
         to_datetime,

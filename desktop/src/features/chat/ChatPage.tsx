@@ -2193,9 +2193,7 @@ function EstimatePanel({
         >
           Отменить
         </Button>
-        <p className="pt-5 text-[11px] text-[var(--ink-3)]">
-          Это оценка, не медицинская рекомендация.
-        </p>
+
       </div>
     </div>
   );

@@ -1909,7 +1909,7 @@ def _remaining_on_board(
     - ``insulin_pd``: biphasic IOB from real CGM-calibrated curve.
     - ``carb_pd``: per-meal macro profile (fast sugar vs slow fat/protein).
 
-    Informational only — not dose guidance.
+    Display-only active-amount estimate.
     """
     if duration_minutes <= 0 and decay != "carb_pd":
         return 0.0, 0

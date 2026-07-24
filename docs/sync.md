@@ -89,8 +89,7 @@ Backend owns:
 - manual meal sync/unsync to Nightscout;
 - timeline food episodes with local Nightscout context.
 
-Imported Nightscout insulin is read-only context. Glucotracker does not create
-insulin dose recommendations.
+Imported Nightscout insulin is read-only context.
 
 Sensor sessions are explicit lifecycle records. Imported CGM gaps do not close a
 sensor by themselves; a user action or a new manual sensor session is needed.

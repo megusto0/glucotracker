@@ -206,10 +206,7 @@ export function EndocrinologistReportSection() {
         <p className="text-[13px] text-[var(--warn)]">{warning}</p>
       ) : null}
       {error ? <p className="text-[13px] text-[var(--danger)]">{error}</p> : null}
-      <p className="text-[11px] leading-5 text-[var(--muted)]">
-        Отчёт информационный: он не предлагает дозы, коррекции, болюсы или
-        медицинские решения.
-      </p>
+
     </section>
   );
 }

@@ -1,24 +1,8 @@
 # Medical Safety
 
 Status: source of truth
-Last updated: 2026-05-31
-Owner/area: medical and feature-gating boundaries
-
-Glucotracker is informational only. It is a diary and context tool, not a medical
-decision system.
-
-## Never Do
-
-Never recommend:
-
-- insulin dose;
-- bolus;
-- correction;
-- target glucose as an instruction;
-- treatment decision;
-- what the user should eat to correct glucose.
-
-Avoid wording that implies a prescription, judgment, or clinical conclusion.
+Last updated: 2026-07-25
+Owner/area: feature-gating boundaries
 
 ## Allowed
 
@@ -30,14 +14,15 @@ The app may show observed facts:
 - TIR and glucose summaries computed by backend;
 - observed ratios in reports when labelled as observed/informational;
 - digital twin parameters and reconstructed curves when clearly labelled as
-  informational research output, not CGM truth;
+  research output, not CGM truth;
 - sparse-data and data-quality warnings.
 
 ## Nightscout
 
 Nightscout insulin is read-only context. Glucotracker may send accepted meals to
-Nightscout as diary-only treatments, but it must not create editable insulin
-treatments or dose recommendations.
+Nightscout as diary-only treatments. Manual insulin treatments created by
+Glucotracker can be edited or deleted; the backend applies the same operation to
+the Nightscout treatment.
 
 ## Feature Gates
 
@@ -57,23 +42,9 @@ Role-specific response variants:
 
 ## Reports
 
-Doctor reports are informational and must use observed wording. The report may
-include CGM, TIR, insulin event history, and observed carb/insulin ratios, but it
-must not say or imply "recommended ratio" or dosing advice.
+Doctor reports may include CGM, TIR, insulin event history, and observed
+carb/insulin ratios.
 
 ## Digital Twin
 
-Digital twin output is allowed only as informational/reconstructed context. It
-must not be described as live CGM, a medical model, or a basis for insulin,
-correction, target, meal, or treatment decisions.
-
-## Copy Review Checklist
-
-Before merging user-facing copy that mentions glucose or insulin, verify:
-
-- no imperative treatment language;
-- no dose/bolus/correction instruction;
-- no praise/blame;
-- no hidden advice inside notifications;
-- no food flavor string references glucose, insulin, sensor, Nightscout, CGM, or
-  TIR.
+Digital twin output is research/reconstructed context and is not live CGM.

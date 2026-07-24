@@ -364,7 +364,7 @@ function SettingsPage() {
         <PageHead crumbs={["настройки", "интеграции"]} title="Интеграция: Nightscout"/>
         <p style={{ maxWidth: 640, color: "var(--ink-3)", marginTop: -10, marginBottom: 28 }}>
           Nightscout остаётся дополнительной интеграцией. glucotracker может читать контекст глюкозы и
-          показывать записи инсулина, но не считает дозы и не отправляет инсулин.
+          показывать записи инсулина (импорт — только чтение).
         </p>
 
         <div className="row gap-32" style={{ alignItems: "flex-start" }}>
@@ -411,7 +411,7 @@ function SettingsPage() {
               <div className="checkbox">
                 <div>
                   <div className="l">Показывать записи инсулина из Nightscout</div>
-                  <div className="s">Только контекст из Nightscout. glucotracker никогда не отправляет инсулин и не предлагает дозу.</div>
+                  <div className="s">Только контекст из Nightscout. Импортированный инсулин — только чтение.</div>
                 </div>
                 <div className="checkbox-box"><I.Check/></div>
               </div>

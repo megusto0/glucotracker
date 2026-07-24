@@ -40,8 +40,7 @@ LLM output is evidence/input. It is not accepted nutrition truth until backend
 normalization and user acceptance.
 
 The digital twin is deterministic research-mode math, not Gemini output. It must
-stay labeled as informational/reconstructed context and must not be used for
-dosing, correction, or treatment advice.
+stay labeled as informational/reconstructed context, not live CGM.
 
 ## Audit And Privacy
 

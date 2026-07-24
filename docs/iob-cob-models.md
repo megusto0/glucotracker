@@ -4,8 +4,6 @@
 
 **Scope:** informational diary context for glucose / Nightscout views
 
-**Not in scope:** insulin dose, bolus, correction, target, or treatment advice
-
 **Primary code:**
 
 - `backend/glucotracker/application/twin/kernels.py`
@@ -14,8 +12,8 @@
 - `backend/glucotracker/infra/db/repositories/on_board.py`
 - `backend/glucotracker/application/glucose_dashboard.py`
 
-Per `CONCEPT.md` §1, these values are display-only. Nightscout insulin remains
-read-only, raw CGM is never modified, and the model cannot recommend an action.
+These values are display-only. Nightscout insulin remains read-only and raw CGM
+is never modified.
 
 ---
 
@@ -270,8 +268,7 @@ continues serving requests while the bounded retrospective search runs.
   models.
 - Exact meal personalization will often remain unavailable; category and macro
   priors are the intended sparse-data behavior.
-- This model is informational diary context only. It must never be used to
-  calculate or recommend insulin.
+- This model is informational diary context for reconstruction and display.
 
 Background references for the chosen model family and identifiability limits:
 

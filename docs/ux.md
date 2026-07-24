@@ -4,8 +4,8 @@ Status: source of truth
 Last updated: 2026-05-31
 Owner/area: interaction model, UI states, copy rules
 
-Glucotracker is a repeated-use food diary, not a marketing surface and not a
-medical recommendation engine. It should feel calm, precise, and fast.
+Glucotracker is a repeated-use food diary, not a marketing surface. It should
+feel calm, precise, and fast.
 
 Per `CONCEPT.md` §6, tab switches are instant, record open is fade + 8 px up for
 180 ms, bottom sheets use a short Material spring, and there is no decorative
@@ -17,7 +17,6 @@ animation.
 - Names, photos, and timestamps are higher priority than micro-visualizations.
 - Numbers must be formatted predictably.
 - Empty, sparse, stale, and offline states are normal states.
-- Read-only medical context must stay passive and informational.
 - Gestures are accelerators, never the only path.
 
 ## Loading And Empty States
@@ -82,11 +81,8 @@ Use observational language:
 
 Avoid:
 
-- recommendations;
 - praise/blame;
 - streak pressure;
-- dose/bolus/correction instructions;
-- treatment advice;
 - food judgement.
 
 ## Accessibility

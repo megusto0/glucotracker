@@ -151,7 +151,7 @@ def test_endocrinologist_report_uses_episode_linked_insulin(
     assert body["glycemic_profile"][0]["label"] == "TIR 4,0-10,0"
     assert body["adaptive_schedule"]["title"] == "Мой ритм"
     assert "рекомендуемый" not in body["footer"].lower()
-    assert "медицинской рекомендацией" in body["footer"]
+    assert "Наблюдаемый УК" in body["footer"]
 
 
 def _seed_normalized_glucose_context(api_client: TestClient) -> None:

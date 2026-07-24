@@ -21,7 +21,7 @@ The user has 14 days of dense CGM (3956 readings, ~98% coverage) and 13 days of 
 - hypo-recovery detection (an entry that's actually treatment, not nutrition)
 - late-meal glucose footprint (next-morning impact)
 
-These are all observations, not recommendations. The medical-only constraint stands: nothing here suggests insulin doses or dietary changes. Tarelka (food flavor) does not see CGM data, so this entire ADR is gated to the gluco flavor server-side via role checks (per BE-4).
+Tarelka (food flavor) does not see CGM data, so this entire ADR is gated to the gluco flavor server-side via role checks (per BE-4).
 
 ## 2 · Decisions
 

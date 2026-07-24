@@ -23,8 +23,6 @@ Start with the maintained documentation map:
   accepted headline totals.
 - Gemini is backend-only.
 - Nightscout insulin is read-only context.
-- No insulin doses, boluses, corrections, target-glucose instructions, or
-  treatment recommendations.
 
 ## Quick Commands
 

@@ -84,8 +84,8 @@ Food flavor has no glucose tab and receives no real Nightscout/glucose surfaces.
 - Glucose surfaces are display-only over immutable raw CGM. Excluded/corrupt
   sensor state must be visible as sensor/data-quality status, not silently
   invented chart data.
-- Digital twin screens are research/informational only and must not present
-  reconstructed curves or fit parameters as CGM truth or treatment guidance.
+- Digital twin screens are research/informational and must not present
+  reconstructed curves or fit parameters as live CGM.
 - Settings is the desktop owner for Nightscout URL/secret, OpenAPI, PDF, and TXT
   exports.
 

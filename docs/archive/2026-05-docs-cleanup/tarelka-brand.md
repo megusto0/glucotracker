@@ -1,10 +1,10 @@
 # Tarelka Brand
 
-Tarelka — спокойный дневник еды: фиксирует блюда, показывает ритм дня и говорит наблюдениями без оценок, тревоги и медицинских обещаний.
+Tarelka — спокойный дневник еды: фиксирует блюда, показывает ритм дня и говорит наблюдениями без оценок и тревоги.
 
 ## Voice Principles
 
-Tarelka is a capture-and-glance food diary. It records meals, totals, history, and patterns without turning food into a score. The product speaks in short Russian phrases, uses server-confirmed facts, and avoids praise, blame, alarm, medical advice, insulin language, streak pressure, or goal-shaming. Observations are descriptive: what happened, when it tends to happen, and how it compares with the user's own recent rhythm.
+Tarelka is a capture-and-glance food diary. It records meals, totals, history, and patterns without turning food into a score. The product speaks in short Russian phrases, uses server-confirmed facts, and avoids praise, blame, alarm, streak pressure, or goal-shaming. Observations are descriptive: what happened, when it tends to happen, and how it compares with the user's own recent rhythm.
 
 The backend owns accepted nutrition totals, daily averages, insight wording, and history counts. The Android client displays those values and may show local pending rows only as pending context. Pending data is never mixed into headline totals.
 
@@ -46,7 +46,7 @@ Clear space around the mark should be at least the dot diameter on all sides. Mi
 | "Чаще всего ешь в 13:00 и 18:00" | "Старайся есть в 13:00 и 18:00" |
 | "Меньше 3 дней истории" | "Недостаточно данных для оценки" |
 
-Copy must stay informational. Avoid `превышение`, `плохо`, `молодец`, `перебор`, `недобор`, `цель не достигнута`, insulin advice, bolus advice, treatment advice, and streak pressure.
+Copy must stay observational. Avoid `превышение`, `плохо`, `молодец`, `перебор`, `недобор`, `цель не достигнута`, and streak pressure.
 
 ## Screenshots
 

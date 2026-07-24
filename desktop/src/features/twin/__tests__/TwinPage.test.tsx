@@ -99,7 +99,7 @@ function renderTwin() {
 }
 
 describe("TwinPage", () => {
-  test("shows not fitted state with required disclaimer", async () => {
+  test("shows not fitted state with research context copy", async () => {
     const notFitted = {
       ...params,
       icr_morning: null,
@@ -119,7 +119,7 @@ describe("TwinPage", () => {
     renderTwin();
 
     expect(await screen.findByText("Двойник ещё не подогнан.")).toBeInTheDocument();
-    expect(screen.getByText(/не является медицинской рекомендацией/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/не CGM-измерение/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByRole("button", { name: "Запустить подгонку" })[0],
     ).toBeEnabled();

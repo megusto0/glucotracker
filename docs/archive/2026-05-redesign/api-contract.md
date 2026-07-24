@@ -354,7 +354,7 @@ Nightscout is optional. If `NIGHTSCOUT_URL` or `NIGHTSCOUT_API_SECRET` is missin
 
 Synced meals are posted as Nightscout treatments with `eventType="Carb Correction"`, meal carbs/protein/fat, notes, and `enteredBy="glucotracker"`. Insulin is never included.
 
-Nightscout context import is read-only. `POST /nightscout/import` can fetch glucose and insulin treatment context into local backend tables for a selected range. Imported insulin is displayed as Nightscout context only; it is not editable in glucotracker and is never used for dosing advice. Imported CGM values are normalized to mmol/L and stored with app-local wall-clock timestamps so journal grouping does not shift through UTC conversion.
+Nightscout context import is read-only. `POST /nightscout/import` can fetch glucose and insulin treatment context into local backend tables for a selected range. Imported insulin is displayed as Nightscout context only and is not editable in glucotracker. Imported CGM values are normalized to mmol/L and stored with app-local wall-clock timestamps so journal grouping does not shift through UTC conversion.
 
 `GET /timeline` returns computed history episodes. The backend groups accepted food rows into food episodes when consecutive meals are within a 30-minute window. For each episode, the backend links local Nightscout insulin events from 30 minutes before the first meal through 90 minutes after the last meal, and local CGM points from 60 minutes before through 180 minutes after. Food episodes are API projections only; they do not replace or merge underlying meal rows.
 
@@ -407,7 +407,7 @@ Glucose windows:
 - after food: median CGM in `[last meal + 90 min, last meal + 150 min]`, with nearest-value fallback around `last meal + 120 min`
 - TIR: selected-period CGM readings in `3.9..10.0 mmol/L`
 
-The report uses the label `НАБЛЮДАЕМЫЙ УК`, unit `г/ЕД`, and formula `Σ carbs / Σ meal-linked insulin`. This is an empirical observation only; API responses and PDF text must never imply a recommended ratio or treatment decision.
+The report uses the label `НАБЛЮДАЕМЫЙ УК`, unit `г/ЕД`, and formula `Σ carbs / Σ meal-linked insulin`.
 
 ## Endpoint Examples
 
@@ -1258,7 +1258,7 @@ Response shape:
   },
   "daily_rows_note": null,
   "bottom_metrics": [],
-  "footer": "Отчёт информационный и не является медицинской рекомендацией."
+  "footer": "Глюкоза в отчёте: исходная CGM.\n"
 }
 ```
 

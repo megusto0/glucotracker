@@ -124,9 +124,7 @@ function SelectedMealPanel({ meal }) {
         <button className="btn" style={{ width: "100%", justifyContent: "center", color: "var(--warn)", borderColor: "var(--warn-soft)" }}>
           <I.Trash size={13}/> Удалить
         </button>
-        <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 8, textAlign: "center" }}>
-          Это оценка, не медицинская рекомендация.
-        </div>
+
       </div>
     </div>
   );

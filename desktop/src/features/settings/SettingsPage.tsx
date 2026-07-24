@@ -157,7 +157,7 @@ export function SettingsPage() {
       <h1 className="gt-h1">Интеграция: Nightscout</h1>
       <p style={{ maxWidth: 720, color: "var(--ink-3)", marginTop: 12, marginBottom: 30, lineHeight: 1.6 }}>
         Nightscout остаётся дополнительной интеграцией. glucotracker может читать контекст глюкозы и
-        показывать записи инсулина, но не считает дозы и не отправляет инсулин.
+        показывать записи инсулина (импорт — только чтение).
       </p>
 
       <div className="row gap-32" style={{ alignItems: "stretch" }}>
@@ -215,7 +215,7 @@ export function SettingsPage() {
             />
             <ToggleRow
               checked={flags.import_insulin_events}
-              description="Только контекст из Nightscout. glucotracker никогда не отправляет инсулин и не предлагает дозу."
+              description="Только контекст из Nightscout. Импортированный инсулин — только чтение."
               label="Показывать записи инсулина из Nightscout"
               onChange={(v) => setFlags((c) => ({ ...c, import_insulin_events: v }))}
             />

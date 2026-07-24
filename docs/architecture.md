@@ -58,7 +58,7 @@ that shape; it avoids QueuePool starvation during FastAPI dependency cleanup.
 
 ### On-board timing personalization
 
-Per `CONCEPT.md` §1, IOB/COB is informational-only. The owner-scoped
+IOB/COB is display context for glucose views. The owner-scoped
 `on_board_model_fits` table stores versioned accepted/rejected timing fits;
 `OnBoardRepository` is the only persistence/training read boundary. Fitting uses
 completed raw-CGM days asynchronously or as part of the existing twin fit flow.

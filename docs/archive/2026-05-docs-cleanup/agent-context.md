@@ -21,9 +21,6 @@ type 1 diabetes. It logs food, photos, macros, calories, local products,
 patterns, CGM context, read-only insulin events from Nightscout, activity/TDEE
 context, statistics, and export/report artifacts.
 
-It is informational only. Never add insulin dose recommendations, bolus advice,
-correction advice, treatment decisions, or medical conclusions.
-
 ## Current Architecture Rule
 
 The backend owns product semantics. The desktop app is a client.
@@ -87,7 +84,7 @@ dashboard. Key files:
   backend mutations.
 - Repeat-by-weight sends grams to backend. Backend scales macros.
 - Sodium/caffeine must not be visually guessed from plated food.
-- Activity/TDEE and calorie balance are context, not medical guidance.
+- Activity/TDEE and calorie balance are diary context.
 
 ## Current UI Data Rules
 

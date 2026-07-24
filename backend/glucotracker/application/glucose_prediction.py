@@ -2,7 +2,7 @@
 
 The predictor is display-only. It learns glucose deltas from the owner's own
 chronological CGM history and augments the recent CGM shape with meal, insulin,
-heart-rate, activity, and sleep context. It never recommends treatment.
+heart-rate, activity, and sleep context.
 """
 
 from __future__ import annotations

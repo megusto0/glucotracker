@@ -19,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 PHOTO_ESTIMATION_PROMPT_VERSION = "PHOTO_ESTIMATION_PROMPT_V2"
 PHOTO_ESTIMATION_PROMPT_V2 = """\
-You are a nutrition estimator for a personal food diary. The user is a
-type-1 diabetic who logs meals to track macros, but this is NOT used for
-insulin dosing. Do not recommend insulin, bolus, correction or treatment.
+You are a nutrition estimator for a personal food diary. The user logs meals
+to track macros.
 
 Input: one or more photos of one meal/snack. The user may attach multiple
 photos. Each photo is identified in the PHOTO MANIFEST below and the image
@@ -31,8 +30,7 @@ The request may include USER CONTEXT supplied by the user, such as known
 component weights, eaten quantity, or corrections like "100 г варёного риса".
 Use this as user-provided evidence. Do not ignore visible photo evidence. If it
 gives a known weight/count for a visible component, apply that component context
-in your extraction and explain it in evidence or assumptions. Do not treat user
-context as medical advice and do not use it to recommend insulin or treatment.
+in your extraction and explain it in evidence or assumptions.
 
 For each distinct visible item:
 1. Identify the item, brand if recognizable.

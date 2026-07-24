@@ -24,21 +24,18 @@ Pre-existing constraints honored:
 - Tarelka voice (`tarelka-brand-evolution-prompts.md` §5): observations not judgments, no streaks, no leaderboards
 - Banned-word lint from TR-6 still in force; this ADR extends it
 - Backend is the single source of truth for insight wording (ADR-007 §2.4 "Server is authoritative for wording")
-- Medical safety: nothing recommends doses, no "you should" copy
-
 ### 1.1 — Problem statement and stakeholder concerns
 
-The product has enough structured data to describe patterns, but exposing that data directly would create three risks:
+The product has enough structured data to describe patterns, but exposing that data directly would create two risks:
 
-1. **Voice risk.** Pattern text can easily sound like praise, blame, or advice. Per `docs/tarelka-brand.md` "Voice Principles", the product must speak in short Russian observations, use server-confirmed facts, and avoid praise, blame, medical advice, insulin language, streak pressure, and goal-shaming.
-2. **Medical-safety risk.** Glucose-derived observations are useful for a gluco user, but they must remain informational. Per `CONCEPT.md` §1 and `docs/architecture.md` "Medical Safety Boundary", the app can show observed context but must not recommend insulin, corrections, boluses, treatment changes, or medical decisions.
-3. **Data-ownership risk.** The backend owns accepted meal totals, daily averages, insight wording, and history counts. Per `docs/architecture.md` "Data Ownership", clients may derive view-only chart presentation but must not become the authority for nutrition totals or insight wording.
+1. **Voice risk.** Pattern text can easily sound like praise, blame, or advice. Per `docs/tarelka-brand.md` "Voice Principles", the product must speak in short Russian observations, use server-confirmed facts, and avoid praise, blame, streak pressure, and goal-shaming.
+2. **Data-ownership risk.** The backend owns accepted meal totals, daily averages, insight wording, and history counts. Per `docs/architecture.md` "Data Ownership", clients may derive view-only chart presentation but must not become the authority for nutrition totals or insight wording.
 
 Stakeholders and concerns:
 
 | Stakeholder | Concern | ADR-009 response |
 |---|---|---|
-| Gluco user | Wants useful glucose context without treatment advice. | CGM-aware insight kinds are gluco-only, deterministic, and phrased as observations. |
+| Gluco user | Wants useful glucose context. | CGM-aware insight kinds are gluco-only, deterministic, and phrased as observations. |
 | Food/Tarelka user | Wants food rhythm insight with no glucose surfaces. | Food flavor receives only food-only kinds; tangerine accents remain flavor-scoped. |
 | Mobile user | Needs capture-and-glance surfaces, not dense analytics. | Stats and Today show at most a small number of observations; sparse data omits the card. |
 | Desktop user | Needs fuller review and filtering workflows. | Desktop Stats gains the insight slot; History chips become real backend filters. |
@@ -700,7 +697,7 @@ One PR per phase; phases sequential.
 - `docs/ADR-007-meal-categorization (1).md` — defines `ai_categories`, `derived_categories`, and adaptive `day_anchor` state consumed here.
 - `docs/ADR-008-postprandial-cgm.md` — defines `postprandial_response`, glycemic response classes, and per-product aggregation used by gluco insights.
 - `docs/ADR-008-followup-recovery-and-delayed-peaks.md` — amends ADR-008 with `is_meal_during_low`, delayed-peak handling, and a future ADR-009 backlog insight.
-- `docs/architecture.md` — establishes backend data ownership, frontend display boundaries, and the medical safety boundary.
+- `docs/architecture.md` — establishes backend data ownership and frontend display boundaries.
 - `CONCEPT.md` §1, §2, §5, §6, §7 — defines mobile scope, desktop-only omissions, design tokens, animation limits, and accessibility rules.
 - `docs/tarelka-brand.md` "Voice Principles", "Color", and "Copy" — defines food-flavor voice, tangerine scoping, and banned copy examples.
 - `docs/openapi.json` — source of truth for client-consumable endpoint contracts after implementation.
@@ -717,7 +714,7 @@ Checklist:
 - [x] Consequences document benefits, costs, risks, and mitigations.
 - [x] Stakeholder concerns are listed and mapped to concrete ADR responses.
 - [x] Related ADRs and product documents are referenced explicitly.
-- [x] Medical safety and food/gluco feature gating are preserved.
+- [x] Food/gluco feature gating is preserved.
 - [x] Multi-user data isolation is called out as a repository-level requirement.
 - [x] No new colors, fonts, radii, or unapproved visual language are introduced.
 - [x] The ADR follows the established local ADR structure: metadata table, Context, Decisions, Specifications, Implementation tasks, Section overrides, Acceptance, Out-of-band asks, and final Consequences/References/Review sections.

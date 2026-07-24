@@ -188,7 +188,7 @@ Single A4 page, ~40pt headroom for spacing.
 Окна дня (Завтрак/Обед/Ужин/Поздний приём) построены адаптивно по последним 7 дням
 ритма пациента. Если расписание определено некорректно — поправь в «Мой ритм».
 Инсулин получен из Nightscout (только чтение). Наблюдаемый УК = г углеводов на 1 ЕД
-meal-linked инсулина. Отчёт информационный и не является медицинской рекомендацией.
+meal-linked инсулина.
 ```
 
 Five short lines, 8pt. Includes the manual-override pointer for cases like the 03:32 misclassification.

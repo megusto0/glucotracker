@@ -433,7 +433,7 @@ function GlucosePage() {
             </div>
 
             <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 22, lineHeight: 1.5 }}>
-              Это оценка, не медицинская рекомендация. Raw CGM не изменяется — нормализация применяется только на дисплее.
+              Raw CGM не изменяется — нормализация применяется только на дисплее.
             </div>
           </aside>
         </div>

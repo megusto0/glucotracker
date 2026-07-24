@@ -259,7 +259,7 @@ export const server = setupServer(
       daily_rows_note: null,
       bottom_metrics: [],
       footer:
-        "Инсулин получен из Nightscout (только чтение). Отчёт информационный и не является медицинской рекомендацией.",
+        "Инсулин получен из Nightscout (только чтение). Наблюдаемый УК = г углеводов на 1 ЕД meal-linked инсулина.",
     }),
   ),
   http.get("http://api.test/meals", () =>

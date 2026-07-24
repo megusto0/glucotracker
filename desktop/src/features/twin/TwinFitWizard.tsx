@@ -322,9 +322,8 @@ function ResultStep({
         окнах.
       </p>
       <div className="twin-fit-note">
-        Подгонка использует ваши исторические записи и НЕ является рекомендацией
-        по изменению реальных коэффициентов ICR/ISF, которые вы используете для
-        дозирования инсулина. Любые такие изменения обсуждайте с врачом.
+        Подгонка использует ваши исторические записи для исследовательской
+        модели (ICR/ISF и связанные параметры).
       </div>
       <div className="twin-fit-actions">
         <button className="btn" disabled={rollbackPending} onClick={onRollback} type="button">

@@ -536,9 +536,8 @@ def generate_glucose_tir_daily(
 ) -> list[StatsOverviewGlucoseDay]:
     """Return per-day TIR band shares for the period (gluco feature only).
 
-    Descriptive measurement only — no targets, no treatment advice. Lives
-    behind the glucose feature gate; never embedded in the shared stats
-    overview so the food flavor stays glucose-free.
+    Descriptive measurement. Lives behind the glucose feature gate; never
+    embedded in the shared stats overview so the food flavor stays glucose-free.
     """
     days = PERIOD_DAYS[period]
     context = StatsInsightsRepository(session, user_id).context_for_period(days)

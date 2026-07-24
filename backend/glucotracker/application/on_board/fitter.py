@@ -1,9 +1,9 @@
 """Robust retrospective fitting of display-only IOB and COB timing.
 
 The fitter deliberately estimates *timing shapes only*.  Insulin sensitivity and
-carbohydrate response are nuisance regression coefficients and are never exposed
-as dose, bolus, correction, or treatment advice.  Raw CGM remains immutable: the
-only preprocessing is deterministic 15-minute median downsampling.
+carbohydrate response are nuisance regression coefficients used for fit quality.
+Raw CGM remains immutable: the only preprocessing is deterministic 15-minute
+median downsampling.
 """
 
 from __future__ import annotations

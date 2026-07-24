@@ -156,7 +156,7 @@ Min touch target 44dp. Color never sole information carrier. Dynamic font: KPI n
 ## Product Invariants (non-negotiable)
 
 1. **Backend is source of truth for accepted records.** Client never recalculates nutrition totals, daily totals, calorie balance, TDEE, TIR, or product math. For PENDING records, client displays local values from input time. When server confirms, replace atomically. Pending and accepted items are NEVER conflated in headline totals: show accepted totals from server plus "+ N в очереди" hint.
-2. **INFORMATIONAL ONLY.** Never recommend insulin dose, bolus, correction, target glucose, or treatment decision. Nightscout insulin = read-only context.
+2. Nightscout insulin imported from Nightscout is read-only context.
 3. CGM raw values are immutable. Normalization is display-only.
 4. Local wall-clock meal times must NOT shift through UTC conversion.
 5. Editing `eaten_at` triggers backend mutation recomputing both old and new day totals.

@@ -81,7 +81,7 @@ For remembered packaged products, frontends may show `Запомнить про�
 
 Nightscout is optional and must not block local saving, editing, accepting, dashboard display, photo estimation, products, or patterns. Frontends should treat `GET /nightscout/status` as capability discovery. If `configured=false` or a sync endpoint returns 503 `Nightscout not configured`, the UI should keep the local meal saved and show sync as unavailable rather than failing the meal workflow.
 
-Frontends must not add insulin fields or dosing behavior around Nightscout sync. Glucotracker sync creates diary-only carb treatments from accepted backend totals.
+Glucotracker sync creates diary-only carb treatments from accepted backend totals.
 
 ## Glucose
 
@@ -93,9 +93,8 @@ endpoints, and calibration recalculation endpoints.
 
 The frontend must not rewrite raw CGM, persist normalized values as source facts,
 or switch history/reports to normalized glucose by default. Normalization is
-display-only and must stay clearly separated from medical decisions. The UI may
-explain quality, confidence, bias, drift, MARD/MAD, and missing-data notes, but
-must not suggest insulin doses, corrections, boluses, or treatment actions.
+display-only. The UI may explain quality, confidence, bias, drift, MARD/MAD, and
+missing-data notes.
 
 Sensor phase and warmup behavior must be rendered from backend fields, not
 recomputed in the browser. Use careful informational wording: "расхождение",

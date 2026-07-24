@@ -65,12 +65,6 @@ Desktop-only flow in `FoodDiaryExportSection.tsx`:
 The TXT export includes accepted meals only, grouped by day, with item-level
 macros and period totals.
 
-## Safety Rules
-
-- Use `Наблюдаемый`, not "recommended".
-- CGM/insulin values are context for discussion with a doctor.
-- No dosing, bolus, correction, or treatment recommendations.
-
 ## Needs Verification
 
 - Exact PDF visual layout should be verified with a generated sample after report

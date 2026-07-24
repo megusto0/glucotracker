@@ -31,7 +31,6 @@ redesign.
 
 ## Product Does Not
 
-- recommend insulin dose, bolus, correction, target glucose, or treatment;
 - expose public registration;
 - expose Gemini keys or Nightscout secrets to frontend code;
 - let clients recompute accepted totals, product math, TDEE, TIR, or report
@@ -61,8 +60,7 @@ Current split:
 - Raw CGM values are immutable. Any normalization is display-only.
 - Excluding a corrupt sensor hides that interval from eligible analytics/display
   paths but does not delete raw CGM rows.
-- Digital twin output is reconstructed/informational context, not CGM truth and
-  not a dosing basis.
+- Digital twin output is reconstructed/informational context, not CGM truth.
 - `eaten_at` is a local wall-clock meal/capture time and must not shift through
   UTC conversion.
 - Editing `eaten_at` is a backend mutation that recomputes both old and new day
