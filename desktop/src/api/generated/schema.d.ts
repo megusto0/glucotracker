@@ -423,6 +423,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/insulin-recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Insulin Recommendation
+         * @description Return a meal estimate plus a safety-gated correction component.
+         */
+        post: operations["getInsulinRecommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/prediction": {
         parameters: {
             query?: never;
@@ -1074,7 +1094,7 @@ export interface paths {
         };
         /**
          * Get Nightscout Insulin
-         * @description Return read-only Nightscout insulin events without linking to dosing.
+         * @description Return read-only Nightscout insulin events.
          */
         get: operations["getNightscoutInsulin"];
         put?: never;
@@ -3290,6 +3310,11 @@ export interface components {
             fiber_g?: number | null;
             /** Kcal */
             kcal?: number | null;
+            /**
+             * Meal Id
+             * Format: uuid
+             */
+            meal_id: string;
             /** Protein G */
             protein_g?: number | null;
             /**
@@ -3894,6 +3919,96 @@ export interface components {
             total_carbs_g: number;
             /** Total Kcal */
             total_kcal: number;
+        };
+        /**
+         * InsulinRecommendationMatchResponse
+         * @description One comparable historical episode used by the estimate.
+         */
+        InsulinRecommendationMatchResponse: {
+            /** Carbs G */
+            carbs_g: number;
+            /** Insulin Units */
+            insulin_units: number;
+            /** Meal Ids */
+            meal_ids: string[];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Scaled Units */
+            scaled_units: number;
+            /** Similarity */
+            similarity: number;
+        };
+        /**
+         * InsulinRecommendationRequest
+         * @description Accepted meal or grouped-meal ids to estimate from personal history.
+         */
+        InsulinRecommendationRequest: {
+            /** Correction Target Mmol L */
+            correction_target_mmol_l?: number | null;
+            /** Meal Ids */
+            meal_ids: string[];
+        };
+        /**
+         * InsulinRecommendationResponse
+         * @description Historical meal estimate plus an optional safety-gated correction.
+         */
+        InsulinRecommendationResponse: {
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "none" | "low" | "medium" | "high";
+            /** Correction Glucose Mmol L */
+            correction_glucose_mmol_l?: number | null;
+            /** Correction Iob Units */
+            correction_iob_units?: number | null;
+            /** Correction Isf Mmol L Per Unit */
+            correction_isf_mmol_l_per_unit?: number | null;
+            /** Correction Projected Glucose Mmol L */
+            correction_projected_glucose_mmol_l?: number | null;
+            /**
+             * Correction Status
+             * @enum {string}
+             */
+            correction_status: "ready" | "not_needed" | "target_required" | "isf_unavailable" | "glucose_unavailable" | "trend_unavailable" | "low_or_falling";
+            /** Correction Target Mmol L */
+            correction_target_mmol_l?: number | null;
+            /** Correction Trend Mmol L Per Min */
+            correction_trend_mmol_l_per_min?: number | null;
+            /** Correction Units */
+            correction_units?: number | null;
+            /** Matched Episode Count */
+            matched_episode_count: number;
+            /** Matches */
+            matches: components["schemas"]["InsulinRecommendationMatchResponse"][];
+            /** Meal Ids */
+            meal_ids: string[];
+            /** Method Version */
+            method_version: string;
+            /** Range High Units */
+            range_high_units?: number | null;
+            /** Range Low Units */
+            range_low_units?: number | null;
+            /** Recommended Units */
+            recommended_units?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "insufficient_history" | "meal_without_carbs";
+            /** Target Carbs G */
+            target_carbs_g: number;
+            /** Target Kcal */
+            target_kcal: number;
+            /** Total Range High Units */
+            total_range_high_units?: number | null;
+            /** Total Range Low Units */
+            total_range_low_units?: number | null;
+            /** Total Recommended Units */
+            total_recommended_units?: number | null;
         };
         /**
          * IssuedTokensResponse
@@ -7867,6 +7982,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DayEpisodesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getInsulinRecommendation: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsulinRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsulinRecommendationResponse"];
                 };
             };
             /** @description Validation Error */

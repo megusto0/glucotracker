@@ -6,8 +6,9 @@ food-only clustering. ``insulin_links`` (desktop review page), the
 ``/glucose/episodes`` endpoint (mobile attribution), and the episode
 snapshot worker all delegate here so the grouping can never diverge.
 
-Descriptive only: episodes attribute records to each other; they never
-suggest doses or treatment.
+Episode grouping itself remains descriptive. A separate, explicit
+``HistoricalInsulinRecommendationService`` may use completed components as
+evidence for a user-reviewed meal-only estimate; it never writes treatment.
 """
 
 from __future__ import annotations

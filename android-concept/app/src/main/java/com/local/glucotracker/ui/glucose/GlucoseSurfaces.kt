@@ -109,6 +109,7 @@ interface GlucoseSurfaces {
         mealId: String?,
         eatenAt: Instant,
         meals: List<MealContextAnchor> = emptyList(),
+        recommendationEligible: Boolean = false,
     )
 
     @Composable
@@ -174,6 +175,7 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         mealId: String?,
         eatenAt: Instant,
         meals: List<MealContextAnchor>,
+        recommendationEligible: Boolean,
     ) = Unit
 
     @Composable

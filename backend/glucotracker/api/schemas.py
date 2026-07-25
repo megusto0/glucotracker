@@ -186,6 +186,59 @@ class DayEpisodesResponse(BaseModel):
     episodes: list[DayEpisodeResponse]
 
 
+class InsulinRecommendationRequest(BaseModel):
+    """Accepted meal or grouped-meal ids to estimate from personal history."""
+
+    meal_ids: list[UUID] = Field(min_length=1, max_length=20)
+    correction_target_mmol_l: float | None = Field(default=None, ge=3.9, le=10)
+
+
+class InsulinRecommendationMatchResponse(BaseModel):
+    """One comparable historical episode used by the estimate."""
+
+    occurred_at: datetime
+    meal_ids: list[UUID]
+    carbs_g: float
+    insulin_units: float
+    scaled_units: float
+    similarity: float = Field(ge=0, le=1)
+
+
+class InsulinRecommendationResponse(BaseModel):
+    """Historical meal estimate plus an optional safety-gated correction."""
+
+    status: Literal["ready", "insufficient_history", "meal_without_carbs"]
+    meal_ids: list[UUID]
+    target_carbs_g: float
+    target_kcal: float
+    recommended_units: float | None = None
+    range_low_units: float | None = None
+    range_high_units: float | None = None
+    correction_status: Literal[
+        "ready",
+        "not_needed",
+        "target_required",
+        "isf_unavailable",
+        "glucose_unavailable",
+        "trend_unavailable",
+        "low_or_falling",
+    ]
+    correction_units: float | None = None
+    correction_target_mmol_l: float | None = None
+    correction_glucose_mmol_l: float | None = None
+    correction_projected_glucose_mmol_l: float | None = None
+    correction_trend_mmol_l_per_min: float | None = None
+    correction_isf_mmol_l_per_unit: float | None = None
+    correction_iob_units: float | None = None
+    total_recommended_units: float | None = None
+    total_range_low_units: float | None = None
+    total_range_high_units: float | None = None
+    confidence: Literal["none", "low", "medium", "high"]
+    matched_episode_count: int
+    matches: list[InsulinRecommendationMatchResponse]
+    method_version: str
+
+
 class StatsOverviewResponse(BaseModel):
     """Structured mobile stats aggregate."""
 
@@ -1654,6 +1707,7 @@ class GlucoseDashboardPoint(BaseModel):
 class GlucoseDashboardFoodEvent(BaseModel):
     """Food marker for glucose dashboard overlays."""
 
+    meal_id: UUID
     timestamp: datetime
     title: str
     carbs_g: float
@@ -1780,9 +1834,9 @@ class GlucosePredictionModel(BaseModel):
 
     version: str
     algorithm: str
-    forecast_assumption: Literal[
-        "observed_policy", "no_new_food_or_insulin"
-    ] = "observed_policy"
+    forecast_assumption: Literal["observed_policy", "no_new_food_or_insulin"] = (
+        "observed_policy"
+    )
     training_from: datetime | None = None
     training_to: datetime | None = None
     sample_count: int = 0

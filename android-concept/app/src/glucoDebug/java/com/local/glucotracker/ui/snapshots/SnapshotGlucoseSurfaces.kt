@@ -76,6 +76,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         mealId: String?,
         eatenAt: Instant,
         meals: List<MealContextAnchor>,
+        recommendationEligible: Boolean,
     ) = Unit
 
     @Composable

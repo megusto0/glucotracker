@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
@@ -22,6 +22,9 @@ from glucotracker.api.schemas import (
     GlucosePredictionResponse,
     GlucoseTirDailyResponse,
     GlucoseTirDayResponse,
+    InsulinRecommendationMatchResponse,
+    InsulinRecommendationRequest,
+    InsulinRecommendationResponse,
     SensorQualityResponse,
     SensorSessionCreate,
     SensorSessionPatch,
@@ -35,6 +38,9 @@ from glucotracker.application.glucose_dashboard import GlucoseDashboardService
 from glucotracker.application.glucose_prediction import GlucosePredictionService
 from glucotracker.application.glucose_prediction_audit import (
     GlucosePredictionAuditService,
+)
+from glucotracker.application.insulin_recommendation import (
+    HistoricalInsulinRecommendationService,
 )
 from glucotracker.application.stats_insights import (
     InsightPeriod,
@@ -157,6 +163,67 @@ def get_glucose_episodes(
         from_datetime=from_datetime,
         to_datetime=to_datetime,
         episodes=episodes,
+    )
+
+
+@router.post(
+    "/glucose/insulin-recommendation",
+    response_model=InsulinRecommendationResponse,
+    operation_id="getInsulinRecommendation",
+)
+def get_insulin_recommendation(
+    payload: InsulinRecommendationRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> InsulinRecommendationResponse:
+    """Return a meal estimate plus a safety-gated correction component."""
+    calculation = HistoricalInsulinRecommendationService(
+        session,
+        current_user.id,
+    ).estimate(
+        payload.meal_ids,
+        payload.correction_target_mmol_l,
+    )
+    if calculation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more accepted meals were not found.",
+        )
+    estimate = calculation.meal
+    correction = calculation.correction
+    return InsulinRecommendationResponse(
+        status=estimate.status,
+        meal_ids=estimate.meal_ids,
+        target_carbs_g=estimate.target_carbs_g,
+        target_kcal=estimate.target_kcal,
+        recommended_units=estimate.recommended_units,
+        range_low_units=estimate.range_low_units,
+        range_high_units=estimate.range_high_units,
+        correction_status=correction.status,
+        correction_units=correction.units,
+        correction_target_mmol_l=correction.target_mmol_l,
+        correction_glucose_mmol_l=correction.glucose_mmol_l,
+        correction_projected_glucose_mmol_l=(correction.projected_glucose_mmol_l),
+        correction_trend_mmol_l_per_min=correction.trend_mmol_l_per_min,
+        correction_isf_mmol_l_per_unit=correction.isf_mmol_l_per_unit,
+        correction_iob_units=correction.iob_units,
+        total_recommended_units=calculation.total_recommended_units,
+        total_range_low_units=calculation.total_range_low_units,
+        total_range_high_units=calculation.total_range_high_units,
+        confidence=estimate.confidence,
+        matched_episode_count=len(estimate.matches),
+        matches=[
+            InsulinRecommendationMatchResponse(
+                occurred_at=match.occurred_at,
+                meal_ids=match.meal_ids,
+                carbs_g=match.carbs_g,
+                insulin_units=match.insulin_units,
+                scaled_units=match.scaled_units,
+                similarity=match.similarity,
+            )
+            for match in estimate.matches
+        ],
+        method_version=estimate.method_version,
     )
 
 

@@ -658,6 +658,7 @@ class GlucoseDashboardService:
             )
             events.append(
                 GlucoseDashboardFoodEvent(
+                    meal_id=meal.id,
                     timestamp=meal.eaten_at,
                     title=meal.title or "Приём пищи",
                     carbs_g=carbs,

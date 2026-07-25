@@ -68,14 +68,12 @@ export type NightscoutImportResponse =
 export type NightscoutLatestReadingResponse =
   components["schemas"]["NightscoutLatestReadingResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
-export type FoodEpisodeResponse =
-  components["schemas"]["FoodEpisodeResponse"];
+export type FoodEpisodeResponse = components["schemas"]["FoodEpisodeResponse"];
 export type InsulinLinkDayPutRequest =
   components["schemas"]["InsulinLinkDayPutRequest"];
 export type InsulinLinkDayResponse =
   components["schemas"]["InsulinLinkDayResponse"];
-export type MealInsulinLinkItem =
-  components["schemas"]["MealInsulinLinkItem"];
+export type MealInsulinLinkItem = components["schemas"]["MealInsulinLinkItem"];
 export type AdminRecalculateResponse =
   components["schemas"]["AdminRecalculateResponse"];
 export type DatabaseItemResponse =
@@ -93,24 +91,32 @@ export type ApplyEstimationRunResponse =
   components["schemas"]["ApplyEstimationRunResponse"];
 export type EndocrinologistReportResponse =
   components["schemas"]["EndocrinologistReportResponse"];
-export type ReportGlucoseMode =
-  NonNullable<EndocrinologistReportResponse["glucose_mode"]>;
+export type ReportGlucoseMode = NonNullable<
+  EndocrinologistReportResponse["glucose_mode"]
+>;
 export type GlucoseDashboardResponse =
   components["schemas"]["GlucoseDashboardResponse"];
 export type GlucosePredictionResponse =
   components["schemas"]["GlucosePredictionResponse"];
+export type DayEpisodesResponse = components["schemas"]["DayEpisodesResponse"];
+export type InsulinRecommendationRequest =
+  components["schemas"]["InsulinRecommendationRequest"];
+export type InsulinRecommendationResponse =
+  components["schemas"]["InsulinRecommendationResponse"];
 export type GlucosePredictionMode = GlucosePredictionResponse["mode"];
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
+export type NightscoutInsulinEntryCreate =
+  components["schemas"]["NightscoutInsulinEntryCreate"];
+export type NightscoutInsulinEventResponse =
+  components["schemas"]["NightscoutInsulinEventResponse"];
 export type FingerstickReadingCreate =
   components["schemas"]["FingerstickReadingCreate"];
 export type FingerstickReadingPatch =
   components["schemas"]["FingerstickReadingPatch"];
 export type FingerstickReadingResponse =
   components["schemas"]["FingerstickReadingResponse"];
-export type SensorSessionCreate =
-  components["schemas"]["SensorSessionCreate"];
-export type SensorSessionPatch =
-  components["schemas"]["SensorSessionPatch"];
+export type SensorSessionCreate = components["schemas"]["SensorSessionCreate"];
+export type SensorSessionPatch = components["schemas"]["SensorSessionPatch"];
 export type SensorSessionResponse =
   components["schemas"]["SensorSessionResponse"];
 export type SensorQualityResponse =
@@ -120,10 +126,12 @@ export type CgmCalibrationModelResponse =
 export type UserProfileResponse = components["schemas"]["UserProfileResponse"];
 export type UserProfileUpdate = components["schemas"]["UserProfileUpdate"];
 export type ActivitySyncRequest = components["schemas"]["ActivitySyncRequest"];
-export type ActivitySyncResponse = components["schemas"]["ActivitySyncResponse"];
+export type ActivitySyncResponse =
+  components["schemas"]["ActivitySyncResponse"];
 export type KcalBalanceResponse = components["schemas"]["KcalBalanceResponse"];
 export type KcalBalanceDay = components["schemas"]["KcalBalanceDay"];
-export type KcalBalanceRangeResponse = components["schemas"]["KcalBalanceRangeResponse"];
+export type KcalBalanceRangeResponse =
+  components["schemas"]["KcalBalanceRangeResponse"];
 export type TwinCurveResponse = components["schemas"]["TwinCurveResponse"];
 export type TwinDataSummaryResponse =
   components["schemas"]["TwinDataSummaryResponse"];
@@ -321,16 +329,20 @@ let _authSessionManager: {
   refreshAccessToken: () => Promise<string | null>;
 } | null = null;
 
-export function setConnectionNotifier(notifier: {
-  onSuccess: () => void;
-  onFailure: (error: string) => void;
-} | null) {
+export function setConnectionNotifier(
+  notifier: {
+    onSuccess: () => void;
+    onFailure: (error: string) => void;
+  } | null,
+) {
   _connectionManagerNotify = notifier;
 }
 
-export function setAuthSessionManager(manager: {
-  refreshAccessToken: () => Promise<string | null>;
-} | null) {
+export function setAuthSessionManager(
+  manager: {
+    refreshAccessToken: () => Promise<string | null>;
+  } | null,
+) {
   _authSessionManager = manager;
 }
 
@@ -607,14 +619,10 @@ export const apiClient = {
     itemId: string,
     body: MealItemWeightReuseRequest,
   ) =>
-    apiRequest<MealResponse>(
-      `/meal_items/${itemId}/copy_by_weight`,
-      config,
-      {
-        method: "POST",
-        body,
-      },
-    ),
+    apiRequest<MealResponse>(`/meal_items/${itemId}/copy_by_weight`, config, {
+      method: "POST",
+      body,
+    }),
 
   createProduct: (config: ApiConfig, body: ProductCreate) =>
     apiRequest<ProductResponse>("/products", config, {
@@ -764,9 +772,13 @@ export const apiClient = {
     period: "7d" | "14d" | "30d" = "14d",
     slot: "stats" | "today" = "stats",
   ) =>
-    apiRequest<{ insights: StatsInsightResponse[] }>("/stats/insights", config, {
-      query: { period, slot },
-    }),
+    apiRequest<{ insights: StatsInsightResponse[] }>(
+      "/stats/insights",
+      config,
+      {
+        query: { period, slot },
+      },
+    ),
 
   getSchedule: (config: ApiConfig) =>
     apiRequest<ScheduleResponse>("/me/schedule", config),
@@ -851,10 +863,7 @@ export const apiClient = {
       query: { from, to },
     }),
 
-  importNightscoutContext: (
-    config: ApiConfig,
-    body: NightscoutImportRequest,
-  ) =>
+  importNightscoutContext: (config: ApiConfig, body: NightscoutImportRequest) =>
     apiRequest<NightscoutImportResponse>("/nightscout/import", config, {
       method: "POST",
       body,
@@ -911,10 +920,40 @@ export const apiClient = {
       timeoutMs: 30_000,
     }),
 
+  getGlucoseEpisodes: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<DayEpisodesResponse>("/glucose/episodes", config, {
+      query: { from, to },
+    }),
+
+  getInsulinRecommendation: (
+    config: ApiConfig,
+    body: InsulinRecommendationRequest,
+  ) =>
+    apiRequest<InsulinRecommendationResponse>(
+      "/glucose/insulin-recommendation",
+      config,
+      {
+        method: "POST",
+        body,
+      },
+    ),
+
+  createNightscoutInsulin: (
+    config: ApiConfig,
+    body: NightscoutInsulinEntryCreate,
+  ) =>
+    apiRequest<NightscoutInsulinEventResponse>("/nightscout/insulin", config, {
+      method: "POST",
+      body,
+    }),
+
   listFingersticks: (
     config: ApiConfig,
     query: { from?: string; to?: string } = {},
-  ) => apiRequest<FingerstickReadingResponse[]>("/fingersticks", config, { query }),
+  ) =>
+    apiRequest<FingerstickReadingResponse[]>("/fingersticks", config, {
+      query,
+    }),
 
   createFingerstick: (config: ApiConfig, body: FingerstickReadingCreate) =>
     apiRequest<FingerstickReadingResponse>("/fingersticks", config, {
@@ -950,7 +989,11 @@ export const apiClient = {
       body,
     }),
 
-  patchSensor: (config: ApiConfig, sensorId: string, body: SensorSessionPatch) =>
+  patchSensor: (
+    config: ApiConfig,
+    sensorId: string,
+    body: SensorSessionPatch,
+  ) =>
     apiRequest<SensorSessionResponse>(`/sensors/${sensorId}`, config, {
       method: "PATCH",
       body,

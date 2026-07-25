@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -9,7 +10,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from glucotracker.domain.auth import UserRole
-from glucotracker.infra.db.models import OnBoardModelFit, User
+from glucotracker.domain.entities import MealSource, MealStatus
+from glucotracker.infra.db.models import Meal, OnBoardModelFit, User
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.security import hash_password
 
@@ -72,6 +74,51 @@ def test_on_board_repository_requires_user_id(api_client: TestClient) -> None:
             match="OnBoardRepository requires user_id",
         ):
             OnBoardRepository(session, None)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("requested_owner", ["alice", "bob"])
+def test_explicit_meal_reads_are_owner_scoped(
+    api_client: TestClient,
+    requested_owner: str,
+) -> None:
+    session_factory = api_client.app_state["session_factory"]
+    alice_id = UUID(str(api_client.app_state["current_user_id"]))
+
+    with session_factory() as session:
+        bob = User(
+            username=f"bob-meal-read-{uuid4().hex}",
+            password_hash=hash_password("bob-pass"),
+            role=UserRole.gluco,
+        )
+        session.add(bob)
+        session.flush()
+        alice_meal = Meal(
+            owner_id=alice_id,
+            eaten_at=datetime(2026, 7, 20, 12, 0),
+            title="alice",
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_carbs_g=20,
+            total_kcal=100,
+        )
+        bob_meal = Meal(
+            owner_id=bob.id,
+            eaten_at=datetime(2026, 7, 20, 12, 0),
+            title="bob",
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_carbs_g=30,
+            total_kcal=150,
+        )
+        session.add_all([alice_meal, bob_meal])
+        session.flush()
+
+        owner_id = alice_id if requested_owner == "alice" else bob.id
+        rows = OnBoardRepository(session, owner_id).list_accepted_meals_by_ids(
+            [alice_meal.id, bob_meal.id],
+        )
+
+    assert [row.title for row in rows] == [requested_owner]
 
 
 @pytest.mark.parametrize("read_method", ["get", "list"])

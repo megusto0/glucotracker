@@ -6,6 +6,8 @@ import com.local.glucotracker.generated.model.DayEpisodesResponse
 import com.local.glucotracker.generated.model.FingerstickReadingResponse
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.GlucoseTirDailyResponse
+import com.local.glucotracker.generated.model.InsulinRecommendationRequest
+import com.local.glucotracker.generated.model.InsulinRecommendationResponse
 import com.local.glucotracker.generated.model.NightscoutDayStatusResponse
 import com.local.glucotracker.generated.model.NightscoutInsulinEventResponse
 import com.local.glucotracker.generated.model.NightscoutStatusResponse
@@ -29,6 +31,13 @@ class GlucoseApi @Inject constructor(
 
     suspend fun episodes(from: Instant, to: Instant): DayEpisodesResponse =
         glucoseApi.getGlucoseEpisodes(from = from, to = to).body()
+
+    suspend fun insulinRecommendation(
+        mealIds: List<java.util.UUID>,
+    ): InsulinRecommendationResponse =
+        glucoseApi.getInsulinRecommendation(
+            InsulinRecommendationRequest(mealIds = mealIds),
+        ).body()
 
     suspend fun sensors(): List<SensorSessionResponse> =
         glucoseApi.listSensors().body()

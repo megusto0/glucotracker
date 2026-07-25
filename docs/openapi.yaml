@@ -2304,6 +2304,10 @@ components:
           - type: number
           - type: 'null'
           title: Kcal
+        meal_id:
+          format: uuid
+          title: Meal Id
+          type: string
         protein_g:
           anyOf:
           - type: number
@@ -2317,6 +2321,7 @@ components:
           title: Title
           type: string
       required:
+      - meal_id
       - timestamp
       - title
       - carbs_g
@@ -3282,6 +3287,193 @@ components:
       - total_carbs_g
       - total_kcal
       title: InsulinLinkMealResponse
+      type: object
+    InsulinRecommendationMatchResponse:
+      description: One comparable historical episode used by the estimate.
+      properties:
+        carbs_g:
+          title: Carbs G
+          type: number
+        insulin_units:
+          title: Insulin Units
+          type: number
+        meal_ids:
+          items:
+            format: uuid
+            type: string
+          title: Meal Ids
+          type: array
+        occurred_at:
+          format: date-time
+          title: Occurred At
+          type: string
+        scaled_units:
+          title: Scaled Units
+          type: number
+        similarity:
+          maximum: 1.0
+          minimum: 0.0
+          title: Similarity
+          type: number
+      required:
+      - occurred_at
+      - meal_ids
+      - carbs_g
+      - insulin_units
+      - scaled_units
+      - similarity
+      title: InsulinRecommendationMatchResponse
+      type: object
+    InsulinRecommendationRequest:
+      description: Accepted meal or grouped-meal ids to estimate from personal history.
+      properties:
+        correction_target_mmol_l:
+          anyOf:
+          - maximum: 10.0
+            minimum: 3.9
+            type: number
+          - type: 'null'
+          title: Correction Target Mmol L
+        meal_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          minItems: 1
+          title: Meal Ids
+          type: array
+      required:
+      - meal_ids
+      title: InsulinRecommendationRequest
+      type: object
+    InsulinRecommendationResponse:
+      description: Historical meal estimate plus an optional safety-gated correction.
+      properties:
+        confidence:
+          enum:
+          - none
+          - low
+          - medium
+          - high
+          title: Confidence
+          type: string
+        correction_glucose_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Glucose Mmol L
+        correction_iob_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Iob Units
+        correction_isf_mmol_l_per_unit:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Isf Mmol L Per Unit
+        correction_projected_glucose_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Projected Glucose Mmol L
+        correction_status:
+          enum:
+          - ready
+          - not_needed
+          - target_required
+          - isf_unavailable
+          - glucose_unavailable
+          - trend_unavailable
+          - low_or_falling
+          title: Correction Status
+          type: string
+        correction_target_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Target Mmol L
+        correction_trend_mmol_l_per_min:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Trend Mmol L Per Min
+        correction_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Units
+        matched_episode_count:
+          title: Matched Episode Count
+          type: integer
+        matches:
+          items:
+            $ref: '#/components/schemas/InsulinRecommendationMatchResponse'
+          title: Matches
+          type: array
+        meal_ids:
+          items:
+            format: uuid
+            type: string
+          title: Meal Ids
+          type: array
+        method_version:
+          title: Method Version
+          type: string
+        range_high_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Range High Units
+        range_low_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Range Low Units
+        recommended_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Recommended Units
+        status:
+          enum:
+          - ready
+          - insufficient_history
+          - meal_without_carbs
+          title: Status
+          type: string
+        target_carbs_g:
+          title: Target Carbs G
+          type: number
+        target_kcal:
+          title: Target Kcal
+          type: number
+        total_range_high_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Total Range High Units
+        total_range_low_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Total Range Low Units
+        total_recommended_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Total Recommended Units
+      required:
+      - status
+      - meal_ids
+      - target_carbs_g
+      - target_kcal
+      - correction_status
+      - confidence
+      - matched_episode_count
+      - matches
+      - method_version
+      title: InsulinRecommendationResponse
       type: object
     IssuedTokensResponse:
       description: Issued access and refresh token response.
@@ -9384,6 +9576,46 @@ paths:
       x-glucotracker-required-feature: glucose
       x-glucotracker-required-role: gluco
       x-glucotracker-scoped: true
+  /glucose/insulin-recommendation:
+    post:
+      description: Return a meal estimate plus a safety-gated correction component.
+      operationId: getInsulinRecommendation
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsulinRecommendationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsulinRecommendationResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Insulin Recommendation
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
   /glucose/prediction:
     get:
       description: Return a validated personal forecast for informational display
@@ -11038,7 +11270,7 @@ paths:
       x-glucotracker-scoped: true
   /nightscout/insulin:
     get:
-      description: Return read-only Nightscout insulin events without linking to dosing.
+      description: Return read-only Nightscout insulin events.
       operationId: getNightscoutInsulin
       parameters:
       - in: query

@@ -1,4 +1,4 @@
-import { Bell, Menu, RefreshCw, Volume2 } from "lucide-react";
+import { Bell, Menu, RefreshCw, Volume2, X } from "lucide-react";
 import {
   useMemo,
   useRef,
@@ -8,19 +8,28 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
+  DayEpisodesResponse,
   GlucoseDashboardResponse,
   GlucoseMode,
   GlucosePredictionResponse,
 } from "../../api/client";
 import {
+  useCreateNightscoutInsulin,
   useGlucoseDashboard,
+  useGlucoseEpisodes,
   useGlucosePrediction,
+  useInsulinRecommendation,
 } from "../glucose/useGlucoseDashboard";
 import "./nightscout-page.css";
 
 type DisplayMode = Extract<GlucoseMode, "raw" | "normalized">;
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
+type FoodEvent = GlucoseDashboardResponse["food_events"][number];
+type SelectableFoodEvent = Omit<FoodEvent, "meal_id"> & {
+  meal_id?: string;
+};
 type ForecastPoint = GlucosePredictionResponse["points"][number];
+type DayEpisode = DayEpisodesResponse["episodes"][number];
 type HoverPoint =
   | {
       kind: "history";
@@ -133,6 +142,9 @@ export function NightscoutPage() {
   const [hours, setHours] = useState<(typeof HOUR_OPTIONS)[number]>(3);
   const [mode, setMode] = useState<DisplayMode>("raw");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedFood, setSelectedFood] = useState<SelectableFoodEvent | null>(
+    null,
+  );
   const [refreshAnchor, setRefreshAnchor] = useState(() => new Date());
 
   useEffect(() => {
@@ -165,6 +177,7 @@ export function NightscoutPage() {
     mode,
   );
   const prediction = useGlucosePrediction(mode);
+  const episodes = useGlucoseEpisodes(range.from, range.to);
   const points = dashboard.data?.points ?? [];
   const latest = points[points.length - 1];
   const previous = points[points.length - 2];
@@ -178,6 +191,22 @@ export function NightscoutPage() {
   const missingPercent = dashboard.data?.quality.missing_data_pct;
   const summary = dashboard.data?.summary;
   const isUrgent = latestValue !== null && latestValue < 3.0;
+  const selectedEpisode = useMemo(
+    () =>
+      episodes.data?.episodes.find((episode) =>
+        selectedFood ? episodeContainsFood(episode, selectedFood) : false,
+      ) ?? null,
+    [episodes.data, selectedFood],
+  );
+  const selectedFoodEvents = useMemo(
+    () =>
+      selectedEpisode
+        ? (dashboard.data?.food_events ?? []).filter((event) =>
+            episodeContainsFood(selectedEpisode, event),
+          )
+        : [],
+    [dashboard.data, selectedEpisode],
+  );
 
   const refresh = () => {
     setRefreshAnchor(new Date());
@@ -326,7 +355,277 @@ export function NightscoutPage() {
         overview={overview.data}
         prediction={prediction.data}
         predictionError={Boolean(prediction.error)}
+        onFoodSelect={setSelectedFood}
       />
+      {selectedFood && !selectedEpisode ? (
+        <div
+          aria-label="Инсулин для приёма"
+          aria-modal="false"
+          className="ns-insulin-panel"
+          role="dialog"
+        >
+          <button
+            aria-label="Закрыть"
+            className="ns-insulin-panel-close"
+            onClick={() => setSelectedFood(null)}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+          <span className="ns-insulin-kicker">ПРИЁМ ПИЩИ</span>
+          <p>
+            {episodes.isLoading
+              ? "Определяю общий приём…"
+              : "Не удалось определить приём."}
+          </p>
+        </div>
+      ) : null}
+      {selectedEpisode ? (
+        <InsulinEpisodePanel
+          episode={selectedEpisode}
+          foodEvents={selectedFoodEvents}
+          key={selectedEpisode.key}
+          onClose={() => setSelectedFood(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function episodeContainsFood(episode: DayEpisode, food: SelectableFoodEvent) {
+  if (food.meal_id && episode.meal_ids.includes(food.meal_id)) return true;
+  const foodTime = Date.parse(food.timestamp);
+  const startTime = Date.parse(episode.start_at);
+  const endTime = Date.parse(episode.end_at);
+  return (
+    Number.isFinite(foodTime) &&
+    Number.isFinite(startTime) &&
+    Number.isFinite(endTime) &&
+    foodTime >= startTime &&
+    foodTime <= endTime
+  );
+}
+
+function formatDose(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(1)
+    : "—";
+}
+
+function correctionStatusText(
+  status:
+    | NonNullable<
+        ReturnType<typeof useInsulinRecommendation>["data"]
+      >["correction_status"]
+    | undefined,
+) {
+  if (status === "target_required") return "Укажите личную цель.";
+  if (status === "isf_unavailable")
+    return "Нет персонального ISF в цифровом двойнике.";
+  if (status === "glucose_unavailable")
+    return "Нет надёжной глюкозы перед приёмом.";
+  if (status === "trend_unavailable")
+    return "Недостаточно точек для оценки тренда.";
+  if (status === "low_or_falling")
+    return "Глюкоза низкая или быстро снижается — итог не рассчитан.";
+  if (status === "not_needed")
+    return "Коррекция не нужна с учётом тренда и IOB.";
+  if (!status) return "Для коррекции нужен обновлённый backend.";
+  return null;
+}
+
+function InsulinEpisodePanel({
+  episode,
+  foodEvents,
+  onClose,
+}: {
+  episode: DayEpisode;
+  foodEvents: FoodEvent[];
+  onClose: () => void;
+}) {
+  const [targetText, setTargetText] = useState("");
+  const [actualText, setActualText] = useState("");
+  const [savedActual, setSavedActual] = useState<number | null>(null);
+  const parsedTarget = Number(targetText.replace(",", "."));
+  const correctionTarget =
+    Number.isFinite(parsedTarget) && parsedTarget >= 3.9 && parsedTarget <= 10
+      ? parsedTarget
+      : undefined;
+  const recommendation = useInsulinRecommendation(
+    episode.meal_ids,
+    correctionTarget,
+  );
+  const createInsulin = useCreateNightscoutInsulin();
+  const parsedActual = Number(actualText.replace(",", "."));
+  const actualUnits =
+    episode.total_insulin_units > 0 ? episode.total_insulin_units : savedActual;
+  const canSubmit =
+    Number.isFinite(parsedActual) && parsedActual > 0 && parsedActual <= 100;
+  const carbs = foodEvents.map((event) => event.carbs_g);
+  const recommendationData = recommendation.data;
+  const correctionMessage = correctionStatusText(
+    recommendationData?.correction_status,
+  );
+
+  const submitActual = async () => {
+    if (!canSubmit) return;
+    const idempotencyKey =
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `nightscout-${Date.now()}`;
+    const created = await createInsulin.mutateAsync({
+      insulin_units: parsedActual,
+      recorded_at: episode.start_at,
+      idempotency_key: idempotencyKey,
+    });
+    setSavedActual(created.insulin_units ?? parsedActual);
+  };
+
+  return (
+    <div
+      aria-label="Инсулин для приёма"
+      aria-modal="false"
+      className="ns-insulin-panel"
+      role="dialog"
+    >
+      <button
+        aria-label="Закрыть"
+        className="ns-insulin-panel-close"
+        onClick={onClose}
+        type="button"
+      >
+        <X size={18} />
+      </button>
+      <span className="ns-insulin-kicker">ПРИЁМ ПИЩИ</span>
+      <h2>Инсулин для приёма</h2>
+      <p className="ns-insulin-meal-summary">
+        {carbs.length
+          ? carbs.map((value) => `${value.toFixed(0)} г`).join(" + ")
+          : `${episode.total_carbs_g.toFixed(0)} г`}
+        <span>{foodEvents.map((event) => event.title).join(" · ")}</span>
+      </p>
+
+      <section className="ns-insulin-result">
+        <span className="ns-insulin-kicker">РАСЧЁТ</span>
+        <label className="ns-insulin-target" htmlFor="ns-correction-target">
+          <span>Личная цель глюкозы</span>
+          <span>
+            <input
+              autoComplete="off"
+              id="ns-correction-target"
+              inputMode="decimal"
+              onChange={(event) =>
+                setTargetText(
+                  event.target.value
+                    .replace(/[^\d.,]/g, "")
+                    .replace(".", ",")
+                    .slice(0, 4),
+                )
+              }
+              placeholder="—"
+              value={targetText}
+            />
+            ммоль/л
+          </span>
+        </label>
+        {recommendation.isLoading ? (
+          <p>Сравниваю с прошлыми приёмами…</p>
+        ) : recommendation.isError ? (
+          <p className="ns-insulin-error">Расчёт сейчас недоступен.</p>
+        ) : recommendationData?.status === "ready" ? (
+          <>
+            <div className="ns-insulin-equation">
+              <div>
+                <span>Еда</span>
+                <strong>
+                  {formatDose(recommendationData.recommended_units)} Ед
+                </strong>
+              </div>
+              <b aria-hidden="true">+</b>
+              <div>
+                <span>Коррекция</span>
+                <strong>
+                  {formatDose(recommendationData.correction_units)} Ед
+                </strong>
+              </div>
+              <b aria-hidden="true">=</b>
+              <div className="ns-insulin-total">
+                <span>Итого</span>
+                <strong>
+                  {formatDose(recommendationData.total_recommended_units)} Ед
+                </strong>
+              </div>
+            </div>
+            {correctionMessage ? (
+              <small>{correctionMessage}</small>
+            ) : (
+              <small>
+                Глюкоза{" "}
+                {formatDose(recommendationData.correction_glucose_mmol_l)} →{" "}
+                {formatDose(
+                  recommendationData.correction_projected_glucose_mmol_l,
+                )}{" "}
+                ммоль/л · IOB{" "}
+                {formatDose(recommendationData.correction_iob_units)} Ед · ISF{" "}
+                {formatDose(recommendationData.correction_isf_mmol_l_per_unit)}
+              </small>
+            )}
+            <small>
+              Еда: {formatDose(recommendationData.range_low_units)}–
+              {formatDose(recommendationData.range_high_units)} Ед · похожих
+              приёмов: {recommendationData.matched_episode_count}
+            </small>
+          </>
+        ) : recommendationData?.status === "meal_without_carbs" ? (
+          <p>В приёме нет углеводов для расчёта.</p>
+        ) : (
+          <p>
+            Недостаточно истории: найдено{" "}
+            {recommendationData?.matched_episode_count ?? 0} из 3 приёмов.
+          </p>
+        )}
+      </section>
+
+      <section className="ns-insulin-actual">
+        <span className="ns-insulin-kicker">ФАКТИЧЕСКИ</span>
+        {typeof actualUnits === "number" ? (
+          <strong>{formatDose(actualUnits)} Ед</strong>
+        ) : (
+          <>
+            <label htmlFor="ns-actual-insulin">Введено инсулина</label>
+            <div>
+              <input
+                autoComplete="off"
+                id="ns-actual-insulin"
+                inputMode="decimal"
+                onChange={(event) =>
+                  setActualText(
+                    event.target.value
+                      .replace(/[^\d.,]/g, "")
+                      .replace(".", ",")
+                      .slice(0, 6),
+                  )
+                }
+                placeholder="0,0"
+                value={actualText}
+              />
+              <span>Ед</span>
+            </div>
+            <button
+              disabled={!canSubmit || createInsulin.isPending}
+              onClick={() => void submitActual()}
+              type="button"
+            >
+              {createInsulin.isPending ? "Записываю…" : "Записать"}
+            </button>
+            {createInsulin.isError ? (
+              <p className="ns-insulin-error">
+                Не удалось записать фактический инсулин.
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -339,6 +638,7 @@ function NightscoutChart({
   overview,
   prediction,
   predictionError,
+  onFoodSelect,
 }: {
   data?: GlucoseDashboardResponse;
   error: boolean;
@@ -347,6 +647,7 @@ function NightscoutChart({
   overview?: GlucoseDashboardResponse;
   prediction?: GlucosePredictionResponse;
   predictionError: boolean;
+  onFoodSelect: (food: SelectableFoodEvent) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -492,8 +793,7 @@ function NightscoutChart({
       ? `${scaleX(latestHistorical.timestamp)},${scaleY(displayValue(latestHistorical, mode))}`
       : null,
     ...forecastPoints.map(
-      (point) =>
-        `${scaleX(point.timestamp)},${scaleY(point.display_value)}`,
+      (point) => `${scaleX(point.timestamp)},${scaleY(point.display_value)}`,
     ),
   ]
     .filter((value): value is string => value !== null)
@@ -523,6 +823,7 @@ function NightscoutChart({
             detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
             key: `food-${event.timestamp}-${index}`,
             kind: "food" as const,
+            food: event,
             timestamp: event.timestamp,
             valueLabel: `${event.carbs_g.toFixed(0)}g`,
           },
@@ -545,6 +846,7 @@ function NightscoutChart({
             }`,
             key: `insulin-${event.timestamp}-${index}`,
             kind: "insulin" as const,
+            food: null,
             timestamp: event.timestamp,
             valueLabel:
               typeof event.insulin_units === "number"
@@ -766,8 +1068,27 @@ function NightscoutChart({
             <g
               aria-label={treatment.ariaLabel}
               className={`ns-treatment ns-treatment--${treatment.kind}`}
+              onClick={
+                treatment.kind === "food" && treatment.food
+                  ? (event) => {
+                      event.stopPropagation();
+                      onFoodSelect(treatment.food);
+                    }
+                  : undefined
+              }
+              onKeyDown={
+                treatment.kind === "food" && treatment.food
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onFoodSelect(treatment.food);
+                      }
+                    }
+                  : undefined
+              }
               key={treatment.key}
-              role="img"
+              role={treatment.kind === "food" ? "button" : "img"}
+              tabIndex={treatment.kind === "food" ? 0 : undefined}
               transform={`translate(${anchorX + treatment.xOffset} ${markerY})`}
             >
               <title>{treatment.detail}</title>
@@ -888,7 +1209,8 @@ function NightscoutChart({
             <>
               <span>Прогноз: +{hover.point.horizon_minutes} мин</span>
               <span>
-                80%: {formatMmol(hover.point.ci_low)}–{formatMmol(hover.point.ci_high)}
+                80%: {formatMmol(hover.point.ci_low)}–
+                {formatMmol(hover.point.ci_high)}
               </span>
               <span>Доверие: {Math.round(hover.point.confidence * 100)}%</span>
             </>

@@ -66,7 +66,9 @@ import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
+import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinButton
 import com.local.glucotracker.ui.feature.insulin.InsulinManagementSheet
+import com.local.glucotracker.ui.feature.today.TodayMealRowKind
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
@@ -160,6 +162,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         mealId: String?,
         eatenAt: Instant,
         meals: List<MealContextAnchor>,
+        recommendationEligible: Boolean,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
         val date = eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
@@ -168,6 +171,26 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val paired = mealId?.let { context.byMealId[it] }.orEmpty()
         if (paired.isNotEmpty()) {
             InsulinMetaRow(events = paired)
+        }
+        val targetIds = mealId?.let { id ->
+            context.mealEpisodeGroups.firstOrNull { id in it } ?: listOf(id)
+        }.orEmpty()
+        val hasRecordedInsulin = targetIds.any { context.byMealId[it].orEmpty().isNotEmpty() }
+        val isCurrentDay =
+            date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        if (
+            recommendationEligible &&
+            isCurrentDay &&
+            !hasRecordedInsulin &&
+            targetIds.isNotEmpty() &&
+            targetIds.all { runCatching { java.util.UUID.fromString(it) }.isSuccess }
+        ) {
+            HistoricalInsulinButton(
+                mealIds = targetIds,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+            )
         }
     }
 
@@ -185,6 +208,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         TodayEpisodeRows(
+            date = date,
             context = context,
             rows = rows,
             rowContent = rowContent,
@@ -264,6 +288,7 @@ private fun StackGlucoseMetaRow(eatenAt: Instant) {
 
 @Composable
 private fun TodayEpisodeRows(
+    date: LocalDate,
     context: InsulinDayContext,
     rows: List<TodayMealRowUi>,
     rowContent: @Composable (
@@ -274,14 +299,29 @@ private fun TodayEpisodeRows(
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
     val items = remember(context, rows) { buildTodayTimeline(context, rows) }
+    val isCurrentDay =
+        date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
     items.forEachIndexed { index, item ->
         when (item) {
             is TodayTimelineItem.Single -> rowContent(item.entry.row, true) {
                 item.entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+                item.entry.row.recordId
+                    ?.takeIf {
+                        isCurrentDay &&
+                            item.entry.paired.isEmpty() &&
+                            item.entry.row.kind == TodayMealRowKind.Accepted
+                    }
+                    ?.let { mealId ->
+                        HistoricalInsulinButton(
+                            mealIds = listOf(mealId),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
             }
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
                 entries = item.entries,
+                recommendationEligible = isCurrentDay,
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Orphan -> OrphanInsulinRow(
@@ -358,6 +398,7 @@ private fun buildTodayTimeline(
 @Composable
 private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
+    recommendationEligible: Boolean,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
@@ -397,6 +438,14 @@ private fun TodayEpisodeCard(
             if (index < entries.lastIndex) {
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
             }
+        }
+        if (recommendationEligible && entries.none { it.paired.isNotEmpty() }) {
+            HistoricalInsulinButton(
+                mealIds = entries.mapNotNull { it.row.recordId },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
         }
     }
 }

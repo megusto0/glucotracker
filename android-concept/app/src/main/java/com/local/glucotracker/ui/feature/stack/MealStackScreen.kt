@@ -642,6 +642,7 @@ private fun MetaBlock(
                     eatenAt = meal.eatenAt,
                 )
             },
+            recommendationEligible = card.state == MealCardState.Confirmed,
         )
         if (card.statusHint != MealCardStatusHint.None) {
             MetaRow(

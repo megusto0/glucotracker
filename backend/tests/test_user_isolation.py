@@ -648,7 +648,9 @@ class TestGETIsolation:
         )
         assert r.status_code == 200
         data = r.json()
+        assert str(self.ids["alice_meal"]) in _collect_ids(data)
         assert str(self.ids["bob_sensor"]) not in _collect_ids(data)
+        assert str(self.ids["bob_meal"]) not in _collect_ids(data)
         # Alice's moderate mixed meal uses a soft normal/slow prior rather than
         # being forced into one hard bucket; at +120 min its tail remains.
         assert data["summary"]["cob_g"] == pytest.approx(2.93, abs=0.05)
@@ -662,6 +664,8 @@ class TestGETIsolation:
         )
         assert r.status_code == 200
         data = r.json()
+        assert str(self.ids["bob_meal"]) in _collect_ids(data)
+        assert str(self.ids["alice_meal"]) not in _collect_ids(data)
         # Bob has the same mixed-meal prior at +60 min.
         assert data["summary"]["cob_g"] == pytest.approx(6.05, abs=0.05)
         assert data["summary"]["cob_minutes_remaining"] == 346
@@ -676,15 +680,45 @@ class TestGETIsolation:
         assert alice_response.status_code == 200
         alice_data = alice_response.json()
 
-        bob_response = self.client.get(
-            "/glucose/prediction", headers=self.bob_headers
-        )
+        bob_response = self.client.get("/glucose/prediction", headers=self.bob_headers)
         assert bob_response.status_code == 200
         bob_data = bob_response.json()
 
         assert alice_data["anchor_timestamp"] != bob_data["anchor_timestamp"]
         assert alice_data["model"]["sample_count"] == 0
         assert bob_data["model"]["sample_count"] == 0
+
+    @pytest.mark.parametrize(
+        ("owner_meal_key", "owner_headers_key", "other_headers_key"),
+        [
+            ("alice_meal", "alice_headers", "bob_headers"),
+            ("bob_meal", "bob_headers", "alice_headers"),
+        ],
+    )
+    def test_insulin_recommendation_meal_isolation(
+        self,
+        owner_meal_key: str,
+        owner_headers_key: str,
+        other_headers_key: str,
+    ):
+        meal_id = self.ids[owner_meal_key]
+        payload = {"meal_ids": [str(meal_id)]}
+
+        owner_response = self.client.post(
+            "/glucose/insulin-recommendation",
+            json=payload,
+            headers=self.env[owner_headers_key],
+        )
+        assert owner_response.status_code == 200
+        assert owner_response.json()["meal_ids"] == [str(meal_id)]
+
+        other_response = self.client.post(
+            "/glucose/insulin-recommendation",
+            json=payload,
+            headers=self.env[other_headers_key],
+        )
+        assert other_response.status_code == 404
+        assert str(meal_id) not in other_response.text
 
     def test_twin_params(self):
         r = self.client.get("/twin/params", headers=self.alice_headers)

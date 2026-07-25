@@ -210,6 +210,24 @@ class OnBoardRepository:
             )
         )
 
+    def list_accepted_meals_by_ids(self, meal_ids: list[UUID]) -> list[Meal]:
+        """Return only this user's accepted meals from an explicit id set."""
+        unique_ids = list(dict.fromkeys(meal_ids))
+        if not unique_ids:
+            return []
+        return list(
+            self.session.scalars(
+                select(Meal)
+                .where(
+                    Meal.owner_id == self.user_id,
+                    Meal.status == MealStatus.accepted,
+                    Meal.id.in_(unique_ids),
+                )
+                .options(selectinload(Meal.items))
+                .order_by(Meal.eaten_at.asc(), Meal.created_at.asc())
+            )
+        )
+
     def list_training_insulin(
         self,
         from_local: datetime,

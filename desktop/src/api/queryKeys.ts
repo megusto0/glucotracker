@@ -28,8 +28,16 @@ export const queryKeys = {
     ["timeline", "insulin-links", date] as const,
   glucoseDashboard: (from: string, to: string, mode: string) =>
     ["glucose", "dashboard", from, to, mode] as const,
-  glucosePrediction: (mode: string) =>
-    ["glucose", "prediction", mode] as const,
+  glucosePrediction: (mode: string) => ["glucose", "prediction", mode] as const,
+  glucoseEpisodes: (from: string, to: string) =>
+    ["glucose", "episodes", from, to] as const,
+  insulinRecommendation: (mealIds: string[], correctionTarget?: number) =>
+    [
+      "glucose",
+      "insulin-recommendation",
+      ...mealIds,
+      correctionTarget ?? null,
+    ] as const,
   sensors: ["glucose", "sensors"] as const,
   fingersticks: (from?: string, to?: string) =>
     ["glucose", "fingersticks", from, to] as const,
