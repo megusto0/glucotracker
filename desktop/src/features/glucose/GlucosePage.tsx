@@ -595,6 +595,32 @@ export function GlucosePage() {
   const latestPoint = data?.points.length
     ? data.points[data.points.length - 1]
     : null;
+  const lastGlucoseAt = useMemo(() => {
+    if (!currentSensor) return null;
+    const sensorStartedAt = Date.parse(currentSensor.started_at);
+    const candidates = [
+      !nowReading?.sensor_id || nowReading.sensor_id === currentSensor.id
+        ? nowReading?.timestamp
+        : null,
+      summary?.current_glucose_at,
+      latestPoint?.timestamp,
+    ]
+      .filter((timestamp): timestamp is string => Boolean(timestamp))
+      .map((timestamp) => ({ timestamp, time: Date.parse(timestamp) }))
+      .filter(
+        ({ time }) =>
+          Number.isFinite(time) &&
+          (!Number.isFinite(sensorStartedAt) || time >= sensorStartedAt),
+      )
+      .sort((a, b) => b.time - a.time);
+    return candidates[0]?.timestamp ?? null;
+  }, [
+    currentSensor,
+    latestPoint?.timestamp,
+    nowReading?.sensor_id,
+    nowReading?.timestamp,
+    summary?.current_glucose_at,
+  ]);
   const previousPoint =
     data && data.points.length > 1 ? data.points[data.points.length - 2] : null;
   const correction = currentCorrection(latestPoint);
@@ -637,12 +663,20 @@ export function GlucosePage() {
 
   const endCurrentSensor = useCallback(() => {
     if (!currentSensor?.id || !isOpenSensor(currentSensor)) return;
-    if (!confirm("Завершить текущий сенсор сейчас?")) return;
+    if (!lastGlucoseAt) {
+      window.alert("Не найдено показание глюкозы для завершения сенсора.");
+      return;
+    }
+    if (
+      !confirm(
+        `Завершить текущий сенсор на последнем показании (${formatDateTime(lastGlucoseAt)})?`,
+      )
+    ) return;
     saveSensor.mutate(
       {
         sensorId: currentSensor.id,
         body: {
-          ended_at: toApiDateTime(toDateTimeInput(new Date())),
+          ended_at: lastGlucoseAt,
         },
       },
       {
@@ -652,7 +686,7 @@ export function GlucosePage() {
         },
       },
     );
-  }, [currentSensor, saveSensor]);
+  }, [currentSensor, lastGlucoseAt, saveSensor]);
 
   useEffect(() => {
     if (
@@ -1048,7 +1082,14 @@ export function GlucosePage() {
               <div className="row gap-8">
                 <button className="btn dark" type="submit" disabled={saveSensor.isPending || !sensorForm.started_at}><Save size={14} />{editingSensorId ? "Сохранить сенсор" : "Начать сенсор"}</button>
                 {editingSensorId && !sensorForm.ended_at ? (
-                  <button className="btn" type="button" onClick={() => setSensorForm(s => ({ ...s, ended_at: toDateTimeInput(new Date()) }))}><Square size={13} /> Завершить сейчас</button>
+                  <button
+                    className="btn"
+                    disabled={!lastGlucoseAt}
+                    type="button"
+                    onClick={() => setSensorForm(s => ({ ...s, ended_at: fromIsoToInput(lastGlucoseAt) }))}
+                  >
+                    <Square size={13} /> Конец = последнее показание
+                  </button>
                 ) : null}
                 <button className="btn" type="button" onClick={closeSensorForm}>Отмена</button>
               </div>
@@ -1161,7 +1202,7 @@ function HeroCard({
               <button className="btn" onClick={onEditSensor} type="button">править</button>
             ) : null}
             {isOpenSensor(sensor) ? (
-              <button className="btn" onClick={onEndSensor} type="button"><Square size={12} /> завершить</button>
+              <button className="btn" onClick={onEndSensor} type="button"><Square size={12} /> завершить на последнем</button>
             ) : null}
           </div>
         </div>
@@ -1545,7 +1586,7 @@ function SensorPanel({
           <button className="btn" onClick={() => openExistingSensorForm()}><Activity size={13} /> Редактировать</button>
         ) : null}
         {isOpenSensor(currentSensor) ? (
-          <button className="btn" onClick={onEndSensor}><Square size={13} /> Завершить сейчас</button>
+          <button className="btn" onClick={onEndSensor}><Square size={13} /> Завершить на последнем показании</button>
         ) : null}
         {currentSensor?.id ? (
           <button className="btn" disabled={recalculatePending} onClick={() => recalculate.mutate(currentSensor.id)}><RefreshCw size={13} /> Пересчитать</button>

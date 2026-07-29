@@ -27,7 +27,7 @@ export function Shell() {
   }, [theme]);
 
   const isLoginRoute = location.pathname === "/login";
-  const isNightscoutRoute = location.pathname === "/nightscout";
+  const isNightscoutRoute = location.pathname.startsWith("/nightscout");
 
   if (!token.trim() && !isLoginRoute) {
     return (

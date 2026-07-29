@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,6 +15,7 @@ from glucotracker.api.schemas import (
     DayEpisodeInsulinResponse,
     DayEpisodeResponse,
     DayEpisodesResponse,
+    DayEpisodeTherapyResponse,
     FingerstickReadingCreate,
     FingerstickReadingPatch,
     FingerstickReadingResponse,
@@ -29,7 +30,10 @@ from glucotracker.api.schemas import (
     SensorSessionCreate,
     SensorSessionPatch,
     SensorSessionResponse,
+    TherapyReviewDayResponse,
+    TherapyReviewItemResponse,
 )
+from glucotracker.application.episode_therapy import classify_episode_therapy
 from glucotracker.application.episodes import (
     EpisodeQueryService,
     anchor_meal_id,
@@ -46,6 +50,7 @@ from glucotracker.application.stats_insights import (
     InsightPeriod,
     generate_glucose_tir_daily,
 )
+from glucotracker.application.therapy_review import TherapyReviewService
 
 router = APIRouter(
     tags=["glucose"],
@@ -112,8 +117,17 @@ def get_glucose_episodes(
         from_datetime,
         to_datetime,
     )
+    therapy_points = GlucoseDashboardService(
+        session,
+        current_user.id,
+    ).dashboard(
+        from_datetime - timedelta(minutes=20),
+        to_datetime + timedelta(minutes=150),
+        "normalized",
+    ).points
     episodes: list[DayEpisodeResponse] = []
     for component in components:
+        therapy = classify_episode_therapy(component, therapy_points)
         # Raw UTC timestamps, same as /nightscout/insulin — clients convert.
         insulin = [
             DayEpisodeInsulinResponse(
@@ -157,12 +171,47 @@ def get_glucose_episodes(
                 total_insulin_units=round(
                     sum(event.insulin_units or 0 for event in component.insulin), 2
                 ),
+                therapy=DayEpisodeTherapyResponse(**vars(therapy)),
             )
         )
     return DayEpisodesResponse(
         from_datetime=from_datetime,
         to_datetime=to_datetime,
         episodes=episodes,
+    )
+
+
+@router.get(
+    "/glucose/therapy-review",
+    response_model=TherapyReviewDayResponse,
+    operation_id="getGlucoseTherapyReview",
+)
+def get_glucose_therapy_review(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    day: Annotated[date, Query(alias="date")],
+    target_mmol_l: Annotated[float, Query(ge=3.9, le=10)] = 6.0,
+    horizon_minutes: Annotated[int, Query(ge=60, le=240)] = 120,
+    force_recalculate: bool = False,
+) -> TherapyReviewDayResponse:
+    """Return a read-only daily review with explicitly retrospective values."""
+    review = TherapyReviewService(session, current_user.id).day(
+        day,
+        target_mmol_l=target_mmol_l,
+        horizon_minutes=horizon_minutes,
+        force_recalculate=force_recalculate,
+    )
+    return TherapyReviewDayResponse(
+        date=review.date,
+        target_mmol_l=review.target_mmol_l,
+        horizon_minutes=review.horizon_minutes,
+        cached=review.cached,
+        computed_at=review.computed_at,
+        model_version=review.model_version,
+        items=[
+            TherapyReviewItemResponse(**vars(item))
+            for item in review.items
+        ],
     )
 
 
@@ -206,6 +255,7 @@ def get_insulin_recommendation(
         correction_projected_glucose_mmol_l=(correction.projected_glucose_mmol_l),
         correction_trend_mmol_l_per_min=correction.trend_mmol_l_per_min,
         correction_isf_mmol_l_per_unit=correction.isf_mmol_l_per_unit,
+        correction_isf_source=correction.isf_source,
         correction_iob_units=correction.iob_units,
         total_recommended_units=calculation.total_recommended_units,
         total_range_low_units=calculation.total_range_low_units,
@@ -220,6 +270,9 @@ def get_insulin_recommendation(
                 insulin_units=match.insulin_units,
                 scaled_units=match.scaled_units,
                 similarity=match.similarity,
+                deferred_insulin_units=match.deferred_insulin_units,
+                outcome_weight=match.outcome_weight,
+                glucose_plus_2h_mmol=match.glucose_plus_2h_mmol,
             )
             for match in estimate.matches
         ],

@@ -73,6 +73,29 @@ class HealthConnectRepository:
             )
         )
 
+    def list_records_by_type_and_time(
+        self,
+        record_type: str,
+        from_datetime: datetime,
+        to_datetime: datetime,
+    ) -> list[HealthConnectRecord]:
+        """Return owner-scoped records whose metadata overlaps a time range."""
+        return list(
+            self.session.scalars(
+                select(HealthConnectRecord)
+                .where(
+                    HealthConnectRecord.owner_id == self.user_id,
+                    HealthConnectRecord.record_type == record_type,
+                    HealthConnectRecord.start_time <= to_datetime,
+                    HealthConnectRecord.end_time >= from_datetime,
+                )
+                .order_by(
+                    HealthConnectRecord.start_time,
+                    HealthConnectRecord.record_id,
+                )
+            )
+        )
+
     def count_by_type(self) -> dict[str, int]:
         """Return a compact inventory without exposing raw health payloads."""
         counts: dict[str, int] = {}

@@ -10,6 +10,8 @@ export type EstimateMealResponse =
 export type EstimateCreatedDraftResponse =
   components["schemas"]["EstimateCreatedDraftResponse"];
 export type HealthResponse = components["schemas"]["HealthResponse"];
+export type HeartRateSeriesResponse =
+  components["schemas"]["HeartRateSeriesResponse"];
 export type MealCreate = components["schemas"]["MealCreate"];
 export type MealPatch = components["schemas"]["MealPatch"];
 export type MealItemCreate = components["schemas"]["MealItemCreate"];
@@ -99,6 +101,8 @@ export type GlucoseDashboardResponse =
 export type GlucosePredictionResponse =
   components["schemas"]["GlucosePredictionResponse"];
 export type DayEpisodesResponse = components["schemas"]["DayEpisodesResponse"];
+export type TherapyReviewDayResponse =
+  components["schemas"]["TherapyReviewDayResponse"];
 export type InsulinRecommendationRequest =
   components["schemas"]["InsulinRecommendationRequest"];
 export type InsulinRecommendationResponse =
@@ -528,6 +532,16 @@ export const apiClient = {
   health: (config: ApiConfig) =>
     apiRequest<HealthResponse>("/health", config, { auth: false }),
 
+  getHeartRateSeries: (
+    config: ApiConfig,
+    from: string,
+    to: string,
+    binMinutes = 10,
+  ) =>
+    apiRequest<HeartRateSeriesResponse>("/health-connect/heart-rate", config, {
+      query: { from, to, bin_minutes: binMinutes },
+    }),
+
   openapi: (config: ApiConfig) =>
     apiRequest<Record<string, unknown>>("/openapi.json", config, {
       auth: false,
@@ -924,6 +938,27 @@ export const apiClient = {
     apiRequest<DayEpisodesResponse>("/glucose/episodes", config, {
       query: { from, to },
     }),
+
+  getGlucoseTherapyReview: (
+    config: ApiConfig,
+    date: string,
+    targetMmolL: number,
+    horizonMinutes: number,
+    forceRecalculate = false,
+  ) =>
+    apiRequest<TherapyReviewDayResponse>(
+      "/glucose/therapy-review",
+      config,
+      {
+        query: {
+          date,
+          target_mmol_l: targetMmolL,
+          horizon_minutes: horizonMinutes,
+          force_recalculate: forceRecalculate,
+        },
+        timeoutMs: 90_000,
+      },
+    ),
 
   getInsulinRecommendation: (
     config: ApiConfig,

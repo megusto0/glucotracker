@@ -3088,6 +3088,52 @@ test("glucose page renders dashboard and sensor panel", async () => {
   expect(await screen.findByText("Приём пищи")).toBeInTheDocument();
 });
 
+test("glucose page ends the current sensor at the latest glucose reading", async () => {
+  configureApi();
+  glucoseRoute();
+  const patchedBody: { current: Record<string, unknown> | null } = {
+    current: null,
+  };
+
+  server.use(
+    http.get("http://api.test/nightscout/latest-reading", () =>
+      HttpResponse.json({
+        timestamp: "2026-04-28T08:07:34",
+        value_mmol_l: 6.3,
+        trend: "Flat",
+        sensor_id: "sensor-1",
+        total_entries: 42,
+      }),
+    ),
+    http.patch("http://api.test/sensors/:sensorId", async ({ params, request }) => {
+      patchedBody.current = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: params.sensorId,
+        source: "manual",
+        vendor: "Ottai",
+        model: "Ottai",
+        label: "Sensor A",
+        started_at: "2026-04-28T00:00:00",
+        ended_at: patchedBody.current.ended_at,
+        expected_life_days: 15,
+        notes: null,
+        created_at: "2026-04-28T10:00:00.000Z",
+        updated_at: "2026-04-28T10:00:00.000Z",
+      });
+    }),
+  );
+
+  render(<App />);
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "завершить на последнем" }),
+  );
+
+  await waitFor(() =>
+    expect(patchedBody.current?.ended_at).toBe("2026-04-28T08:07:34"),
+  );
+});
+
 test("glucose pull button imports current Nightscout data", async () => {
   configureApi();
   glucoseRoute();

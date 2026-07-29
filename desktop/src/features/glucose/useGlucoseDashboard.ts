@@ -31,6 +31,24 @@ export function useGlucoseDashboard(
   });
 }
 
+export function useHeartRateSeries(
+  from: string,
+  to: string,
+  binMinutes = 10,
+) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.heartRateSeries(from, to, binMinutes),
+    queryFn: () =>
+      apiClient.getHeartRateSeries(config, from, to, binMinutes),
+    enabled: Boolean(config.token.trim() && from && to),
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useGlucosePrediction(mode: GlucosePredictionMode) {
   const config = useApiConfig();
 
@@ -55,6 +73,72 @@ export function useGlucoseEpisodes(from: string, to: string) {
     queryFn: () => apiClient.getGlucoseEpisodes(config, from, to),
     enabled: Boolean(config.token.trim() && from && to),
     staleTime: 30 * 1000,
+  });
+}
+
+export function useGlucoseTherapyReview(
+  date: string,
+  targetMmolL: number,
+  horizonMinutes: number,
+) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.glucoseTherapyReview(
+      date,
+      targetMmolL,
+      horizonMinutes,
+    ),
+    queryFn: () =>
+      apiClient.getGlucoseTherapyReview(
+        config,
+        date,
+        targetMmolL,
+        horizonMinutes,
+      ),
+    enabled: Boolean(
+      config.token.trim() &&
+      date &&
+      Number.isFinite(targetMmolL) &&
+      horizonMinutes,
+    ),
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useRecalculateGlucoseTherapyReview() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      date,
+      targetMmolL,
+      horizonMinutes,
+    }: {
+      date: string;
+      targetMmolL: number;
+      horizonMinutes: number;
+    }) =>
+      apiClient.getGlucoseTherapyReview(
+        config,
+        date,
+        targetMmolL,
+        horizonMinutes,
+        true,
+      ),
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(
+        queryKeys.glucoseTherapyReview(
+          variables.date,
+          variables.targetMmolL,
+          variables.horizonMinutes,
+        ),
+        data,
+      );
+    },
   });
 }
 

@@ -44,6 +44,15 @@ export const server = setupServer(
       total_entries: 0,
     }),
   ),
+  http.get("http://api.test/health-connect/heart-rate", ({ request }) => {
+    const url = new URL(request.url);
+    return HttpResponse.json({
+      from_datetime: url.searchParams.get("from"),
+      to_datetime: url.searchParams.get("to"),
+      bin_minutes: Number(url.searchParams.get("bin_minutes") ?? 10),
+      points: [],
+    });
+  }),
   http.get("http://api.test/settings/nightscout", () =>
     HttpResponse.json({
       enabled: false,

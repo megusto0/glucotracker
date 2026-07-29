@@ -1,0 +1,170 @@
+"""Daily retrospective therapy review API tests."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from glucotracker.domain.entities import MealSource, MealStatus
+from glucotracker.infra.db.models import (
+    Meal,
+    NightscoutGlucoseEntry,
+    NightscoutInsulinEvent,
+)
+
+
+def _meal(session, owner_id, at: datetime, carbs: float, title: str) -> Meal:
+    row = Meal(
+        owner_id=owner_id,
+        eaten_at=at,
+        title=title,
+        source=MealSource.manual,
+        status=MealStatus.accepted,
+        total_carbs_g=carbs,
+        total_protein_g=4,
+        total_fat_g=4,
+        total_kcal=carbs * 5,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def _insulin(session, owner_id, at: datetime, units: float) -> None:
+    key = f"review-insulin-{uuid4()}"
+    session.add(
+        NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key=key,
+            nightscout_id=key,
+            timestamp=at,
+            insulin_units=units,
+            event_type="Insulin",
+            entered_by="test",
+        )
+    )
+
+
+def _glucose(session, owner_id, at: datetime, value: float, key: str) -> None:
+    session.add(
+        NightscoutGlucoseEntry(
+            owner_id=owner_id,
+            source_key=key,
+            timestamp=at,
+            value_mmol_l=value,
+            value_mg_dl=round(value * 18.0182),
+            source="CGM",
+        )
+    )
+
+
+def test_daily_review_lists_meal_and_falling_carb_correction(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_review.local_now",
+        lambda: datetime(2026, 7, 26, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    day = datetime(2026, 7, 25)
+    meal_at = day + timedelta(hours=10)
+    rescue_at = day + timedelta(hours=12)
+
+    with session_factory() as session:
+        meal = _meal(session, owner_id, meal_at, 40, "Обед")
+        _insulin(session, owner_id, meal_at, 4)
+        for days_ago in (7, 14, 21):
+            historical_at = meal_at - timedelta(days=days_ago)
+            _meal(session, owner_id, historical_at, 40, "Обед")
+            _insulin(session, owner_id, historical_at, 4)
+
+        rescue = _meal(session, owner_id, rescue_at, 7, "Небольшой перекус")
+        for index, value in enumerate((6.4, 5.4, 4.4)):
+            _glucose(
+                session,
+                owner_id,
+                rescue_at - timedelta(minutes=20 - index * 10),
+                value,
+                f"review-rescue-pre-{index}",
+            )
+        _glucose(
+            session,
+            owner_id,
+            rescue_at + timedelta(hours=2),
+            5.2,
+            "review-rescue-after",
+        )
+        session.commit()
+
+    response = api_client.get(
+        "/glucose/therapy-review",
+        params={
+            "date": "2026-07-25",
+            "target_mmol_l": 6,
+            "horizon_minutes": 120,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["date"] == "2026-07-25"
+    assert body["horizon_minutes"] == 120
+    assert body["cached"] is False
+    assert body["model_version"] == "retrospective-therapy-review-v1"
+    by_key = {
+        frozenset(item["key"].split("|")): item
+        for item in body["items"]
+    }
+    meal_item = next(
+        item
+        for key, item in by_key.items()
+        if f"m:{meal.id}" in key
+    )
+    assert meal_item["classification"] == "meal"
+    assert meal_item["value_unit"] == "U"
+    assert meal_item["actual_value"] == 4.0
+
+    rescue_item = next(
+        item
+        for key, item in by_key.items()
+        if f"m:{rescue.id}" in key
+    )
+    assert rescue_item["classification"] == "carb_correction"
+    assert rescue_item["value_unit"] == "g"
+    assert rescue_item["actual_value"] == 7.0
+    assert rescue_item["calculated_value"] == 15.0
+    assert rescue_item["glucose_start_normalized"] == 4.4
+    assert rescue_item["glucose_after_normalized"] == 5.2
+    assert rescue_item["adjusted_actual_value"] == 10.2
+    assert rescue_item["adjustment_status"] == "ready"
+
+    cached_response = api_client.get(
+        "/glucose/therapy-review",
+        params={
+            "date": "2026-07-25",
+            "target_mmol_l": 6,
+            "horizon_minutes": 120,
+        },
+    )
+    assert cached_response.status_code == 200
+    cached_body = cached_response.json()
+    assert cached_body["cached"] is True
+    assert cached_body["computed_at"] == body["computed_at"]
+    assert cached_body["items"] == body["items"]
+
+    refreshed_response = api_client.get(
+        "/glucose/therapy-review",
+        params={
+            "date": "2026-07-25",
+            "target_mmol_l": 6,
+            "horizon_minutes": 120,
+            "force_recalculate": True,
+        },
+    )
+    assert refreshed_response.status_code == 200
+    assert refreshed_response.json()["cached"] is False

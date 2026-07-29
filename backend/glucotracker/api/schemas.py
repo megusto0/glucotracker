@@ -164,6 +164,29 @@ class DayEpisodeInsulinResponse(BaseModel):
     editable: bool = False
 
 
+class DayEpisodeTherapyResponse(BaseModel):
+    """Automatic, read-only interpretation of an episode's treatment intent."""
+
+    classification: Literal[
+        "meal",
+        "snack",
+        "carb_correction",
+        "insulin_correction",
+        "mixed",
+        "unresolved",
+    ]
+    confidence: Literal["low", "medium", "high"]
+    reasons: list[str] = Field(default_factory=list)
+    suggested_carbs_g: float | None = None
+    suggestion_source: Literal["ada_default"] | None = None
+    glucose_at_start_raw: float | None = None
+    glucose_at_start_normalized: float | None = None
+    glucose_plus_2h_raw: float | None = None
+    glucose_plus_2h_normalized: float | None = None
+    peak_post_event_raw: float | None = None
+    peak_post_event_normalized: float | None = None
+
+
 class DayEpisodeResponse(BaseModel):
     """One grouped meal/insulin episode for client attribution."""
 
@@ -176,6 +199,7 @@ class DayEpisodeResponse(BaseModel):
     total_carbs_g: float
     total_kcal: float
     total_insulin_units: float
+    therapy: DayEpisodeTherapyResponse
 
 
 class DayEpisodesResponse(BaseModel):
@@ -186,11 +210,66 @@ class DayEpisodesResponse(BaseModel):
     episodes: list[DayEpisodeResponse]
 
 
+class TherapyReviewItemResponse(BaseModel):
+    """One retrospective daily therapy row."""
+
+    key: str
+    title: str
+    classification: Literal[
+        "meal",
+        "snack",
+        "carb_correction",
+        "insulin_correction",
+        "mixed",
+        "unresolved",
+    ]
+    confidence: Literal["low", "medium", "high"]
+    start_at: datetime
+    horizon_minutes: int
+    value_unit: Literal["U", "g"]
+    glucose_start_raw: float | None = None
+    glucose_start_normalized: float | None = None
+    glucose_after_raw: float | None = None
+    glucose_after_normalized: float | None = None
+    actual_value: float | None = None
+    calculated_value: float | None = None
+    adjusted_actual_value: float | None = None
+    target_mmol_l: float
+    isf_mmol_l_per_unit: float | None = None
+    calculation_status: str
+    adjustment_status: Literal[
+        "ready",
+        "no_actual",
+        "no_outcome",
+        "calculation_withheld",
+    ]
+    total_carbs_g: float
+    total_insulin_units: float
+    notes: list[str] = Field(default_factory=list)
+
+
+class TherapyReviewDayResponse(BaseModel):
+    """Retrospective therapy review for one local day."""
+
+    date: date_type
+    target_mmol_l: float
+    horizon_minutes: int
+    items: list[TherapyReviewItemResponse]
+    cached: bool
+    computed_at: datetime
+    model_version: str
+
+
 class InsulinRecommendationRequest(BaseModel):
     """Accepted meal or grouped-meal ids to estimate from personal history."""
 
     meal_ids: list[UUID] = Field(min_length=1, max_length=20)
-    correction_target_mmol_l: float | None = Field(default=None, ge=3.9, le=10)
+    correction_target_mmol_l: float | None = Field(
+        default=None,
+        ge=3.9,
+        le=10,
+        description="Personal correction target; omitted uses 6.0 mmol/L.",
+    )
 
 
 class InsulinRecommendationMatchResponse(BaseModel):
@@ -202,12 +281,20 @@ class InsulinRecommendationMatchResponse(BaseModel):
     insulin_units: float
     scaled_units: float
     similarity: float = Field(ge=0, le=1)
+    deferred_insulin_units: float = 0.0
+    outcome_weight: float = Field(default=1.0, ge=0, le=1)
+    glucose_plus_2h_mmol: float | None = None
 
 
 class InsulinRecommendationResponse(BaseModel):
     """Historical meal estimate plus an optional safety-gated correction."""
 
-    status: Literal["ready", "insufficient_history", "meal_without_carbs"]
+    status: Literal[
+        "ready",
+        "insufficient_history",
+        "meal_without_carbs",
+        "low_or_falling",
+    ]
     meal_ids: list[UUID]
     target_carbs_g: float
     target_kcal: float
@@ -229,6 +316,7 @@ class InsulinRecommendationResponse(BaseModel):
     correction_projected_glucose_mmol_l: float | None = None
     correction_trend_mmol_l_per_min: float | None = None
     correction_isf_mmol_l_per_unit: float | None = None
+    correction_isf_source: Literal["manual", "fitted", "default"] | None = None
     correction_iob_units: float | None = None
     total_recommended_units: float | None = None
     total_range_low_units: float | None = None

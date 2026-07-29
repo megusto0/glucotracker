@@ -1,5 +1,7 @@
 export const queryKeys = {
   health: ["health"] as const,
+  heartRateSeries: (from: string, to: string, binMinutes: number) =>
+    ["health-connect", "heart-rate", from, to, binMinutes] as const,
   meals: (filters: Record<string, unknown>) => ["meals", filters] as const,
   feedMeals: (filters: Record<string, unknown>) =>
     ["feed-meals", filters] as const,
@@ -31,6 +33,18 @@ export const queryKeys = {
   glucosePrediction: (mode: string) => ["glucose", "prediction", mode] as const,
   glucoseEpisodes: (from: string, to: string) =>
     ["glucose", "episodes", from, to] as const,
+  glucoseTherapyReview: (
+    date: string,
+    targetMmolL: number,
+    horizonMinutes: number,
+  ) =>
+    [
+      "glucose",
+      "therapy-review",
+      date,
+      targetMmolL,
+      horizonMinutes,
+    ] as const,
   insulinRecommendation: (mealIds: string[], correctionTarget?: number) =>
     [
       "glucose",

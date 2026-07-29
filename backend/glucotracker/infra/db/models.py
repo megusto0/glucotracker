@@ -1455,6 +1455,52 @@ class MealInsulinEpisodeSnapshot(Base, TimestampMixin):
     owner: Mapped[User] = relationship()
 
 
+class TherapyReviewCache(Base):
+    """Persisted derived result for an already closed therapy-review day."""
+
+    __tablename__ = "therapy_review_caches"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "date",
+            "target_tenths",
+            "horizon_minutes",
+            "model_version",
+            name="uq_therapy_review_cache_owner_config_version",
+        ),
+        Index(
+            "ix_therapy_review_cache_owner_date",
+            "owner_id",
+            "date",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    target_tenths: Mapped[int] = mapped_column(Integer, nullable=False)
+    horizon_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    result_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    owner: Mapped[User] = relationship()
+
+
 class TwinParams(Base, TimestampMixin):
     """Per-user parameters for the informational digital twin model."""
 

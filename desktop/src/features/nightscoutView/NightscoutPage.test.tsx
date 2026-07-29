@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type {
   GlucoseDashboardResponse,
@@ -12,6 +12,7 @@ import {
   useGlucoseDashboard,
   useGlucoseEpisodes,
   useGlucosePrediction,
+  useHeartRateSeries,
   useInsulinRecommendation,
 } from "../glucose/useGlucoseDashboard";
 import { NightscoutPage } from "./NightscoutPage";
@@ -21,12 +22,14 @@ vi.mock("../glucose/useGlucoseDashboard", () => ({
   useGlucoseDashboard: vi.fn(),
   useGlucoseEpisodes: vi.fn(),
   useGlucosePrediction: vi.fn(),
+  useHeartRateSeries: vi.fn(),
   useInsulinRecommendation: vi.fn(),
 }));
 
 const mockedUseDashboard = vi.mocked(useGlucoseDashboard);
 const mockedUseEpisodes = vi.mocked(useGlucoseEpisodes);
 const mockedUsePrediction = vi.mocked(useGlucosePrediction);
+const mockedUseHeartRate = vi.mocked(useHeartRateSeries);
 const mockedUseRecommendation = vi.mocked(useInsulinRecommendation);
 const mockedUseCreateInsulin = vi.mocked(useCreateNightscoutInsulin);
 const createInsulin = vi.fn();
@@ -188,6 +191,27 @@ describe("NightscoutPage", () => {
           isLoading: false,
         }) as ReturnType<typeof useGlucosePrediction>,
     );
+    mockedUseHeartRate.mockImplementation(
+      (from, to, binMinutes) =>
+        ({
+          data: {
+            from_datetime: from,
+            to_datetime: to,
+            bin_minutes: binMinutes,
+            points: [
+              {
+                timestamp: new Date(
+                  (Date.parse(from) + Date.parse(to)) / 2,
+                ).toISOString(),
+                bpm: 72,
+                sample_count: 7,
+              },
+            ],
+          },
+          error: null,
+          isLoading: false,
+        }) as ReturnType<typeof useHeartRateSeries>,
+    );
     mockedUseEpisodes.mockReturnValue({
       data: {
         from_datetime: "2026-07-12T04:00:00Z",
@@ -262,6 +286,60 @@ describe("NightscoutPage", () => {
       expect.any(String),
       "normalized",
     );
+  });
+
+  test("keeps ten-minute heart-rate bars visible when selected CGM is empty", () => {
+    mockedUseDashboard.mockImplementation(
+      (_from, _to, mode) =>
+        ({
+          data: {
+            ...dashboard(mode),
+            food_events: [],
+            insulin_events: [],
+            points: [],
+          },
+          error: null,
+          isLoading: false,
+        }) as unknown as ReturnType<typeof useGlucoseDashboard>,
+    );
+
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("Нет данных CGM за выбранный период."),
+    ).toBeInTheDocument();
+    expect(container.querySelectorAll(".ns-heart-rate-bar")).toHaveLength(1);
+    expect(
+      screen.getByRole("img", { name: "Пульс за 24 часа" }),
+    ).toBeInTheDocument();
+    expect(mockedUseHeartRate).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      10,
+    );
+  });
+
+  test("opens the daily therapy review from the top-right menu", () => {
+    render(
+      <MemoryRouter initialEntries={["/nightscout"]}>
+        <Routes>
+          <Route element={<NightscoutPage />} path="/nightscout" />
+          <Route
+            element={<div>Страница разбора открыта</div>}
+            path="/nightscout/review"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Меню" }));
+    fireEvent.click(screen.getByRole("button", { name: /Разбор по дням/ }));
+
+    expect(screen.getByText("Страница разбора открыта")).toBeInTheDocument();
   });
 
   test("shows on-board status and anchors treatments around normalized points", () => {
@@ -392,6 +470,75 @@ describe("NightscoutPage", () => {
     expect(mockedUsePrediction).toHaveBeenCalledWith("normalized");
   });
 
+  test("resizes the visible range from either overview edge", async () => {
+    mockedUseDashboard.mockImplementation((from, to, mode) => {
+      const data = dashboard(mode);
+      const requestedDuration = Date.parse(to) - Date.parse(from);
+      const isOverview = requestedDuration > 12 * 60 * 60 * 1000;
+      return {
+        data: isOverview
+          ? {
+              ...data,
+              from_datetime: "2026-07-11T07:00:00Z",
+              to_datetime: "2026-07-12T07:00:00Z",
+            }
+          : data,
+        error: null,
+        isLoading: false,
+      } as ReturnType<typeof useGlucoseDashboard>;
+    });
+
+    render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    const chart = screen.getByRole("img", {
+      name: "График глюкозы Nightscout",
+    });
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      bottom: 600,
+      height: 600,
+      left: 0,
+      right: 1000,
+      top: 0,
+      width: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    expect(
+      screen.getByRole("slider", {
+        name: "Изменить левую границу окна",
+      }),
+    ).toBeInTheDocument();
+    const rightHandle = screen.getByRole("slider", {
+      name: "Изменить правую границу окна",
+    });
+
+    mockedUseDashboard.mockClear();
+    fireEvent.pointerDown(rightHandle, { clientX: 950, pointerId: 7 });
+    fireEvent.pointerMove(chart, { clientX: 900, clientY: 520, pointerId: 7 });
+    fireEvent.pointerUp(chart, { clientX: 900, clientY: 520, pointerId: 7 });
+
+    await waitFor(() => {
+      const requestedDurations = mockedUseDashboard.mock.calls.map(
+        ([from, to]) => Date.parse(to) - Date.parse(from),
+      );
+      expect(
+        requestedDurations.some(
+          (duration) =>
+            duration >= 30 * 60 * 1000 && duration < 3 * 60 * 60 * 1000,
+        ),
+      ).toBe(true);
+    });
+    expect(screen.getByRole("button", { name: "3" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
   test("opens one grouped calculation from either carbohydrate marker", () => {
     mockedUseDashboard.mockImplementation((_from, _to, mode) => {
       const data = dashboard(mode);
@@ -470,6 +617,217 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("8.5 Ед")).toBeInTheDocument();
   });
 
+  test("shows suggested carbs instead of insulin for a low-glucose rescue", () => {
+    mockedUseDashboard.mockImplementation((_from, _to, mode) => {
+      const data = dashboard(mode);
+      return {
+        data: {
+          ...data,
+          food_events: [
+            {
+              carbs_g: 30,
+              kcal: 150,
+              meal_id: "33333333-3333-3333-3333-333333333333",
+              timestamp: "2026-07-12T06:55:00Z",
+              title: "Шоколадное печенье",
+            },
+          ],
+        },
+        error: null,
+        isLoading: false,
+      } as ReturnType<typeof useGlucoseDashboard>;
+    });
+    mockedUseEpisodes.mockReturnValue({
+      data: {
+        from_datetime: "2026-07-12T04:00:00Z",
+        to_datetime: "2026-07-12T07:00:00Z",
+        episodes: [
+          {
+            end_at: "2026-07-12T06:55:00Z",
+            insulin: [],
+            key: "carb-rescue",
+            kind: "food_only",
+            meal_ids: ["33333333-3333-3333-3333-333333333333"],
+            start_at: "2026-07-12T06:55:00Z",
+            therapy: {
+              classification: "carb_correction",
+              confidence: "high",
+              glucose_at_start_normalized: 4.8,
+              glucose_at_start_raw: 2.5,
+              glucose_plus_2h_normalized: 8.3,
+              glucose_plus_2h_raw: 6,
+              peak_post_event_normalized: 9,
+              peak_post_event_raw: 6.7,
+              reasons: [
+                "глюкоза перед едой 2.5 ммоль/л",
+                "рядом нет пищевого болюса",
+              ],
+              suggested_carbs_g: 15,
+              suggestion_source: "ada_default",
+            },
+            total_carbs_g: 30,
+            total_insulin_units: 0,
+            total_kcal: 150,
+          },
+        ],
+      },
+      error: null,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGlucoseEpisodes>);
+
+    render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    mockedUseRecommendation.mockClear();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Шоколадное печенье: коррекция углеводами, ориентир 15 г/,
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Коррекция углеводами" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("15 г")).toBeInTheDocument();
+    expect(screen.getByText("Фактически: 30 г")).toBeInTheDocument();
+    expect(screen.getByText(/Пик после: raw 6.7 · норм. 9.0/)).toBeInTheDocument();
+    expect(screen.getByText(/На 15 г больше базового ориентира/)).toBeInTheDocument();
+    expect(mockedUseRecommendation).not.toHaveBeenCalled();
+  });
+
+  test("hides every insulin amount when glucose is falling quickly", () => {
+    mockedUseRecommendation.mockReturnValue({
+      data: {
+        confidence: "medium",
+        correction_glucose_mmol_l: 7.2,
+        correction_iob_units: 6.6,
+        correction_isf_mmol_l_per_unit: 2.8,
+        correction_isf_source: "default",
+        correction_projected_glucose_mmol_l: 5.6,
+        correction_status: "low_or_falling",
+        correction_target_mmol_l: 6,
+        correction_trend_mmol_l_per_min: -0.107,
+        correction_units: null,
+        matched_episode_count: 8,
+        matches: [],
+        meal_ids: ["11111111-1111-1111-1111-111111111111"],
+        method_version: "historical-episode-median-v2",
+        range_high_units: 1.8,
+        range_low_units: 0.6,
+        recommended_units: 1.4,
+        status: "low_or_falling",
+        target_carbs_g: 7,
+        target_kcal: 120,
+        total_range_high_units: null,
+        total_range_low_units: null,
+        total_recommended_units: null,
+      },
+      error: null,
+      isError: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useInsulinRecommendation>);
+
+    render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Завтрак: 42.0 г углеводов",
+      }),
+    );
+
+    expect(screen.getByText("Инсулин не рекомендуется")).toBeInTheDocument();
+    expect(screen.getByText(/IOB 6.6 Ед/)).toBeInTheDocument();
+    expect(screen.queryByText("1.4 Ед")).not.toBeInTheDocument();
+    expect(document.querySelector(".ns-insulin-equation")).toBeNull();
+  });
+
+  test("flags a retrospective total that exceeds an already effective actual dose", () => {
+    mockedUseEpisodes.mockReturnValue({
+      data: {
+        from_datetime: "2026-07-12T04:00:00Z",
+        to_datetime: "2026-07-12T09:00:00Z",
+        episodes: [
+          {
+            end_at: "2026-07-12T06:55:00Z",
+            insulin: [],
+            key: "meal-with-outcome",
+            kind: "food",
+            meal_ids: ["11111111-1111-1111-1111-111111111111"],
+            start_at: "2026-07-12T06:55:00Z",
+            therapy: {
+              classification: "meal",
+              confidence: "high",
+              glucose_plus_2h_normalized: 5.2,
+              glucose_plus_2h_raw: 2.9,
+              reasons: ["углеводы приёма: 83 г"],
+            },
+            total_carbs_g: 83,
+            total_insulin_units: 8.5,
+            total_kcal: 600,
+          },
+        ],
+      },
+      error: null,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGlucoseEpisodes>);
+    mockedUseRecommendation.mockReturnValue({
+      data: {
+        confidence: "medium",
+        correction_glucose_mmol_l: 8.4,
+        correction_iob_units: 0,
+        correction_isf_mmol_l_per_unit: 2.8,
+        correction_isf_source: "default",
+        correction_projected_glucose_mmol_l: 9.3,
+        correction_status: "ready",
+        correction_target_mmol_l: 6,
+        correction_trend_mmol_l_per_min: 0.06,
+        correction_units: 1.2,
+        matched_episode_count: 8,
+        matches: [],
+        meal_ids: ["11111111-1111-1111-1111-111111111111"],
+        method_version: "historical-episode-median-v2",
+        range_high_units: 9.8,
+        range_low_units: 5.6,
+        recommended_units: 8.1,
+        status: "ready",
+        target_carbs_g: 83,
+        target_kcal: 600,
+        total_range_high_units: 11,
+        total_range_low_units: 6.8,
+        total_recommended_units: 9.3,
+      },
+      error: null,
+      isError: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useInsulinRecommendation>);
+
+    render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Завтрак: 42.0 г углеводов",
+      }),
+    );
+
+    expect(
+      screen.getByText(
+        /По факту 8.5 Ед уже привели к 5.2 ммоль\/л через 2 ч/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Расчёт 9.3 Ед был бы избыточным/)).toBeInTheDocument();
+  });
+
   test("records an actual dose when the grouped meal has none", async () => {
     createInsulin.mockResolvedValue({
       editable: true,
@@ -519,6 +877,7 @@ describe("NightscoutPage", () => {
           correction_glucose_mmol_l: ready ? 8.2 : null,
           correction_iob_units: ready ? 0.4 : null,
           correction_isf_mmol_l_per_unit: ready ? 1.5 : null,
+          correction_isf_source: ready ? "default" : null,
           correction_projected_glucose_mmol_l: ready ? 8.4 : null,
           correction_status: ready ? "ready" : "target_required",
           correction_target_mmol_l: ready ? 6 : null,
@@ -527,7 +886,7 @@ describe("NightscoutPage", () => {
           matched_episode_count: 5,
           matches: [],
           meal_ids: ["11111111-1111-1111-1111-111111111111"],
-          method_version: "historical-episode-median-v1",
+          method_version: "historical-episode-median-v2",
           range_high_units: 4.3,
           range_low_units: 3.8,
           recommended_units: 4.1,
@@ -555,7 +914,7 @@ describe("NightscoutPage", () => {
         name: "Завтрак: 42.0 г углеводов",
       }),
     );
-    fireEvent.change(screen.getByLabelText("Личная цель глюкозы"), {
+    fireEvent.change(screen.getByLabelText(/Личная цель глюкозы/), {
       target: { value: "6,0" },
     });
 
@@ -568,5 +927,6 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("1.2 Ед")).toBeInTheDocument();
     expect(screen.getByText("5.3 Ед")).toBeInTheDocument();
     expect(screen.getByText(/Глюкоза 8.2 → 8.4 ммоль\/л/)).toBeInTheDocument();
+    expect(screen.getByText(/ISF 1.5 \(по умолчанию\)/)).toBeInTheDocument();
   });
 });

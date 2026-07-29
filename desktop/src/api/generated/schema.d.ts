@@ -463,6 +463,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/therapy-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Therapy Review
+         * @description Return a read-only daily review with explicitly retrospective values.
+         */
+        get: operations["getGlucoseTherapyReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/tir-daily": {
         parameters: {
             query?: never;
@@ -495,6 +515,26 @@ export interface paths {
          * @description Return lightweight service health for watchdog and reverse proxy checks.
          */
         get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health-connect/heart-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heart Rate Series
+         * @description Return median heart-rate samples in compact display bins.
+         */
+        get: operations["getHeartRateSeries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2721,12 +2761,47 @@ export interface components {
              * Format: date-time
              */
             start_at: string;
+            therapy: components["schemas"]["DayEpisodeTherapyResponse"];
             /** Total Carbs G */
             total_carbs_g: number;
             /** Total Insulin Units */
             total_insulin_units: number;
             /** Total Kcal */
             total_kcal: number;
+        };
+        /**
+         * DayEpisodeTherapyResponse
+         * @description Automatic, read-only interpretation of an episode's treatment intent.
+         */
+        DayEpisodeTherapyResponse: {
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "meal" | "snack" | "carb_correction" | "insulin_correction" | "mixed" | "unresolved";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Glucose At Start Normalized */
+            glucose_at_start_normalized?: number | null;
+            /** Glucose At Start Raw */
+            glucose_at_start_raw?: number | null;
+            /** Glucose Plus 2H Normalized */
+            glucose_plus_2h_normalized?: number | null;
+            /** Glucose Plus 2H Raw */
+            glucose_plus_2h_raw?: number | null;
+            /** Peak Post Event Normalized */
+            peak_post_event_normalized?: number | null;
+            /** Peak Post Event Raw */
+            peak_post_event_raw?: number | null;
+            /** Reasons */
+            reasons?: string[];
+            /** Suggested Carbs G */
+            suggested_carbs_g?: number | null;
+            /** Suggestion Source */
+            suggestion_source?: "ada_default" | null;
         };
         /**
          * DayEpisodesResponse
@@ -3791,6 +3866,35 @@ export interface components {
              */
             version: string;
         };
+        /** HeartRateBinResponse */
+        HeartRateBinResponse: {
+            /** Bpm */
+            bpm: number;
+            /** Sample Count */
+            sample_count: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+        };
+        /** HeartRateSeriesResponse */
+        HeartRateSeriesResponse: {
+            /** Bin Minutes */
+            bin_minutes: number;
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /** Points */
+            points: components["schemas"]["HeartRateBinResponse"][];
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+        };
         /**
          * InsulinLinkDayPutRequest
          * @description Replace reviewed food/insulin links for one day atomically.
@@ -3927,6 +4031,13 @@ export interface components {
         InsulinRecommendationMatchResponse: {
             /** Carbs G */
             carbs_g: number;
+            /**
+             * Deferred Insulin Units
+             * @default 0
+             */
+            deferred_insulin_units: number;
+            /** Glucose Plus 2H Mmol */
+            glucose_plus_2h_mmol?: number | null;
             /** Insulin Units */
             insulin_units: number;
             /** Meal Ids */
@@ -3936,6 +4047,11 @@ export interface components {
              * Format: date-time
              */
             occurred_at: string;
+            /**
+             * Outcome Weight
+             * @default 1
+             */
+            outcome_weight: number;
             /** Scaled Units */
             scaled_units: number;
             /** Similarity */
@@ -3946,7 +4062,10 @@ export interface components {
          * @description Accepted meal or grouped-meal ids to estimate from personal history.
          */
         InsulinRecommendationRequest: {
-            /** Correction Target Mmol L */
+            /**
+             * Correction Target Mmol L
+             * @description Personal correction target; omitted uses 6.0 mmol/L.
+             */
             correction_target_mmol_l?: number | null;
             /** Meal Ids */
             meal_ids: string[];
@@ -3967,6 +4086,8 @@ export interface components {
             correction_iob_units?: number | null;
             /** Correction Isf Mmol L Per Unit */
             correction_isf_mmol_l_per_unit?: number | null;
+            /** Correction Isf Source */
+            correction_isf_source?: ("manual" | "fitted" | "default") | null;
             /** Correction Projected Glucose Mmol L */
             correction_projected_glucose_mmol_l?: number | null;
             /**
@@ -3998,7 +4119,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "ready" | "insufficient_history" | "meal_without_carbs";
+            status: "ready" | "insufficient_history" | "meal_without_carbs" | "low_or_falling";
             /** Target Carbs G */
             target_carbs_g: number;
             /** Target Kcal */
@@ -6708,6 +6829,95 @@ export interface components {
             rank: number;
         };
         /**
+         * TherapyReviewDayResponse
+         * @description Retrospective therapy review for one local day.
+         */
+        TherapyReviewDayResponse: {
+            /** Cached */
+            cached: boolean;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Horizon Minutes */
+            horizon_minutes: number;
+            /** Items */
+            items: components["schemas"]["TherapyReviewItemResponse"][];
+            /** Model Version */
+            model_version: string;
+            /** Target Mmol L */
+            target_mmol_l: number;
+        };
+        /**
+         * TherapyReviewItemResponse
+         * @description One retrospective daily therapy row.
+         */
+        TherapyReviewItemResponse: {
+            /** Actual Value */
+            actual_value?: number | null;
+            /** Adjusted Actual Value */
+            adjusted_actual_value?: number | null;
+            /**
+             * Adjustment Status
+             * @enum {string}
+             */
+            adjustment_status: "ready" | "no_actual" | "no_outcome" | "calculation_withheld";
+            /** Calculated Value */
+            calculated_value?: number | null;
+            /** Calculation Status */
+            calculation_status: string;
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "meal" | "snack" | "carb_correction" | "insulin_correction" | "mixed" | "unresolved";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Glucose After Normalized */
+            glucose_after_normalized?: number | null;
+            /** Glucose After Raw */
+            glucose_after_raw?: number | null;
+            /** Glucose Start Normalized */
+            glucose_start_normalized?: number | null;
+            /** Glucose Start Raw */
+            glucose_start_raw?: number | null;
+            /** Horizon Minutes */
+            horizon_minutes: number;
+            /** Isf Mmol L Per Unit */
+            isf_mmol_l_per_unit?: number | null;
+            /** Key */
+            key: string;
+            /** Notes */
+            notes?: string[];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Target Mmol L */
+            target_mmol_l: number;
+            /** Title */
+            title: string;
+            /** Total Carbs G */
+            total_carbs_g: number;
+            /** Total Insulin Units */
+            total_insulin_units: number;
+            /**
+             * Value Unit
+             * @enum {string}
+             */
+            value_unit: "U" | "g";
+        };
+        /**
          * TimelineFoodResponse
          * @description Food-only history timeline response.
          */
@@ -8065,6 +8275,42 @@ export interface operations {
             };
         };
     };
+    getGlucoseTherapyReview: {
+        parameters: {
+            query: {
+                date: string;
+                target_mmol_l?: number;
+                horizon_minutes?: number;
+                force_recalculate?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TherapyReviewDayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getGlucoseTirDaily: {
         parameters: {
             query?: {
@@ -8114,6 +8360,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    getHeartRateSeries: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                bin_minutes?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartRateSeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -114,6 +114,83 @@ def test_api_upserts_and_deletes_idempotently(api_client: TestClient) -> None:
         assert HealthConnectRepository(session, owner_id).list_records() == []
 
 
+def test_api_returns_ten_minute_heart_rate_medians_from_sample_time(
+    api_client: TestClient,
+) -> None:
+    uploaded = api_client.post(
+        "/health-connect/records:sync",
+        json={
+            "records": [
+                {
+                    "record_id": "heart-rate-shifted-metadata",
+                    "record_type": "HeartRateRecord",
+                    "start_time": "2026-07-15T12:01:00Z",
+                    "end_time": "2026-07-15T12:20:00Z",
+                    "last_modified_time": "2026-07-15T12:30:00Z",
+                    "payload": {
+                        "samples": [
+                            {
+                                "time": "2026-07-15T08:01:00Z",
+                                "beatsPerMinute": 70,
+                            },
+                            {
+                                "time": "2026-07-15T08:05:00Z",
+                                "beatsPerMinute": 100,
+                            },
+                            {
+                                "time": "2026-07-15T08:09:00Z",
+                                "beatsPerMinute": 80,
+                            },
+                            {
+                                "time": "2026-07-15T08:12:00Z",
+                                "beatsPerMinute": 90,
+                            },
+                            {
+                                "time": "2026-07-15T08:13:00Z",
+                                "beatsPerMinute": 0,
+                            },
+                            {
+                                "time": "2026-07-15T09:00:00Z",
+                                "beatsPerMinute": 120,
+                            },
+                        ]
+                    },
+                }
+            ],
+            "deleted_record_ids": [],
+        },
+    )
+    assert uploaded.status_code == 200
+
+    response = api_client.get(
+        "/health-connect/heart-rate",
+        params={
+            "from": "2026-07-15T08:00:00Z",
+            "to": "2026-07-15T09:00:00Z",
+            "bin_minutes": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "from_datetime": "2026-07-15T08:00:00",
+        "to_datetime": "2026-07-15T09:00:00",
+        "bin_minutes": 10,
+        "points": [
+            {
+                "timestamp": "2026-07-15T08:00:00",
+                "bpm": 80.0,
+                "sample_count": 3,
+            },
+            {
+                "timestamp": "2026-07-15T08:10:00",
+                "bpm": 90.0,
+                "sample_count": 1,
+            },
+        ],
+    }
+
+
 def test_food_user_cannot_sync_health_connect(api_client: TestClient) -> None:
     session_factory = api_client.app_state["session_factory"]
     with session_factory() as session:

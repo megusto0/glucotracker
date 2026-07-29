@@ -1948,6 +1948,9 @@
             "title": "Start At",
             "type": "string"
           },
+          "therapy": {
+            "$ref": "#/components/schemas/DayEpisodeTherapyResponse"
+          },
           "total_carbs_g": {
             "title": "Total Carbs G",
             "type": "number"
@@ -1970,9 +1973,138 @@
           "insulin",
           "total_carbs_g",
           "total_kcal",
-          "total_insulin_units"
+          "total_insulin_units",
+          "therapy"
         ],
         "title": "DayEpisodeResponse",
+        "type": "object"
+      },
+      "DayEpisodeTherapyResponse": {
+        "description": "Automatic, read-only interpretation of an episode's treatment intent.",
+        "properties": {
+          "classification": {
+            "enum": [
+              "meal",
+              "snack",
+              "carb_correction",
+              "insulin_correction",
+              "mixed",
+              "unresolved"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "glucose_at_start_normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose At Start Normalized"
+          },
+          "glucose_at_start_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose At Start Raw"
+          },
+          "glucose_plus_2h_normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Plus 2H Normalized"
+          },
+          "glucose_plus_2h_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Plus 2H Raw"
+          },
+          "peak_post_event_normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Post Event Normalized"
+          },
+          "peak_post_event_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Post Event Raw"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "suggested_carbs_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Carbs G"
+          },
+          "suggestion_source": {
+            "anyOf": [
+              {
+                "const": "ada_default",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Source"
+          }
+        },
+        "required": [
+          "classification",
+          "confidence"
+        ],
+        "title": "DayEpisodeTherapyResponse",
         "type": "object"
       },
       "DayEpisodesResponse": {
@@ -4666,6 +4798,63 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HeartRateBinResponse": {
+        "properties": {
+          "bpm": {
+            "title": "Bpm",
+            "type": "number"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "bpm",
+          "sample_count"
+        ],
+        "title": "HeartRateBinResponse",
+        "type": "object"
+      },
+      "HeartRateSeriesResponse": {
+        "properties": {
+          "bin_minutes": {
+            "title": "Bin Minutes",
+            "type": "integer"
+          },
+          "from_datetime": {
+            "format": "date-time",
+            "title": "From Datetime",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/HeartRateBinResponse"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "to_datetime": {
+            "format": "date-time",
+            "title": "To Datetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_datetime",
+          "to_datetime",
+          "bin_minutes",
+          "points"
+        ],
+        "title": "HeartRateSeriesResponse",
+        "type": "object"
+      },
       "InsulinLinkDayPutRequest": {
         "description": "Replace reviewed food/insulin links for one day atomically.",
         "properties": {
@@ -4989,6 +5178,22 @@
             "title": "Carbs G",
             "type": "number"
           },
+          "deferred_insulin_units": {
+            "default": 0.0,
+            "title": "Deferred Insulin Units",
+            "type": "number"
+          },
+          "glucose_plus_2h_mmol": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Plus 2H Mmol"
+          },
           "insulin_units": {
             "title": "Insulin Units",
             "type": "number"
@@ -5005,6 +5210,13 @@
             "format": "date-time",
             "title": "Occurred At",
             "type": "string"
+          },
+          "outcome_weight": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Outcome Weight",
+            "type": "number"
           },
           "scaled_units": {
             "title": "Scaled Units",
@@ -5042,6 +5254,7 @@
                 "type": "null"
               }
             ],
+            "description": "Personal correction target; omitted uses 6.0 mmol/L.",
             "title": "Correction Target Mmol L"
           },
           "meal_ids": {
@@ -5106,6 +5319,22 @@
               }
             ],
             "title": "Correction Isf Mmol L Per Unit"
+          },
+          "correction_isf_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "manual",
+                  "fitted",
+                  "default"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Isf Source"
           },
           "correction_projected_glucose_mmol_l": {
             "anyOf": [
@@ -5224,7 +5453,8 @@
             "enum": [
               "ready",
               "insufficient_history",
-              "meal_without_carbs"
+              "meal_without_carbs",
+              "low_or_falling"
             ],
             "title": "Status",
             "type": "string"
@@ -12336,6 +12566,243 @@
         "title": "StatsOverviewTopProductResponse",
         "type": "object"
       },
+      "TherapyReviewDayResponse": {
+        "description": "Retrospective therapy review for one local day.",
+        "properties": {
+          "cached": {
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "computed_at": {
+            "format": "date-time",
+            "title": "Computed At",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "horizon_minutes": {
+            "title": "Horizon Minutes",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TherapyReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "target_mmol_l": {
+            "title": "Target Mmol L",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "target_mmol_l",
+          "horizon_minutes",
+          "items",
+          "cached",
+          "computed_at",
+          "model_version"
+        ],
+        "title": "TherapyReviewDayResponse",
+        "type": "object"
+      },
+      "TherapyReviewItemResponse": {
+        "description": "One retrospective daily therapy row.",
+        "properties": {
+          "actual_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Value"
+          },
+          "adjusted_actual_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjusted Actual Value"
+          },
+          "adjustment_status": {
+            "enum": [
+              "ready",
+              "no_actual",
+              "no_outcome",
+              "calculation_withheld"
+            ],
+            "title": "Adjustment Status",
+            "type": "string"
+          },
+          "calculated_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calculated Value"
+          },
+          "calculation_status": {
+            "title": "Calculation Status",
+            "type": "string"
+          },
+          "classification": {
+            "enum": [
+              "meal",
+              "snack",
+              "carb_correction",
+              "insulin_correction",
+              "mixed",
+              "unresolved"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "glucose_after_normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose After Normalized"
+          },
+          "glucose_after_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose After Raw"
+          },
+          "glucose_start_normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Start Normalized"
+          },
+          "glucose_start_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Start Raw"
+          },
+          "horizon_minutes": {
+            "title": "Horizon Minutes",
+            "type": "integer"
+          },
+          "isf_mmol_l_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isf Mmol L Per Unit"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "target_mmol_l": {
+            "title": "Target Mmol L",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_carbs_g": {
+            "title": "Total Carbs G",
+            "type": "number"
+          },
+          "total_insulin_units": {
+            "title": "Total Insulin Units",
+            "type": "number"
+          },
+          "value_unit": {
+            "enum": [
+              "U",
+              "g"
+            ],
+            "title": "Value Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "classification",
+          "confidence",
+          "start_at",
+          "horizon_minutes",
+          "value_unit",
+          "target_mmol_l",
+          "calculation_status",
+          "adjustment_status",
+          "total_carbs_g",
+          "total_insulin_units"
+        ],
+        "title": "TherapyReviewItemResponse",
+        "type": "object"
+      },
       "TimelineFoodResponse": {
         "description": "Food-only history timeline response.",
         "properties": {
@@ -15713,6 +16180,108 @@
         "x-glucotracker-scoped": true
       }
     },
+    "/glucose/therapy-review": {
+      "get": {
+        "description": "Return a read-only daily review with explicitly retrospective values.",
+        "operationId": "getGlucoseTherapyReview",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_mmol_l",
+            "required": false,
+            "schema": {
+              "default": 6.0,
+              "maximum": 10,
+              "minimum": 3.9,
+              "title": "Target Mmol L",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "horizon_minutes",
+            "required": false,
+            "schema": {
+              "default": 120,
+              "maximum": 240,
+              "minimum": 60,
+              "title": "Horizon Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_recalculate",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Recalculate",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TherapyReviewDayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Therapy Review",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
     "/glucose/tir-daily": {
       "get": {
         "description": "Return per-day TIR band shares for the period (descriptive only).",
@@ -15805,6 +16374,93 @@
         "summary": "Health",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/health-connect/heart-rate": {
+      "get": {
+        "description": "Return median heart-rate samples in compact display bins.",
+        "operationId": "getHeartRateSeries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bin_minutes",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 60,
+              "minimum": 5,
+              "title": "Bin Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeartRateSeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Heart Rate Series",
+        "tags": [
+          "health-connect"
         ]
       }
     },

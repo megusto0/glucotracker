@@ -79,6 +79,7 @@ sealed interface HistoricalInsulinUiState {
         enum class Reason {
             InsufficientHistory,
             MealWithoutCarbs,
+            LowOrFalling,
         }
     }
 
@@ -159,6 +160,11 @@ private fun InsulinRecommendationResponse.toUiState(): HistoricalInsulinUiState 
         InsulinRecommendationResponse.Status.MEAL_WITHOUT_CARBS ->
             HistoricalInsulinUiState.Unavailable(
                 reason = HistoricalInsulinUiState.Unavailable.Reason.MealWithoutCarbs,
+                matchedEpisodeCount = matchedEpisodeCount,
+            )
+        InsulinRecommendationResponse.Status.LOW_OR_FALLING ->
+            HistoricalInsulinUiState.Unavailable(
+                reason = HistoricalInsulinUiState.Unavailable.Reason.LowOrFalling,
                 matchedEpisodeCount = matchedEpisodeCount,
             )
     }
@@ -371,6 +377,8 @@ private fun HistoricalEstimateBlock(state: HistoricalInsulinUiState) {
                         )
                     HistoricalInsulinUiState.Unavailable.Reason.MealWithoutCarbs ->
                         stringResource(R.string.insulin_history_no_carbs)
+                    HistoricalInsulinUiState.Unavailable.Reason.LowOrFalling ->
+                        stringResource(R.string.insulin_history_low_or_falling)
                 },
                 modifier = Modifier.padding(top = 8.dp),
                 color = GT.colors.ink2,

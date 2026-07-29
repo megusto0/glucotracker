@@ -504,9 +504,33 @@
   stroke: #111;
 }
 
+.ns-treatment--therapy-snack circle {
+  fill: #7e57c2;
+}
+
+.ns-treatment--therapy-snack .ns-treatment-symbol {
+  fill: #fff;
+}
+
+.ns-treatment--therapy-carb-correction circle {
+  fill: #ffb300;
+}
+
+.ns-treatment--therapy-carb-correction .ns-treatment-value {
+  fill: #ffca28;
+}
+
 .ns-treatment--insulin circle {
   fill: #111;
   stroke: var(--ns-text);
+}
+
+.ns-treatment--therapy-insulin-correction circle {
+  stroke: #ff6e6e;
+}
+
+.ns-treatment--therapy-mixed circle {
+  stroke: #ffb300;
 }
 
 .ns-treatment-symbol,
@@ -557,11 +581,62 @@
   fill: #666;
   opacity: 0.8;
 }
+
+.ns-heart-rate-bar {
+  fill: #b65b72;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.ns-heart-rate-label {
+  fill: #d9879a;
+  font:
+    11px "JetBrains Mono",
+    monospace;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
 .ns-overview-selection {
-  fill: transparent;
+  fill: rgb(255 255 255 / 2%);
   stroke: #bbb;
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.ns-overview-selection:focus {
+  outline: none;
+  stroke: #fff;
+}
+
+.ns-overview-handle {
+  stroke: #eee;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.ns-overview-handle-hit {
+  fill: transparent;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.ns-overview-handle-hit:focus {
+  outline: none;
+  fill: rgb(255 255 255 / 5%);
+}
+
+.ns-chart--dragging-move,
+.ns-chart--dragging-move .ns-overview-selection {
+  cursor: grabbing;
+}
+
+.ns-chart--dragging-start,
+.ns-chart--dragging-end {
+  cursor: ew-resize;
 }
 
 .ns-tooltip {
@@ -640,6 +715,7 @@
 .ns-chart-empty {
   position: absolute;
   inset: 0;
+  height: auto;
 }
 
 .ns-insulin-panel {
@@ -749,6 +825,78 @@
     500 12px/1.35 "JetBrains Mono",
     Consolas,
     monospace;
+}
+
+.ns-insulin-safety-stop {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid #8f6a00;
+  border-radius: 4px;
+  background: rgb(255 179 0 / 8%);
+}
+
+.ns-insulin-safety-stop strong {
+  color: #ffca28;
+  font:
+    700 17px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.ns-insulin-safety-stop small {
+  color: #bbb;
+  font:
+    500 12px/1.35 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.ns-insulin-result .ns-insulin-retrospective-warning {
+  padding: 8px;
+  border-left: 2px solid #ffb300;
+  color: #ffd166;
+  background: rgb(255 179 0 / 8%);
+}
+
+.ns-carb-correction-panel .ns-insulin-kicker {
+  color: #ffb300;
+}
+
+.ns-carb-suggestion {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ns-carb-suggestion strong {
+  color: #ffca28;
+  font:
+    800 34px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.ns-carb-suggestion span {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.ns-carb-context {
+  display: grid;
+  gap: 3px;
+  padding-top: 6px;
+  border-top: 1px solid #444;
+  color: #bbb;
+  font:
+    600 11px/1.35 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.ns-insulin-actual > small {
+  color: #aaa;
+  font-size: 12px;
 }
 
 .ns-insulin-target {

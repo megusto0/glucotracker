@@ -1,9 +1,10 @@
-import { Bell, Menu, RefreshCw, Volume2, X } from "lucide-react";
+import { Bell, ClipboardList, Menu, RefreshCw, Volume2, X } from "lucide-react";
 import {
   useMemo,
   useRef,
   useState,
   useEffect,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,12 +13,14 @@ import type {
   GlucoseDashboardResponse,
   GlucoseMode,
   GlucosePredictionResponse,
+  HeartRateSeriesResponse,
 } from "../../api/client";
 import {
   useCreateNightscoutInsulin,
   useGlucoseDashboard,
   useGlucoseEpisodes,
   useGlucosePrediction,
+  useHeartRateSeries,
   useInsulinRecommendation,
 } from "../glucose/useGlucoseDashboard";
 import "./nightscout-page.css";
@@ -45,9 +48,21 @@ type HoverPoint =
       x: number;
       y: number;
     };
+type ChartRange = {
+  fromMs: number;
+  toMs: number;
+};
+type OverviewDragMode = "start" | "move" | "end";
+type OverviewDrag = {
+  initialRange: ChartRange;
+  mode: OverviewDragMode;
+  pointerId: number;
+  startClientX: number;
+};
 const HOUR_OPTIONS = [2, 3, 4, 6, 12, 24] as const;
 const MAIN_Y_TICKS = [2, 3, 4, 6, 10, 14, 22] as const;
 const REFRESH_INTERVAL_MS = 60 * 1000;
+const MIN_CHART_WINDOW_MS = 30 * 60 * 1000;
 
 const pad = (value: number) => value.toString().padStart(2, "0");
 
@@ -137,6 +152,44 @@ function markerOffsets(anchorKeys: string[], spacing: number): number[] {
   return offsets;
 }
 
+function resizeOverviewRange(
+  drag: OverviewDrag,
+  deltaMs: number,
+  overviewFrom: number,
+  overviewTo: number,
+): ChartRange {
+  const { fromMs, toMs } = drag.initialRange;
+  if (drag.mode === "start") {
+    return {
+      fromMs: Math.max(
+        overviewFrom,
+        Math.min(fromMs + deltaMs, toMs - MIN_CHART_WINDOW_MS),
+      ),
+      toMs,
+    };
+  }
+  if (drag.mode === "end") {
+    return {
+      fromMs,
+      toMs: Math.min(
+        overviewTo,
+        Math.max(toMs + deltaMs, fromMs + MIN_CHART_WINDOW_MS),
+      ),
+    };
+  }
+
+  const width = toMs - fromMs;
+  const shiftedFrom = fromMs + deltaMs;
+  const boundedFrom = Math.max(
+    overviewFrom,
+    Math.min(shiftedFrom, overviewTo - width),
+  );
+  return {
+    fromMs: boundedFrom,
+    toMs: boundedFrom + width,
+  };
+}
+
 export function NightscoutPage() {
   const navigate = useNavigate();
   const [hours, setHours] = useState<(typeof HOUR_OPTIONS)[number]>(3);
@@ -145,6 +198,7 @@ export function NightscoutPage() {
   const [selectedFood, setSelectedFood] = useState<SelectableFoodEvent | null>(
     null,
   );
+  const [customRange, setCustomRange] = useState<ChartRange | null>(null);
   const [refreshAnchor, setRefreshAnchor] = useState(() => new Date());
 
   useEffect(() => {
@@ -156,12 +210,18 @@ export function NightscoutPage() {
   }, []);
 
   const range = useMemo(() => {
+    if (customRange) {
+      return {
+        from: toApiDateTime(new Date(customRange.fromMs)),
+        to: toApiDateTime(new Date(customRange.toMs)),
+      };
+    }
     const to = refreshAnchor;
     return {
       from: toApiDateTime(new Date(to.getTime() - hours * 60 * 60 * 1000)),
       to: toApiDateTime(to),
     };
-  }, [hours, refreshAnchor]);
+  }, [customRange, hours, refreshAnchor]);
   const overviewRange = useMemo(() => {
     const to = refreshAnchor;
     return {
@@ -175,6 +235,11 @@ export function NightscoutPage() {
     overviewRange.from,
     overviewRange.to,
     mode,
+  );
+  const heartRate = useHeartRateSeries(
+    overviewRange.from,
+    overviewRange.to,
+    10,
   );
   const prediction = useGlucosePrediction(mode);
   const episodes = useGlucoseEpisodes(range.from, range.to);
@@ -253,6 +318,15 @@ export function NightscoutPage() {
             <button onClick={refresh} type="button">
               <RefreshCw size={15} /> Обновить
             </button>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                navigate("/nightscout/review");
+              }}
+              type="button"
+            >
+              <ClipboardList size={15} /> Разбор по дням
+            </button>
             <button onClick={() => navigate("/glucose")} type="button">
               Открыть Glucotracker
             </button>
@@ -277,10 +351,15 @@ export function NightscoutPage() {
             <span>Hours:</span>
             {HOUR_OPTIONS.map((option) => (
               <button
-                aria-pressed={hours === option}
-                className={hours === option ? "active" : ""}
+                aria-pressed={customRange === null && hours === option}
+                className={
+                  customRange === null && hours === option ? "active" : ""
+                }
                 key={option}
-                onClick={() => setHours(option)}
+                onClick={() => {
+                  setHours(option);
+                  setCustomRange(null);
+                }}
                 type="button"
               >
                 {option}
@@ -350,12 +429,15 @@ export function NightscoutPage() {
       <NightscoutChart
         data={dashboard.data}
         error={Boolean(dashboard.error)}
+        episodes={episodes.data?.episodes}
         loading={dashboard.isLoading}
         mode={mode}
         overview={overview.data}
+        heartRate={heartRate.data}
         prediction={prediction.data}
         predictionError={Boolean(prediction.error)}
         onFoodSelect={setSelectedFood}
+        onRangeChange={setCustomRange}
       />
       {selectedFood && !selectedEpisode ? (
         <div
@@ -380,7 +462,14 @@ export function NightscoutPage() {
           </p>
         </div>
       ) : null}
-      {selectedEpisode ? (
+      {selectedEpisode?.therapy?.classification === "carb_correction" ? (
+        <CarbCorrectionPanel
+          episode={selectedEpisode}
+          foodEvents={selectedFoodEvents}
+          key={selectedEpisode.key}
+          onClose={() => setSelectedFood(null)}
+        />
+      ) : selectedEpisode ? (
         <InsulinEpisodePanel
           episode={selectedEpisode}
           foodEvents={selectedFoodEvents}
@@ -412,6 +501,81 @@ function formatDose(value?: number | null) {
     : "—";
 }
 
+function formatCarbs(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${value.toFixed(0)} г`
+    : "—";
+}
+
+function CarbCorrectionPanel({
+  episode,
+  foodEvents,
+  onClose,
+}: {
+  episode: DayEpisode;
+  foodEvents: FoodEvent[];
+  onClose: () => void;
+}) {
+  const therapy = episode.therapy;
+  return (
+    <div
+      aria-label="Коррекция углеводами"
+      aria-modal="false"
+      className="ns-insulin-panel ns-carb-correction-panel"
+      role="dialog"
+    >
+      <button
+        aria-label="Закрыть"
+        className="ns-insulin-panel-close"
+        onClick={onClose}
+        type="button"
+      >
+        <X size={18} />
+      </button>
+      <span className="ns-insulin-kicker">КОРРЕКЦИЯ УГЛЕВОДАМИ</span>
+      <h2>Восстановление после низкой глюкозы</h2>
+      <p className="ns-insulin-meal-summary">
+        {foodEvents.map((event) => event.title).join(" · ")}
+        <span>Фактически: {formatCarbs(episode.total_carbs_g)}</span>
+      </p>
+
+      <section className="ns-insulin-result">
+        <span className="ns-insulin-kicker">ОРИЕНТИР</span>
+        <div className="ns-carb-suggestion">
+          <strong>{formatCarbs(therapy.suggested_carbs_g)}</strong>
+          <span>быстрых углеводов</span>
+        </div>
+        <small>Проверить глюкозу снова через 15 минут.</small>
+        <div className="ns-carb-context">
+          <span>
+            До: raw {formatDose(therapy.glucose_at_start_raw)} · норм.{" "}
+            {formatDose(therapy.glucose_at_start_normalized)}
+          </span>
+          <span>
+            Пик после: raw {formatDose(therapy.peak_post_event_raw)} · норм.{" "}
+            {formatDose(therapy.peak_post_event_normalized)} ммоль/л
+          </span>
+        </div>
+        {therapy.reasons?.length ? (
+          <small>{therapy.reasons.join(" · ")}</small>
+        ) : null}
+      </section>
+
+      <section className="ns-insulin-actual">
+        <span className="ns-insulin-kicker">ФАКТИЧЕСКИ</span>
+        <strong>{formatCarbs(episode.total_carbs_g)}</strong>
+        {typeof therapy.suggested_carbs_g === "number" &&
+        episode.total_carbs_g > therapy.suggested_carbs_g ? (
+          <small>
+            На {formatCarbs(episode.total_carbs_g - therapy.suggested_carbs_g)}{" "}
+            больше базового ориентира.
+          </small>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 function correctionStatusText(
   status:
     | NonNullable<
@@ -421,7 +585,7 @@ function correctionStatusText(
 ) {
   if (status === "target_required") return "Укажите личную цель.";
   if (status === "isf_unavailable")
-    return "Нет персонального ISF в цифровом двойнике.";
+    return "Нет надёжного персонального ISF: задайте его вручную в цифровом двойнике.";
   if (status === "glucose_unavailable")
     return "Нет надёжной глюкозы перед приёмом.";
   if (status === "trend_unavailable")
@@ -443,16 +607,16 @@ function InsulinEpisodePanel({
   foodEvents: FoodEvent[];
   onClose: () => void;
 }) {
-  const [targetText, setTargetText] = useState("");
+  const isSnack = episode.therapy?.classification === "snack";
+  const [targetText, setTargetText] = useState("6,0");
   const [actualText, setActualText] = useState("");
   const [savedActual, setSavedActual] = useState<number | null>(null);
   const parsedTarget = Number(targetText.replace(",", "."));
-  const correctionTarget =
-    Number.isFinite(parsedTarget) && parsedTarget >= 3.9 && parsedTarget <= 10
-      ? parsedTarget
-      : undefined;
+  const targetIsValid =
+    Number.isFinite(parsedTarget) && parsedTarget >= 3.9 && parsedTarget <= 10;
+  const correctionTarget = targetIsValid ? parsedTarget : undefined;
   const recommendation = useInsulinRecommendation(
-    episode.meal_ids,
+    targetIsValid ? episode.meal_ids : [],
     correctionTarget,
   );
   const createInsulin = useCreateNightscoutInsulin();
@@ -463,6 +627,26 @@ function InsulinEpisodePanel({
     Number.isFinite(parsedActual) && parsedActual > 0 && parsedActual <= 100;
   const carbs = foodEvents.map((event) => event.carbs_g);
   const recommendationData = recommendation.data;
+  const outcomeGlucose =
+    episode.therapy?.glucose_plus_2h_normalized ??
+    episode.therapy?.glucose_plus_2h_raw;
+  const retrospectiveCorrectionTooHigh =
+    typeof actualUnits === "number" &&
+    typeof recommendationData?.total_recommended_units === "number" &&
+    recommendationData.total_recommended_units > actualUnits &&
+    typeof outcomeGlucose === "number" &&
+    outcomeGlucose < parsedTarget;
+  const inRangeMatchCount =
+    recommendationData?.matches.filter(
+      (match) =>
+        typeof match.glucose_plus_2h_mmol === "number" &&
+        match.glucose_plus_2h_mmol >= 3.9 &&
+        match.glucose_plus_2h_mmol <= 10,
+    ).length ?? 0;
+  const deferredMatchCount =
+    recommendationData?.matches.filter(
+      (match) => (match.deferred_insulin_units ?? 0) > 0,
+    ).length ?? 0;
   const correctionMessage = correctionStatusText(
     recommendationData?.correction_status,
   );
@@ -496,8 +680,10 @@ function InsulinEpisodePanel({
       >
         <X size={18} />
       </button>
-      <span className="ns-insulin-kicker">ПРИЁМ ПИЩИ</span>
-      <h2>Инсулин для приёма</h2>
+      <span className="ns-insulin-kicker">
+        {isSnack ? "ПЕРЕКУС" : "ПРИЁМ ПИЩИ"}
+      </span>
+      <h2>{isSnack ? "Инсулин для перекуса" : "Инсулин для приёма"}</h2>
       <p className="ns-insulin-meal-summary">
         {carbs.length
           ? carbs.map((value) => `${value.toFixed(0)} г`).join(" + ")
@@ -528,10 +714,29 @@ function InsulinEpisodePanel({
             ммоль/л
           </span>
         </label>
-        {recommendation.isLoading ? (
+        {!targetIsValid ? (
+          <p className="ns-insulin-error">Цель должна быть от 3,9 до 10,0.</p>
+        ) : recommendation.isLoading ? (
           <p>Сравниваю с прошлыми приёмами…</p>
         ) : recommendation.isError ? (
           <p className="ns-insulin-error">Расчёт сейчас недоступен.</p>
+        ) : recommendationData?.status === "low_or_falling" ? (
+          <div className="ns-insulin-safety-stop">
+            <strong>Инсулин не рекомендуется</strong>
+            <small>
+              Глюкоза низкая или быстро снижается. Расчёт еды, коррекции и
+              итога скрыт.
+            </small>
+            <small>
+              Глюкоза{" "}
+              {formatDose(recommendationData.correction_glucose_mmol_l)} →{" "}
+              {formatDose(
+                recommendationData.correction_projected_glucose_mmol_l,
+              )}{" "}
+              ммоль/л · IOB{" "}
+              {formatDose(recommendationData.correction_iob_units)} Ед
+            </small>
+          </div>
         ) : recommendationData?.status === "ready" ? (
           <>
             <div className="ns-insulin-equation">
@@ -568,6 +773,9 @@ function InsulinEpisodePanel({
                 ммоль/л · IOB{" "}
                 {formatDose(recommendationData.correction_iob_units)} Ед · ISF{" "}
                 {formatDose(recommendationData.correction_isf_mmol_l_per_unit)}
+                {recommendationData.correction_isf_source === "default"
+                  ? " (по умолчанию)"
+                  : ""}
               </small>
             )}
             <small>
@@ -575,6 +783,22 @@ function InsulinEpisodePanel({
               {formatDose(recommendationData.range_high_units)} Ед · похожих
               приёмов: {recommendationData.matched_episode_count}
             </small>
+            {inRangeMatchCount || deferredMatchCount ? (
+              <small>
+                +2 ч в диапазоне: {inRangeMatchCount}
+                {deferredMatchCount
+                  ? ` · с отложенным покрытием: ${deferredMatchCount}`
+                  : ""}
+              </small>
+            ) : null}
+            {retrospectiveCorrectionTooHigh ? (
+              <small className="ns-insulin-retrospective-warning">
+                По факту {formatDose(actualUnits)} Ед уже привели к{" "}
+                {formatDose(outcomeGlucose)} ммоль/л через 2 ч. Расчёт{" "}
+                {formatDose(recommendationData.total_recommended_units)} Ед был
+                бы избыточным для этого эпизода.
+              </small>
+            ) : null}
           </>
         ) : recommendationData?.status === "meal_without_carbs" ? (
           <p>В приёме нет углеводов для расчёта.</p>
@@ -633,25 +857,36 @@ function InsulinEpisodePanel({
 function NightscoutChart({
   data,
   error,
+  episodes,
   loading,
   mode,
   overview,
+  heartRate,
   prediction,
   predictionError,
   onFoodSelect,
+  onRangeChange,
 }: {
   data?: GlucoseDashboardResponse;
   error: boolean;
+  episodes?: DayEpisode[];
   loading: boolean;
   mode: DisplayMode;
   overview?: GlucoseDashboardResponse;
+  heartRate?: HeartRateSeriesResponse;
   prediction?: GlucosePredictionResponse;
   predictionError: boolean;
   onFoodSelect: (food: SelectableFoodEvent) => void;
+  onRangeChange: (range: ChartRange) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const overviewDragRef = useRef<OverviewDrag | null>(null);
+  const draftRangeRef = useRef<ChartRange | null>(null);
   const [hover, setHover] = useState<HoverPoint | null>(null);
+  const [draftRange, setDraftRange] = useState<ChartRange | null>(null);
+  const [overviewDragMode, setOverviewDragMode] =
+    useState<OverviewDragMode | null>(null);
   // Size SVG in real pixels so preserveAspectRatio doesn't squash dots into ovals.
   const [size, setSize] = useState(() => ({
     width: Math.max(window.innerWidth, 320),
@@ -719,7 +954,20 @@ function NightscoutChart({
   const plotHeight = Math.max(1, chartBottom - chartTop);
   const overviewTop = mainHeight + labelBand + overviewGap;
   const points = data?.points ?? [];
-  const forecastPoints = prediction?.points ?? [];
+  const fromMs = data
+    ? Date.parse(data.from_datetime)
+    : Date.now() - 3 * 3_600_000;
+  const historicalToMs = data ? Date.parse(data.to_datetime) : Date.now();
+  const predictionAnchorMs = prediction?.anchor_timestamp
+    ? Date.parse(prediction.anchor_timestamp)
+    : Number.NaN;
+  const predictionBelongsToWindow =
+    Number.isFinite(predictionAnchorMs) &&
+    predictionAnchorMs >= fromMs &&
+    predictionAnchorMs <= historicalToMs + 15 * 60_000;
+  const forecastPoints = predictionBelongsToWindow
+    ? (prediction?.points ?? [])
+    : [];
   const plottedValues = [
     ...points.map((point) => displayValue(point, mode)),
     ...forecastPoints.map((point) => point.display_value),
@@ -740,20 +988,22 @@ function NightscoutChart({
   const foodEvents = data?.food_events ?? [];
   const insulinEvents = dedupeInsulinEvents(data?.insulin_events ?? []);
   const overviewPoints = overview?.points ?? [];
-  const fromMs = data
-    ? Date.parse(data.from_datetime)
-    : Date.now() - 3 * 3_600_000;
-  const historicalToMs = data ? Date.parse(data.to_datetime) : Date.now();
+  const heartRatePoints = heartRate?.points ?? [];
   const forecastToMs = forecastPoints.length
     ? Date.parse(forecastPoints[forecastPoints.length - 1]!.timestamp)
     : historicalToMs;
   const toMs = Math.max(historicalToMs, forecastToMs);
   const duration = Math.max(toMs - fromMs, 1);
-  const historicalDuration = Math.max(historicalToMs - fromMs, 1);
   const overviewFrom = overview
     ? Date.parse(overview.from_datetime)
-    : Date.now() - 24 * 3_600_000;
-  const overviewTo = overview ? Date.parse(overview.to_datetime) : Date.now();
+    : heartRate
+      ? Date.parse(heartRate.from_datetime)
+      : Date.now() - 24 * 3_600_000;
+  const overviewTo = overview
+    ? Date.parse(overview.to_datetime)
+    : heartRate
+      ? Date.parse(heartRate.to_datetime)
+      : Date.now();
   const overviewDuration = Math.max(overviewTo - overviewFrom, 1);
   const scaleX = (timestamp: string) =>
     left + ((Date.parse(timestamp) - fromMs) / duration) * chartWidth;
@@ -770,6 +1020,18 @@ function NightscoutChart({
       overviewTop + overviewHeight - ((clamped - yMin) / ySpan) * overviewHeight
     );
   };
+  const heartRateBinMs = (heartRate?.bin_minutes ?? 10) * 60_000;
+  const heartRateBarWidth = Math.max(
+    1.5,
+    Math.min(
+      12,
+      (heartRateBinMs / overviewDuration) * chartWidth - 0.7,
+    ),
+  );
+  const heartRateBarHeight = (bpm: number) => {
+    const clamped = Math.min(180, Math.max(35, bpm));
+    return Math.max(3, ((clamped - 35) / 145) * overviewHeight * 0.82);
+  };
   const xTickCount = width < 600 ? 4 : width < 900 ? 5 : 7;
   const overviewTickCount = width < 600 ? 3 : 5;
   const xTicks = Array.from(
@@ -781,12 +1043,26 @@ function NightscoutChart({
     (_, index) =>
       overviewFrom + (overviewDuration * index) / (overviewTickCount - 1),
   );
+  const selectedRange = draftRange ?? {
+    fromMs,
+    toMs: historicalToMs,
+  };
   const selectionX =
-    left + ((fromMs - overviewFrom) / overviewDuration) * chartWidth;
+    left +
+    ((selectedRange.fromMs - overviewFrom) / overviewDuration) * chartWidth;
   const selectionWidth = Math.max(
-    (historicalDuration / overviewDuration) * chartWidth,
+    ((selectedRange.toMs - selectedRange.fromMs) / overviewDuration) *
+      chartWidth,
     2,
   );
+  const selectionRightX = selectionX + selectionWidth;
+  const overviewHandleHitWidth = 44;
+
+  useEffect(() => {
+    if (overviewDragRef.current) return;
+    draftRangeRef.current = null;
+    setDraftRange(null);
+  }, [fromMs, historicalToMs]);
   const latestHistorical = points[points.length - 1];
   const forecastPath = [
     latestHistorical
@@ -815,17 +1091,43 @@ function NightscoutChart({
 
   const foodMarkers = foodEvents.flatMap((event, index) => {
     const anchor = nearestPoint(event.timestamp);
+    const episode = episodes?.find((candidate) =>
+      episodeContainsFood(candidate, event),
+    );
+    const therapyClass = episode?.therapy?.classification ?? "meal";
+    const suggestedCarbs =
+      therapyClass === "carb_correction"
+        ? episode?.therapy?.suggested_carbs_g
+        : null;
     return anchor
       ? [
           {
             anchor,
-            ariaLabel: `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
-            detail: `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
+            ariaLabel:
+              therapyClass === "carb_correction" &&
+              typeof suggestedCarbs === "number"
+                ? `${event.title}: коррекция углеводами, ориентир ${suggestedCarbs.toFixed(0)} г, фактически ${event.carbs_g.toFixed(1)} г`
+                : `${event.title}: ${event.carbs_g.toFixed(1)} г углеводов`,
+            detail:
+              therapyClass === "carb_correction" &&
+              typeof suggestedCarbs === "number"
+                ? `${event.title} · ориентир ${suggestedCarbs.toFixed(0)} г · фактически ${event.carbs_g.toFixed(1)} г`
+                : `${event.title} · ${event.carbs_g.toFixed(1)} г углеводов`,
             key: `food-${event.timestamp}-${index}`,
             kind: "food" as const,
             food: event,
+            symbol:
+              therapyClass === "carb_correction"
+                ? "↥"
+                : therapyClass === "snack"
+                  ? "S"
+                  : "C",
+            therapyClass,
             timestamp: event.timestamp,
-            valueLabel: `${event.carbs_g.toFixed(0)}g`,
+            valueLabel:
+              typeof suggestedCarbs === "number"
+                ? `~${suggestedCarbs.toFixed(0)}g`
+                : `${event.carbs_g.toFixed(0)}g`,
           },
         ]
       : [];
@@ -836,6 +1138,16 @@ function NightscoutChart({
   );
   const insulinMarkers = insulinEvents.flatMap((event, index) => {
     const anchor = nearestPoint(event.timestamp);
+    const eventTime = Date.parse(event.timestamp);
+    const episode = episodes?.find((candidate) =>
+      candidate.insulin.some(
+        (insulin) =>
+          Math.abs(Date.parse(insulin.timestamp) - eventTime) <= 1000 &&
+          insulin.insulin_units === event.insulin_units,
+      ),
+    );
+    const therapyClass =
+      episode?.therapy?.classification ?? "insulin_correction";
     return anchor
       ? [
           {
@@ -847,6 +1159,8 @@ function NightscoutChart({
             key: `insulin-${event.timestamp}-${index}`,
             kind: "insulin" as const,
             food: null,
+            symbol: "I",
+            therapyClass,
             timestamp: event.timestamp,
             valueLabel:
               typeof event.insulin_units === "number"
@@ -871,10 +1185,109 @@ function NightscoutChart({
     })),
   ];
 
+  const beginOverviewDrag = (
+    event: ReactPointerEvent<SVGElement>,
+    mode: OverviewDragMode,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const initialRange = {
+      fromMs: selectedRange.fromMs,
+      toMs: selectedRange.toMs,
+    };
+    overviewDragRef.current = {
+      initialRange,
+      mode,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+    };
+    draftRangeRef.current = initialRange;
+    setDraftRange(initialRange);
+    setOverviewDragMode(mode);
+    setHover(null);
+    svgRef.current?.setPointerCapture?.(event.pointerId);
+  };
+
+  const updateOverviewDrag = (
+    event: ReactPointerEvent<SVGSVGElement>,
+    drag: OverviewDrag,
+  ) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const deltaSvgX = ((event.clientX - drag.startClientX) / rect.width) * width;
+    const deltaMs = (deltaSvgX / chartWidth) * overviewDuration;
+    const nextRange = resizeOverviewRange(
+      drag,
+      deltaMs,
+      overviewFrom,
+      overviewTo,
+    );
+    draftRangeRef.current = nextRange;
+    setDraftRange(nextRange);
+  };
+
+  const finishOverviewDrag = (
+    event: ReactPointerEvent<SVGSVGElement>,
+    commit: boolean,
+  ) => {
+    const drag = overviewDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    overviewDragRef.current = null;
+    setOverviewDragMode(null);
+    const svg = svgRef.current;
+    if (svg?.hasPointerCapture?.(event.pointerId)) {
+      svg.releasePointerCapture(event.pointerId);
+    }
+    const nextRange = draftRangeRef.current;
+    if (commit && nextRange) {
+      onRangeChange(nextRange);
+    } else {
+      draftRangeRef.current = null;
+      setDraftRange(null);
+    }
+  };
+
+  const moveOverviewWithKeyboard = (
+    event: ReactKeyboardEvent<SVGElement>,
+    mode: OverviewDragMode,
+  ) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const stepMs = (event.shiftKey ? 30 : 5) * 60_000;
+    const deltaMs = event.key === "ArrowLeft" ? -stepMs : stepMs;
+    const nextRange = resizeOverviewRange(
+      {
+        initialRange: selectedRange,
+        mode,
+        pointerId: -1,
+        startClientX: 0,
+      },
+      deltaMs,
+      overviewFrom,
+      overviewTo,
+    );
+    draftRangeRef.current = nextRange;
+    setDraftRange(nextRange);
+    onRangeChange(nextRange);
+  };
+
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = overviewDragRef.current;
+    if (drag) {
+      updateOverviewDrag(event, drag);
+      return;
+    }
     if (!svgRef.current || points.length + forecastPoints.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
     const svgX = ((event.clientX - rect.left) / rect.width) * width;
+    const svgY = ((event.clientY - rect.top) / rect.height) * height;
+    if (svgY >= overviewTop) {
+      setHover(null);
+      return;
+    }
     const timestamp = fromMs + ((svgX - left) / chartWidth) * duration;
     const historical = points.length
       ? points.reduce((best, point) =>
@@ -919,10 +1332,10 @@ function NightscoutChart({
     }
   };
 
-  if (loading && points.length === 0) {
+  if (loading && points.length === 0 && heartRatePoints.length === 0) {
     return <div className="ns-chart-message">Загружаю CGM…</div>;
   }
-  if (error && points.length === 0) {
+  if (error && points.length === 0 && heartRatePoints.length === 0) {
     return (
       <div className="ns-chart-message">Не удалось загрузить данные CGM.</div>
     );
@@ -932,10 +1345,12 @@ function NightscoutChart({
     <div className="ns-chart-shell" ref={shellRef}>
       <svg
         aria-label="График глюкозы Nightscout"
-        className="ns-chart"
+        className={`ns-chart${overviewDragMode ? ` ns-chart--dragging-${overviewDragMode}` : ""}`}
         height={height}
+        onPointerCancel={(event) => finishOverviewDrag(event, false)}
         onPointerLeave={() => setHover(null)}
         onPointerMove={handlePointerMove}
+        onPointerUp={(event) => finishOverviewDrag(event, true)}
         preserveAspectRatio="none"
         ref={svgRef}
         role="img"
@@ -1067,7 +1482,7 @@ function NightscoutChart({
           return (
             <g
               aria-label={treatment.ariaLabel}
-              className={`ns-treatment ns-treatment--${treatment.kind}`}
+              className={`ns-treatment ns-treatment--${treatment.kind} ns-treatment--therapy-${treatment.therapyClass.replace(/_/g, "-")}`}
               onClick={
                 treatment.kind === "food" && treatment.food
                   ? (event) => {
@@ -1105,7 +1520,7 @@ function NightscoutChart({
               />
               <circle r={treatmentRadius} />
               <text className="ns-treatment-symbol" dy="0.35em">
-                {treatment.kind === "food" ? "C" : "I"}
+                {treatment.symbol}
               </text>
               <text
                 className="ns-treatment-value"
@@ -1146,6 +1561,45 @@ function NightscoutChart({
           x="0"
           y={overviewTop}
         />
+        {heartRatePoints.length ? (
+          <g aria-label="Пульс за 24 часа" role="img">
+            <text
+              aria-hidden="true"
+              className="ns-heart-rate-label"
+              x={left + 5}
+              y={overviewTop + 14}
+            >
+              HR
+            </text>
+            {heartRatePoints.map((point) => {
+              const barHeight = heartRateBarHeight(point.bpm);
+              const barCenterX = overviewX(
+                new Date(
+                  Date.parse(point.timestamp) + heartRateBinMs / 2,
+                ).toISOString(),
+              );
+              return (
+                <rect
+                  aria-label={`${point.bpm.toFixed(0)} ударов в минуту, медиана за ${heartRate?.bin_minutes ?? 10} минут`}
+                  className="ns-heart-rate-bar"
+                  height={barHeight}
+                  key={`heart-rate-${point.timestamp}`}
+                  role="img"
+                  width={heartRateBarWidth}
+                  x={barCenterX - heartRateBarWidth / 2}
+                  y={overviewTop + overviewHeight - barHeight}
+                >
+                  <title>
+                    {`${new Intl.DateTimeFormat("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(point.timestamp))} · ${point.bpm.toFixed(0)} уд/мин · ${point.sample_count} изм.`}
+                  </title>
+                </rect>
+              );
+            })}
+          </g>
+        ) : null}
         {overviewPoints.map((point) => (
           <circle
             className="ns-overview-point"
@@ -1156,10 +1610,63 @@ function NightscoutChart({
           />
         ))}
         <rect
+          aria-label="Сдвинуть выбранное окно"
           className="ns-overview-selection"
           height={overviewHeight}
+          onKeyDown={(event) => moveOverviewWithKeyboard(event, "move")}
+          onPointerDown={(event) => beginOverviewDrag(event, "move")}
+          role="button"
+          tabIndex={0}
           width={selectionWidth}
           x={selectionX}
+          y={overviewTop}
+        />
+        <line
+          aria-hidden="true"
+          className="ns-overview-handle"
+          x1={selectionX}
+          x2={selectionX}
+          y1={overviewTop}
+          y2={overviewTop + overviewHeight}
+        />
+        <rect
+          aria-label="Изменить левую границу окна"
+          aria-orientation="horizontal"
+          aria-valuemax={selectedRange.toMs - MIN_CHART_WINDOW_MS}
+          aria-valuemin={overviewFrom}
+          aria-valuenow={selectedRange.fromMs}
+          className="ns-overview-handle-hit"
+          height={overviewHeight}
+          onKeyDown={(event) => moveOverviewWithKeyboard(event, "start")}
+          onPointerDown={(event) => beginOverviewDrag(event, "start")}
+          role="slider"
+          tabIndex={0}
+          width={overviewHandleHitWidth}
+          x={selectionX - overviewHandleHitWidth / 2}
+          y={overviewTop}
+        />
+        <line
+          aria-hidden="true"
+          className="ns-overview-handle"
+          x1={selectionRightX}
+          x2={selectionRightX}
+          y1={overviewTop}
+          y2={overviewTop + overviewHeight}
+        />
+        <rect
+          aria-label="Изменить правую границу окна"
+          aria-orientation="horizontal"
+          aria-valuemax={overviewTo}
+          aria-valuemin={selectedRange.fromMs + MIN_CHART_WINDOW_MS}
+          aria-valuenow={selectedRange.toMs}
+          className="ns-overview-handle-hit"
+          height={overviewHeight}
+          onKeyDown={(event) => moveOverviewWithKeyboard(event, "end")}
+          onPointerDown={(event) => beginOverviewDrag(event, "end")}
+          role="slider"
+          tabIndex={0}
+          width={overviewHandleHitWidth}
+          x={selectionRightX - overviewHandleHitWidth / 2}
           y={overviewTop}
         />
         <line
@@ -1256,9 +1763,16 @@ function NightscoutChart({
         </div>
       ) : null}
 
-      {points.length === 0 && !loading ? (
-        <div className="ns-chart-empty">
-          Нет данных CGM за выбранный период.
+      {points.length === 0 ? (
+        <div
+          className="ns-chart-empty"
+          style={{ bottom: `${Math.max(0, height - overviewTop)}px` }}
+        >
+          {loading
+            ? "Загружаю CGM…"
+            : error
+              ? "Не удалось загрузить данные CGM."
+              : "Нет данных CGM за выбранный период."}
         </div>
       ) : null}
     </div>

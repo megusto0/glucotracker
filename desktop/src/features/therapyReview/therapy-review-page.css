@@ -1,0 +1,420 @@
+.therapy-review-page {
+  --ns-cyan: #00d8e6;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  color: #ddd;
+  background:
+    radial-gradient(circle at 20% -10%, rgb(0 188 212 / 8%), transparent 30%),
+    #101010;
+  font-family: Ubuntu, "Noto Sans", sans-serif;
+}
+
+.therapy-review-toolbar {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  min-height: 58px;
+  padding: 0 10px;
+  border-bottom: 1px solid #3d3d3d;
+  background: rgb(31 31 31 / 96%);
+  backdrop-filter: blur(12px);
+}
+
+.therapy-review-toolbar button,
+.therapy-review-day-picker button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #ccc;
+  background: transparent;
+  cursor: pointer;
+}
+
+.therapy-review-toolbar button:hover,
+.therapy-review-day-picker button:hover:not(:disabled) {
+  border-color: #555;
+  color: var(--ns-cyan);
+  background: #272727;
+}
+
+.therapy-review-toolbar button:disabled,
+.therapy-review-day-picker button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.therapy-review-toolbar > div {
+  display: grid;
+  gap: 1px;
+}
+
+.therapy-review-toolbar span {
+  color: var(--ns-cyan);
+  font:
+    600 10px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.therapy-review-toolbar strong {
+  font-size: 15px;
+}
+
+.therapy-review-page main {
+  display: grid;
+  width: min(1180px, 100%);
+  gap: 14px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.therapy-review-controls {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 150px 180px;
+  gap: 10px;
+}
+
+.therapy-review-controls > label,
+.therapy-review-day-picker {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #484848;
+  border-radius: 6px;
+  background: #181818;
+}
+
+.therapy-review-controls > label > span {
+  color: #999;
+  font-size: 12px;
+}
+
+.therapy-review-controls input,
+.therapy-review-controls select {
+  min-width: 0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  background: #0d0d0d;
+  font:
+    600 14px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-controls > label input {
+  width: 64px;
+  padding: 9px 7px;
+}
+
+.therapy-review-controls > label select {
+  width: 100%;
+  padding: 10px 8px;
+}
+
+.therapy-review-controls small {
+  color: #777;
+  font-size: 10px;
+}
+
+.therapy-review-day-picker {
+  justify-content: space-between;
+}
+
+.therapy-review-day-picker label {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  text-align: center;
+}
+
+.therapy-review-day-picker label span {
+  color: #eee;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.therapy-review-day-picker input {
+  width: 100%;
+  padding: 7px;
+  color: #aaa;
+  text-align: center;
+}
+
+.therapy-review-explainer,
+.therapy-review-method {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid #40545a;
+  border-radius: 6px;
+  background: rgb(0 188 212 / 5%);
+}
+
+.therapy-review-explainer strong,
+.therapy-review-method strong {
+  color: var(--ns-cyan);
+  font:
+    600 11px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.therapy-review-explainer p,
+.therapy-review-method span {
+  margin: 0;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.therapy-review-explainer small {
+  color: #6f8589;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-list {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+.therapy-review-updating {
+  position: sticky;
+  z-index: 10;
+  top: 62px;
+  justify-self: center;
+  padding: 5px 10px;
+  border: 1px solid #555;
+  border-radius: 999px;
+  color: #bbb;
+  background: #222;
+  font-size: 11px;
+}
+
+.therapy-review-card {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid #484848;
+  border-left: 3px solid #00bcd4;
+  border-radius: 7px;
+  background: #171717;
+}
+
+.therapy-review-card--carb-correction {
+  border-left-color: #ffb300;
+}
+
+.therapy-review-card--insulin-correction {
+  border-left-color: #ef5350;
+}
+
+.therapy-review-card--snack {
+  border-left-color: #8e5bd9;
+}
+
+.therapy-review-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.therapy-review-card > header > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.therapy-review-card time {
+  color: #fff;
+  font:
+    700 15px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-card > header div span {
+  color: #9ba1a3;
+  font:
+    600 10px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.therapy-review-outcome {
+  padding: 4px 7px;
+  border: 1px solid #805050;
+  border-radius: 999px;
+  color: #ef9a9a;
+  font-size: 10px;
+}
+
+.therapy-review-outcome--range {
+  border-color: #346b4a;
+  color: #81c995;
+}
+
+.therapy-review-card h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #eee;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.therapy-review-glucose {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.therapy-review-glucose > div {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid #383838;
+  border-radius: 5px;
+  background: #111;
+}
+
+.therapy-review-glucose span,
+.therapy-review-values span {
+  color: #8e9699;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.therapy-review-glucose strong {
+  color: #fff;
+  font:
+    700 21px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-glucose small {
+  color: #666;
+  font:
+    500 10px/1.3 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-glucose > b {
+  color: #666;
+  text-align: center;
+}
+
+.therapy-review-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.therapy-review-values > div {
+  display: grid;
+  min-height: 64px;
+  align-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid #3d3d3d;
+  border-radius: 5px;
+  background: #1d1d1d;
+}
+
+.therapy-review-values strong {
+  color: #fff;
+  font:
+    700 18px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-values .therapy-review-adjusted {
+  border-color: #37656c;
+  background: rgb(0 188 212 / 6%);
+}
+
+.therapy-review-values .therapy-review-adjusted strong {
+  color: var(--ns-cyan);
+}
+
+.therapy-review-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  color: #838383;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-card footer small {
+  flex-basis: 100%;
+  color: #666;
+}
+
+.therapy-review-state {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border: 1px dashed #484848;
+  border-radius: 7px;
+  color: #888;
+}
+
+.therapy-review-state--error {
+  color: #ef9a9a;
+}
+
+@media (max-width: 720px) {
+  .therapy-review-page main {
+    padding: 10px 8px 24px;
+  }
+
+  .therapy-review-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .therapy-review-day-picker {
+    grid-column: 1 / -1;
+  }
+
+  .therapy-review-values {
+    grid-template-columns: 1fr;
+  }
+
+  .therapy-review-glucose {
+    grid-template-columns: 1fr 18px 1fr;
+  }
+
+  .therapy-review-card {
+    padding: 11px;
+  }
+}

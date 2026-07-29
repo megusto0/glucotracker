@@ -688,6 +688,32 @@ class TestGETIsolation:
         assert alice_data["model"]["sample_count"] == 0
         assert bob_data["model"]["sample_count"] == 0
 
+    def test_glucose_therapy_review(self):
+        params = {"date": self.ids["today"].isoformat()}
+        alice_response = self.client.get(
+            "/glucose/therapy-review",
+            params=params,
+            headers=self.alice_headers,
+        )
+        assert alice_response.status_code == 200
+        alice_data = alice_response.json()
+        alice_keys = "|".join(item["key"] for item in alice_data["items"])
+        assert str(self.ids["alice_meal"]) in alice_keys
+        assert str(self.ids["bob_meal"]) not in alice_keys
+        assert str(self.ids["bob_ns_insulin"]) not in alice_keys
+
+        bob_response = self.client.get(
+            "/glucose/therapy-review",
+            params=params,
+            headers=self.bob_headers,
+        )
+        assert bob_response.status_code == 200
+        bob_data = bob_response.json()
+        bob_keys = "|".join(item["key"] for item in bob_data["items"])
+        assert str(self.ids["bob_meal"]) in bob_keys
+        assert str(self.ids["alice_meal"]) not in bob_keys
+        assert str(self.ids["alice_ns_insulin"]) not in bob_keys
+
     @pytest.mark.parametrize(
         ("owner_meal_key", "owner_headers_key", "other_headers_key"),
         [
