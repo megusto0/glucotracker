@@ -12,6 +12,11 @@ from glucotracker.application.glucose_dashboard import _local_wall_from_utc
 from glucotracker.config import get_settings
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
 
+RAW_SENSOR_CODE = (
+    "0106977641010009112606221727062110OCGL06/102SD2626.006"
+    "\x1d21X12266291Y4R"
+)
+
 
 class FakeDashboardNightscoutClient:
     """Configured Nightscout client double for dashboard locality tests."""
@@ -188,6 +193,46 @@ def test_sensor_and_fingerstick_crud(api_client: TestClient) -> None:
     assert patched["measured_at"].startswith("2026-04-28T21:45:00")
     assert patched["glucose_mmol_l"] == 4.8
     assert patched["meter_name"] == "Contour Next"
+
+
+def test_sensor_code_can_be_scanned_then_attached(
+    api_client: TestClient,
+) -> None:
+    """A parsed sensor scan is durable before and after session assignment."""
+    created = api_client.post(
+        "/glucose/sensor-codes",
+        json={"raw_payload": RAW_SENSOR_CODE},
+    )
+
+    assert created.status_code == 201
+    code = created.json()
+    assert code["sensor_session_id"] is None
+    assert code["gtin"] == "06977641010009"
+    assert code["manufactured_on"] == "2026-06-22"
+    assert code["expires_on"] == "2027-06-21"
+    assert code["lot_number"] == "OCGL06/102SD2626.006"
+    assert code["serial_number"] == "X12266291Y4R"
+
+    sensor = _create_sensor(api_client)
+    attached = api_client.patch(
+        f"/glucose/sensor-codes/{code['id']}",
+        json={"sensor_session_id": sensor["id"]},
+    )
+
+    assert attached.status_code == 200
+    assert attached.json()["sensor_session_id"] == sensor["id"]
+    listed = api_client.get("/glucose/sensor-codes")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == code["id"]
+
+
+def test_invalid_sensor_code_is_rejected(api_client: TestClient) -> None:
+    response = api_client.post(
+        "/glucose/sensor-codes",
+        json={"raw_payload": "not-a-data-matrix"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_excluded_sensor_infers_end_and_hides_glucose_data(

@@ -29,6 +29,7 @@ security-crypto = "1.1.0-alpha06"
 startup = "1.2.0"
 health-connect = "1.1.0-alpha12"
 guava-android = "33.2.1-android"
+play-services-code-scanner = "16.1.0"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -49,6 +50,7 @@ security-crypto = { group = "androidx.security", name = "security-crypto", versi
 startup-runtime = { group = "androidx.startup", name = "startup-runtime", version.ref = "startup" }
 health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "health-connect" }
 guava-android = { group = "com.google.guava", name = "guava", version.ref = "guava-android" }
+play-services-code-scanner = { group = "com.google.android.gms", name = "play-services-code-scanner", version.ref = "play-services-code-scanner" }
 
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }

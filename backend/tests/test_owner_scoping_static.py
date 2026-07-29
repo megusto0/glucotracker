@@ -23,6 +23,7 @@ SCOPED_DB_MODEL_NAMES = {
     "Product",
     "ProductAlias",
     "SensorSession",
+    "SensorCode",
     "UserProfile",
 }
 

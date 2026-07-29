@@ -42,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.SensorCode
 import com.local.glucotracker.domain.model.SensorPhase
 import com.local.glucotracker.domain.model.SensorQuality
 import com.local.glucotracker.domain.model.SensorQualityConfidence
@@ -55,8 +56,9 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatMmol
 import com.local.glucotracker.ui.format.formatPercent
-import kotlinx.datetime.Instant
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -67,17 +69,28 @@ fun SensorManagementRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val exclusionReason = stringResource(R.string.sensor_exclusion_reason_mobile)
+    var scanFailed by remember { mutableStateOf(false) }
+    val launchSensorScanner = rememberSensorCodeScanner(
+        onDecoded = { rawPayload ->
+            scanFailed = false
+            viewModel.enqueueSensorCode(rawPayload)
+        },
+        onFailure = { scanFailed = true },
+    )
     SensorManagementScreen(
         state = state,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onFingerstickSubmit = viewModel::enqueueFingerstick,
         onStartSensor = viewModel::startSensor,
+        onScanSensorCode = launchSensorScanner,
+        onAttachSensorCode = viewModel::attachSensorCode,
         onSelectSensor = viewModel::selectSensor,
         onFinishSensor = viewModel::finishSensor,
         onSetExcluded = { id, excluded ->
             viewModel.setExcluded(id, excluded, exclusionReason)
         },
+        scanFailed = scanFailed,
     )
 }
 
@@ -88,9 +101,12 @@ fun SensorManagementScreen(
     onRefresh: () -> Unit,
     onFingerstickSubmit: (Double) -> Unit,
     onStartSensor: (String?, String?, String?, Double) -> Unit,
+    onScanSensorCode: () -> Unit,
+    onAttachSensorCode: (String, String) -> Unit,
     onSelectSensor: (String) -> Unit,
     onFinishSensor: (String) -> Unit,
     onSetExcluded: (String, Boolean) -> Unit,
+    scanFailed: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var addSheetVisible by remember { mutableStateOf(false) }
@@ -147,6 +163,17 @@ fun SensorManagementScreen(
                 modifier = Modifier.padding(top = 10.dp),
             )
         }
+
+        SensorCodesCard(
+            codes = state.sensorCodes,
+            selectedSensor = selected,
+            pendingCreateCount = state.pendingSensorCodeCount,
+            pendingCodeIds = state.pendingSensorCodeIds,
+            scanFailed = scanFailed,
+            onScan = onScanSensorCode,
+            onAttach = onAttachSensorCode,
+            modifier = Modifier.padding(top = 18.dp),
+        )
 
         FingerstickCard(
             value = fingerstickText,
@@ -232,6 +259,145 @@ fun SensorManagementScreen(
                 addSheetVisible = false
             },
         )
+    }
+}
+
+@Composable
+private fun SensorCodesCard(
+    codes: List<SensorCode>,
+    selectedSensor: SensorSession?,
+    pendingCreateCount: Int,
+    pendingCodeIds: Set<String>,
+    scanFailed: Boolean,
+    onScan: () -> Unit,
+    onAttach: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(14.dp),
+    ) {
+        GTKicker(text = stringResource(R.string.sensor_code_title))
+        Text(
+            text = stringResource(R.string.sensor_code_desc),
+            modifier = Modifier.padding(top = 5.dp),
+            color = GT.colors.muted,
+            style = GT.type.sansBody,
+        )
+        GTOutlineButton(
+            text = stringResource(R.string.sensor_code_scan),
+            onClick = onScan,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+        if (scanFailed) {
+            GTHintBox(
+                text = stringResource(R.string.sensor_code_scan_failed),
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+        if (pendingCreateCount > 0) {
+            GTHintBox(
+                text = stringResource(R.string.sensor_code_pending_scan),
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+        if (codes.isEmpty() && pendingCreateCount == 0) {
+            Text(
+                text = stringResource(R.string.sensor_code_empty),
+                modifier = Modifier.padding(top = 10.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        } else {
+            codes.forEach { code ->
+                SensorCodeRow(
+                    code = code,
+                    selectedSensor = selectedSensor,
+                    pending = code.id in pendingCodeIds,
+                    onAttach = onAttach,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorCodeRow(
+    code: SensorCode,
+    selectedSensor: SensorSession?,
+    pending: Boolean,
+    onAttach: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface2, GT.shapes.tag)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.tag)
+            .padding(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.sensor_code_serial, code.serialNumber),
+                modifier = Modifier.weight(1f),
+                color = GT.colors.ink,
+                style = GT.type.monoLabel,
+            )
+            if (pending) {
+                GTTag(text = stringResource(R.string.sensor_status_pending))
+            }
+        }
+        Text(
+            text = stringResource(R.string.sensor_code_gtin, code.gtin),
+            modifier = Modifier.padding(top = 4.dp),
+            color = GT.colors.ink2,
+            style = GT.type.monoLabel,
+        )
+        code.lotNumber?.let { lot ->
+            Text(
+                text = stringResource(R.string.sensor_code_lot, lot),
+                color = GT.colors.ink2,
+                style = GT.type.monoLabel,
+            )
+        }
+        if (code.manufacturedOn != null && code.expiresOn != null) {
+            Text(
+                text = stringResource(
+                    R.string.sensor_code_dates,
+                    code.manufacturedOn.shortDate(),
+                    code.expiresOn.shortDate(),
+                ),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+        }
+        Text(
+            text = stringResource(
+                if (code.sensorSessionId == null) {
+                    R.string.sensor_code_unassigned
+                } else {
+                    R.string.sensor_code_attached
+                },
+            ),
+            modifier = Modifier.padding(top = 5.dp),
+            color = GT.colors.muted,
+            style = GT.type.sansLabel,
+        )
+        if (
+            selectedSensor != null &&
+            code.sensorSessionId != selectedSensor.id
+        ) {
+            GTOutlineButton(
+                text = stringResource(R.string.sensor_code_attach_selected),
+                enabled = !pending,
+                onClick = { onAttach(code.id, selectedSensor.id) },
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
     }
 }
 
@@ -837,6 +1003,14 @@ private fun Instant.shortDateTime(): String {
         append(':')
         append(local.minute.toString().padStart(2, '0'))
     }
+}
+
+private fun LocalDate.shortDate(): String = buildString {
+    append(dayOfMonth.toString().padStart(2, '0'))
+    append('.')
+    append(monthNumber.toString().padStart(2, '0'))
+    append('.')
+    append(year)
 }
 
 private const val MillisPerDay = 24L * 60L * 60L * 1_000L

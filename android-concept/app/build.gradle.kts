@@ -517,6 +517,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.startup.runtime)
     "glucoImplementation"(libs.health.connect.client)
+    "glucoImplementation"(libs.play.services.code.scanner)
     implementation(libs.guava.android)
 
     implementation(platform(libs.compose.bom))

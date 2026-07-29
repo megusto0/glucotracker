@@ -41,6 +41,17 @@ data class SensorSession(
     val exclusionReason: String?,
 )
 
+data class SensorCode(
+    val id: String,
+    val sensorSessionId: String?,
+    val gtin: String,
+    val manufacturedOn: LocalDate?,
+    val expiresOn: LocalDate?,
+    val lotNumber: String?,
+    val serialNumber: String,
+    val scannedAt: Instant,
+)
+
 data class SensorQuality(
     val qualityScore: Int,
     val confidence: SensorQualityConfidence,
@@ -102,6 +113,20 @@ data class CreateNightscoutInsulinOutboxKind(
     val recordedAt: Instant,
     val insulinUnits: Double,
     val idempotencyKey: String,
+) : OutboxKind
+
+@Serializable
+@SerialName("create_sensor_code")
+data class CreateSensorCodeOutboxKind(
+    val rawPayload: String,
+    val scannedAt: Instant,
+) : OutboxKind
+
+@Serializable
+@SerialName("attach_sensor_code")
+data class AttachSensorCodeOutboxKind(
+    val codeId: String,
+    val sensorId: String,
 ) : OutboxKind
 
 @Serializable

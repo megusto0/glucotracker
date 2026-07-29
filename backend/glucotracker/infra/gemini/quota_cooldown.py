@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import logging
+import os
 from collections.abc import Callable
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +61,13 @@ class GeminiQuotaCooldownStore:
                 self.path.chmod(0o600)
             except OSError as exc:
                 logger.warning("Could not restrict Gemini cooldown file: %s", exc)
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-            models = self._load_models(handle)
-            current = models.get(model)
-            if current is not None:
-                expires_at = max(expires_at, current)
-            models[model] = expires_at
-            self._write_models(handle, models)
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            with _locked(handle, exclusive=True):
+                models = self._load_models(handle)
+                current = models.get(model)
+                if current is not None:
+                    expires_at = max(expires_at, current)
+                models[model] = expires_at
+                self._write_models(handle, models)
         return expires_at
 
     def _read_models(self) -> dict[str, datetime]:
@@ -70,11 +75,9 @@ class GeminiQuotaCooldownStore:
         if not self.path.exists():
             return {}
         try:
-            with self.path.open("r", encoding="utf-8") as handle:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
-                models = self._load_models(handle)
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-                return models
+            with self.path.open("a+", encoding="utf-8") as handle:
+                with _locked(handle, exclusive=False):
+                    return self._load_models(handle)
         except OSError as exc:
             logger.warning("Could not read Gemini quota cooldowns: %s", exc)
             return {}
@@ -120,3 +123,29 @@ class GeminiQuotaCooldownStore:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+
+@contextmanager
+def _locked(handle: Any, *, exclusive: bool):
+    """Lock the cooldown file on Unix and Windows."""
+    if os.name != "nt":
+        mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+        fcntl.flock(handle.fileno(), mode)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+
+    handle.seek(0, 2)
+    if handle.tell() == 0:
+        handle.write(" ")
+        handle.flush()
+    handle.seek(0)
+    mode = msvcrt.LK_LOCK if exclusive else msvcrt.LK_RLCK
+    msvcrt.locking(handle.fileno(), mode, 1)
+    try:
+        yield
+    finally:
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)

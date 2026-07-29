@@ -2,7 +2,9 @@ package com.local.glucotracker.ui.feature.sensor
 
 import app.cash.turbine.test
 import com.local.glucotracker.domain.model.CachedView
+import com.local.glucotracker.domain.model.AttachSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
+import com.local.glucotracker.domain.model.CreateSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
 import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.OutboxItem
@@ -10,6 +12,7 @@ import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.PatchSensorOutboxKind
 import com.local.glucotracker.domain.model.SensorPhase
+import com.local.glucotracker.domain.model.SensorCode
 import com.local.glucotracker.domain.model.SensorQuality
 import com.local.glucotracker.domain.model.SensorQualityConfidence
 import com.local.glucotracker.domain.model.SensorSession
@@ -77,13 +80,26 @@ class SensorManagementViewModelTest {
         viewModel.startSensor("Ottai #5", "Ottai", "One", 15.0)
         viewModel.finishSensor(sensor.id)
         viewModel.setExcluded(sensor.id, true, "Исключено пользователем")
+        viewModel.enqueueSensorCode("0106977641010009")
+        viewModel.attachSensorCode(
+            codeId = "00000000-0000-0000-0000-000000000099",
+            sensorId = sensor.id,
+        )
         advanceUntilIdle()
 
-        assertEquals(4, outbox.items.value.size)
+        assertEquals(6, outbox.items.value.size)
         assertEquals(5.8, (outbox.items.value[0].kind as CreateFingerstickOutboxKind).glucoseMmolL, 0.0)
         assertEquals("Ottai #5", (outbox.items.value[1].kind as CreateSensorOutboxKind).label)
         assertTrue((outbox.items.value[2].kind as PatchSensorOutboxKind).endedAt != null)
         assertEquals(true, (outbox.items.value[3].kind as PatchSensorOutboxKind).excludedFromAnalytics)
+        assertEquals(
+            "0106977641010009",
+            (outbox.items.value[4].kind as CreateSensorCodeOutboxKind).rawPayload,
+        )
+        assertEquals(
+            sensor.id,
+            (outbox.items.value[5].kind as AttachSensorCodeOutboxKind).sensorId,
+        )
     }
 
     @Test
@@ -135,11 +151,20 @@ private class FakeSensorRepository(
             source = Source.Cache,
         ),
     )
+    private val cachedCodes = MutableStateFlow(
+        CachedView<List<SensorCode>>(
+            value = emptyList(),
+            fetchedAt = Clock.System.now(),
+            isRefreshing = false,
+            source = Source.Cache,
+        ),
+    )
     var refreshCalls = 0
     var fingerstickRefreshCalls = 0
     val qualityCalls = mutableListOf<String>()
 
     override fun observeSensors(): Flow<CachedView<List<SensorSession>>> = cached
+    override fun observeSensorCodes(): Flow<CachedView<List<SensorCode>>> = cachedCodes
 
     override fun observeFingersticks(
         from: Instant,
@@ -149,6 +174,10 @@ private class FakeSensorRepository(
     override suspend fun refreshSensors() {
         refreshCalls += 1
         cached.value = cached.value.copy(source = Source.Network)
+    }
+
+    override suspend fun refreshSensorCodes() {
+        cachedCodes.value = cachedCodes.value.copy(source = Source.Network)
     }
 
     override suspend fun refreshFingersticks(from: Instant, to: Instant) {

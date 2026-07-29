@@ -35,6 +35,7 @@ from glucotracker.infra.db.models import (
     NightscoutInsulinEvent,
     utc_now,
 )
+from glucotracker.infra.db.repositories.sensor_codes import SensorCodeRepository
 from glucotracker.infra.nightscout.client import (
     NIGHTSCOUT_NOT_CONFIGURED,
     NightscoutClient,
@@ -119,11 +120,19 @@ class NightscoutContextImportService:
         """Upsert pre-fetched Nightscout data into the local cache."""
         glucose_imported = 0
         insulin_imported = 0
+        created_glucose_timestamps: list[datetime] = []
+        sensor_repository = SensorCodeRepository(self.session, self.user_id)
+        latest_glucose_before = (
+            sensor_repository.latest_glucose_timestamp() if glucose_rows else None
+        )
         state = self._state()
         try:
             for row in glucose_rows:
-                if self._upsert_glucose(row):
+                imported, created_at = self._upsert_glucose(row)
+                if imported:
                     glucose_imported += 1
+                if created_at is not None:
+                    created_glucose_timestamps.append(created_at)
             if glucose_rows:
                 state.last_glucose_import_at = utc_now()
 
@@ -139,6 +148,16 @@ class NightscoutContextImportService:
                     self.user_id,
                     sensor_event_rows,
                 )
+            if created_glucose_timestamps:
+                latest_created = max(
+                    created_glucose_timestamps,
+                    key=_utc_sort_value,
+                )
+                if latest_glucose_before is None or (
+                    _utc_sort_value(latest_created)
+                    > _utc_sort_value(latest_glucose_before)
+                ):
+                    sensor_repository.ensure_sensor_for_new_glucose(latest_created)
 
             state.last_error = None
             state.updated_at = utc_now()
@@ -209,10 +228,13 @@ class NightscoutContextImportService:
         self.session.flush()
         return row
 
-    def _upsert_glucose(self, row: dict[str, Any]) -> bool:
+    def _upsert_glucose(
+        self,
+        row: dict[str, Any],
+    ) -> tuple[bool, datetime | None]:
         normalized = _normalize_glucose_row(row)
         if normalized is None:
-            return False
+            return False, None
         existing = self.session.scalar(
             select(NightscoutGlucoseEntry).where(
                 NightscoutGlucoseEntry.source_key == normalized["source_key"],
@@ -223,12 +245,12 @@ class NightscoutContextImportService:
             self.session.add(
                 NightscoutGlucoseEntry(owner_id=self.user_id, **normalized)
             )
-            return True
+            return True, normalized["timestamp"]
         for key, value in normalized.items():
             setattr(existing, key, value)
         existing.updated_at = utc_now()
         existing.fetched_at = utc_now()
-        return True
+        return True, None
 
     def _upsert_insulin(self, row: dict[str, Any]) -> bool:
         normalized = _normalize_insulin_row(row)
@@ -599,6 +621,13 @@ def _local_wall_time(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
+
+
+def _utc_sort_value(value: datetime) -> datetime:
+    """Normalize SQLite-naive and Postgres-aware CGM instants for comparison."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _as_float(value: Any) -> float | None:

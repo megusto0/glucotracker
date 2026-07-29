@@ -463,6 +463,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/sensor-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sensor Codes
+         * @description List scanned sensor Data Matrix codes.
+         */
+        get: operations["listSensorCodes"];
+        put?: never;
+        /**
+         * Create Sensor Code
+         * @description Save and parse a sensor Data Matrix scan.
+         */
+        post: operations["createSensorCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/glucose/sensor-codes/{code_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Sensor Code
+         * @description Attach, move, or detach a saved sensor code.
+         */
+        patch: operations["patchSensorCode"];
+        trace?: never;
+    };
     "/glucose/therapy-review": {
         parameters: {
             query?: never;
@@ -6412,6 +6456,66 @@ export interface components {
             start_minute: number;
         };
         /**
+         * SensorCodeCreate
+         * @description Save one scanned GS1 Data Matrix code, optionally attached to a sensor.
+         */
+        SensorCodeCreate: {
+            /** Raw Payload */
+            raw_payload: string;
+            /** Scanned At */
+            scanned_at?: string | null;
+            /** Sensor Session Id */
+            sensor_session_id?: string | null;
+        };
+        /**
+         * SensorCodePatch
+         * @description Attach, move, or detach a previously scanned sensor code.
+         */
+        SensorCodePatch: {
+            /** Sensor Session Id */
+            sensor_session_id?: string | null;
+        };
+        /**
+         * SensorCodeResponse
+         * @description Parsed, owner-scoped GS1 Data Matrix data for one CGM sensor.
+         */
+        SensorCodeResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Expires On */
+            expires_on: string | null;
+            /** Gtin */
+            gtin: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lot Number */
+            lot_number: string | null;
+            /** Manufactured On */
+            manufactured_on: string | null;
+            /** Raw Payload */
+            raw_payload: string;
+            /**
+             * Scanned At
+             * Format: date-time
+             */
+            scanned_at: string;
+            /** Sensor Session Id */
+            sensor_session_id: string | null;
+            /** Serial Number */
+            serial_number: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
          * SensorQualityResponse
          * @description Computed sensor quality and calibration metrics.
          */
@@ -8262,6 +8366,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GlucosePredictionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listSensorCodes: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensorCodeResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createSensorCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SensorCodeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensorCodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patchSensorCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SensorCodePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensorCodeResponse"];
                 };
             };
             /** @description Validation Error */

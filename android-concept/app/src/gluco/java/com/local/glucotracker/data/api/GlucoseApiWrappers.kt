@@ -14,6 +14,7 @@ import com.local.glucotracker.generated.model.NightscoutStatusResponse
 import com.local.glucotracker.generated.model.NightscoutSyncTodayRequest
 import com.local.glucotracker.generated.model.NightscoutSyncTodayResponse
 import com.local.glucotracker.generated.model.SensorQualityResponse
+import com.local.glucotracker.generated.model.SensorCodeResponse
 import com.local.glucotracker.generated.model.SensorSessionResponse
 import com.local.glucotracker.generated.model.TimelineResponse
 import javax.inject.Inject
@@ -41,6 +42,9 @@ class GlucoseApi @Inject constructor(
 
     suspend fun sensors(): List<SensorSessionResponse> =
         glucoseApi.listSensors().body()
+
+    suspend fun sensorCodes(): List<SensorCodeResponse> =
+        glucoseApi.listSensorCodes().body()
 
     suspend fun sensorQuality(sensorId: java.util.UUID): SensorQualityResponse =
         glucoseApi.getSensorQuality(sensorId).body()

@@ -1841,6 +1841,54 @@ class SensorSession(Base, TimestampMixin):
     owner: Mapped[User] = relationship()
 
 
+class SensorCode(Base, TimestampMixin):
+    """A scanned GS1 Data Matrix code for one user-owned CGM sensor."""
+
+    __tablename__ = "sensor_codes"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "raw_payload",
+            name="uq_sensor_codes_owner_payload",
+        ),
+        UniqueConstraint(
+            "owner_id",
+            "gtin",
+            "serial_number",
+            name="uq_sensor_codes_owner_gtin_serial",
+        ),
+        Index("ix_sensor_codes_owner_scanned_at", "owner_id", "scanned_at"),
+        Index("ix_sensor_codes_sensor_session_id", "sensor_session_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    sensor_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("sensor_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    raw_payload: Mapped[str] = mapped_column(String(512), nullable=False)
+    gtin: Mapped[str] = mapped_column(String(14), nullable=False)
+    manufactured_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    lot_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    serial_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    scanned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    owner: Mapped[User] = relationship()
+    sensor_session: Mapped[SensorSession | None] = relationship()
+
+
 class FingerstickReading(Base):
     """Manual capillary glucose reading used for display calibration analytics."""
 

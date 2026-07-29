@@ -2,12 +2,15 @@ package com.local.glucotracker.ui.feature.sensor
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.domain.model.AttachSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
+import com.local.glucotracker.domain.model.CreateSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
 import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.PatchSensorOutboxKind
+import com.local.glucotracker.domain.model.SensorCode
 import com.local.glucotracker.domain.model.SensorQuality
 import com.local.glucotracker.domain.model.SensorSession
 import com.local.glucotracker.domain.repository.OutboxRepository
@@ -34,6 +37,9 @@ data class SensorManagementState(
     val loadFailed: Boolean = false,
     val pendingSensorIds: Set<String> = emptySet(),
     val pendingCreateCount: Int = 0,
+    val sensorCodes: List<SensorCode> = emptyList(),
+    val pendingSensorCodeCount: Int = 0,
+    val pendingSensorCodeIds: Set<String> = emptySet(),
     val fingersticks: List<FingerstickHistoryItem> = emptyList(),
     val fingersticksRefreshing: Boolean = false,
 )
@@ -66,12 +72,17 @@ class SensorManagementViewModel @Inject constructor(
     private val historyTo = historyAnchor.shiftMillis(FingerstickHistoryFutureSlackMillis)
 
     val state = combine(
-        sensorRepository.observeSensors(),
+        combine(
+            sensorRepository.observeSensors(),
+            sensorRepository.observeSensorCodes(),
+        ) { sensors, codes -> sensors to codes },
         sensorRepository.observeFingersticks(historyFrom, historyTo),
         selectedSensorId,
         quality,
         outboxRepository.observe(),
-    ) { cached, cachedFingersticks, selectedId, qualityState, outbox ->
+    ) { sensorCache, cachedFingersticks, selectedId, qualityState, outbox ->
+        val cached = sensorCache.first
+        val cachedCodes = sensorCache.second
         val activeOutbox = outbox.filter { it.state != OutboxState.Confirmed }
         val sensors = cached.value.orEmpty().sortedWith(
             compareBy<SensorSession> { it.endedAt != null }
@@ -91,6 +102,13 @@ class SensorManagementViewModel @Inject constructor(
                 (item.kind as? PatchSensorOutboxKind)?.sensorId
             }.toSet(),
             pendingCreateCount = activeOutbox.count { it.kind is CreateSensorOutboxKind },
+            sensorCodes = cachedCodes.value.orEmpty(),
+            pendingSensorCodeCount = activeOutbox.count {
+                it.kind is CreateSensorCodeOutboxKind
+            },
+            pendingSensorCodeIds = activeOutbox.mapNotNull { item ->
+                (item.kind as? AttachSensorCodeOutboxKind)?.codeId
+            }.toSet(),
             fingersticks = mergeFingerstickHistory(
                 server = cachedFingersticks.value.orEmpty(),
                 outbox = activeOutbox,
@@ -126,6 +144,8 @@ class SensorManagementViewModel @Inject constructor(
                             (
                                 item.kind is CreateSensorOutboxKind ||
                                     item.kind is PatchSensorOutboxKind ||
+                                    item.kind is CreateSensorCodeOutboxKind ||
+                                    item.kind is AttachSensorCodeOutboxKind ||
                                     item.kind is CreateFingerstickOutboxKind
                             )
                     }
@@ -134,17 +154,20 @@ class SensorManagementViewModel @Inject constructor(
                 .drop(1)
                 .collect {
                     sensorRepository.refreshSensors()
+                    sensorRepository.refreshSensorCodes()
                     sensorRepository.refreshFingersticks(historyFrom, historyTo)
                 }
         }
         viewModelScope.launch {
             sensorRepository.refreshSensors()
+            sensorRepository.refreshSensorCodes()
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
             sensorRepository.refreshSensors()
+            sensorRepository.refreshSensorCodes()
             sensorRepository.refreshFingersticks(historyFrom, historyTo)
             val selected = selectedSensorId.value
             if (selected != null) selectSensor(selected)
@@ -189,6 +212,29 @@ class SensorManagementViewModel @Inject constructor(
                     label = label.cleanOrNull(),
                     vendor = vendor.cleanOrNull(),
                     model = model.cleanOrNull(),
+                ),
+            )
+        }
+    }
+
+    fun enqueueSensorCode(rawPayload: String) {
+        if (rawPayload.isBlank()) return
+        viewModelScope.launch {
+            outboxRepository.enqueue(
+                CreateSensorCodeOutboxKind(
+                    rawPayload = rawPayload,
+                    scannedAt = Clock.System.now(),
+                ),
+            )
+        }
+    }
+
+    fun attachSensorCode(codeId: String, sensorId: String) {
+        viewModelScope.launch {
+            outboxRepository.enqueue(
+                AttachSensorCodeOutboxKind(
+                    codeId = codeId,
+                    sensorId = sensorId,
                 ),
             )
         }

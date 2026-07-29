@@ -1685,6 +1685,38 @@ class SensorSessionResponse(SensorSessionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SensorCodeCreate(BaseModel):
+    """Save one scanned GS1 Data Matrix code, optionally attached to a sensor."""
+
+    raw_payload: str = Field(min_length=1, max_length=512)
+    sensor_session_id: UUID | None = None
+    scanned_at: datetime | None = None
+
+
+class SensorCodePatch(BaseModel):
+    """Attach, move, or detach a previously scanned sensor code."""
+
+    sensor_session_id: UUID | None = None
+
+
+class SensorCodeResponse(BaseModel):
+    """Parsed, owner-scoped GS1 Data Matrix data for one CGM sensor."""
+
+    id: UUID
+    sensor_session_id: UUID | None
+    raw_payload: str
+    gtin: str
+    manufactured_on: date_type | None
+    expires_on: date_type | None
+    lot_number: str | None
+    serial_number: str
+    scanned_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FingerstickReadingCreate(BaseModel):
     """Create a manual capillary glucose reading."""
 

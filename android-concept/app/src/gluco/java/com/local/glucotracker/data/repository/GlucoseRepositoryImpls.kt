@@ -18,6 +18,7 @@ import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.Source
 import com.local.glucotracker.domain.model.SensorPhase
+import com.local.glucotracker.domain.model.SensorCode
 import com.local.glucotracker.domain.model.SensorQuality
 import com.local.glucotracker.domain.model.SensorQualityConfidence
 import com.local.glucotracker.domain.model.SensorSession
@@ -26,6 +27,7 @@ import com.local.glucotracker.domain.repository.NightscoutRepository
 import com.local.glucotracker.domain.repository.SensorRepository
 import com.local.glucotracker.generated.model.FoodEpisodeResponse
 import com.local.glucotracker.generated.model.SensorQualityResponse
+import com.local.glucotracker.generated.model.SensorCodeResponse
 import com.local.glucotracker.generated.model.SensorSessionResponse
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -87,8 +89,17 @@ class SensorRepositoryImpl @Inject constructor(
             source = Source.Empty,
         ),
     )
+    private val sensorCodes = MutableStateFlow(
+        CachedView<List<SensorCode>>(
+            value = null,
+            fetchedAt = null,
+            isRefreshing = false,
+            source = Source.Empty,
+        ),
+    )
 
     override fun observeSensors(): Flow<CachedView<List<SensorSession>>> = sensors
+    override fun observeSensorCodes(): Flow<CachedView<List<SensorCode>>> = sensorCodes
 
     override fun observeFingersticks(
         from: Instant,
@@ -116,6 +127,22 @@ class SensorRepositoryImpl @Inject constructor(
             }
             .onFailure {
                 sensors.update { cached -> cached.copy(isRefreshing = false) }
+            }
+    }
+
+    override suspend fun refreshSensorCodes() {
+        sensorCodes.update { it.copy(isRefreshing = true) }
+        runCatching { glucoseApi.sensorCodes().map { it.toDomain() } }
+            .onSuccess { refreshed ->
+                sensorCodes.value = CachedView(
+                    value = refreshed,
+                    fetchedAt = Clock.System.now(),
+                    isRefreshing = false,
+                    source = Source.Network,
+                )
+            }
+            .onFailure {
+                sensorCodes.update { cached -> cached.copy(isRefreshing = false) }
             }
     }
 
@@ -199,6 +226,17 @@ private fun SensorSessionResponse.toDomain(): SensorSession = SensorSession(
     model = model,
     excludedFromAnalytics = excludedFromAnalytics == true,
     exclusionReason = exclusionReason,
+)
+
+private fun SensorCodeResponse.toDomain(): SensorCode = SensorCode(
+    id = id.toString(),
+    sensorSessionId = sensorSessionId?.toString(),
+    gtin = gtin,
+    manufacturedOn = manufacturedOn,
+    expiresOn = expiresOn,
+    lotNumber = lotNumber,
+    serialNumber = serialNumber,
+    scannedAt = scannedAt,
 )
 
 private fun SensorQualityResponse.toDomain(): SensorQuality = SensorQuality(

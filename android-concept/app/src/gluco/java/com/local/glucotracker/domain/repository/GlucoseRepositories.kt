@@ -6,6 +6,7 @@ import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.SensorQuality
+import com.local.glucotracker.domain.model.SensorCode
 import com.local.glucotracker.domain.model.SensorSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
@@ -24,8 +25,10 @@ interface NightscoutRepository {
 
 interface SensorRepository {
     fun observeSensors(): Flow<CachedView<List<SensorSession>>>
+    fun observeSensorCodes(): Flow<CachedView<List<SensorCode>>>
     fun observeFingersticks(from: Instant, to: Instant): Flow<CachedView<List<FingerstickReading>>>
     suspend fun refreshSensors()
+    suspend fun refreshSensorCodes()
     suspend fun refreshFingersticks(from: Instant, to: Instant)
     suspend fun sensorQuality(sensorId: String): SensorQuality
 }

@@ -41,6 +41,7 @@ from glucotracker.infra.db.models import (
     NightscoutSettings,
     Pattern,
     Photo,
+    SensorCode,
     SensorSession,
     TwinFitLog,
     TwinParams,
@@ -1577,6 +1578,40 @@ class TestMutationIsolation:
         sensor = s.get(SensorSession, sensor_id)
         assert str(sensor.owner_id) == str(self.bob)
         s.close()
+
+    def test_sensor_code_create_list_and_patch_isolation(self):
+        raw_payload = (
+            "0106977641010009112606221727062110BOB-LOT"
+            "\u001d21BOB-SENSOR-CODE"
+        )
+        created = self.client.post(
+            "/glucose/sensor-codes",
+            json={"raw_payload": raw_payload},
+            headers=self.bob_headers,
+        )
+        assert created.status_code == 201
+        code_id = UUID(created.json()["id"])
+
+        alice_list = self.client.get(
+            "/glucose/sensor-codes",
+            headers=self.alice_headers,
+        )
+        assert alice_list.status_code == 200
+        assert str(code_id) not in _collect_ids(alice_list.json())
+
+        cross_user_patch = self.client.patch(
+            f"/glucose/sensor-codes/{code_id}",
+            json={"sensor_session_id": str(self.ids["alice_sensor"])},
+            headers=self.alice_headers,
+        )
+        assert cross_user_patch.status_code == 404
+
+        sf = self.env["session_factory"]
+        with sf() as session:
+            row = session.get(SensorCode, code_id)
+            assert row is not None
+            assert row.owner_id == self.bob
+            assert row.sensor_session_id is None
 
     def test_update_profile_ownership(self):
         r = self.client.put(

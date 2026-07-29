@@ -26,6 +26,9 @@ from glucotracker.api.schemas import (
     InsulinRecommendationMatchResponse,
     InsulinRecommendationRequest,
     InsulinRecommendationResponse,
+    SensorCodeCreate,
+    SensorCodePatch,
+    SensorCodeResponse,
     SensorQualityResponse,
     SensorSessionCreate,
     SensorSessionPatch,
@@ -46,6 +49,7 @@ from glucotracker.application.glucose_prediction_audit import (
 from glucotracker.application.insulin_recommendation import (
     HistoricalInsulinRecommendationService,
 )
+from glucotracker.application.sensor_codes import SensorCodeService
 from glucotracker.application.stats_insights import (
     InsightPeriod,
     generate_glucose_tir_daily,
@@ -409,6 +413,49 @@ def patch_sensor(
         sensor_id,
         payload,
     )
+
+
+@router.get(
+    "/glucose/sensor-codes",
+    response_model=list[SensorCodeResponse],
+    operation_id="listSensorCodes",
+)
+def list_sensor_codes(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> list[SensorCodeResponse]:
+    """List scanned sensor Data Matrix codes."""
+    return SensorCodeService(session, current_user.id).list_codes()
+
+
+@router.post(
+    "/glucose/sensor-codes",
+    response_model=SensorCodeResponse,
+    status_code=201,
+    operation_id="createSensorCode",
+)
+def create_sensor_code(
+    payload: SensorCodeCreate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> SensorCodeResponse:
+    """Save and parse a sensor Data Matrix scan."""
+    return SensorCodeService(session, current_user.id).create(payload)
+
+
+@router.patch(
+    "/glucose/sensor-codes/{code_id}",
+    response_model=SensorCodeResponse,
+    operation_id="patchSensorCode",
+)
+def patch_sensor_code(
+    code_id: UUID,
+    payload: SensorCodePatch,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> SensorCodeResponse:
+    """Attach, move, or detach a saved sensor code."""
+    return SensorCodeService(session, current_user.id).patch(code_id, payload)
 
 
 @router.get(

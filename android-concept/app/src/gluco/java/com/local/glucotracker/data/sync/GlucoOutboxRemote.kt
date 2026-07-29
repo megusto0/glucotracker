@@ -1,17 +1,21 @@
 package com.local.glucotracker.data.sync
 
+import com.local.glucotracker.domain.model.AttachSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
+import com.local.glucotracker.domain.model.CreateSensorCodeOutboxKind
 import com.local.glucotracker.domain.model.CreateSensorOutboxKind
 import com.local.glucotracker.domain.model.DeleteNightscoutInsulinOutboxKind
+import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.PatchSensorOutboxKind
 import com.local.glucotracker.domain.model.UpdateNightscoutInsulinOutboxKind
-import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.generated.api.GlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi
 import com.local.glucotracker.generated.model.FingerstickReadingCreate
 import com.local.glucotracker.generated.model.NightscoutInsulinEntryCreate
 import com.local.glucotracker.generated.model.NightscoutInsulinEntryPatch
+import com.local.glucotracker.generated.model.SensorCodeCreate
+import com.local.glucotracker.generated.model.SensorCodePatch
 import com.local.glucotracker.generated.model.SensorSessionCreate
 import com.local.glucotracker.generated.model.SensorSessionPatch
 import java.math.BigDecimal
@@ -86,6 +90,24 @@ class GlucoOutboxRemote @Inject constructor(
                     ),
                 ).bodyOrThrow()
                 sensor.id.toString()
+            }
+            is CreateSensorCodeOutboxKind -> {
+                val code = glucoseApi.createSensorCode(
+                    SensorCodeCreate(
+                        rawPayload = kind.rawPayload,
+                        scannedAt = kind.scannedAt,
+                    ),
+                ).bodyOrThrow()
+                code.id.toString()
+            }
+            is AttachSensorCodeOutboxKind -> {
+                val code = glucoseApi.patchSensorCode(
+                    codeId = UUID.fromString(kind.codeId),
+                    sensorCodePatch = SensorCodePatch(
+                        sensorSessionId = UUID.fromString(kind.sensorId),
+                    ),
+                ).bodyOrThrow()
+                code.id.toString()
             }
             else -> base.processFlavorKind(kind)
         }

@@ -7090,6 +7090,107 @@ components:
       - end_minute
       title: ScheduleWindowResponse
       type: object
+    SensorCodeCreate:
+      description: Save one scanned GS1 Data Matrix code, optionally attached to a
+        sensor.
+      properties:
+        raw_payload:
+          maxLength: 512
+          minLength: 1
+          title: Raw Payload
+          type: string
+        scanned_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Scanned At
+        sensor_session_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Sensor Session Id
+      required:
+      - raw_payload
+      title: SensorCodeCreate
+      type: object
+    SensorCodePatch:
+      description: Attach, move, or detach a previously scanned sensor code.
+      properties:
+        sensor_session_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Sensor Session Id
+      title: SensorCodePatch
+      type: object
+    SensorCodeResponse:
+      description: Parsed, owner-scoped GS1 Data Matrix data for one CGM sensor.
+      properties:
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        expires_on:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Expires On
+        gtin:
+          title: Gtin
+          type: string
+        id:
+          format: uuid
+          title: Id
+          type: string
+        lot_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lot Number
+        manufactured_on:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Manufactured On
+        raw_payload:
+          title: Raw Payload
+          type: string
+        scanned_at:
+          format: date-time
+          title: Scanned At
+          type: string
+        sensor_session_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Sensor Session Id
+        serial_number:
+          title: Serial Number
+          type: string
+        updated_at:
+          format: date-time
+          title: Updated At
+          type: string
+      required:
+      - id
+      - sensor_session_id
+      - raw_payload
+      - gtin
+      - manufactured_on
+      - expires_on
+      - lot_number
+      - serial_number
+      - scanned_at
+      - created_at
+      - updated_at
+      title: SensorCodeResponse
+      type: object
     SensorQualityResponse:
       description: Computed sensor quality and calibration metrics.
       properties:
@@ -9974,6 +10075,129 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Glucose Prediction
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/sensor-codes:
+    get:
+      description: List scanned sensor Data Matrix codes.
+      operationId: listSensorCodes
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SensorCodeResponse'
+                title: Response Listsensorcodes
+                type: array
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: List Sensor Codes
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+    post:
+      description: Save and parse a sensor Data Matrix scan.
+      operationId: createSensorCode
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensorCodeCreate'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorCodeResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Create Sensor Code
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/sensor-codes/{code_id}:
+    patch:
+      description: Attach, move, or detach a saved sensor code.
+      operationId: patchSensorCode
+      parameters:
+      - in: path
+        name: code_id
+        required: true
+        schema:
+          format: uuid
+          title: Code Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensorCodePatch'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorCodeResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Patch Sensor Code
       tags:
       - glucose
       x-glucotracker-required-feature: glucose

@@ -27,6 +27,7 @@ from glucotracker.infra.db.models import (
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
+    SensorCode,
     SensorSession,
     User,
 )
@@ -602,6 +603,97 @@ def test_nightscout_import_scopes_source_keys_by_owner(
 
     assert {row.owner_id for row in glucose_rows} == {alice_id, bob_id}
     assert {row.owner_id for row in insulin_rows} == {alice_id, bob_id}
+
+
+def test_new_glucose_autostarts_sensor_and_attaches_latest_scan(
+    api_client: TestClient,
+) -> None:
+    """A newly cached CGM point starts the pending scanned sensor server-side."""
+    raw_payload = (
+        "0106977641010009112606221727062110AUTO-LOT"
+        "\u001d21AUTO-SENSOR-01"
+    )
+    scan = api_client.post(
+        "/glucose/sensor-codes",
+        json={"raw_payload": raw_payload},
+    )
+    assert scan.status_code == 201
+
+    session_factory = api_client.app_state["session_factory"]
+    user_id = api_client.app_state["current_user_id"]
+    glucose_row = {
+        "_id": "auto-start-glucose",
+        "dateString": "2026-07-29T12:05:00.000Z",
+        "sgv": 108,
+        "direction": "Flat",
+        "device": "Ottai",
+    }
+    with session_factory() as session:
+        NightscoutContextImportService(session, user_id).import_fetched(
+            datetime(2026, 7, 29, 12, tzinfo=UTC),
+            datetime(2026, 7, 29, 13, tzinfo=UTC),
+            glucose_rows=[glucose_row],
+            insulin_rows=[],
+        )
+
+    with session_factory() as session:
+        sensors = session.scalars(
+            select(SensorSession).where(SensorSession.owner_id == user_id)
+        ).all()
+        assert len(sensors) == 1
+        sensor = sensors[0]
+        assert sensor.source == "auto_cgm"
+        assert sensor.started_at == datetime(2026, 7, 29, 12, 5)
+        code = session.scalar(
+            select(SensorCode).where(SensorCode.owner_id == user_id)
+        )
+        assert code is not None
+        assert code.sensor_session_id == sensor.id
+
+    with session_factory() as session:
+        NightscoutContextImportService(session, user_id).import_fetched(
+            datetime(2026, 7, 29, 12, tzinfo=UTC),
+            datetime(2026, 7, 29, 13, tzinfo=UTC),
+            glucose_rows=[glucose_row],
+            insulin_rows=[],
+        )
+    with session_factory() as session:
+        assert len(
+            session.scalars(
+                select(SensorSession).where(SensorSession.owner_id == user_id)
+            ).all()
+        ) == 1
+
+
+def test_new_glucose_autostarts_generic_sensor_without_scan(
+    api_client: TestClient,
+) -> None:
+    """Auto-start still works when no sensor package was scanned first."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        NightscoutContextImportService(session, user_id).import_fetched(
+            datetime(2026, 7, 29, 14, tzinfo=UTC),
+            datetime(2026, 7, 29, 15, tzinfo=UTC),
+            glucose_rows=[
+                {
+                    "_id": "auto-start-generic",
+                    "dateString": "2026-07-29T14:05:00.000Z",
+                    "sgv": 117,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                }
+            ],
+            insulin_rows=[],
+        )
+
+    with session_factory() as session:
+        sensor = session.scalar(
+            select(SensorSession).where(SensorSession.owner_id == user_id)
+        )
+        assert sensor is not None
+        assert sensor.source == "auto_cgm"
+        assert sensor.label == "Сенсор"
 
 
 def test_nightscout_500_and_timeout_are_mapped(api_client: TestClient) -> None:
