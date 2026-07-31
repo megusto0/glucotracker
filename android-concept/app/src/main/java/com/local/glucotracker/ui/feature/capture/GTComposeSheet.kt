@@ -199,6 +199,7 @@ fun ManualEntrySearchSheetContent(
     var products by remember { mutableStateOf(initialProducts) }
     var templates by remember { mutableStateOf(initialTemplates) }
     var selectedRestaurantGroup by remember { mutableStateOf<RestaurantVariantGroup?>(null) }
+    var restoreSearchFocus by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val query = text.trim()
@@ -218,6 +219,14 @@ fun ManualEntrySearchSheetContent(
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
+    }
+
+    LaunchedEffect(restoreSearchFocus) {
+        if (restoreSearchFocus) {
+            focusRequester.requestFocus()
+            keyboardController?.show()
+            restoreSearchFocus = false
+        }
     }
 
     val suggestions = remember(products, templates, query) {
@@ -244,8 +253,7 @@ fun ManualEntrySearchSheetContent(
             group = group,
             onBack = {
                 selectedRestaurantGroup = null
-                focusRequester.requestFocus()
-                keyboardController?.show()
+                restoreSearchFocus = true
             },
             onCancel = onDismiss,
             onSubmit = onSubmitTemplate,
