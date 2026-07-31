@@ -13,8 +13,7 @@ from glucotracker.config import get_settings
 from glucotracker.infra.db.models import NightscoutGlucoseEntry
 
 RAW_SENSOR_CODE = (
-    "0106977641010009112606221727062110OCGL06/102SD2626.006"
-    "\x1d21X12266291Y4R"
+    "0106977641010009112606221727062110OCGL06/102SD2626.006\x1d21X12266291Y4R"
 )
 
 
@@ -499,6 +498,53 @@ def test_dashboard_models_warmup_separately_from_stable_calibration(
     assert quality["warmup_metrics"]["residual_sequence_mmol_l"] == [0.1, 3.0, 0.7]
     assert body["points"][0]["raw_value"] == 6.0
     assert body["points"][0]["normalized_value"] == 7.0
+
+
+def test_dashboard_uses_early_fingerstick_with_reduced_weight(
+    api_client: TestClient,
+) -> None:
+    """A stable first-12h match nudges normalization without applying it fully."""
+    start = datetime.fromisoformat("2026-04-28T20:10:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        prefix="early-weighted",
+        values=[
+            (100, 6.4),
+            (105, 6.5),
+            (115, 6.5),
+            (120, 6.4),
+        ],
+    )
+    _create_sensor(api_client, started_at="2026-04-28T20:10:00")
+    _create_fingerstick(
+        api_client,
+        measured_at="2026-04-28T21:56:50",
+        value=8.2,
+    )
+
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-04-28T21:45:00",
+            "to": "2026-04-28T22:15:00",
+            "mode": "normalized",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    quality = body["quality"]
+    nearest = body["points"][1]
+    assert quality["matched_calibration_points"] == 1
+    assert quality["valid_calibration_points"] == 1
+    assert quality["calibration_basis"] == "early_warmup_weighted"
+    assert quality["calibration_strategy"] == "median_delta"
+    assert quality["confidence"] == "low"
+    assert 0 < quality["correction_now_mmol_l"] < 0.8
+    assert nearest["raw_value"] == 6.5
+    assert nearest["raw_value"] < nearest["normalized_value"] < 7.3
+    assert nearest["contributing_fingerstick_count"] == 1
 
 
 def test_dashboard_recomputes_b0_after_capping_drift(api_client: TestClient) -> None:

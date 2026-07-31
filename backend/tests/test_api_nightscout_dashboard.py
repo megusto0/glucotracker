@@ -609,10 +609,7 @@ def test_new_glucose_autostarts_sensor_and_attaches_latest_scan(
     api_client: TestClient,
 ) -> None:
     """A newly cached CGM point starts the pending scanned sensor server-side."""
-    raw_payload = (
-        "0106977641010009112606221727062110AUTO-LOT"
-        "\u001d21AUTO-SENSOR-01"
-    )
+    raw_payload = "0106977641010009112606221727062110AUTO-LOT\u001d21AUTO-SENSOR-01"
     scan = api_client.post(
         "/glucose/sensor-codes",
         json={"raw_payload": raw_payload},
@@ -644,9 +641,7 @@ def test_new_glucose_autostarts_sensor_and_attaches_latest_scan(
         sensor = sensors[0]
         assert sensor.source == "auto_cgm"
         assert sensor.started_at == datetime(2026, 7, 29, 12, 5)
-        code = session.scalar(
-            select(SensorCode).where(SensorCode.owner_id == user_id)
-        )
+        code = session.scalar(select(SensorCode).where(SensorCode.owner_id == user_id))
         assert code is not None
         assert code.sensor_session_id == sensor.id
 
@@ -658,31 +653,55 @@ def test_new_glucose_autostarts_sensor_and_attaches_latest_scan(
             insulin_rows=[],
         )
     with session_factory() as session:
-        assert len(
-            session.scalars(
-                select(SensorSession).where(SensorSession.owner_id == user_id)
-            ).all()
-        ) == 1
+        assert (
+            len(
+                session.scalars(
+                    select(SensorSession).where(SensorSession.owner_id == user_id)
+                ).all()
+            )
+            == 1
+        )
 
 
 def test_new_glucose_autostarts_generic_sensor_without_scan(
     api_client: TestClient,
 ) -> None:
-    """Auto-start still works when no sensor package was scanned first."""
+    """Auto-start uses the first point after the latest CGM stream gap."""
     session_factory = api_client.app_state["session_factory"]
     user_id = api_client.app_state["current_user_id"]
     with session_factory() as session:
         NightscoutContextImportService(session, user_id).import_fetched(
-            datetime(2026, 7, 29, 14, tzinfo=UTC),
+            datetime(2026, 7, 29, 12, tzinfo=UTC),
             datetime(2026, 7, 29, 15, tzinfo=UTC),
             glucose_rows=[
                 {
-                    "_id": "auto-start-generic",
+                    "_id": "auto-start-previous-stream",
+                    "dateString": "2026-07-29T12:00:00.000Z",
+                    "sgv": 110,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                },
+                {
+                    "_id": "auto-start-current-stream-first",
                     "dateString": "2026-07-29T14:05:00.000Z",
                     "sgv": 117,
                     "direction": "Flat",
                     "device": "Ottai",
-                }
+                },
+                {
+                    "_id": "auto-start-current-stream-second",
+                    "dateString": "2026-07-29T14:10:00.000Z",
+                    "sgv": 116,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                },
+                {
+                    "_id": "auto-start-current-stream-third",
+                    "dateString": "2026-07-29T14:15:00.000Z",
+                    "sgv": 115,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                },
             ],
             insulin_rows=[],
         )
@@ -694,6 +713,96 @@ def test_new_glucose_autostarts_generic_sensor_without_scan(
         assert sensor is not None
         assert sensor.source == "auto_cgm"
         assert sensor.label == "Сенсор"
+        assert sensor.started_at == datetime(2026, 7, 29, 14, 5)
+
+
+def test_continuing_stream_does_not_restart_a_finished_sensor(
+    api_client: TestClient,
+) -> None:
+    """Late readings from a finished stream do not create a new sensor."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = api_client.app_state["current_user_id"]
+    with session_factory() as session:
+        session.add(
+            SensorSession(
+                owner_id=user_id,
+                source="manual",
+                label="Finished sensor",
+                started_at=datetime(2026, 7, 20, 12),
+                ended_at=datetime(2026, 7, 29, 14, 12),
+                expected_life_days=15,
+            )
+        )
+        session.commit()
+
+    with session_factory() as session:
+        NightscoutContextImportService(session, user_id).import_fetched(
+            datetime(2026, 7, 29, 14, tzinfo=UTC),
+            datetime(2026, 7, 29, 15, tzinfo=UTC),
+            glucose_rows=[
+                {
+                    "_id": "finished-stream-before-end",
+                    "dateString": "2026-07-29T14:05:00.000Z",
+                    "sgv": 110,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                },
+                {
+                    "_id": "finished-stream-after-end",
+                    "dateString": "2026-07-29T14:15:00.000Z",
+                    "sgv": 111,
+                    "direction": "Flat",
+                    "device": "Ottai",
+                },
+            ],
+            insulin_rows=[],
+        )
+
+    with session_factory() as session:
+        sensors = session.scalars(
+            select(SensorSession).where(SensorSession.owner_id == user_id)
+        ).all()
+        assert len(sensors) == 1
+        assert sensors[0].label == "Finished sensor"
+
+
+def test_glucose_autostart_preserves_cgm_instant_in_non_utc_timezone(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A UTC CGM point must not be shifted again by the app-local offset."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    try:
+        session_factory = api_client.app_state["session_factory"]
+        user_id = api_client.app_state["current_user_id"]
+        with session_factory() as session:
+            NightscoutContextImportService(session, user_id).import_fetched(
+                datetime(2026, 7, 29, 12, tzinfo=UTC),
+                datetime(2026, 7, 29, 13, tzinfo=UTC),
+                glucose_rows=[
+                    {
+                        "_id": "auto-start-timezone",
+                        "dateString": "2026-07-29T12:05:00.000Z",
+                        "sgv": 108,
+                        "direction": "Flat",
+                        "device": "Ottai",
+                    }
+                ],
+                insulin_rows=[],
+            )
+
+        with session_factory() as session:
+            sensor = session.scalar(
+                select(SensorSession).where(SensorSession.owner_id == user_id)
+            )
+            assert sensor is not None
+            # SQLite drops tzinfo, but the stored clock must still be the UTC
+            # instant 12:05 rather than the incorrectly shifted 16:05.
+            assert sensor.started_at == datetime(2026, 7, 29, 12, 5)
+    finally:
+        monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "UTC")
+        get_settings.cache_clear()
 
 
 def test_nightscout_500_and_timeout_are_mapped(api_client: TestClient) -> None:

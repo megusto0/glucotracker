@@ -36,6 +36,17 @@ class ForecastPointSnapshot:
     predicted_band: str
 
 
+@dataclass(frozen=True)
+class EvaluatedForecastPoint:
+    """One prospective outcome with its pre-calibration model prediction."""
+
+    anchor_timestamp: datetime
+    anchor_value_mmol_l: float
+    horizon_minutes: int
+    base_predicted_value_mmol_l: float
+    actual_value_mmol_l: float
+
+
 class GlucosePredictionAuditRepository:
     """Require a user id for every forecast and outcome operation."""
 
@@ -136,10 +147,8 @@ class GlucosePredictionAuditRepository:
                 select(NightscoutGlucoseEntry)
                 .where(
                     NightscoutGlucoseEntry.owner_id == self.user_id,
-                    NightscoutGlucoseEntry.timestamp
-                    >= target_timestamp - tolerance,
-                    NightscoutGlucoseEntry.timestamp
-                    <= target_timestamp + tolerance,
+                    NightscoutGlucoseEntry.timestamp >= target_timestamp - tolerance,
+                    NightscoutGlucoseEntry.timestamp <= target_timestamp + tolerance,
                     visible_glucose_filter(self.user_id),
                 )
                 .order_by(NightscoutGlucoseEntry.timestamp.asc())
@@ -196,6 +205,61 @@ class GlucosePredictionAuditRepository:
                 )
             ).all()
         )
+
+    def evaluated_base_points(
+        self,
+        *,
+        since: datetime,
+        before: datetime,
+        model_versions: tuple[str, ...],
+        limit: int = 20_000,
+    ) -> list[EvaluatedForecastPoint]:
+        """Return causal outcomes and recover each run's uncalibrated forecast."""
+        rows = self.session.execute(
+            select(GlucosePredictionRun, GlucosePredictionPointAudit)
+            .join(
+                GlucosePredictionPointAudit,
+                GlucosePredictionPointAudit.run_id == GlucosePredictionRun.id,
+            )
+            .where(
+                GlucosePredictionRun.owner_id == self.user_id,
+                GlucosePredictionPointAudit.owner_id == self.user_id,
+                GlucosePredictionRun.model_version.in_(model_versions),
+                GlucosePredictionRun.anchor_timestamp >= since,
+                GlucosePredictionRun.anchor_timestamp < before,
+                GlucosePredictionPointAudit.evaluation_status == "evaluated",
+                GlucosePredictionPointAudit.actual_value_mmol_l.is_not(None),
+            )
+            .order_by(GlucosePredictionRun.anchor_timestamp.desc())
+            .limit(limit)
+        ).all()
+        result: list[EvaluatedForecastPoint] = []
+        for run, point in rows:
+            calibration_by_horizon = run.model_json.get(
+                "audit_calibration_by_horizon",
+                [],
+            )
+            base_value = next(
+                (
+                    item.get("base_prediction_mmol_l")
+                    for item in calibration_by_horizon
+                    if isinstance(item, dict)
+                    and item.get("horizon_minutes") == point.horizon_minutes
+                ),
+                None,
+            )
+            if not isinstance(base_value, int | float):
+                base_value = point.predicted_value_mmol_l
+            result.append(
+                EvaluatedForecastPoint(
+                    anchor_timestamp=_as_utc(run.anchor_timestamp),
+                    anchor_value_mmol_l=float(run.anchor_value_mmol_l),
+                    horizon_minutes=point.horizon_minutes,
+                    base_predicted_value_mmol_l=float(base_value),
+                    actual_value_mmol_l=float(point.actual_value_mmol_l),
+                )
+            )
+        return result
 
 
 def _as_utc(value: datetime) -> datetime:

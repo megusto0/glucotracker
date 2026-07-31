@@ -33,6 +33,11 @@ from glucotracker.api.schemas import (
     SensorSessionCreate,
     SensorSessionPatch,
     SensorSessionResponse,
+    TherapyAnalysisMetricResponse,
+    TherapyAnalysisResponse,
+    TherapyAnalysisSlotResponse,
+    TherapyBasalProfileResponse,
+    TherapyBasalSlotResponse,
     TherapyReviewDayResponse,
     TherapyReviewItemResponse,
 )
@@ -54,6 +59,7 @@ from glucotracker.application.stats_insights import (
     InsightPeriod,
     generate_glucose_tir_daily,
 )
+from glucotracker.application.therapy_analysis import TherapyAnalysisService
 from glucotracker.application.therapy_review import TherapyReviewService
 
 router = APIRouter(
@@ -216,6 +222,100 @@ def get_glucose_therapy_review(
             TherapyReviewItemResponse(**vars(item))
             for item in review.items
         ],
+    )
+
+
+@router.get(
+    "/glucose/therapy-analysis",
+    response_model=TherapyAnalysisResponse,
+    operation_id="getGlucoseTherapyAnalysis",
+)
+def get_glucose_therapy_analysis(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    period_days: Annotated[int, Query()] = 90,
+    target_mmol_l: Annotated[float, Query(ge=3.9, le=10)] = 6.0,
+    to_date: date | None = None,
+) -> TherapyAnalysisResponse:
+    """Return long-term retrospective ICR and ISF evidence by local time."""
+    if period_days not in {30, 90, 180}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="period_days must be one of: 30, 90, 180",
+        )
+    analysis = TherapyAnalysisService(session, current_user.id).analyze(
+        period_days=period_days,
+        target_mmol_l=target_mmol_l,
+        to_date=to_date,
+    )
+    return TherapyAnalysisResponse(
+        **{
+            **vars(analysis),
+            "overall_icr_g_per_unit": TherapyAnalysisMetricResponse(
+                **vars(analysis.overall_icr_g_per_unit)
+            ),
+            "overall_isf_mmol_l_per_unit": TherapyAnalysisMetricResponse(
+                **vars(analysis.overall_isf_mmol_l_per_unit)
+            ),
+            "slots": [
+                TherapyAnalysisSlotResponse(
+                    start_hour=slot.start_hour,
+                    end_hour=slot.end_hour,
+                    label=slot.label,
+                    icr_g_per_unit=TherapyAnalysisMetricResponse(
+                        **vars(slot.icr_g_per_unit)
+                    ),
+                    isf_mmol_l_per_unit=TherapyAnalysisMetricResponse(
+                        **vars(slot.isf_mmol_l_per_unit)
+                    ),
+                )
+                for slot in analysis.slots
+            ],
+            "basal_profile": TherapyBasalProfileResponse(
+                window_minutes=analysis.basal_profile.window_minutes,
+                washout_minutes=analysis.basal_profile.washout_minutes,
+                resting_reference_bpm=(
+                    analysis.basal_profile.resting_reference_bpm
+                ),
+                elevated_hr_threshold_bpm=(
+                    analysis.basal_profile.elevated_hr_threshold_bpm
+                ),
+                quiet_window_count=(
+                    analysis.basal_profile.quiet_window_count
+                ),
+                elevated_hr_window_count=(
+                    analysis.basal_profile.elevated_hr_window_count
+                ),
+                unknown_hr_window_count=(
+                    analysis.basal_profile.unknown_hr_window_count
+                ),
+                slots=[
+                    TherapyBasalSlotResponse(
+                        hour=slot.hour,
+                        label=slot.label,
+                        quiet_drift_mmol_l_per_hour=(
+                            TherapyAnalysisMetricResponse(
+                                **vars(slot.quiet_drift_mmol_l_per_hour)
+                            )
+                        ),
+                        elevated_hr_drift_mmol_l_per_hour=(
+                            TherapyAnalysisMetricResponse(
+                                **vars(
+                                    slot.elevated_hr_drift_mmol_l_per_hour
+                                )
+                            )
+                        ),
+                        unknown_hr_drift_mmol_l_per_hour=(
+                            TherapyAnalysisMetricResponse(
+                                **vars(slot.unknown_hr_drift_mmol_l_per_hour)
+                            )
+                        ),
+                        signal=slot.signal,
+                    )
+                    for slot in analysis.basal_profile.slots
+                ],
+            ),
+        }
     )
 
 

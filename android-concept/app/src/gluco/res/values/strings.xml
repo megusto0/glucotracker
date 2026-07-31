@@ -28,6 +28,7 @@
     <string name="glucose_sheet_submit">Сохранить</string>
     <string name="glucose_sensor_title">Сенсор</string>
     <string name="glucose_sensor_empty">нет данных</string>
+    <string name="glucose_sensor_active_since">активен с %1$s</string>
     <string name="glucose_sensor_manage">Сенсоры и качество</string>
     <string name="sensor_management_title">Сенсоры</string>
     <string name="sensor_management_subtitle">Качество CGM и ручные замеры</string>

@@ -103,6 +103,8 @@ export type GlucosePredictionResponse =
 export type DayEpisodesResponse = components["schemas"]["DayEpisodesResponse"];
 export type TherapyReviewDayResponse =
   components["schemas"]["TherapyReviewDayResponse"];
+export type TherapyAnalysisResponse =
+  components["schemas"]["TherapyAnalysisResponse"];
 export type InsulinRecommendationRequest =
   components["schemas"]["InsulinRecommendationRequest"];
 export type InsulinRecommendationResponse =
@@ -955,6 +957,23 @@ export const apiClient = {
           target_mmol_l: targetMmolL,
           horizon_minutes: horizonMinutes,
           force_recalculate: forceRecalculate,
+        },
+        timeoutMs: 90_000,
+      },
+    ),
+
+  getGlucoseTherapyAnalysis: (
+    config: ApiConfig,
+    periodDays: 30 | 90 | 180,
+    targetMmolL: number,
+  ) =>
+    apiRequest<TherapyAnalysisResponse>(
+      "/glucose/therapy-analysis",
+      config,
+      {
+        query: {
+          period_days: periodDays,
+          target_mmol_l: targetMmolL,
         },
         timeoutMs: 90_000,
       },

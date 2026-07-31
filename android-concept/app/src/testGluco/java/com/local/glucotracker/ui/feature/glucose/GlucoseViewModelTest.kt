@@ -3,6 +3,7 @@ package com.local.glucotracker.ui.feature.glucose
 import app.cash.turbine.test
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
+import com.local.glucotracker.domain.model.FingerstickReading
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.HistoryPage
@@ -12,10 +13,14 @@ import com.local.glucotracker.domain.model.MealDraft
 import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.domain.model.SensorCode
+import com.local.glucotracker.domain.model.SensorQuality
+import com.local.glucotracker.domain.model.SensorSession
 import com.local.glucotracker.domain.model.Source
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
+import com.local.glucotracker.domain.repository.SensorRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -62,6 +67,7 @@ class GlucoseViewModelTest {
             glucoseRepository = glucoseRepository,
             historyRepository = FakeHistoryRepository(),
             outboxRepository = FakeOutboxRepository(),
+            sensorRepository = FakeSensorRepository(),
         )
 
         viewModel.state.test {
@@ -105,6 +111,7 @@ class GlucoseViewModelTest {
             glucoseRepository = FakeGlucoseRepository(readings),
             historyRepository = FakeHistoryRepository(),
             outboxRepository = FakeOutboxRepository(),
+            sensorRepository = FakeSensorRepository(),
         )
 
         viewModel.state.test {
@@ -130,6 +137,7 @@ class GlucoseViewModelTest {
             glucoseRepository = FakeGlucoseRepository(emptyList()),
             historyRepository = FakeHistoryRepository(),
             outboxRepository = outboxRepository,
+            sensorRepository = FakeSensorRepository(),
         )
 
         viewModel.enqueueFingerstick(5.8)
@@ -137,6 +145,43 @@ class GlucoseViewModelTest {
 
         val kind = outboxRepository.items.single().kind as CreateFingerstickOutboxKind
         assertEquals(5.8, kind.glucoseMmolL, 0.0)
+    }
+
+    @Test
+    fun exposesNewestActiveSensorAndRefreshesIt() = runTest {
+        val older = sensor(
+            id = "older",
+            startedAt = Instant.parse("2026-07-20T10:00:00Z"),
+        )
+        val active = sensor(
+            id = "active",
+            startedAt = Instant.parse("2026-07-29T16:10:00Z"),
+        )
+        val finished = sensor(
+            id = "finished",
+            startedAt = Instant.parse("2026-07-29T17:00:00Z"),
+            endedAt = Instant.parse("2026-07-29T18:00:00Z"),
+        )
+        val sensors = FakeSensorRepository(listOf(older, active, finished))
+        val viewModel = GlucoseViewModel(
+            glucoseRepository = FakeGlucoseRepository(emptyList()),
+            historyRepository = FakeHistoryRepository(),
+            outboxRepository = FakeOutboxRepository(),
+            sensorRepository = sensors,
+        )
+
+        viewModel.state.test {
+            var loaded = awaitItem()
+            while (loaded.activeSensor == null) {
+                loaded = awaitItem()
+            }
+            assertEquals("active", loaded.activeSensor?.id)
+
+            viewModel.refresh()
+            advanceUntilIdle()
+            assertEquals(1, sensors.refreshCalls)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }
 
@@ -226,6 +271,42 @@ private class FakeOutboxRepository : OutboxRepository {
     override suspend fun revertNetworkStuckItems(): Int = 0
 }
 
+private class FakeSensorRepository(
+    sensors: List<SensorSession> = emptyList(),
+) : SensorRepository {
+    private val cached = flowOf(
+        CachedView(
+            value = sensors,
+            fetchedAt = Clock.System.now(),
+            isRefreshing = false,
+            source = Source.Cache,
+        ),
+    )
+    var refreshCalls = 0
+
+    override fun observeSensors(): Flow<CachedView<List<SensorSession>>> = cached
+
+    override fun observeSensorCodes(): Flow<CachedView<List<SensorCode>>> =
+        flowOf(CachedView<List<SensorCode>>(null, null, false, Source.Empty))
+
+    override fun observeFingersticks(
+        from: Instant,
+        to: Instant,
+    ): Flow<CachedView<List<FingerstickReading>>> =
+        flowOf(CachedView<List<FingerstickReading>>(null, null, false, Source.Empty))
+
+    override suspend fun refreshSensors() {
+        refreshCalls += 1
+    }
+
+    override suspend fun refreshSensorCodes() = Unit
+
+    override suspend fun refreshFingersticks(from: Instant, to: Instant) = Unit
+
+    override suspend fun sensorQuality(sensorId: String): SensorQuality =
+        error("Glucose screen should not load sensor quality.")
+}
+
 private fun reading(at: Instant, value: Double): GlucoseReading =
     GlucoseReading(
         readingAt = at,
@@ -234,4 +315,21 @@ private fun reading(at: Instant, value: Double): GlucoseReading =
         normalizedValueMmolL = null,
         smoothedValueMmolL = null,
         flags = emptyList(),
+    )
+
+private fun sensor(
+    id: String,
+    startedAt: Instant,
+    endedAt: Instant? = null,
+): SensorSession =
+    SensorSession(
+        id = id,
+        startedAt = startedAt,
+        endedAt = endedAt,
+        expectedLifeDays = 15.0,
+        label = "Сенсор · $id",
+        vendor = null,
+        model = null,
+        excludedFromAnalytics = false,
+        exclusionReason = null,
     )

@@ -174,6 +174,13 @@ class SensorManagementViewModel @Inject constructor(
         }
     }
 
+    fun refreshSensorState() {
+        viewModelScope.launch {
+            sensorRepository.refreshSensors()
+            sensorRepository.refreshSensorCodes()
+        }
+    }
+
     fun selectSensor(sensorId: String) {
         selectedSensorId.value = sensorId
         viewModelScope.launch {

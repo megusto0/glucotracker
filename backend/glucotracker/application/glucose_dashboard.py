@@ -65,6 +65,7 @@ CalibrationStrategy = Literal["median_delta", "warmup_blend", "linear", "insuffi
 CalibrationBasis = Literal[
     "stable_after_48h",
     "warmup_after_12h_fallback",
+    "early_warmup_weighted",
     "insufficient",
 ]
 
@@ -78,6 +79,8 @@ WARMUP_MEDIAN_WEIGHT = 0.65
 WARMUP_LINEAR_WEIGHT = 0.35
 STABLE_START_DAYS = WARMUP_HOURS / 24
 FALLBACK_START_DAYS = EARLY_WARMUP_HOURS / 24
+EARLY_WARMUP_MIN_WEIGHT = 0.2
+EARLY_WARMUP_MAX_WEIGHT = 0.6
 WARMUP_BIAS_BANDWIDTH_H = 9.0
 STABLE_BIAS_BANDWIDTH_H = 36.0
 END_OF_LIFE_BIAS_BANDWIDTH_H = 18.0
@@ -109,6 +112,7 @@ class CalibrationPoint:
     raw_cgm: float
     fingerstick: float
     residual: float
+    reliability_weight: float
 
 
 @dataclass(frozen=True)
@@ -751,16 +755,24 @@ class GlucoseDashboardService:
                 "Стабильных записей после 48 ч мало; оценка смещения построена "
                 "по данным после 12 ч информационно."
             )
+        elif basis == "early_warmup_weighted":
+            notes.append(
+                "Записи первых 12 ч учитываются с пониженным весом; "
+                "коррекция предварительная."
+            )
 
         residuals = [point.residual for point in valid]
-        median_delta = _median(residuals)
+        median_delta = _weighted_residual(valid)
         raw_b1 = _robust_slope(valid) if len(valid) >= 3 else 0.0
         b1 = max(min(raw_b1, MAX_DRIFT_PER_DAY), -MAX_DRIFT_PER_DAY)
         capped = False
         if b1 != raw_b1:
             notes.append("Дрейф слишком большой, коррекция ограничена.")
             capped = True
-        b0 = _median([point.residual - b1 * point.sensor_age_days for point in valid])
+        b0 = _weighted_point_value(
+            valid,
+            lambda point: point.residual - b1 * point.sensor_age_days,
+        )
         if abs(b0) > MAX_OFFSET:
             notes.append("Оценка смещения слишком большая, поправка ограничена.")
             b0 = max(min(b0, MAX_OFFSET), -MAX_OFFSET)
@@ -771,7 +783,15 @@ class GlucoseDashboardService:
             raw_points[-1].timestamp if raw_points else _now_local(),
         )
         current_phase = _sensor_phase(current_age_days)
-        if len(valid) < 3:
+        if basis == "early_warmup_weighted":
+            strategy = "median_delta"
+            b1 = 0.0
+            b0 = median_delta
+            notes.append(
+                "До 12 ч дрейф не оценивается; применяется ослабленная "
+                "медиана расхождения."
+            )
+        elif len(valid) < 3:
             strategy: CalibrationStrategy = "median_delta"
             b1 = 0.0
             b0 = median_delta
@@ -844,7 +864,10 @@ class GlucoseDashboardService:
             confidence = "high"
         elif not capped and len(valid) >= 3:
             confidence = "medium"
-        if basis == "warmup_after_12h_fallback":
+        if basis in {
+            "warmup_after_12h_fallback",
+            "early_warmup_weighted",
+        }:
             confidence = "low"
         return CalibrationResult(
             params={
@@ -857,6 +880,8 @@ class GlucoseDashboardService:
                 "median_delta_mmol_l": round(median_delta, 4),
                 "warmup_linear_weight": WARMUP_LINEAR_WEIGHT,
                 "warmup_median_weight": WARMUP_MEDIAN_WEIGHT,
+                "early_warmup_min_weight": EARLY_WARMUP_MIN_WEIGHT,
+                "early_warmup_max_weight": EARLY_WARMUP_MAX_WEIGHT,
                 "sensor_started_at": sensor.started_at.isoformat(),
                 "max_offset_mmol_l": MAX_OFFSET,
                 "max_drift_mmol_l_per_day": MAX_DRIFT_PER_DAY,
@@ -1231,6 +1256,9 @@ def _valid_calibration_points(
                 raw_cgm=raw_value,
                 fingerstick=row.glucose_mmol_l,
                 residual=row.glucose_mmol_l - raw_value,
+                reliability_weight=_calibration_reliability(
+                    _sensor_age_days(sensor, measured_at)
+                ),
             )
         )
         last_used = measured_at
@@ -1250,7 +1278,38 @@ def _stable_calibration_points(
     if fallback:
         return fallback, "warmup_after_12h_fallback"
 
+    if points:
+        return points, "early_warmup_weighted"
+
     return [], "insufficient"
+
+
+def _calibration_reliability(sensor_age_days: float) -> float:
+    """Return a conservative evidence weight for an early fingerstick."""
+    age_hours = max(sensor_age_days * 24, 0.0)
+    if age_hours >= EARLY_WARMUP_HOURS:
+        return 1.0
+    progress = age_hours / EARLY_WARMUP_HOURS
+    return EARLY_WARMUP_MIN_WEIGHT + progress * (
+        EARLY_WARMUP_MAX_WEIGHT - EARLY_WARMUP_MIN_WEIGHT
+    )
+
+
+def _weighted_residual(points: list[CalibrationPoint]) -> float:
+    return _weighted_point_value(points, lambda point: point.residual)
+
+
+def _weighted_point_value(
+    points: list[CalibrationPoint],
+    value: Callable[[CalibrationPoint], float],
+) -> float:
+    """Estimate a value and shrink incomplete early evidence toward zero."""
+    if all(point.reliability_weight >= 1.0 for point in points):
+        return _median([value(point) for point in points])
+    pairs = [(value(point), point.reliability_weight) for point in points]
+    estimate = _weighted_median(pairs)
+    estimate *= min(sum(weight for _, weight in pairs), 1.0)
+    return estimate
 
 
 def _warmup_metrics(
@@ -1442,6 +1501,7 @@ def estimate_bias_at(
     bandwidth_s = bandwidth_h * 3600
 
     weighted: list[tuple[float, float]] = []
+    reduced_reliability = False
     nearest_distance_h: float | None = None
     for point in calibration_points:
         distance_s = abs((point.measured_at - target).total_seconds())
@@ -1451,7 +1511,8 @@ def estimate_bias_at(
         if distance_s > bandwidth_s:
             continue
         weight = 1.0 - (distance_s / bandwidth_s)
-        weight = weight * weight
+        weight = weight * weight * point.reliability_weight
+        reduced_reliability = reduced_reliability or point.reliability_weight < 1.0
         weighted.append((point.residual, weight))
 
     if not weighted:
@@ -1464,18 +1525,26 @@ def estimate_bias_at(
             if nearest_distance_h is None or distance_h < nearest_distance_h:
                 nearest_distance_h = distance_h
             weight = 1.0 - (distance_s / expanded_s)
-            weight = weight * weight
+            weight = weight * weight * point.reliability_weight
+            reduced_reliability = reduced_reliability or point.reliability_weight < 1.0
             weighted.append((point.residual, weight))
 
     if not weighted:
         return None
 
     bias = _weighted_median(weighted)
+    if reduced_reliability:
+        bias *= min(sum(weight for _, weight in weighted), 1.0)
     bias = max(min(bias, MAX_OFFSET), -MAX_OFFSET)
 
     count = len(weighted)
-    if count >= 4 and (nearest_distance_h or 999) <= bandwidth_h * 0.5:
-        confidence: Confidence = "high"
+    confidence: Confidence
+    if reduced_reliability and count < 3:
+        confidence = "low"
+    elif reduced_reliability:
+        confidence = "medium"
+    elif count >= 4 and (nearest_distance_h or 999) <= bandwidth_h * 0.5:
+        confidence = "high"
     elif count >= 2:
         confidence = "medium"
     else:

@@ -1,5 +1,6 @@
 import { Bell, ClipboardList, Menu, RefreshCw, Volume2, X } from "lucide-react";
 import {
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -63,6 +64,7 @@ const HOUR_OPTIONS = [2, 3, 4, 6, 12, 24] as const;
 const MAIN_Y_TICKS = [2, 3, 4, 6, 10, 14, 22] as const;
 const REFRESH_INTERVAL_MS = 60 * 1000;
 const MIN_CHART_WINDOW_MS = 30 * 60 * 1000;
+const FOLLOW_LATEST_SNAP_MS = 15 * 60 * 1000;
 
 const pad = (value: number) => value.toString().padStart(2, "0");
 
@@ -193,12 +195,13 @@ function resizeOverviewRange(
 export function NightscoutPage() {
   const navigate = useNavigate();
   const [hours, setHours] = useState<(typeof HOUR_OPTIONS)[number]>(3);
-  const [mode, setMode] = useState<DisplayMode>("raw");
+  const [mode, setMode] = useState<DisplayMode>("normalized");
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<SelectableFoodEvent | null>(
     null,
   );
   const [customRange, setCustomRange] = useState<ChartRange | null>(null);
+  const [followWindowMs, setFollowWindowMs] = useState<number | null>(null);
   const [refreshAnchor, setRefreshAnchor] = useState(() => new Date());
 
   useEffect(() => {
@@ -217,11 +220,12 @@ export function NightscoutPage() {
       };
     }
     const to = refreshAnchor;
+    const windowMs = followWindowMs ?? hours * 60 * 60 * 1000;
     return {
-      from: toApiDateTime(new Date(to.getTime() - hours * 60 * 60 * 1000)),
+      from: toApiDateTime(new Date(to.getTime() - windowMs)),
       to: toApiDateTime(to),
     };
-  }, [customRange, hours, refreshAnchor]);
+  }, [customRange, followWindowMs, hours, refreshAnchor]);
   const overviewRange = useMemo(() => {
     const to = refreshAnchor;
     return {
@@ -277,6 +281,23 @@ export function NightscoutPage() {
     setRefreshAnchor(new Date());
     void prediction.refetch();
   };
+  const selectChartRange = useCallback(
+    (nextRange: ChartRange) => {
+      const windowMs = Math.max(
+        MIN_CHART_WINDOW_MS,
+        nextRange.toMs - nextRange.fromMs,
+      );
+      const latestGapMs = refreshAnchor.getTime() - nextRange.toMs;
+      if (Math.abs(latestGapMs) <= FOLLOW_LATEST_SNAP_MS) {
+        setCustomRange(null);
+        setFollowWindowMs(windowMs);
+        return;
+      }
+      setFollowWindowMs(null);
+      setCustomRange(nextRange);
+    },
+    [refreshAnchor],
+  );
 
   return (
     <div className={`ns-page${isUrgent ? " ns-page--urgent" : ""}`}>
@@ -351,14 +372,23 @@ export function NightscoutPage() {
             <span>Hours:</span>
             {HOUR_OPTIONS.map((option) => (
               <button
-                aria-pressed={customRange === null && hours === option}
+                aria-pressed={
+                  customRange === null &&
+                  followWindowMs === null &&
+                  hours === option
+                }
                 className={
-                  customRange === null && hours === option ? "active" : ""
+                  customRange === null &&
+                  followWindowMs === null &&
+                  hours === option
+                    ? "active"
+                    : ""
                 }
                 key={option}
                 onClick={() => {
                   setHours(option);
                   setCustomRange(null);
+                  setFollowWindowMs(null);
                 }}
                 type="button"
               >
@@ -437,7 +467,7 @@ export function NightscoutPage() {
         prediction={prediction.data}
         predictionError={Boolean(prediction.error)}
         onFoodSelect={setSelectedFood}
-        onRangeChange={setCustomRange}
+        onRangeChange={selectChartRange}
       />
       {selectedFood && !selectedEpisode ? (
         <div

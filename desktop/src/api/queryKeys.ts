@@ -45,6 +45,13 @@ export const queryKeys = {
       targetMmolL,
       horizonMinutes,
     ] as const,
+  glucoseTherapyAnalysis: (periodDays: number, targetMmolL: number) =>
+    [
+      "glucose",
+      "therapy-analysis",
+      periodDays,
+      targetMmolL,
+    ] as const,
   insulinRecommendation: (mealIds: string[], correctionTarget?: number) =>
     [
       "glucose",

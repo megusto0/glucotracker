@@ -260,6 +260,70 @@ class TherapyReviewDayResponse(BaseModel):
     model_version: str
 
 
+class TherapyAnalysisMetricResponse(BaseModel):
+    """Robust retrospective estimate for one therapy parameter."""
+
+    value: float | None = None
+    q1: float | None = None
+    q3: float | None = None
+    sample_count: int
+    confidence: Literal["none", "low", "medium", "high"]
+
+
+class TherapyAnalysisSlotResponse(BaseModel):
+    """ICR and ISF evidence for one local-time interval."""
+
+    start_hour: int
+    end_hour: int
+    label: str
+    icr_g_per_unit: TherapyAnalysisMetricResponse
+    isf_mmol_l_per_unit: TherapyAnalysisMetricResponse
+
+
+class TherapyBasalSlotResponse(BaseModel):
+    """Background glucose drift evidence for one local clock hour."""
+
+    hour: int
+    label: str
+    quiet_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
+    elevated_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
+    unknown_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
+    signal: Literal["insufficient", "stable", "rising", "falling"]
+
+
+class TherapyBasalProfileResponse(BaseModel):
+    """Twenty-four-hour clean background glucose drift profile."""
+
+    window_minutes: int
+    washout_minutes: int
+    resting_reference_bpm: float | None = None
+    elevated_hr_threshold_bpm: float | None = None
+    quiet_window_count: int
+    elevated_hr_window_count: int
+    unknown_hr_window_count: int
+    slots: list[TherapyBasalSlotResponse]
+
+
+class TherapyAnalysisResponse(BaseModel):
+    """Long-term retrospective ICR, ISF, and basal stability analysis."""
+
+    from_date: date_type
+    to_date: date_type
+    period_days: Literal[30, 90, 180]
+    target_mmol_l: float
+    icr_horizon_minutes: int
+    isf_horizon_minutes: int
+    bin_hours: int
+    overall_icr_g_per_unit: TherapyAnalysisMetricResponse
+    overall_isf_mmol_l_per_unit: TherapyAnalysisMetricResponse
+    isf_source: Literal["correction_episodes", "configured_fallback"]
+    slots: list[TherapyAnalysisSlotResponse]
+    basal_profile: TherapyBasalProfileResponse
+    computed_at: datetime
+    model_version: str
+    notes: list[str] = Field(default_factory=list)
+
+
 class InsulinRecommendationRequest(BaseModel):
     """Accepted meal or grouped-meal ids to estimate from personal history."""
 
@@ -1782,7 +1846,13 @@ class SensorQualityResponse(BaseModel):
     stable_calibration_points: int = 0
     warmup_calibration_points: int = 0
     calibration_basis: (
-        Literal["stable_after_48h", "warmup_after_12h_fallback", "insufficient"] | None
+        Literal[
+            "stable_after_48h",
+            "warmup_after_12h_fallback",
+            "early_warmup_weighted",
+            "insufficient",
+        ]
+        | None
     ) = None
     warmup_metrics: SensorWarmupMetricsResponse | None = None
     median_bias_mmol_l: float | None = None
@@ -1949,6 +2019,17 @@ class GlucosePredictionInputs(BaseModel):
     sleep_hours_24h: float = 0.0
 
 
+class GlucosePredictionAuditCalibration(BaseModel):
+    """One horizon's base forecast and prospective calibration metadata."""
+
+    horizon_minutes: int
+    base_prediction_mmol_l: float
+    sample_count: int = 0
+    weight: float = 1.0
+    correction_mmol_l: float = 0.0
+    historical_mae_mmol_l: float | None = None
+
+
 class GlucosePredictionModel(BaseModel):
     """Validation and provenance metadata for the personal model."""
 
@@ -1978,6 +2059,10 @@ class GlucosePredictionModel(BaseModel):
     alpha: float | None = None
     features_used: list[str] = Field(default_factory=list)
     feature_coverage: dict[str, bool] = Field(default_factory=dict)
+    audit_calibration_by_horizon: list[GlucosePredictionAuditCalibration] = Field(
+        default_factory=list
+    )
+    audit_calibration_source_versions: list[str] = Field(default_factory=list)
 
 
 class GlucosePredictionResponse(BaseModel):

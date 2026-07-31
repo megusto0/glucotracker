@@ -13,6 +13,7 @@ from sqlalchemy import select
 from glucotracker.application.glucose_prediction import (
     FEATURE_NAMES,
     _chronological_day_splits,
+    _fit_audit_calibration,
     _post_meal_validation_metrics,
     _select_shape_blend,
     _shape_features,
@@ -24,6 +25,9 @@ from glucotracker.infra.db.models import (
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
+)
+from glucotracker.infra.db.repositories.glucose_prediction_audit import (
+    EvaluatedForecastPoint,
 )
 
 
@@ -109,13 +113,10 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
     assert len(payload["points"]) == 18
     assert payload["points"][-1]["horizon_minutes"] == 90
     assert payload["model"]["sample_count"] >= 240
-    assert (
-        payload["model"]["version"]
-        == "personal_known_input_shape_scenario_v4"
-    )
+    assert payload["model"]["version"] == "personal_known_input_shape_scenario_v5"
     assert (
         payload["model"]["algorithm"]
-        == "known_input_kinetic_shape_ensemble"
+        == "known_input_kinetic_shape_ensemble_audit_calibrated"
     )
     assert payload["model"]["forecast_assumption"] == "no_new_food_or_insulin"
     assert "cob_remaining_g" in payload["model"]["features_used"]
@@ -134,6 +135,12 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
         point["raw_ci_low"] <= point["raw_value"] <= point["raw_ci_high"]
         for point in payload["points"]
     )
+    calibration_90 = payload["model"]["audit_calibration_by_horizon"][-1]
+    assert calibration_90["horizon_minutes"] == 90
+    assert (
+        calibration_90["base_prediction_mmol_l"] == payload["points"][-1]["raw_value"]
+    )
+    assert calibration_90["sample_count"] == 0
 
     duplicate_response = api_client.get(
         "/glucose/prediction",
@@ -163,6 +170,33 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
     assert points[-1].predicted_value_mmol_l == payload["points"][-1]["raw_value"]
     assert points[-1].ci_low_mmol_l == payload["points"][-1]["raw_ci_low"]
     assert points[-1].ci_high_mmol_l == payload["points"][-1]["raw_ci_high"]
+
+
+def test_audit_calibration_shrinks_bad_long_horizon_toward_persistence() -> None:
+    start = datetime(2026, 7, 20, tzinfo=UTC)
+    samples = [
+        EvaluatedForecastPoint(
+            anchor_timestamp=start + timedelta(minutes=5 * index),
+            anchor_value_mmol_l=6.0,
+            horizon_minutes=90,
+            base_predicted_value_mmol_l=4.0,
+            actual_value_mmol_l=6.0,
+        )
+        for index in range(120)
+    ]
+
+    calibration = _fit_audit_calibration(samples, [30, 90])
+
+    assert calibration[30].sample_count == 0
+    assert calibration[30].weight == 1.0
+    assert calibration[90].sample_count == 120
+    assert calibration[90].weight < 1.0
+    adjusted = (
+        6.0 + calibration[90].weight * (4.0 - 6.0) + calibration[90].correction_mmol_l
+    )
+    assert abs(6.0 - adjusted) < abs(6.0 - 4.0)
+    assert calibration[90].calibrated_mae_mmol_l is not None
+    assert calibration[90].calibrated_mae_mmol_l < calibration[90].base_mae_mmol_l
 
 
 def test_no_new_input_scenario_preserves_a_current_downward_trend(
@@ -236,10 +270,7 @@ def test_prediction_validation_splits_are_day_disjoint_and_stable() -> None:
     )
 
     assert row_times[train_end - 1].date() < row_times[train_end].date()
-    assert (
-        row_times[calibration_end - 1].date()
-        < row_times[calibration_end].date()
-    )
+    assert row_times[calibration_end - 1].date() < row_times[calibration_end].date()
     assert (train_end, calibration_end) == (
         extended_train_end,
         extended_calibration_end,

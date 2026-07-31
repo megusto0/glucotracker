@@ -142,6 +142,29 @@ export function useRecalculateGlucoseTherapyReview() {
   });
 }
 
+export function useGlucoseTherapyAnalysis(
+  periodDays: 30 | 90 | 180,
+  targetMmolL: number,
+) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.glucoseTherapyAnalysis(periodDays, targetMmolL),
+    queryFn: () =>
+      apiClient.getGlucoseTherapyAnalysis(
+        config,
+        periodDays,
+        targetMmolL,
+      ),
+    enabled: Boolean(
+      config.token.trim() && Number.isFinite(targetMmolL),
+    ),
+    gcTime: 60 * 60 * 1000,
+    retry: 1,
+    staleTime: 30 * 60 * 1000,
+  });
+}
+
 export function useInsulinRecommendation(
   mealIds: string[],
   correctionTarget?: number,

@@ -218,8 +218,8 @@ def test_no_input_outcome_is_not_scored_after_intervention(
 
 
 @pytest.mark.parametrize(
-    ("read_as_owner", "expected_runs", "expected_due"),
-    [(True, 1, 1), (False, 0, 0)],
+    ("read_as_owner", "expected_runs", "expected_due", "expected_evaluated"),
+    [(True, 2, 1, 1), (False, 0, 0, 0)],
 )
 def test_prediction_audit_repository_is_owner_scoped(
     api_client: TestClient,
@@ -227,6 +227,7 @@ def test_prediction_audit_repository_is_owner_scoped(
     read_as_owner: bool,
     expected_runs: int,
     expected_due: int,
+    expected_evaluated: int,
 ) -> None:
     session_factory = api_client.app_state["session_factory"]
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
@@ -245,6 +246,22 @@ def test_prediction_audit_repository_is_owner_scoped(
             GlucosePredictionAuditRepository(session, owner_id),
             anchor=anchor,
         )
+        evaluated = _add_forecast(
+            GlucosePredictionAuditRepository(session, owner_id),
+            anchor=anchor - timedelta(hours=1),
+            predicted=7.5,
+        )
+        evaluated.run.model_json = {
+            **evaluated.run.model_json,
+            "audit_calibration_by_horizon": [
+                {
+                    "horizon_minutes": 30,
+                    "base_prediction_mmol_l": 7.25,
+                }
+            ],
+        }
+        evaluated.evaluation_status = "evaluated"
+        evaluated.actual_value_mmol_l = 7.0
         session.commit()
 
     with session_factory() as session:
@@ -253,5 +270,13 @@ def test_prediction_audit_repository_is_owner_scoped(
             anchor + timedelta(hours=1),
             limit=10,
         )
+        evaluated_points = repository.evaluated_base_points(
+            since=anchor - timedelta(hours=2),
+            before=anchor,
+            model_versions=("audit-test-v1",),
+        )
         assert repository.count_runs() == expected_runs
         assert len(due) == expected_due
+        assert len(evaluated_points) == expected_evaluated
+        if read_as_owner:
+            assert evaluated_points[0].base_predicted_value_mmol_l == 7.25

@@ -35,6 +35,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -74,21 +76,30 @@ import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.domain.model.Template
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
+import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 private sealed interface ComposeSuggestion {
     val id: String
     val name: String
     val kcal: Double?
     val usageCount: Int
+    val imageUrl: String?
+    val restaurantPrefix: String?
 
     data class ProductSuggestion(val product: Product) : ComposeSuggestion {
         override val id = "product:${product.id}"
         override val name = product.name
         override val kcal = product.kcal
         override val usageCount = product.usageCount
+        override val imageUrl = product.imageUrl
+        override val restaurantPrefix = product.brand?.takeIf {
+            product.kind.equals("restaurant", ignoreCase = true)
+        }
     }
 
     data class TemplateSuggestion(val template: Template) : ComposeSuggestion {
@@ -96,8 +107,24 @@ private sealed interface ComposeSuggestion {
         override val name = template.name
         override val kcal = template.defaultKcal
         override val usageCount = template.usageCount
+        override val imageUrl = template.imageUrl
+        override val restaurantPrefix = template.prefix.takeIf(::isRestaurantPrefix)
+    }
+
+    data class RestaurantVariantsSuggestion(
+        val group: RestaurantVariantGroup,
+    ) : ComposeSuggestion {
+        override val id = group.id
+        override val name = group.name
+        override val kcal = null
+        override val usageCount = group.variants.sumOf { variant -> variant.usageCount }
+        override val imageUrl = group.imageUrl
+        override val restaurantPrefix = group.prefix
     }
 }
+
+private fun isRestaurantPrefix(prefix: String): Boolean =
+    prefix.lowercase() in setOf("bk", "rostics", "vit", "mc", "kfc")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,6 +198,7 @@ fun ManualEntrySearchSheetContent(
     var text by remember { mutableStateOf(initialText) }
     var products by remember { mutableStateOf(initialProducts) }
     var templates by remember { mutableStateOf(initialTemplates) }
+    var selectedRestaurantGroup by remember { mutableStateOf<RestaurantVariantGroup?>(null) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val query = text.trim()
@@ -194,7 +222,14 @@ fun ManualEntrySearchSheetContent(
 
     val suggestions = remember(products, templates, query) {
         (products.map { ComposeSuggestion.ProductSuggestion(it) } +
-            templates.map { ComposeSuggestion.TemplateSuggestion(it) })
+            restaurantTemplateChoices(templates).map { choice ->
+                when (choice) {
+                    is RestaurantTemplateChoice.Single ->
+                        ComposeSuggestion.TemplateSuggestion(choice.template)
+                    is RestaurantTemplateChoice.Variants ->
+                        ComposeSuggestion.RestaurantVariantsSuggestion(choice.group)
+                }
+            })
             .sortedWith(
                 compareByDescending<ComposeSuggestion> { it.name.startsWith(query, ignoreCase = true) }
                     .thenByDescending { it.usageCount }
@@ -203,6 +238,21 @@ fun ManualEntrySearchSheetContent(
     }
     val canSubmitFreeform = query.isNotBlank() &&
         suggestions.none { it.name.equals(query, ignoreCase = true) }
+
+    selectedRestaurantGroup?.let { group ->
+        RestaurantVariantPicker(
+            group = group,
+            onBack = {
+                selectedRestaurantGroup = null
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            },
+            onCancel = onDismiss,
+            onSubmit = onSubmitTemplate,
+            modifier = modifier,
+        )
+        return
+    }
 
     Column(
         modifier = modifier
@@ -267,6 +317,10 @@ fun ManualEntrySearchSheetContent(
                         when (item) {
                             is ComposeSuggestion.ProductSuggestion -> onSubmitProduct(item.product)
                             is ComposeSuggestion.TemplateSuggestion -> onSubmitTemplate(item.template)
+                            is ComposeSuggestion.RestaurantVariantsSuggestion -> {
+                                keyboardController?.hide()
+                                selectedRestaurantGroup = item.group
+                            }
                         }
                     },
                 )
@@ -356,7 +410,9 @@ private fun ManualSuggestionRow(
                 queryPrefix = query,
             )
             Text(
-                text = stringResource(R.string.manual_entry_suggestion_meta, item.usageCount),
+                text = item.restaurantPrefix?.let { restaurantPrefix ->
+                    restaurantMeta(item, restaurantPrefix)
+                } ?: stringResource(R.string.manual_entry_suggestion_meta, item.usageCount),
                 color = GT.colors.muted,
                 style = GT.type.monoLabel,
                 maxLines = 1,
@@ -385,11 +441,7 @@ private fun ManualSuggestionRow(
 
 @Composable
 private fun SuggestionThumb(item: ComposeSuggestion) {
-    val imageUrl = when (item) {
-        is ComposeSuggestion.ProductSuggestion -> item.product.imageUrl
-        is ComposeSuggestion.TemplateSuggestion -> item.template.imageUrl
-    }
-    val imageModel = rememberApiImageModel(imageUrl)
+    val imageModel = rememberApiImageModel(item.imageUrl)
     Box(
         modifier = Modifier
             .size(32.dp)
@@ -568,6 +620,7 @@ fun GTComposeSheet(
                     onOutboxQueued(outboxId)
                 }
             },
+            onDismiss = onDismiss,
             searchProducts = viewModel::searchProducts,
             searchTemplates = viewModel::searchTemplates,
             modifier = Modifier
@@ -589,6 +642,7 @@ fun GTComposeSheetContent(
     onSubmitTemplate: (Template) -> Unit,
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
+    onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialText: String = "",
     initialProducts: List<Product> = emptyList(),
@@ -597,6 +651,7 @@ fun GTComposeSheetContent(
     var text by remember { mutableStateOf(initialText) }
     var products by remember { mutableStateOf(initialProducts) }
     var templates by remember { mutableStateOf(initialTemplates) }
+    var selectedRestaurantGroup by remember { mutableStateOf<RestaurantVariantGroup?>(null) }
     var showHint by remember(openCount) { mutableStateOf(openCount < 3) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -636,7 +691,14 @@ fun GTComposeSheetContent(
     }
 
     val suggestions = remember(products, templates, query) {
-        (templates.map { ComposeSuggestion.TemplateSuggestion(it) } +
+        (restaurantTemplateChoices(templates).map { choice ->
+            when (choice) {
+                is RestaurantTemplateChoice.Single ->
+                    ComposeSuggestion.TemplateSuggestion(choice.template)
+                is RestaurantTemplateChoice.Variants ->
+                    ComposeSuggestion.RestaurantVariantsSuggestion(choice.group)
+            }
+        } +
             products.map { ComposeSuggestion.ProductSuggestion(it) })
             .sortedWith(
                 compareByDescending<ComposeSuggestion> { it.name.startsWith(query, ignoreCase = true) }
@@ -646,6 +708,21 @@ fun GTComposeSheetContent(
     }
     val hasExactMatch = suggestions.any { it.name.equals(query, ignoreCase = true) }
     val canSubmitFreeform = query.isNotBlank() && !hasExactMatch
+
+    selectedRestaurantGroup?.let { group ->
+        RestaurantVariantPicker(
+            group = group,
+            onBack = {
+                selectedRestaurantGroup = null
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            },
+            onCancel = onDismiss,
+            onSubmit = onSubmitTemplate,
+            modifier = modifier,
+        )
+        return
+    }
 
     Column(
         modifier = modifier
@@ -723,6 +800,10 @@ fun GTComposeSheetContent(
                         when (item) {
                             is ComposeSuggestion.ProductSuggestion -> onSubmitProduct(item.product)
                             is ComposeSuggestion.TemplateSuggestion -> onSubmitTemplate(item.template)
+                            is ComposeSuggestion.RestaurantVariantsSuggestion -> {
+                                keyboardController?.hide()
+                                selectedRestaurantGroup = item.group
+                            }
                         }
                     },
                 )
@@ -777,14 +858,26 @@ private fun ComposeSuggestionRow(
             .padding(horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = item.name,
-            modifier = Modifier.weight(1f),
-            color = GT.colors.ink,
-            style = GT.type.sansLabel,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        SuggestionThumb(item = item)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.name,
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            item.restaurantPrefix?.let { restaurantPrefix ->
+                Text(
+                    text = restaurantMeta(item, restaurantPrefix),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         item.kcal?.let { kcal ->
             Text(
                 text = stringResource(R.string.compose_sheet_kcal, formatKcal(kcal)),
@@ -812,6 +905,223 @@ private fun ComposeSuggestionRow(
         }
     }
     GTHairlineDivider()
+}
+
+@Composable
+private fun RestaurantVariantPicker(
+    group: RestaurantVariantGroup,
+    onBack: () -> Unit,
+    onCancel: () -> Unit,
+    onSubmit: (Template) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val initialVariant = remember(group.id) {
+        group.variants.maxWithOrNull(
+            compareBy<Template> { it.usageCount }
+                .thenByDescending { restaurantQuantity(it.name) ?: Int.MAX_VALUE },
+        ) ?: group.variants.first()
+    }
+    var selectedVariant by remember(group.id) { mutableStateOf(initialVariant) }
+    val quantities = group.quantityOptions
+    val selectedQuantityIndex = quantities.indexOf(restaurantQuantity(selectedVariant.name)).coerceAtLeast(0)
+    val imageModel = rememberApiImageModel(selectedVariant.imageUrl ?: group.imageUrl)
+
+    Column(
+        modifier = modifier
+            .testTag("restaurant-variant-picker")
+            .background(GT.colors.bg)
+            .padding(horizontal = 18.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.restaurant_variant_back),
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clickable(onClick = onBack)
+                    .padding(vertical = 14.dp),
+                color = GT.colors.ink2,
+                style = GT.type.sansLabel,
+            )
+            Text(
+                text = stringResource(R.string.manual_entry_cancel),
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clickable(onClick = onCancel)
+                    .padding(vertical = 14.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+        GTHairlineDivider()
+        Spacer(Modifier.height(12.dp))
+        if (imageModel != null) {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = stringResource(
+                    R.string.restaurant_variant_image_a11y,
+                    selectedVariant.name,
+                ),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(138.dp)
+                    .background(GT.colors.surface, GT.shapes.card)
+                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+        Text(
+            text = group.name,
+            color = GT.colors.ink,
+            style = GT.type.serifSection,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = restaurantName(group.prefix),
+            modifier = Modifier.padding(top = 3.dp),
+            color = GT.colors.muted,
+            style = GT.type.kicker,
+            maxLines = 1,
+        )
+        Spacer(Modifier.height(14.dp))
+
+        if (group.hasQuantitySlider) {
+            Text(
+                text = stringResource(R.string.restaurant_variant_choose_quantity),
+                color = GT.colors.muted,
+                style = GT.type.kicker,
+            )
+            Text(
+                text = stringResource(
+                    R.string.restaurant_variant_quantity_value,
+                    quantities[selectedQuantityIndex],
+                ),
+                modifier = Modifier.padding(top = 4.dp),
+                color = GT.colors.ink,
+                style = GT.type.monoNumber,
+            )
+            Slider(
+                value = selectedQuantityIndex.toFloat(),
+                onValueChange = { value ->
+                    val quantity = quantities[value.roundToInt().coerceIn(quantities.indices)]
+                    variantForQuantity(group, quantity)?.let { selectedVariant = it }
+                },
+                valueRange = 0f..quantities.lastIndex.toFloat(),
+                steps = (quantities.size - 2).coerceAtLeast(0),
+                colors = SliderDefaults.colors(
+                    thumbColor = GT.colors.ink,
+                    activeTrackColor = GT.colors.ink,
+                    inactiveTrackColor = GT.colors.hairline2,
+                ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                quantities.forEach { quantity ->
+                    Text(
+                        text = quantity.toString(),
+                        color = if (quantity == quantities[selectedQuantityIndex]) GT.colors.ink else GT.colors.muted,
+                        style = GT.type.monoLabel,
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.restaurant_variant_choose_kind),
+                color = GT.colors.muted,
+                style = GT.type.kicker,
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 210.dp)
+                    .padding(top = 6.dp),
+            ) {
+                items(group.variants, key = { variant -> variant.id }) { variant ->
+                    val selected = variant.id == selectedVariant.id
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .background(if (selected) GT.colors.surface else GT.colors.bg, GT.shapes.card)
+                            .border(
+                                GT.space.hairline,
+                                if (selected) GT.colors.ink else GT.colors.hairline2,
+                                GT.shapes.card,
+                            )
+                            .clickable { selectedVariant = variant }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = variant.name,
+                            modifier = Modifier.weight(1f),
+                            color = GT.colors.ink,
+                            style = GT.type.sansLabel,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (selected) {
+                            Text(
+                                text = stringResource(R.string.restaurant_variant_selected),
+                                modifier = Modifier.padding(start = 8.dp),
+                                color = GT.colors.ink2,
+                                style = GT.type.monoLabel,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+        }
+
+        Text(
+            text = stringResource(
+                R.string.restaurant_variant_macros,
+                selectedVariant.defaultKcal?.let(::formatKcal) ?: "—",
+                selectedVariant.defaultProteinG?.let(::formatGrams) ?: "—",
+                selectedVariant.defaultFatG?.let(::formatGrams) ?: "—",
+                selectedVariant.defaultCarbsG?.let(::formatGrams) ?: "—",
+            ),
+            modifier = Modifier.padding(top = 14.dp),
+            color = GT.colors.muted,
+            style = GT.type.monoLabel,
+            maxLines = 2,
+        )
+        GTOutlineButton(
+            text = stringResource(R.string.restaurant_variant_add),
+            onClick = { onSubmit(selectedVariant) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp, bottom = 18.dp),
+        )
+    }
+}
+
+@Composable
+private fun restaurantMeta(item: ComposeSuggestion, prefix: String): String {
+    val restaurant = restaurantName(prefix)
+    return if (item is ComposeSuggestion.RestaurantVariantsSuggestion) {
+        stringResource(R.string.restaurant_variants_count, restaurant, item.group.variants.size)
+    } else {
+        restaurant
+    }
+}
+
+@Composable
+private fun restaurantName(prefix: String): String = when (prefix.lowercase()) {
+    "bk" -> stringResource(R.string.restaurant_burger_king)
+    "rostics", "kfc" -> stringResource(R.string.restaurant_rostics)
+    "vit", "mc" -> stringResource(R.string.restaurant_vkusno_i_tochka)
+    else -> prefix.uppercase()
 }
 
 @Composable

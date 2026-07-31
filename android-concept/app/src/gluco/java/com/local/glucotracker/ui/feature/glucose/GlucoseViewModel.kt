@@ -7,9 +7,11 @@ import com.local.glucotracker.domain.model.CreateFingerstickOutboxKind
 import com.local.glucotracker.domain.model.GlucoseRange
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.Meal
+import com.local.glucotracker.domain.model.SensorSession
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.HistoryRepository
 import com.local.glucotracker.domain.repository.OutboxRepository
+import com.local.glucotracker.domain.repository.SensorRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -37,6 +39,7 @@ data class GlucoseScreenState(
     val selectedWindow: GlucoseWindow,
     val windows: List<GlucoseWindowState>,
     val dayparts: List<GlucoseDaypartUi>,
+    val activeSensor: SensorSession?,
 )
 
 data class GlucoseWindowState(
@@ -78,6 +81,7 @@ class GlucoseViewModel @Inject constructor(
     glucoseRepository: GlucoseRepository,
     historyRepository: HistoryRepository,
     private val outboxRepository: OutboxRepository,
+    private val sensorRepository: SensorRepository,
 ) : ViewModel() {
     private val selectedWindow = MutableStateFlow(GlucoseWindow.ThreeHours)
     private val anchor = MutableStateFlow(Clock.System.now())
@@ -109,7 +113,8 @@ class GlucoseViewModel @Inject constructor(
         selectedWindow,
         glucoseWindows,
         mealWindows,
-    ) { selected, glucoseByWindow, mealsByWindow ->
+        sensorRepository.observeSensors(),
+    ) { selected, glucoseByWindow, mealsByWindow, cachedSensors ->
         val currentAnchor = anchor.value
         val windowStates = windows.map { window ->
             val from = currentAnchor.minusHours(window.hours)
@@ -128,6 +133,10 @@ class GlucoseViewModel @Inject constructor(
                 ?.readings
                 .orEmpty()
                 .toDayparts(),
+            activeSensor = cachedSensors.value
+                .orEmpty()
+                .filter { it.endedAt == null }
+                .maxByOrNull { it.startedAt },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -151,6 +160,7 @@ class GlucoseViewModel @Inject constructor(
                 )
             },
             dayparts = emptyDayparts(),
+            activeSensor = null,
         ),
     )
 
@@ -160,6 +170,9 @@ class GlucoseViewModel @Inject constructor(
 
     fun refresh() {
         anchor.value = Clock.System.now()
+        viewModelScope.launch {
+            sensorRepository.refreshSensors()
+        }
     }
 
     fun enqueueFingerstick(valueMmol: Double) {

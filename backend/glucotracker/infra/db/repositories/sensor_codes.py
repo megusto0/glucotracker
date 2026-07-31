@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from glucotracker.config import get_settings
 from glucotracker.domain.sensor_codes import ParsedSensorCode
 from glucotracker.infra.db.models import (
     NightscoutGlucoseEntry,
@@ -16,6 +15,9 @@ from glucotracker.infra.db.models import (
     SensorSession,
     utc_now,
 )
+
+CGM_STREAM_GAP = timedelta(minutes=20)
+CGM_STREAM_LOOKBACK = timedelta(days=16)
 
 
 class SensorCodeRepository:
@@ -119,8 +121,7 @@ class SensorCodeRepository:
         self,
         reading_at: datetime,
     ) -> SensorSession | None:
-        """Auto-start a sensor at a new CGM point when none is active."""
-        local_reading_at = _local_wall_time(reading_at)
+        """Auto-start a sensor at the first point of the current CGM stream."""
         active = self.session.scalar(
             select(SensorSession)
             .where(
@@ -133,6 +134,23 @@ class SensorCodeRepository:
         if active is not None:
             return None
 
+        stream_started_at = self._current_stream_start(reading_at)
+        latest_finished_at = self.session.scalar(
+            select(SensorSession.ended_at)
+            .where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.ended_at.is_not(None),
+            )
+            .order_by(SensorSession.ended_at.desc())
+            .limit(1)
+        )
+        if latest_finished_at is not None and stream_started_at <= _as_utc(
+            latest_finished_at
+        ):
+            # A manually finished sensor may still emit a few more readings.
+            # Wait for an actual CGM stream boundary before starting another.
+            return None
+
         code = self.session.scalar(
             select(SensorCode)
             .where(
@@ -142,18 +160,14 @@ class SensorCodeRepository:
             .order_by(SensorCode.scanned_at.desc(), SensorCode.created_at.desc())
             .limit(1)
         )
-        label = (
-            f"Сенсор · {code.serial_number[-6:]}"
-            if code is not None
-            else "Сенсор"
-        )
+        label = f"Сенсор · {code.serial_number[-6:]}" if code is not None else "Сенсор"
         sensor = SensorSession(
             owner_id=self.user_id,
             source="auto_cgm",
             label=label,
-            started_at=local_reading_at,
+            started_at=stream_started_at,
             expected_life_days=15,
-            notes="Автоматически начат по новой точке CGM.",
+            notes="Автоматически начат по первой точке нового потока CGM.",
         )
         self.session.add(sensor)
         self.session.flush()
@@ -171,6 +185,31 @@ class SensorCodeRepository:
             .order_by(NightscoutGlucoseEntry.timestamp.desc())
             .limit(1)
         )
+
+    def _current_stream_start(self, reading_at: datetime) -> datetime:
+        """Walk backwards to the first CGM point before the latest long gap."""
+        reading_utc = _as_utc(reading_at)
+        timestamps = self.session.scalars(
+            select(NightscoutGlucoseEntry.timestamp)
+            .where(
+                NightscoutGlucoseEntry.owner_id == self.user_id,
+                NightscoutGlucoseEntry.timestamp <= reading_utc,
+                NightscoutGlucoseEntry.timestamp >= reading_utc - CGM_STREAM_LOOKBACK,
+            )
+            .order_by(NightscoutGlucoseEntry.timestamp.desc())
+        ).all()
+        if not timestamps:
+            return reading_utc
+
+        stream_start = _as_utc(timestamps[0])
+        newer = stream_start
+        for raw_older in timestamps[1:]:
+            older = _as_utc(raw_older)
+            if newer - older > CGM_STREAM_GAP:
+                break
+            stream_start = older
+            newer = older
+        return stream_start
 
     def _detach_other_code(
         self,
@@ -190,7 +229,8 @@ class SensorCodeRepository:
                 row.updated_at = utc_now()
 
 
-def _local_wall_time(value: datetime) -> datetime:
+def _as_utc(value: datetime) -> datetime:
+    """Preserve the CGM instant instead of reinterpreting local wall time."""
     if value.tzinfo is None:
-        return value
-    return value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

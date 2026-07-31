@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
+    GlucosePredictionAuditCalibration,
     GlucosePredictionInputs,
     GlucosePredictionModel,
     GlucosePredictionPoint,
@@ -50,10 +51,25 @@ from glucotracker.infra.db.models import (
     NightscoutInsulinEvent,
     utc_now,
 )
+from glucotracker.infra.db.repositories.glucose_prediction_audit import (
+    EvaluatedForecastPoint,
+    GlucosePredictionAuditRepository,
+)
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 
-MODEL_VERSION = "personal_known_input_shape_scenario_v4"
-MODEL_ALGORITHM = "known_input_kinetic_shape_ensemble"
+MODEL_VERSION = "personal_known_input_shape_scenario_v5"
+MODEL_ALGORITHM = "known_input_kinetic_shape_ensemble_audit_calibrated"
+AUDIT_CALIBRATION_SOURCE_VERSIONS = (
+    "personal_known_input_shape_scenario_v4",
+    MODEL_VERSION,
+)
+AUDIT_CALIBRATION_LOOKBACK_DAYS = 7
+AUDIT_CALIBRATION_MIN_HORIZON_MINUTES = 60
+AUDIT_CALIBRATION_MIN_POINTS = 48
+AUDIT_CALIBRATION_FULL_STRENGTH_POINTS = 180
+AUDIT_CALIBRATION_WEIGHTS = (0.0, 0.25, 0.5, 0.75, 1.0)
+AUDIT_CALIBRATION_CORRECTION_CAP_MMOL = 0.5
+AUDIT_CALIBRATION_MIN_MAE_IMPROVEMENT = 0.005
 TRAINING_DAYS = 45
 TRAINING_STRIDE_POINTS = 3
 MIN_TRAINING_ROWS = 240
@@ -285,6 +301,18 @@ class _KnownInputEffects:
     delivered_insulin: np.ndarray
 
 
+@dataclass(frozen=True)
+class _AuditCalibration:
+    """Conservative adjustment learned from already observed outcomes."""
+
+    sample_count: int = 0
+    weight: float = 1.0
+    correction_mmol_l: float = 0.0
+    empirical_q80_mmol_l: float | None = None
+    base_mae_mmol_l: float | None = None
+    calibrated_mae_mmol_l: float | None = None
+
+
 class GlucosePredictionService:
     """Train and run a current-user 90-minute research forecast."""
 
@@ -340,12 +368,9 @@ class GlucosePredictionService:
         train_end, calibration_end = _chronological_day_splits(row_times)
         if (
             int(eligibility[:train_end].sum(axis=0).min()) < MIN_TRAINING_ROWS
-            or int(
-                eligibility[train_end:calibration_end].sum(axis=0).min()
-            )
+            or int(eligibility[train_end:calibration_end].sum(axis=0).min())
             < MIN_VALIDATION_ROWS
-            or int(eligibility[calibration_end:].sum(axis=0).min())
-            < MIN_TEST_ROWS
+            or int(eligibility[calibration_end:].sum(axis=0).min()) < MIN_TEST_ROWS
         ):
             return self._empty_response(
                 mode=mode,
@@ -520,6 +545,7 @@ class GlucosePredictionService:
             current_shape_predictions,
             shape_blend,
         )[0]
+        audit_calibration = self._audit_calibration(anchor, horizons)
         eligible_sample_count = int(eligibility[:, -1].sum())
         eligible_days = {
             timestamp.date()
@@ -562,19 +588,24 @@ class GlucosePredictionService:
             notes.append("Последняя точка CGM старше 15 минут; confidence снижен.")
 
         post_meal_mask = test_x[:, FEATURE_NAMES.index("carbs_120m")] > 0
-        current_is_post_meal = (
-            current_features[FEATURE_NAMES.index("carbs_120m")] > 0
-        )
+        current_is_post_meal = current_features[FEATURE_NAMES.index("carbs_120m")] > 0
         residual_q80 = _residual_quantiles(
             validation_errors,
             test_eligibility,
             post_meal_mask=(post_meal_mask if current_is_post_meal else None),
         )
         points: list[GlucosePredictionPoint] = []
+        base_prediction_by_horizon: dict[int, float] = {}
         base_confidence = {"high": 0.82, "medium": 0.64, "low": 0.44}[model_confidence]
         freshness = max(0.25, 1.0 - max(0.0, anchor_age_minutes - 10) / 120)
         for index, horizon in enumerate(horizons):
-            delta = float(predicted_deltas[index])
+            base_delta = float(predicted_deltas[index])
+            base_prediction_by_horizon[horizon] = round(
+                _clamp_glucose(anchor.value + base_delta),
+                2,
+            )
+            calibration = audit_calibration[horizon]
+            delta = calibration.weight * base_delta + calibration.correction_mmol_l
             raw_value = _clamp_glucose(anchor.value + delta)
             normalized_value = (
                 _clamp_glucose(normalized_anchor + delta)
@@ -586,7 +617,11 @@ class GlucosePredictionService:
                 if mode == "normalized" and normalized_value is not None
                 else raw_value
             )
-            ci_half = max(0.25, float(residual_q80[index]))
+            ci_half = max(
+                0.25,
+                float(residual_q80[index]),
+                calibration.empirical_q80_mmol_l or 0.0,
+            )
             confidence = base_confidence * freshness * (1.0 - 0.35 * horizon / 90)
             points.append(
                 GlucosePredictionPoint(
@@ -608,6 +643,19 @@ class GlucosePredictionService:
                     confidence=round(max(0.0, min(1.0, confidence)), 3),
                     band=_glucose_band(display_value),
                 )
+            )
+
+        calibrated_horizons = [
+            horizon
+            for horizon, calibration in audit_calibration.items()
+            if calibration.weight < 0.999 or abs(calibration.correction_mmol_l) >= 0.005
+        ]
+        if calibrated_horizons:
+            notes.append(
+                "Горизонты "
+                f"{min(calibrated_horizons)}–{max(calibrated_horizons)} мин "
+                "скорректированы только по уже завершённым прогнозам "
+                "текущего сенсора."
             )
 
         return GlucosePredictionResponse(
@@ -645,10 +693,67 @@ class GlucosePredictionService:
                 confidence=model_confidence,
                 features_used=SCENARIO_FEATURE_NAMES,
                 feature_coverage=coverage,
+                audit_calibration_by_horizon=[
+                    GlucosePredictionAuditCalibration(
+                        horizon_minutes=horizon,
+                        base_prediction_mmol_l=base_prediction_by_horizon[horizon],
+                        sample_count=calibration.sample_count,
+                        weight=round(calibration.weight, 3),
+                        correction_mmol_l=round(
+                            calibration.correction_mmol_l,
+                            3,
+                        ),
+                        historical_mae_mmol_l=(
+                            round(calibration.calibrated_mae_mmol_l, 3)
+                            if calibration.calibrated_mae_mmol_l is not None
+                            else None
+                        ),
+                    )
+                    for horizon, calibration in audit_calibration.items()
+                ],
+                audit_calibration_source_versions=list(
+                    AUDIT_CALIBRATION_SOURCE_VERSIONS
+                ),
             ),
             inputs=_prediction_inputs(context, anchor.timestamp),
             notes=notes,
         )
+
+    def _audit_calibration(
+        self,
+        anchor: _GlucoseSample,
+        horizons: list[int],
+    ) -> dict[int, _AuditCalibration]:
+        sensors = GlucoseDashboardService(
+            self.session,
+            self.user_id,
+        ).list_sensors()
+        active_sensor = next(
+            (
+                sensor
+                for sensor in sensors
+                if sensor.ended_at is None
+                and utc_instant_from_local_wall(sensor.started_at) <= anchor.timestamp
+            ),
+            None,
+        )
+        if active_sensor is None:
+            return {horizon: _AuditCalibration() for horizon in horizons}
+
+        sensor_started_at = utc_instant_from_local_wall(active_sensor.started_at)
+        since = max(
+            sensor_started_at,
+            anchor.timestamp - timedelta(days=AUDIT_CALIBRATION_LOOKBACK_DAYS),
+        )
+        samples = GlucosePredictionAuditRepository(
+            self.session,
+            self.user_id,
+        ).evaluated_base_points(
+            since=since,
+            before=anchor.timestamp,
+            model_versions=AUDIT_CALIBRATION_SOURCE_VERSIONS,
+        )
+        return _fit_audit_calibration(samples, horizons)
 
     def _glucose_history(self, horizon_minutes: int) -> list[_GlucoseSample]:
         newest = self.session.scalar(
@@ -870,8 +975,7 @@ class GlucosePredictionService:
                     HealthConnectRecord.record_type.in_(record_types),
                     HealthConnectRecord.start_time
                     >= from_datetime - timedelta(hours=12),
-                    HealthConnectRecord.start_time
-                    <= to_datetime + timedelta(hours=12),
+                    HealthConnectRecord.start_time <= to_datetime + timedelta(hours=12),
                 )
                 .order_by(HealthConnectRecord.start_time.asc())
             )
@@ -1001,6 +1105,98 @@ class GlucosePredictionService:
         )
 
 
+def _fit_audit_calibration(
+    samples: list[EvaluatedForecastPoint],
+    horizons: list[int],
+) -> dict[int, _AuditCalibration]:
+    """Fit a shrunken per-horizon blend against persistence.
+
+    Every sample must have been evaluated before the forecast anchor. The
+    caller enforces that causal boundary in the repository query.
+    """
+    by_horizon: dict[int, list[EvaluatedForecastPoint]] = {
+        horizon: [] for horizon in horizons
+    }
+    for sample in samples:
+        if sample.horizon_minutes in by_horizon:
+            by_horizon[sample.horizon_minutes].append(sample)
+
+    result: dict[int, _AuditCalibration] = {}
+    for horizon in horizons:
+        horizon_samples = by_horizon[horizon]
+        sample_count = len(horizon_samples)
+        if (
+            horizon < AUDIT_CALIBRATION_MIN_HORIZON_MINUTES
+            or sample_count < AUDIT_CALIBRATION_MIN_POINTS
+        ):
+            result[horizon] = _AuditCalibration(sample_count=sample_count)
+            continue
+
+        anchors = np.asarray(
+            [sample.anchor_value_mmol_l for sample in horizon_samples],
+            dtype=np.float64,
+        )
+        base_predictions = np.asarray(
+            [sample.base_predicted_value_mmol_l for sample in horizon_samples],
+            dtype=np.float64,
+        )
+        actual = np.asarray(
+            [sample.actual_value_mmol_l for sample in horizon_samples],
+            dtype=np.float64,
+        )
+        base_mae = float(np.mean(np.abs(actual - base_predictions)))
+
+        candidates: list[tuple[float, float, float]] = []
+        for weight in AUDIT_CALIBRATION_WEIGHTS:
+            blended = anchors + weight * (base_predictions - anchors)
+            correction = float(
+                np.clip(
+                    np.median(actual - blended),
+                    -AUDIT_CALIBRATION_CORRECTION_CAP_MMOL,
+                    AUDIT_CALIBRATION_CORRECTION_CAP_MMOL,
+                )
+            )
+            mae = float(np.mean(np.abs(actual - (blended + correction))))
+            candidates.append((mae, -weight, correction))
+        _, negative_best_weight, best_correction = min(candidates)
+        best_weight = -negative_best_weight
+
+        strength = min(
+            1.0,
+            max(
+                0.0,
+                (sample_count - AUDIT_CALIBRATION_MIN_POINTS)
+                / (
+                    AUDIT_CALIBRATION_FULL_STRENGTH_POINTS
+                    - AUDIT_CALIBRATION_MIN_POINTS
+                ),
+            ),
+        )
+        applied_weight = 1.0 - strength * (1.0 - best_weight)
+        applied_correction = strength * best_correction
+        calibrated_predictions = (
+            anchors + applied_weight * (base_predictions - anchors) + applied_correction
+        )
+        calibrated_errors = np.abs(actual - calibrated_predictions)
+        calibrated_mae = float(np.mean(calibrated_errors))
+
+        if calibrated_mae > base_mae - AUDIT_CALIBRATION_MIN_MAE_IMPROVEMENT:
+            applied_weight = 1.0
+            applied_correction = 0.0
+            calibrated_errors = np.abs(actual - base_predictions)
+            calibrated_mae = base_mae
+
+        result[horizon] = _AuditCalibration(
+            sample_count=sample_count,
+            weight=applied_weight,
+            correction_mmol_l=applied_correction,
+            empirical_q80_mmol_l=float(np.quantile(calibrated_errors, 0.8)),
+            base_mae_mmol_l=base_mae,
+            calibrated_mae_mmol_l=calibrated_mae,
+        )
+    return result
+
+
 def _features_at(
     context: _FeatureContext,
     timestamp: datetime,
@@ -1062,11 +1258,14 @@ def _features_at(
         timestamp,
     )
     asleep = _is_inside(context.sleep, timestamp)
-    sleep_hours = _interval_overlap_minutes(
-        context.sleep,
-        timestamp - timedelta(hours=24),
-        timestamp,
-    ) / 60.0
+    sleep_hours = (
+        _interval_overlap_minutes(
+            context.sleep,
+            timestamp - timedelta(hours=24),
+            timestamp,
+        )
+        / 60.0
+    )
     local = local_wall_time(timestamp)
     hour = local.hour + local.minute / 60.0
     angle = 2 * pi * hour / 24.0
@@ -1500,9 +1699,7 @@ def _select_shape_blend(
     best_score = min(scores.values())
     tolerance = max(1e-6, best_score * SHAPE_BLEND_SCORE_TOLERANCE)
     return max(
-        weight
-        for weight, score in scores.items()
-        if score <= best_score + tolerance
+        weight for weight, score in scores.items() if score <= best_score + tolerance
     )
 
 
@@ -1527,9 +1724,7 @@ def _select_scenario_tau(
             design[train_end:calibration_end],
             coefficients,
         )
-        errors = np.abs(
-            predictions - targets[train_end:calibration_end]
-        )
+        errors = np.abs(predictions - targets[train_end:calibration_end])
         score = float(
             _masked_mean_by_horizon(
                 errors,
@@ -1722,11 +1917,7 @@ def _persistence_blend_weights(
     for horizon in range(predictions.shape[1]):
         scores = [
             float(
-                np.mean(
-                    np.abs(
-                        targets[:, horizon] - predictions[:, horizon] * weight
-                    )
-                )
+                np.mean(np.abs(targets[:, horizon] - predictions[:, horizon] * weight))
             )
             for weight in candidates
         ]
@@ -1825,11 +2016,7 @@ def _post_meal_validation_metrics(
         "mae_60": mae_at(60),
         "mae_90": mae_at(90),
         "baseline_mae_90": round(
-            float(
-                np.mean(
-                    np.abs(targets[post_meal & eligibility[:, -1], -1])
-                )
-            ),
+            float(np.mean(np.abs(targets[post_meal & eligibility[:, -1], -1]))),
             3,
         ),
     }

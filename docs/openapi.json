@@ -4022,6 +4022,51 @@
         "title": "GlucoseDashboardSummary",
         "type": "object"
       },
+      "GlucosePredictionAuditCalibration": {
+        "description": "One horizon's base forecast and prospective calibration metadata.",
+        "properties": {
+          "base_prediction_mmol_l": {
+            "title": "Base Prediction Mmol L",
+            "type": "number"
+          },
+          "correction_mmol_l": {
+            "default": 0.0,
+            "title": "Correction Mmol L",
+            "type": "number"
+          },
+          "historical_mae_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historical Mae Mmol L"
+          },
+          "horizon_minutes": {
+            "title": "Horizon Minutes",
+            "type": "integer"
+          },
+          "sample_count": {
+            "default": 0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "weight": {
+            "default": 1.0,
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "horizon_minutes",
+          "base_prediction_mmol_l"
+        ],
+        "title": "GlucosePredictionAuditCalibration",
+        "type": "object"
+      },
       "GlucosePredictionInputs": {
         "description": "Current context incorporated into one prediction run.",
         "properties": {
@@ -4118,6 +4163,20 @@
               }
             ],
             "title": "Alpha"
+          },
+          "audit_calibration_by_horizon": {
+            "items": {
+              "$ref": "#/components/schemas/GlucosePredictionAuditCalibration"
+            },
+            "title": "Audit Calibration By Horizon",
+            "type": "array"
+          },
+          "audit_calibration_source_versions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Audit Calibration Source Versions",
+            "type": "array"
           },
           "baseline_mae_mmol": {
             "anyOf": [
@@ -11568,6 +11627,7 @@
                 "enum": [
                   "stable_after_48h",
                   "warmup_after_12h_fallback",
+                  "early_warmup_weighted",
                   "insufficient"
                 ],
                 "type": "string"
@@ -12722,6 +12782,300 @@
           "count"
         ],
         "title": "StatsOverviewTopProductResponse",
+        "type": "object"
+      },
+      "TherapyAnalysisMetricResponse": {
+        "description": "Robust retrospective estimate for one therapy parameter.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "q1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q1"
+          },
+          "q3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q3"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "sample_count",
+          "confidence"
+        ],
+        "title": "TherapyAnalysisMetricResponse",
+        "type": "object"
+      },
+      "TherapyAnalysisResponse": {
+        "description": "Long-term retrospective ICR, ISF, and basal stability analysis.",
+        "properties": {
+          "basal_profile": {
+            "$ref": "#/components/schemas/TherapyBasalProfileResponse"
+          },
+          "bin_hours": {
+            "title": "Bin Hours",
+            "type": "integer"
+          },
+          "computed_at": {
+            "format": "date-time",
+            "title": "Computed At",
+            "type": "string"
+          },
+          "from_date": {
+            "format": "date",
+            "title": "From Date",
+            "type": "string"
+          },
+          "icr_horizon_minutes": {
+            "title": "Icr Horizon Minutes",
+            "type": "integer"
+          },
+          "isf_horizon_minutes": {
+            "title": "Isf Horizon Minutes",
+            "type": "integer"
+          },
+          "isf_source": {
+            "enum": [
+              "correction_episodes",
+              "configured_fallback"
+            ],
+            "title": "Isf Source",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "overall_icr_g_per_unit": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "overall_isf_mmol_l_per_unit": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "period_days": {
+            "enum": [
+              30,
+              90,
+              180
+            ],
+            "title": "Period Days",
+            "type": "integer"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/TherapyAnalysisSlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "target_mmol_l": {
+            "title": "Target Mmol L",
+            "type": "number"
+          },
+          "to_date": {
+            "format": "date",
+            "title": "To Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_date",
+          "to_date",
+          "period_days",
+          "target_mmol_l",
+          "icr_horizon_minutes",
+          "isf_horizon_minutes",
+          "bin_hours",
+          "overall_icr_g_per_unit",
+          "overall_isf_mmol_l_per_unit",
+          "isf_source",
+          "slots",
+          "basal_profile",
+          "computed_at",
+          "model_version"
+        ],
+        "title": "TherapyAnalysisResponse",
+        "type": "object"
+      },
+      "TherapyAnalysisSlotResponse": {
+        "description": "ICR and ISF evidence for one local-time interval.",
+        "properties": {
+          "end_hour": {
+            "title": "End Hour",
+            "type": "integer"
+          },
+          "icr_g_per_unit": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "isf_mmol_l_per_unit": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "start_hour": {
+            "title": "Start Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_hour",
+          "end_hour",
+          "label",
+          "icr_g_per_unit",
+          "isf_mmol_l_per_unit"
+        ],
+        "title": "TherapyAnalysisSlotResponse",
+        "type": "object"
+      },
+      "TherapyBasalProfileResponse": {
+        "description": "Twenty-four-hour clean background glucose drift profile.",
+        "properties": {
+          "elevated_hr_threshold_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevated Hr Threshold Bpm"
+          },
+          "elevated_hr_window_count": {
+            "title": "Elevated Hr Window Count",
+            "type": "integer"
+          },
+          "quiet_window_count": {
+            "title": "Quiet Window Count",
+            "type": "integer"
+          },
+          "resting_reference_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resting Reference Bpm"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/TherapyBasalSlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "unknown_hr_window_count": {
+            "title": "Unknown Hr Window Count",
+            "type": "integer"
+          },
+          "washout_minutes": {
+            "title": "Washout Minutes",
+            "type": "integer"
+          },
+          "window_minutes": {
+            "title": "Window Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_minutes",
+          "washout_minutes",
+          "quiet_window_count",
+          "elevated_hr_window_count",
+          "unknown_hr_window_count",
+          "slots"
+        ],
+        "title": "TherapyBasalProfileResponse",
+        "type": "object"
+      },
+      "TherapyBasalSlotResponse": {
+        "description": "Background glucose drift evidence for one local clock hour.",
+        "properties": {
+          "elevated_hr_drift_mmol_l_per_hour": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "quiet_drift_mmol_l_per_hour": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          },
+          "signal": {
+            "enum": [
+              "insufficient",
+              "stable",
+              "rising",
+              "falling"
+            ],
+            "title": "Signal",
+            "type": "string"
+          },
+          "unknown_hr_drift_mmol_l_per_hour": {
+            "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
+          }
+        },
+        "required": [
+          "hour",
+          "label",
+          "quiet_drift_mmol_l_per_hour",
+          "elevated_hr_drift_mmol_l_per_hour",
+          "unknown_hr_drift_mmol_l_per_hour",
+          "signal"
+        ],
+        "title": "TherapyBasalSlotResponse",
         "type": "object"
       },
       "TherapyReviewDayResponse": {
@@ -16536,6 +16890,103 @@
           }
         ],
         "summary": "Patch Sensor Code",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/therapy-analysis": {
+      "get": {
+        "description": "Return long-term retrospective ICR and ISF evidence by local time.",
+        "operationId": "getGlucoseTherapyAnalysis",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period_days",
+            "required": false,
+            "schema": {
+              "default": 90,
+              "title": "Period Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_mmol_l",
+            "required": false,
+            "schema": {
+              "default": 6.0,
+              "maximum": 10,
+              "minimum": 3.9,
+              "title": "Target Mmol L",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Date"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TherapyAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Therapy Analysis",
         "tags": [
           "glucose"
         ],

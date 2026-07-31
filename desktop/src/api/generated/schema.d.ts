@@ -507,6 +507,26 @@ export interface paths {
         patch: operations["patchSensorCode"];
         trace?: never;
     };
+    "/glucose/therapy-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Therapy Analysis
+         * @description Return long-term retrospective ICR and ISF evidence by local time.
+         */
+        get: operations["getGlucoseTherapyAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/therapy-review": {
         parameters: {
             query?: never;
@@ -3599,6 +3619,33 @@ export interface components {
             suspected_compression_count: number;
         };
         /**
+         * GlucosePredictionAuditCalibration
+         * @description One horizon's base forecast and prospective calibration metadata.
+         */
+        GlucosePredictionAuditCalibration: {
+            /** Base Prediction Mmol L */
+            base_prediction_mmol_l: number;
+            /**
+             * Correction Mmol L
+             * @default 0
+             */
+            correction_mmol_l: number;
+            /** Historical Mae Mmol L */
+            historical_mae_mmol_l?: number | null;
+            /** Horizon Minutes */
+            horizon_minutes: number;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /**
          * GlucosePredictionInputs
          * @description Current context incorporated into one prediction run.
          */
@@ -3667,6 +3714,10 @@ export interface components {
             algorithm: string;
             /** Alpha */
             alpha?: number | null;
+            /** Audit Calibration By Horizon */
+            audit_calibration_by_horizon?: components["schemas"]["GlucosePredictionAuditCalibration"][];
+            /** Audit Calibration Source Versions */
+            audit_calibration_source_versions?: string[];
             /** Baseline Mae Mmol */
             baseline_mae_mmol?: number | null;
             /**
@@ -6528,7 +6579,7 @@ export interface components {
             /** B1 Raw Mmol L Per Day */
             b1_raw_mmol_l_per_day?: number | null;
             /** Calibration Basis */
-            calibration_basis?: ("stable_after_48h" | "warmup_after_12h_fallback" | "insufficient") | null;
+            calibration_basis?: ("stable_after_48h" | "warmup_after_12h_fallback" | "early_warmup_weighted" | "insufficient") | null;
             /** Calibration Strategy */
             calibration_strategy?: ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
             /**
@@ -6931,6 +6982,127 @@ export interface components {
             protein_per_100g?: number | null;
             /** Rank */
             rank: number;
+        };
+        /**
+         * TherapyAnalysisMetricResponse
+         * @description Robust retrospective estimate for one therapy parameter.
+         */
+        TherapyAnalysisMetricResponse: {
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "none" | "low" | "medium" | "high";
+            /** Q1 */
+            q1?: number | null;
+            /** Q3 */
+            q3?: number | null;
+            /** Sample Count */
+            sample_count: number;
+            /** Value */
+            value?: number | null;
+        };
+        /**
+         * TherapyAnalysisResponse
+         * @description Long-term retrospective ICR, ISF, and basal stability analysis.
+         */
+        TherapyAnalysisResponse: {
+            basal_profile: components["schemas"]["TherapyBasalProfileResponse"];
+            /** Bin Hours */
+            bin_hours: number;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            /** Icr Horizon Minutes */
+            icr_horizon_minutes: number;
+            /** Isf Horizon Minutes */
+            isf_horizon_minutes: number;
+            /**
+             * Isf Source
+             * @enum {string}
+             */
+            isf_source: "correction_episodes" | "configured_fallback";
+            /** Model Version */
+            model_version: string;
+            /** Notes */
+            notes?: string[];
+            overall_icr_g_per_unit: components["schemas"]["TherapyAnalysisMetricResponse"];
+            overall_isf_mmol_l_per_unit: components["schemas"]["TherapyAnalysisMetricResponse"];
+            /**
+             * Period Days
+             * @enum {integer}
+             */
+            period_days: 30 | 90 | 180;
+            /** Slots */
+            slots: components["schemas"]["TherapyAnalysisSlotResponse"][];
+            /** Target Mmol L */
+            target_mmol_l: number;
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+        };
+        /**
+         * TherapyAnalysisSlotResponse
+         * @description ICR and ISF evidence for one local-time interval.
+         */
+        TherapyAnalysisSlotResponse: {
+            /** End Hour */
+            end_hour: number;
+            icr_g_per_unit: components["schemas"]["TherapyAnalysisMetricResponse"];
+            isf_mmol_l_per_unit: components["schemas"]["TherapyAnalysisMetricResponse"];
+            /** Label */
+            label: string;
+            /** Start Hour */
+            start_hour: number;
+        };
+        /**
+         * TherapyBasalProfileResponse
+         * @description Twenty-four-hour clean background glucose drift profile.
+         */
+        TherapyBasalProfileResponse: {
+            /** Elevated Hr Threshold Bpm */
+            elevated_hr_threshold_bpm?: number | null;
+            /** Elevated Hr Window Count */
+            elevated_hr_window_count: number;
+            /** Quiet Window Count */
+            quiet_window_count: number;
+            /** Resting Reference Bpm */
+            resting_reference_bpm?: number | null;
+            /** Slots */
+            slots: components["schemas"]["TherapyBasalSlotResponse"][];
+            /** Unknown Hr Window Count */
+            unknown_hr_window_count: number;
+            /** Washout Minutes */
+            washout_minutes: number;
+            /** Window Minutes */
+            window_minutes: number;
+        };
+        /**
+         * TherapyBasalSlotResponse
+         * @description Background glucose drift evidence for one local clock hour.
+         */
+        TherapyBasalSlotResponse: {
+            elevated_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
+            /** Hour */
+            hour: number;
+            /** Label */
+            label: string;
+            quiet_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
+            /**
+             * Signal
+             * @enum {string}
+             */
+            signal: "insufficient" | "stable" | "rising" | "falling";
+            unknown_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
         };
         /**
          * TherapyReviewDayResponse
@@ -8469,6 +8641,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SensorCodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGlucoseTherapyAnalysis: {
+        parameters: {
+            query?: {
+                period_days?: number;
+                target_mmol_l?: number;
+                to_date?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TherapyAnalysisResponse"];
                 };
             };
             /** @description Validation Error */

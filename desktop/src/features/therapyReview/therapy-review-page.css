@@ -18,7 +18,7 @@
   z-index: 20;
   top: 0;
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
   min-height: 58px;
   padding: 0 10px;
@@ -53,12 +53,12 @@
   opacity: 0.35;
 }
 
-.therapy-review-toolbar > div {
+.therapy-review-toolbar-title {
   display: grid;
   gap: 1px;
 }
 
-.therapy-review-toolbar span {
+.therapy-review-toolbar-title span {
   color: var(--ns-cyan);
   font:
     600 10px/1.2 "JetBrains Mono",
@@ -68,8 +68,14 @@
   text-transform: uppercase;
 }
 
-.therapy-review-toolbar strong {
+.therapy-review-toolbar-title strong {
   font-size: 15px;
+}
+
+.therapy-review-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .therapy-review-page main {

@@ -24,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,11 +57,14 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatMmol
 import com.local.glucotracker.ui.format.formatPercent
+import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+
+private const val SensorServerRefreshIntervalMillis = 30_000L
 
 @Composable
 fun SensorManagementRoute(
@@ -68,6 +72,12 @@ fun SensorManagementRoute(
     viewModel: SensorManagementViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        while (true) {
+            viewModel.refreshSensorState()
+            delay(SensorServerRefreshIntervalMillis)
+        }
+    }
     val exclusionReason = stringResource(R.string.sensor_exclusion_reason_mobile)
     var scanFailed by remember { mutableStateOf(false) }
     val launchSensorScanner = rememberSensorCodeScanner(

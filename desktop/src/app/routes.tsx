@@ -20,6 +20,11 @@ const TherapyReviewPage = lazy(() =>
     default: module.TherapyReviewPage,
   })),
 );
+const TherapyAnalysisPage = lazy(() =>
+  import("../features/therapyAnalysis/TherapyAnalysisPage").then((module) => ({
+    default: module.TherapyAnalysisPage,
+  })),
+);
 
 export const routes: RouteObject[] = [
   {
@@ -55,6 +60,14 @@ export const routes: RouteObject[] = [
     element: (
       <Suspense fallback={<div className="nightscout-route-loading">Загружаю разбор…</div>}>
         <TherapyReviewPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/nightscout/review/analysis",
+    element: (
+      <Suspense fallback={<div className="nightscout-route-loading">Загружаю анализ…</div>}>
+        <TherapyAnalysisPage />
       </Suspense>
     ),
   },

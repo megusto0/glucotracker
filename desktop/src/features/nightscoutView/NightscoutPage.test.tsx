@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type {
@@ -262,17 +262,12 @@ describe("NightscoutPage", () => {
     } as unknown as ReturnType<typeof useCreateNightscoutInsulin>);
   });
 
-  test("switches between standard and normalized dashboard series", () => {
+  test("defaults to normalized and can switch to the standard series", () => {
     const { container } = render(
       <MemoryRouter>
         <NightscoutPage />
       </MemoryRouter>,
     );
-
-    expect(screen.getByText("5.5")).toBeInTheDocument();
-    expect(container.querySelectorAll(".ns-point--normalized")).toHaveLength(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "Нормализованный" }));
 
     expect(
       screen.getByRole("button", { name: "Нормализованный" }),
@@ -286,6 +281,15 @@ describe("NightscoutPage", () => {
       expect.any(String),
       "normalized",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Стандартный" }));
+
+    expect(screen.getByRole("button", { name: "Стандартный" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("5.5")).toBeInTheDocument();
+    expect(container.querySelectorAll(".ns-point--normalized")).toHaveLength(0);
   });
 
   test("keeps ten-minute heart-rate bars visible when selected CGM is empty", () => {
@@ -537,6 +541,74 @@ describe("NightscoutPage", () => {
       "aria-pressed",
       "false",
     );
+  });
+
+  test("keeps a navigator window at the right edge following latest time", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-12T07:00:00Z"));
+    mockedUseDashboard.mockImplementation((from, to, mode) => {
+      const data = dashboard(mode);
+      return {
+        data: {
+          ...data,
+          from_datetime: from,
+          to_datetime: to,
+        },
+        error: null,
+        isLoading: false,
+      } as ReturnType<typeof useGlucoseDashboard>;
+    });
+
+    const { unmount } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+    const chart = screen.getByRole("img", {
+      name: "График глюкозы Nightscout",
+    });
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      bottom: 600,
+      height: 600,
+      left: 0,
+      right: 1000,
+      top: 0,
+      width: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const rightHandle = screen.getByRole("slider", {
+      name: "Изменить правую границу окна",
+    });
+
+    fireEvent.pointerDown(rightHandle, { clientX: 950, pointerId: 8 });
+    fireEvent.pointerMove(chart, {
+      clientX: 1000,
+      clientY: 520,
+      pointerId: 8,
+    });
+    fireEvent.pointerUp(chart, {
+      clientX: 1000,
+      clientY: 520,
+      pointerId: 8,
+    });
+
+    const latestMainRangeTo = () => {
+      const mainCalls = mockedUseDashboard.mock.calls.filter(
+        ([from, to]) => Date.parse(to) - Date.parse(from) <= 12 * 60 * 60 * 1000,
+      );
+      return Date.parse(mainCalls[mainCalls.length - 1]![1]);
+    };
+    const beforeRefresh = latestMainRangeTo();
+    const refreshIntervalMs = 60 * 1000;
+    act(() => {
+      vi.advanceTimersByTime(refreshIntervalMs);
+    });
+
+    expect(latestMainRangeTo() - beforeRefresh).toBe(refreshIntervalMs);
+    unmount();
+    vi.useRealTimers();
   });
 
   test("opens one grouped calculation from either carbohydrate marker", () => {

@@ -149,6 +149,10 @@ class NightscoutContextImportService:
                     sensor_event_rows,
                 )
             if created_glucose_timestamps:
+                # The stream-boundary lookup must see every point from this
+                # imported batch, including rows still pending in the unit of
+                # work on SQLite and production Postgres.
+                self.session.flush()
                 latest_created = max(
                     created_glucose_timestamps,
                     key=_utc_sort_value,

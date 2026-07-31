@@ -140,6 +140,18 @@ describe("TherapyReviewPage", () => {
     });
   });
 
+  test("offers the adjacent long-term ICR and ISF analysis", () => {
+    render(
+      <MemoryRouter>
+        <TherapyReviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Анализ ICR и ISF" }),
+    ).toBeInTheDocument();
+  });
+
   test("does not report an empty day while a new date is still loading", () => {
     mockedUseReview.mockReturnValue({
       data: undefined,

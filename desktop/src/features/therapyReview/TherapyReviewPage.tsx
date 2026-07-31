@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ChartNoAxesCombined,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -202,24 +203,33 @@ export function TherapyReviewPage() {
         >
           <ArrowLeft size={19} />
         </button>
-        <div>
+        <div className="therapy-review-toolbar-title">
           <span>Nightscout</span>
           <strong>Разбор терапии по дням</strong>
         </div>
-        <button
-          aria-label="Обновить разбор"
-          disabled={isRefreshing}
-          onClick={() =>
-            recalculation.mutate({
-              date,
-              targetMmolL: target,
-              horizonMinutes: horizon,
-            })
-          }
-          type="button"
-        >
-          <RefreshCw size={18} />
-        </button>
+        <nav aria-label="Разделы разбора" className="therapy-review-toolbar-actions">
+          <button
+            aria-label="Анализ ICR и ISF"
+            onClick={() => navigate("/nightscout/review/analysis")}
+            type="button"
+          >
+            <ChartNoAxesCombined size={18} />
+          </button>
+          <button
+            aria-label="Обновить разбор"
+            disabled={isRefreshing}
+            onClick={() =>
+              recalculation.mutate({
+                date,
+                targetMmolL: target,
+                horizonMinutes: horizon,
+              })
+            }
+            type="button"
+          >
+            <RefreshCw size={18} />
+          </button>
+        </nav>
       </header>
 
       <main>

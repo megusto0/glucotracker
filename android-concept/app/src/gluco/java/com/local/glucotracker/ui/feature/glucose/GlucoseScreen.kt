@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.GlucoseReading
+import com.local.glucotracker.domain.model.SensorSession
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTIconButton
@@ -173,6 +174,7 @@ fun GlucoseScreen(
 
     if (sheetVisible) {
         GlucoseSheet(
+            activeSensor = state.activeSensor,
             onDismiss = { sheetVisible = false },
             onSubmit = { value ->
                 onFingerstickSubmit(value)
@@ -524,6 +526,7 @@ private fun DaypartCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GlucoseSheet(
+    activeSensor: SensorSession?,
     onDismiss: () -> Unit,
     onSubmit: (Double) -> Unit,
     onOpenSensors: () -> Unit,
@@ -586,12 +589,30 @@ private fun GlucoseSheet(
                 color = GT.colors.muted,
                 style = GT.type.kicker,
             )
-            Text(
-                text = stringResource(R.string.glucose_sensor_empty),
-                modifier = Modifier.padding(top = 6.dp),
-                color = GT.colors.ink2,
-                style = GT.type.sansBody,
-            )
+            if (activeSensor == null) {
+                Text(
+                    text = stringResource(R.string.glucose_sensor_empty),
+                    modifier = Modifier.padding(top = 6.dp),
+                    color = GT.colors.ink2,
+                    style = GT.type.sansBody,
+                )
+            } else {
+                Text(
+                    text = activeSensor.label ?: stringResource(R.string.sensor_default_name),
+                    modifier = Modifier.padding(top = 6.dp),
+                    color = GT.colors.ink,
+                    style = GT.type.sansBody,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.glucose_sensor_active_since,
+                        activeSensor.startedAt.shortDateTime(),
+                    ),
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = GT.colors.ink2,
+                    style = GT.type.monoLabel,
+                )
+            }
             GTOutlineButton(
                 text = stringResource(R.string.glucose_sensor_manage),
                 onClick = onOpenSensors,
@@ -680,6 +701,19 @@ private fun List<GlucoseReading>.toChartPoints(window: GlucoseWindow): List<Char
 private fun Instant.hourMinute(): String {
     val time = toLocalDateTime(TimeZone.currentSystemDefault()).time
     return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
+}
+
+private fun Instant.shortDateTime(): String {
+    val local = toLocalDateTime(TimeZone.currentSystemDefault())
+    return buildString {
+        append(local.dayOfMonth.toString().padStart(2, '0'))
+        append('.')
+        append(local.monthNumber.toString().padStart(2, '0'))
+        append(" · ")
+        append(local.hour.toString().padStart(2, '0'))
+        append(':')
+        append(local.minute.toString().padStart(2, '0'))
+    }
 }
 
 private fun formatDelta(delta: Double): String {

@@ -136,7 +136,10 @@ class CaptureViewModel @Inject constructor(
 
     fun searchTemplates(query: String, callback: (List<Template>) -> Unit) {
         viewModelScope.launch {
-            val results = productsRepository.searchTemplatesLocal(query)
+            // Restaurant families can contain many sizes and named variants. Keep
+            // the complete family available before the UI folds it into one row.
+            val limit = if (query.isBlank()) 20 else 100
+            val results = productsRepository.searchTemplatesLocal(query, limit = limit)
             callback(results)
         }
     }
