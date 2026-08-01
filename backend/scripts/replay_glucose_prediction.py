@@ -138,6 +138,17 @@ def prepare(source: str, destination: str) -> None:
             (owner[0],),
         )
         print("  users: recreated placeholder owner row")
+    if "cgm_calibration_models" not in tables:
+        # Bundles omit persisted calibration models, but the dashboard eagerly
+        # loads the relationship, so the table has to exist even when empty.
+        connection.execute(
+            "create table cgm_calibration_models (id char(32) primary key,"
+            " sensor_session_id char(32) not null, model_version varchar not null,"
+            " created_at datetime not null, params_json json not null,"
+            " metrics_json json not null, confidence varchar not null,"
+            " active boolean not null)"
+        )
+        print("  cgm_calibration_models: created empty table")
     connection.commit()
     print(f"prepared {destination}")
 
