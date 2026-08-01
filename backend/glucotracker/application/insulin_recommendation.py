@@ -32,6 +32,9 @@ from glucotracker.application.glucose_dashboard import (
     _local_wall_from_utc,
     _remaining_on_board,
 )
+from glucotracker.application.glucose_trend_projection import (
+    GlucoseTrendProjectionService,
+)
 from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_AFTER,
     _local_wall_time,
@@ -39,6 +42,9 @@ from glucotracker.application.nightscout_context import (
 from glucotracker.application.on_board.classification import (
     is_rapid_insulin_event,
     normalized_text,
+)
+from glucotracker.application.time import (
+    utc_instant_from_local_wall as _utc_instant_from_local_wall,
 )
 from glucotracker.application.twin.kernels import PersonalizedInsulinKernel
 from glucotracker.infra.db.models import Meal, NightscoutInsulinEvent, TwinParams
@@ -130,6 +136,7 @@ CorrectionStatus = Literal[
     "low_or_falling",
 ]
 IsfSource = Literal["manual", "fitted", "default"]
+ProjectionSource = Literal["linear_trend", "forecast"]
 
 
 @dataclass(frozen=True)
@@ -145,6 +152,9 @@ class CorrectionEstimate:
     isf_mmol_l_per_unit: float | None = None
     isf_source: IsfSource | None = None
     iob_units: float | None = None
+    projection_source: ProjectionSource = "linear_trend"
+    projection_horizon_minutes: int = CORRECTION_PROJECTION_MINUTES
+    projection_calibration_factor: float | None = None
 
 
 @dataclass(frozen=True)
@@ -543,6 +553,24 @@ class HistoricalInsulinRecommendationService:
             ),
         )
         projected = latest.display_value + projected_change
+        projection_source: ProjectionSource = "linear_trend"
+        projection_horizon_minutes = CORRECTION_PROJECTION_MINUTES
+
+        # A straight line through the last 20 minutes cannot tell a rise that is
+        # about to stall from one that is still accelerating. The prospective
+        # forecast models the same "no new food or insulin" counterfactual the
+        # correction is asking about, so prefer it when one is fresh enough.
+        trend_projection = GlucoseTrendProjectionService(
+            self.repository.session,
+            self.repository.user_id,
+        ).project(_utc_instant_from_local_wall(meal_at))
+        if trend_projection.is_usable:
+            assert trend_projection.projected_mmol_l is not None
+            forecast_move = trend_projection.move_mmol_l or 0.0
+            projected = latest.display_value + forecast_move
+            projection_source = "forecast"
+            projection_horizon_minutes = trend_projection.horizon_minutes
+
         iob_units = self._prior_iob_units(
             meals,
             as_of=meal_at,
@@ -557,6 +585,13 @@ class HistoricalInsulinRecommendationService:
             "isf_mmol_l_per_unit": round(isf, 2),
             "isf_source": isf_source,
             "iob_units": round(iob_units, 2),
+            "projection_source": projection_source,
+            "projection_horizon_minutes": projection_horizon_minutes,
+            "projection_calibration_factor": (
+                trend_projection.calibration_factor
+                if projection_source == "forecast"
+                else None
+            ),
         }
         if (
             latest.display_value < LOW_GLUCOSE_MMOL_L

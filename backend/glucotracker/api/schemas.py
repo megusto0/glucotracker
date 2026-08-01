@@ -382,6 +382,12 @@ class InsulinRecommendationResponse(BaseModel):
     correction_isf_mmol_l_per_unit: float | None = None
     correction_isf_source: Literal["manual", "fitted", "default"] | None = None
     correction_iob_units: float | None = None
+    # Where the projected glucose came from: a straight line through recent CGM,
+    # or the prospective forecast. Clients should say which, because the two
+    # disagree exactly when the reading is flat but the trajectory is not.
+    correction_projection_source: Literal["linear_trend", "forecast"] = "linear_trend"
+    correction_projection_horizon_minutes: int | None = None
+    correction_projection_calibration_factor: float | None = None
     total_recommended_units: float | None = None
     total_range_low_units: float | None = None
     total_range_high_units: float | None = None

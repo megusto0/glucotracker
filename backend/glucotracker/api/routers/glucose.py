@@ -361,6 +361,13 @@ def get_insulin_recommendation(
         correction_isf_mmol_l_per_unit=correction.isf_mmol_l_per_unit,
         correction_isf_source=correction.isf_source,
         correction_iob_units=correction.iob_units,
+        correction_projection_source=correction.projection_source,
+        correction_projection_horizon_minutes=(
+            correction.projection_horizon_minutes
+        ),
+        correction_projection_calibration_factor=(
+            correction.projection_calibration_factor
+        ),
         total_recommended_units=calculation.total_recommended_units,
         total_range_low_units=calculation.total_range_low_units,
         total_range_high_units=calculation.total_range_high_units,

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from glucotracker.application.glucose_prediction import MODEL_VERSION
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
+    GlucosePredictionPointAudit,
+    GlucosePredictionRun,
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
@@ -650,3 +653,85 @@ def test_recommendation_still_drops_very_low_outcomes(
     body = response.json()
     assert body["status"] == "insufficient_history"
     assert body["matches"] == []
+
+
+def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
+    api_client: TestClient,
+) -> None:
+    """The case a flat reading hides: 8.0 now, but heading down to 5.6.
+
+    The linear trend over the last 20 minutes is flat here, so without the
+    forecast the correction would dose as if 8.0 were stable.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 13, 0)
+    anchor_utc = datetime(2026, 7, 20, 13, 0, tzinfo=UTC)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 4)
+        # Flat CGM: a straight-line projection sees no movement at all.
+        for index in range(4):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"flat-cgm-{index}",
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=8.0,
+                    value_mg_dl=round(8.0 * 18.0182),
+                    source="CGM",
+                )
+            )
+        run = GlucosePredictionRun(
+            owner_id=owner_id,
+            generated_at=anchor_utc,
+            anchor_timestamp=anchor_utc,
+            anchor_value_mmol_l=8.0,
+            model_version=MODEL_VERSION,
+            algorithm="test",
+            horizon_minutes=90,
+            step_minutes=5,
+            model_json={},
+            inputs_json={},
+            notes_json=[],
+        )
+        run.points = [
+            GlucosePredictionPointAudit(
+                owner_id=owner_id,
+                target_timestamp=anchor_utc + timedelta(minutes=60),
+                horizon_minutes=60,
+                predicted_value_mmol_l=5.6,
+                ci_low_mmol_l=4.4,
+                ci_high_mmol_l=6.8,
+                confidence=0.6,
+                predicted_band="in_range",
+                evaluation_status="pending",
+            )
+        ]
+        session.add(run)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.isf = 2.0
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target.id)],
+            "correction_target_mmol_l": 6.0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["correction_glucose_mmol_l"] == 8.0
+    assert body["correction_trend_mmol_l_per_min"] == 0.0
+    # Flat trend would have projected 8.0 and asked for (8.0-6.0)/2.0 = 1.0 U.
+    assert body["correction_projected_glucose_mmol_l"] == 5.6
+    assert body["correction_status"] == "not_needed"
+    assert body["correction_units"] == 0.0
+    # Meal dose is unchanged; only the correction component responds.
+    assert body["recommended_units"] == 4.0
+    assert body["total_recommended_units"] == 4.0
