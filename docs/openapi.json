@@ -5406,6 +5406,37 @@
             ],
             "title": "Correction Projected Glucose Mmol L"
           },
+          "correction_projection_calibration_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Projection Calibration Factor"
+          },
+          "correction_projection_horizon_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Projection Horizon Minutes"
+          },
+          "correction_projection_source": {
+            "default": "linear_trend",
+            "enum": [
+              "linear_trend",
+              "forecast"
+            ],
+            "title": "Correction Projection Source",
+            "type": "string"
+          },
           "correction_status": {
             "enum": [
               "ready",
@@ -13556,6 +13587,174 @@
         "title": "TimelineResponse",
         "type": "object"
       },
+      "TopUpDoseResponse": {
+        "description": "Follow-up bolus during a rise, with every term that produced it.",
+        "properties": {
+          "carb_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carb Units"
+          },
+          "cob_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cob G"
+          },
+          "correction_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Units"
+          },
+          "glucose_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose Mmol L"
+          },
+          "icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icr G Per Unit"
+          },
+          "iob_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iob Units"
+          },
+          "isf_mmol_l_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isf Mmol L Per Unit"
+          },
+          "isf_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "manual",
+                  "fitted",
+                  "default"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isf Source"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "projected_glucose_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projected Glucose Mmol L"
+          },
+          "projection_source": {
+            "default": "none",
+            "enum": [
+              "none",
+              "linear_trend",
+              "forecast"
+            ],
+            "title": "Projection Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_needed",
+              "low_or_falling",
+              "glucose_unavailable",
+              "icr_unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Mmol L"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TopUpDoseResponse",
+        "type": "object"
+      },
       "TwinCurveAnchor": {
         "description": "Known glucose anchor used by the digital twin curve.",
         "properties": {
@@ -17162,6 +17361,82 @@
           }
         ],
         "summary": "Get Glucose Tir Daily",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/top-up-dose": {
+      "get": {
+        "description": "Return the follow-up bolus implied by carbs left, IOB and the target.",
+        "operationId": "getTopUpDose",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "target_mmol_l",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10.0,
+                  "minimum": 3.9,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Mmol L"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopUpDoseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Top Up Dose",
         "tags": [
           "glucose"
         ],

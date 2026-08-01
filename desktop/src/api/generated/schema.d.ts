@@ -567,6 +567,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/top-up-dose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Top Up Dose
+         * @description Return the follow-up bolus implied by carbs left, IOB and the target.
+         */
+        get: operations["getTopUpDose"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -4185,6 +4205,16 @@ export interface components {
             correction_isf_source?: ("manual" | "fitted" | "default") | null;
             /** Correction Projected Glucose Mmol L */
             correction_projected_glucose_mmol_l?: number | null;
+            /** Correction Projection Calibration Factor */
+            correction_projection_calibration_factor?: number | null;
+            /** Correction Projection Horizon Minutes */
+            correction_projection_horizon_minutes?: number | null;
+            /**
+             * Correction Projection Source
+             * @default linear_trend
+             * @enum {string}
+             */
+            correction_projection_source: "linear_trend" | "forecast";
             /**
              * Correction Status
              * @enum {string}
@@ -7285,6 +7315,47 @@ export interface components {
             ungrouped_insulin?: components["schemas"]["TimelineInsulinEventResponse"][];
         };
         /**
+         * TopUpDoseResponse
+         * @description Follow-up bolus during a rise, with every term that produced it.
+         */
+        TopUpDoseResponse: {
+            /** Carb Units */
+            carb_units?: number | null;
+            /** Cob G */
+            cob_g?: number | null;
+            /** Correction Units */
+            correction_units?: number | null;
+            /** Glucose Mmol L */
+            glucose_mmol_l?: number | null;
+            /** Icr G Per Unit */
+            icr_g_per_unit?: number | null;
+            /** Iob Units */
+            iob_units?: number | null;
+            /** Isf Mmol L Per Unit */
+            isf_mmol_l_per_unit?: number | null;
+            /** Isf Source */
+            isf_source?: ("manual" | "fitted" | "default") | null;
+            /** Note */
+            note?: string | null;
+            /** Projected Glucose Mmol L */
+            projected_glucose_mmol_l?: number | null;
+            /**
+             * Projection Source
+             * @default none
+             * @enum {string}
+             */
+            projection_source: "none" | "linear_trend" | "forecast";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "not_needed" | "low_or_falling" | "glucose_unavailable" | "icr_unavailable";
+            /** Target Mmol L */
+            target_mmol_l?: number | null;
+            /** Units */
+            units?: number | null;
+        };
+        /**
          * TwinCurveAnchor
          * @description Known glucose anchor used by the digital twin curve.
          */
@@ -8745,6 +8816,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GlucoseTirDailyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTopUpDose: {
+        parameters: {
+            query?: {
+                target_mmol_l?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopUpDoseResponse"];
                 };
             };
             /** @description Validation Error */

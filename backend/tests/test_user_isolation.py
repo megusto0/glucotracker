@@ -689,6 +689,35 @@ class TestGETIsolation:
         assert alice_data["model"]["sample_count"] == 0
         assert bob_data["model"]["sample_count"] == 0
 
+    def test_glucose_top_up_dose(self):
+        """Each owner's follow-up bolus reflects only their own IOB and COB."""
+        alice_response = self.client.get(
+            "/glucose/top-up-dose",
+            headers=self.alice_headers,
+        )
+        bob_response = self.client.get(
+            "/glucose/top-up-dose",
+            headers=self.bob_headers,
+        )
+        assert alice_response.status_code == 200
+        assert bob_response.status_code == 200
+        alice_data = alice_response.json()
+        bob_data = bob_response.json()
+        # Carbohydrate and insulin on board are owner-scoped state; if the
+        # query leaked, one owner's meals would raise the other's numbers.
+        for data in (alice_data, bob_data):
+            assert data["status"] in {
+                "ready",
+                "not_needed",
+                "low_or_falling",
+                "glucose_unavailable",
+                "icr_unavailable",
+            }
+        if alice_data["cob_g"] is not None and bob_data["cob_g"] is not None:
+            assert alice_data["cob_g"] != bob_data["cob_g"] or (
+                alice_data["cob_g"] == 0.0
+            )
+
     def test_glucose_therapy_review(self):
         params = {"date": self.ids["today"].isoformat()}
         alice_response = self.client.get(

@@ -165,6 +165,21 @@ export function useGlucoseTherapyAnalysis(
   });
 }
 
+export function useTopUpDose(targetMmolL: number | undefined, enabled: boolean) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.topUpDose(targetMmolL),
+    queryFn: () => apiClient.getTopUpDose(config, targetMmolL),
+    // Only fetched when the user asks: the answer depends on IOB and COB right
+    // now, so a stale one is worse than none.
+    enabled: Boolean(config.token.trim()) && enabled,
+    retry: 1,
+    gcTime: 0,
+    staleTime: 0,
+  });
+}
+
 export function useInsulinRecommendation(
   mealIds: string[],
   correctionTarget?: number,

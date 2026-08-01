@@ -1157,3 +1157,69 @@
     width: calc(100vw - 20px);
   }
 }
+
+/* Follow-up bolus during a rise: carbs left / ICR + correction - IOB. */
+.ns-top-up {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.ns-top-up-button {
+  padding: 7px 10px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #1c1c1c;
+  color: #e8e8e8;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ns-top-up-button:hover:not(:disabled) {
+  border-color: #8a8a8a;
+  background: #232323;
+}
+
+.ns-top-up-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ns-top-up-result {
+  display: grid;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #151515;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.ns-top-up-units {
+  font-size: 18px;
+  color: #f0f0f0;
+}
+
+.ns-top-up-hold {
+  color: #ffb4a2;
+  font-size: 12px;
+}
+
+.ns-top-up-result small {
+  color: #a8a8a8;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ns-top-up-context {
+  border-top: 1px solid #333;
+  padding-top: 3px;
+}
+
+.ns-top-up-error {
+  margin: 0;
+  color: #ffb4a2;
+  font-size: 12px;
+}

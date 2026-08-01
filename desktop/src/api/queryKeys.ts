@@ -31,6 +31,8 @@ export const queryKeys = {
   glucoseDashboard: (from: string, to: string, mode: string) =>
     ["glucose", "dashboard", from, to, mode] as const,
   glucosePrediction: (mode: string) => ["glucose", "prediction", mode] as const,
+  topUpDose: (targetMmolL?: number) =>
+    ["glucose", "top-up-dose", targetMmolL ?? null] as const,
   glucoseEpisodes: (from: string, to: string) =>
     ["glucose", "episodes", from, to] as const,
   glucoseTherapyReview: (

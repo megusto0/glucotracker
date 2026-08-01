@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import date, datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
@@ -40,6 +41,7 @@ from glucotracker.api.schemas import (
     TherapyBasalSlotResponse,
     TherapyReviewDayResponse,
     TherapyReviewItemResponse,
+    TopUpDoseResponse,
 )
 from glucotracker.application.episode_therapy import classify_episode_therapy
 from glucotracker.application.episodes import (
@@ -61,6 +63,7 @@ from glucotracker.application.stats_insights import (
 )
 from glucotracker.application.therapy_analysis import TherapyAnalysisService
 from glucotracker.application.therapy_review import TherapyReviewService
+from glucotracker.application.top_up_dose import TopUpDoseService
 
 router = APIRouter(
     tags=["glucose"],
@@ -317,6 +320,23 @@ def get_glucose_therapy_analysis(
             ),
         }
     )
+
+
+@router.get(
+    "/glucose/top-up-dose",
+    response_model=TopUpDoseResponse,
+    operation_id="getTopUpDose",
+)
+def get_top_up_dose(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    target_mmol_l: Annotated[float | None, Query(ge=3.9, le=10.0)] = None,
+) -> TopUpDoseResponse:
+    """Return the follow-up bolus implied by carbs left, IOB and the target."""
+    suggestion = TopUpDoseService(session, current_user.id).suggest(
+        target_mmol_l=target_mmol_l,
+    )
+    return TopUpDoseResponse(**asdict(suggestion))
 
 
 @router.post(

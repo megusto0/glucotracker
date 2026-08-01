@@ -14,6 +14,7 @@ import {
   useGlucosePrediction,
   useHeartRateSeries,
   useInsulinRecommendation,
+  useTopUpDose,
 } from "../glucose/useGlucoseDashboard";
 import { NightscoutPage } from "./NightscoutPage";
 
@@ -24,6 +25,7 @@ vi.mock("../glucose/useGlucoseDashboard", () => ({
   useGlucosePrediction: vi.fn(),
   useHeartRateSeries: vi.fn(),
   useInsulinRecommendation: vi.fn(),
+  useTopUpDose: vi.fn(),
 }));
 
 const mockedUseDashboard = vi.mocked(useGlucoseDashboard);
@@ -32,6 +34,7 @@ const mockedUsePrediction = vi.mocked(useGlucosePrediction);
 const mockedUseHeartRate = vi.mocked(useHeartRateSeries);
 const mockedUseRecommendation = vi.mocked(useInsulinRecommendation);
 const mockedUseCreateInsulin = vi.mocked(useCreateNightscoutInsulin);
+const mockedUseTopUp = vi.mocked(useTopUpDose);
 const createInsulin = vi.fn();
 
 function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
@@ -252,6 +255,12 @@ describe("NightscoutPage", () => {
       isError: false,
       isLoading: false,
     } as unknown as ReturnType<typeof useInsulinRecommendation>);
+    mockedUseTopUp.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useTopUpDose>);
     createInsulin.mockReset();
     mockedUseCreateInsulin.mockReturnValue({
       data: undefined,
@@ -1000,5 +1009,70 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("5.3 Ед")).toBeInTheDocument();
     expect(screen.getByText(/Глюкоза 8.2 → 8.4 ммоль\/л/)).toBeInTheDocument();
     expect(screen.getByText(/ISF 1.5 \(по умолчанию\)/)).toBeInTheDocument();
+  });
+
+  test("the top-up button shows the number and the arithmetic behind it", () => {
+    mockedUseTopUp.mockReturnValue({
+      data: {
+        carb_units: 3.2,
+        cob_g: 32,
+        correction_units: 1.1,
+        glucose_mmol_l: 9.1,
+        icr_g_per_unit: 10,
+        iob_units: 2.9,
+        isf_mmol_l_per_unit: 2.6,
+        isf_source: "manual",
+        note: null,
+        projected_glucose_mmol_l: 9.1,
+        projection_source: "none",
+        status: "ready",
+        target_mmol_l: 6,
+        units: 1.4,
+      },
+      error: null,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useTopUpDose>);
+
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сколько добавить?" }));
+
+    const panel = container.querySelector(".ns-top-up");
+    expect(panel).not.toBeNull();
+    expect(panel?.querySelector(".ns-top-up-units")?.textContent).toContain(
+      "1.4",
+    );
+    // Every term is shown, so the number can be checked rather than trusted.
+    expect(panel?.textContent).toContain("углеводы 3.2");
+    expect(panel?.textContent).toContain("коррекция 1.1");
+    expect(panel?.textContent).toContain("активный инсулин 2.9");
+  });
+
+  test("the top-up button withholds a number while glucose is low", () => {
+    mockedUseTopUp.mockReturnValue({
+      data: {
+        note: "Глюкоза низкая или снижается — добавка не рассчитывается.",
+        status: "low_or_falling",
+        units: null,
+      },
+      error: null,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useTopUpDose>);
+
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сколько добавить?" }));
+
+    const panel = container.querySelector(".ns-top-up");
+    expect(panel?.querySelector(".ns-top-up-units")).toBeNull();
+    expect(panel?.textContent).toContain("добавка не рассчитывается");
   });
 });

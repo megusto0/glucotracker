@@ -23,6 +23,7 @@ import {
   useGlucosePrediction,
   useHeartRateSeries,
   useInsulinRecommendation,
+  useTopUpDose,
 } from "../glucose/useGlucoseDashboard";
 import "./nightscout-page.css";
 
@@ -260,6 +261,14 @@ export function NightscoutPage() {
   const missingPercent = dashboard.data?.quality.missing_data_pct;
   const summary = dashboard.data?.summary;
   const isUrgent = latestValue !== null && latestValue < 3.0;
+  // The answer depends on IOB and COB at this instant, so it is only fetched
+  // when asked for, and it is cleared as soon as new CGM arrives.
+  const [topUpRequested, setTopUpRequested] = useState(false);
+  const topUp = useTopUpDose(undefined, topUpRequested);
+  const topUpData = topUpRequested ? topUp.data : undefined;
+  useEffect(() => {
+    setTopUpRequested(false);
+  }, [latest?.timestamp]);
   const selectedEpisode = useMemo(
     () =>
       episodes.data?.episodes.find((episode) =>
@@ -434,6 +443,61 @@ export function NightscoutPage() {
             <b>г</b>
             <small>{summary?.cob_minutes_remaining ?? 0} мин до усвоения</small>
           </div>
+        </div>
+
+        <div className="ns-top-up">
+          <button
+            className="ns-top-up-button"
+            disabled={topUp.isFetching}
+            onClick={() => setTopUpRequested(true)}
+            type="button"
+          >
+            {topUp.isFetching ? "Считаю…" : "Сколько добавить?"}
+          </button>
+          {topUpRequested && topUp.isError ? (
+            <p className="ns-top-up-error">Расчёт сейчас недоступен.</p>
+          ) : null}
+          {topUpData ? (
+            <div className="ns-top-up-result" role="status">
+              {topUpData.status === "ready" ? (
+                <>
+                  <strong className="ns-top-up-units">
+                    {formatDose(topUpData.units)} Ед
+                  </strong>
+                  <small>
+                    углеводы {formatDose(topUpData.carb_units)} + коррекция{" "}
+                    {formatDose(topUpData.correction_units)} − активный инсулин{" "}
+                    {formatDose(topUpData.iob_units)}
+                  </small>
+                </>
+              ) : topUpData.status === "not_needed" ? (
+                <>
+                  <strong className="ns-top-up-units">0 Ед</strong>
+                  <small>{topUpData.note}</small>
+                </>
+              ) : topUpData.status === "low_or_falling" ? (
+                <strong className="ns-top-up-hold">{topUpData.note}</strong>
+              ) : topUpData.status === "icr_unavailable" ? (
+                <small>Не задан ICR — добавку посчитать нельзя.</small>
+              ) : (
+                <small>Нет свежих данных CGM.</small>
+              )}
+              {topUpData.status === "ready" ||
+              topUpData.status === "not_needed" ? (
+                <small className="ns-top-up-context">
+                  {formatMmol(topUpData.glucose_mmol_l)}
+                  {topUpData.projection_source === "forecast"
+                    ? ` → ${formatMmol(topUpData.projected_glucose_mmol_l)} (прогноз)`
+                    : ""}{" "}
+                  · цель {formatMmol(topUpData.target_mmol_l)} · осталось{" "}
+                  {formatOnBoard(topUpData.cob_g ?? undefined, 0)} г · ICR{" "}
+                  {formatOnBoard(topUpData.icr_g_per_unit ?? undefined, 1)} · ISF{" "}
+                  {formatDose(topUpData.isf_mmol_l_per_unit)}
+                  {topUpData.isf_source === "default" ? " (по умолчанию)" : ""}
+                </small>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="ns-mode-switch" role="group" aria-label="Режим глюкозы">

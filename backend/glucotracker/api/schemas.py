@@ -1973,6 +1973,31 @@ class GlucoseDashboardSummary(BaseModel):
     suspected_compression_count: int
 
 
+class TopUpDoseResponse(BaseModel):
+    """Follow-up bolus during a rise, with every term that produced it."""
+
+    status: Literal[
+        "ready",
+        "not_needed",
+        "low_or_falling",
+        "glucose_unavailable",
+        "icr_unavailable",
+    ]
+    units: float | None = None
+    glucose_mmol_l: float | None = None
+    projected_glucose_mmol_l: float | None = None
+    projection_source: Literal["none", "linear_trend", "forecast"] = "none"
+    target_mmol_l: float | None = None
+    cob_g: float | None = None
+    iob_units: float | None = None
+    carb_units: float | None = None
+    correction_units: float | None = None
+    icr_g_per_unit: float | None = None
+    isf_mmol_l_per_unit: float | None = None
+    isf_source: Literal["manual", "fitted", "default"] | None = None
+    note: str | None = None
+
+
 class GlucoseDashboardResponse(BaseModel):
     """Nightscout-like glucose dashboard response."""
 

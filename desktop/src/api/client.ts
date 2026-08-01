@@ -109,6 +109,7 @@ export type InsulinRecommendationRequest =
   components["schemas"]["InsulinRecommendationRequest"];
 export type InsulinRecommendationResponse =
   components["schemas"]["InsulinRecommendationResponse"];
+export type TopUpDoseResponse = components["schemas"]["TopUpDoseResponse"];
 export type GlucosePredictionMode = GlucosePredictionResponse["mode"];
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
 export type NightscoutInsulinEntryCreate =
@@ -977,6 +978,14 @@ export const apiClient = {
         },
         timeoutMs: 90_000,
       },
+    ),
+
+  getTopUpDose: (config: ApiConfig, targetMmolL?: number) =>
+    apiRequest<TopUpDoseResponse>(
+      targetMmolL === undefined
+        ? "/glucose/top-up-dose"
+        : `/glucose/top-up-dose?target_mmol_l=${encodeURIComponent(targetMmolL)}`,
+      config,
     ),
 
   getInsulinRecommendation: (
