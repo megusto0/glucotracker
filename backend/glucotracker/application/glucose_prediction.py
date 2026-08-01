@@ -3,6 +3,13 @@
 The predictor is display-only. It learns glucose deltas from the owner's own
 chronological CGM history and augments the recent CGM shape with meal, insulin,
 heart-rate, activity, and sleep context.
+
+Training, evaluation and display all happen in the **normalized** (fingerstick
+calibrated) space, so absolute-level thresholds mean the same thing here as they
+do on the dashboard and in the insulin math. Raw values are still reported for
+the prospective audit, which stays raw-on-raw for continuity with past runs; the
+two agree on errors because a forecast and its outcome share a timestamp and
+therefore share a bias.
 """
 
 from __future__ import annotations
@@ -27,6 +34,9 @@ from glucotracker.api.schemas import (
     GlucosePredictionResponse,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.glucose_normalization import (
+    GlucoseNormalizationService,
+)
 from glucotracker.application.glucose_visibility import visible_glucose_filter
 from glucotracker.application.on_board.classification import is_rapid_insulin_event
 from glucotracker.application.time import (
@@ -57,17 +67,20 @@ from glucotracker.infra.db.repositories.glucose_prediction_audit import (
 )
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 
-MODEL_VERSION = "personal_known_input_shape_scenario_v5"
-MODEL_ALGORITHM = "known_input_kinetic_shape_ensemble_audit_calibrated"
+MODEL_VERSION = "personal_normalized_scenario_v8"
+MODEL_ALGORITHM = "normalized_known_input_kinetic_shape_conformal"
 AUDIT_CALIBRATION_SOURCE_VERSIONS = (
     "personal_known_input_shape_scenario_v4",
+    "personal_known_input_shape_scenario_v5",
     MODEL_VERSION,
 )
 AUDIT_CALIBRATION_LOOKBACK_DAYS = 7
-AUDIT_CALIBRATION_MIN_HORIZON_MINUTES = 60
+AUDIT_CALIBRATION_MIN_HORIZON_MINUTES = 30
 AUDIT_CALIBRATION_MIN_POINTS = 48
 AUDIT_CALIBRATION_FULL_STRENGTH_POINTS = 180
-AUDIT_CALIBRATION_WEIGHTS = (0.0, 0.25, 0.5, 0.75, 1.0)
+# Candidates above 1.0 let the audit expand an under-confident forecast, not just
+# damp it toward persistence. A one-sided grid could only ever shrink further.
+AUDIT_CALIBRATION_WEIGHTS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 AUDIT_CALIBRATION_CORRECTION_CAP_MMOL = 0.5
 AUDIT_CALIBRATION_MIN_MAE_IMPROVEMENT = 0.005
 TRAINING_DAYS = 45
@@ -76,35 +89,54 @@ MIN_TRAINING_ROWS = 240
 MIN_VALIDATION_ROWS = 48
 MIN_TEST_ROWS = 48
 MAX_CGM_MATCH_SECONDS = 8 * 60
-LIGHTGBM_PARAMS: dict[str, int | float | str] = {
-    "objective": "huber",
-    "metric": "l1",
-    "alpha": 0.8,
-    "verbosity": -1,
-    "num_threads": 2,
-    "lambda_l2": 2.0,
-    "lambda_l1": 0.2,
-    "seed": 42,
-    "num_leaves": 7,
-    "max_depth": 3,
-    "min_data_in_leaf": 40,
-    "learning_rate": 0.03,
-}
-LIGHTGBM_ROUNDS = 250
 SCENARIO_TAU_CANDIDATES = (15.0, 30.0, 45.0, 60.0)
 SCENARIO_MOMENTUM_WEIGHTS = np.linspace(0.25, 1.5, 6)
 SCENARIO_CARB_WEIGHTS = np.asarray((0.0, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2))
 SCENARIO_INSULIN_WEIGHTS = np.asarray((0.25, 0.5, 1.0, 1.5, 2.0, 3.0))
 SHAPE_BLEND_CANDIDATES = (0.25, 0.5, 0.75)
 SHAPE_BLEND_SCORE_TOLERANCE = 0.005
+# The Huber delta used to be 0.8 mmol/L, below a typical 60-90 minute move, so
+# every stage effectively optimized L1 and returned the conditional median. On a
+# mostly-flat CGM that median is near zero, and the forecast collapsed toward
+# persistence (measured: predicted moves were ~30% of actual moves at 90 min).
+# A delta above the usual excursion keeps the estimate near the conditional mean
+# while still clipping genuine artefacts such as compression lows.
+HUBER_DELTA_MMOL = 3.0
 SHAPE_LIGHTGBM_PARAMS: dict[str, int | float | str] = {
-    **LIGHTGBM_PARAMS,
+    "objective": "huber",
+    "metric": "l2",
+    "alpha": HUBER_DELTA_MMOL,
+    "verbosity": -1,
+    "num_threads": 2,
+    "lambda_l2": 2.0,
+    "lambda_l1": 0.2,
+    "seed": 42,
     "learning_rate": 0.025,
     "num_leaves": 5,
     "max_depth": 3,
     "min_data_in_leaf": 60,
 }
 SHAPE_LIGHTGBM_ROUNDS = 180
+# Interval from real quantile regression, then conformalized on the holdout, in
+# place of a max() over two independent q80 residual estimates (which is not a
+# quantile of anything and over-covered badly at long horizons).
+INTERVAL_QUANTILES = (0.1, 0.9)
+INTERVAL_TARGET_COVERAGE = 0.8
+QUANTILE_LIGHTGBM_PARAMS: dict[str, int | float | str] = {
+    "objective": "quantile",
+    "metric": "quantile",
+    "verbosity": -1,
+    "num_threads": 2,
+    "lambda_l2": 2.0,
+    "seed": 42,
+    "learning_rate": 0.05,
+    "num_leaves": 5,
+    "max_depth": 3,
+    "min_data_in_leaf": 60,
+}
+QUANTILE_LIGHTGBM_ROUNDS = 150
+MIN_CONFORMAL_ROWS = 30
+MIN_CI_HALF_WIDTH_MMOL = 0.25
 SHAPE_FEATURE_NAMES = [
     "glucose_delta_5m",
     "glucose_delta_15m",
@@ -128,6 +160,7 @@ SHAPE_FEATURE_NAMES = [
     "sleep_hours_24h",
     "hour_sin",
     "hour_cos",
+    "sensor_age_days",
 ]
 SCENARIO_FEATURE_NAMES = [
     "cob_remaining_g",
@@ -173,13 +206,24 @@ FEATURE_NAMES = [
     "sleep_hours_24h",
     "hour_sin",
     "hour_cos",
+    "sensor_age_days",
 ]
 
 
 @dataclass(frozen=True)
 class _GlucoseSample:
+    """One calibrated CGM reading.
+
+    ``value`` is the normalized value the model learns and displays; ``raw`` is
+    kept so the prospective audit can stay in the raw space its history uses.
+    """
+
     timestamp: datetime
     value: float
+    raw: float = 0.0
+    bias: float = 0.0
+    sensor_age_days: float | None = None
+    is_normalized: bool = False
 
 
 @dataclass(frozen=True)
@@ -282,16 +326,15 @@ class _FeatureContext:
 
 
 @dataclass(frozen=True)
-class _Fit:
-    mean: np.ndarray
-    scale: np.ndarray
-    coefficients: np.ndarray
-    alpha: float
+class _TreeFit:
+    boosters: list[Any]
 
 
 @dataclass(frozen=True)
-class _TreeFit:
-    boosters: list[Any]
+class _QuantileFit:
+    """Per-quantile, per-horizon boosters bounding the forecast delta."""
+
+    boosters: dict[float, list[Any]]
 
 
 @dataclass(frozen=True)
@@ -469,6 +512,24 @@ class GlucosePredictionService:
             validation_shape_predictions,
             shape_blend,
         )
+        evaluation_quantile_fit = _fit_quantile_models(
+            shape_x[:calibration_end],
+            evaluation_design[:calibration_end],
+            y[:calibration_end],
+            eligibility[:calibration_end],
+        )
+        validation_quantiles = _predict_quantile_models(
+            evaluation_quantile_fit,
+            shape_x[calibration_end:],
+            evaluation_design[calibration_end:],
+        )
+        conformal_scale = _conformal_interval_scale(
+            validation_quantiles[INTERVAL_QUANTILES[0]],
+            validation_quantiles[INTERVAL_QUANTILES[1]],
+            validation_predictions,
+            test_y,
+            test_eligibility,
+        )
         validation_errors = np.abs(validation_predictions - test_y)
         validation_mae_by_horizon = _masked_mean_by_horizon(
             validation_errors,
@@ -545,6 +606,23 @@ class GlucosePredictionService:
             current_shape_predictions,
             shape_blend,
         )[0]
+        final_quantile_fit = _fit_quantile_models(
+            shape_x,
+            evaluation_design,
+            y,
+            eligibility,
+        )
+        current_quantiles = _predict_quantile_models(
+            final_quantile_fit,
+            _shape_features(current_x),
+            current_design,
+        )
+        interval_half_low, interval_half_high = _interval_half_widths(
+            current_quantiles[INTERVAL_QUANTILES[0]][0],
+            current_quantiles[INTERVAL_QUANTILES[1]][0],
+            predicted_deltas,
+            conformal_scale,
+        )
         audit_calibration = self._audit_calibration(anchor, horizons)
         eligible_sample_count = int(eligibility[:, -1].sum())
         eligible_days = {
@@ -579,7 +657,7 @@ class GlucosePredictionService:
                 f"({post_meal_metrics['count']} окон)."
             )
 
-        display_anchor, normalized_anchor = self._display_anchor(anchor, mode)
+        display_anchor = anchor.value if mode == "normalized" else anchor.raw
         anchor_age_minutes = max(
             0.0,
             (now - anchor.timestamp).total_seconds() / 60.0,
@@ -587,39 +665,34 @@ class GlucosePredictionService:
         if anchor_age_minutes > 15:
             notes.append("Последняя точка CGM старше 15 минут; confidence снижен.")
 
-        post_meal_mask = test_x[:, FEATURE_NAMES.index("carbs_120m")] > 0
-        current_is_post_meal = current_features[FEATURE_NAMES.index("carbs_120m")] > 0
-        residual_q80 = _residual_quantiles(
-            validation_errors,
-            test_eligibility,
-            post_meal_mask=(post_meal_mask if current_is_post_meal else None),
-        )
         points: list[GlucosePredictionPoint] = []
         base_prediction_by_horizon: dict[int, float] = {}
         base_confidence = {"high": 0.82, "medium": 0.64, "low": 0.44}[model_confidence]
         freshness = max(0.25, 1.0 - max(0.0, anchor_age_minutes - 10) / 120)
+        # The model now works entirely in the normalized space, so the raw series
+        # reported for the prospective audit is reconstructed from the anchor bias.
+        bias = anchor.bias
         for index, horizon in enumerate(horizons):
             base_delta = float(predicted_deltas[index])
             base_prediction_by_horizon[horizon] = round(
-                _clamp_glucose(anchor.value + base_delta),
+                _clamp_glucose(anchor.value + base_delta) - bias,
                 2,
             )
             calibration = audit_calibration[horizon]
             delta = calibration.weight * base_delta + calibration.correction_mmol_l
-            raw_value = _clamp_glucose(anchor.value + delta)
-            normalized_value = (
-                _clamp_glucose(normalized_anchor + delta)
-                if normalized_anchor is not None
-                else None
-            )
+            normalized_value = _clamp_glucose(anchor.value + delta)
+            raw_value = _clamp_glucose(normalized_value - bias)
             display_value = (
-                normalized_value
-                if mode == "normalized" and normalized_value is not None
-                else raw_value
+                normalized_value if mode == "normalized" else raw_value
             )
-            ci_half = max(
-                0.25,
-                float(residual_q80[index]),
+            half_low = max(
+                MIN_CI_HALF_WIDTH_MMOL,
+                float(interval_half_low[index]),
+                calibration.empirical_q80_mmol_l or 0.0,
+            )
+            half_high = max(
+                MIN_CI_HALF_WIDTH_MMOL,
+                float(interval_half_high[index]),
                 calibration.empirical_q80_mmol_l or 0.0,
             )
             confidence = base_confidence * freshness * (1.0 - 0.35 * horizon / 90)
@@ -630,16 +703,14 @@ class GlucosePredictionService:
                     ),
                     horizon_minutes=horizon,
                     raw_value=round(raw_value, 2),
-                    raw_ci_low=round(_clamp_glucose(raw_value - ci_half), 2),
-                    raw_ci_high=round(_clamp_glucose(raw_value + ci_half), 2),
+                    raw_ci_low=round(_clamp_glucose(raw_value - half_low), 2),
+                    raw_ci_high=round(_clamp_glucose(raw_value + half_high), 2),
                     normalized_value=(
-                        round(normalized_value, 2)
-                        if normalized_value is not None
-                        else None
+                        round(normalized_value, 2) if anchor.is_normalized else None
                     ),
                     display_value=round(display_value, 2),
-                    ci_low=round(_clamp_glucose(display_value - ci_half), 2),
-                    ci_high=round(_clamp_glucose(display_value + ci_half), 2),
+                    ci_low=round(_clamp_glucose(display_value - half_low), 2),
+                    ci_high=round(_clamp_glucose(display_value + half_high), 2),
                     confidence=round(max(0.0, min(1.0, confidence)), 3),
                     band=_glucose_band(display_value),
                 )
@@ -662,7 +733,7 @@ class GlucosePredictionService:
             generated_at=now,
             anchor_timestamp=local_wall_time(anchor.timestamp),
             anchor_value=round(display_anchor, 2),
-            raw_anchor_value=round(anchor.value, 2),
+            raw_anchor_value=round(anchor.raw, 2),
             horizon_minutes=horizon_minutes,
             step_minutes=step_minutes,
             mode=mode,
@@ -756,6 +827,7 @@ class GlucosePredictionService:
         return _fit_audit_calibration(samples, horizons)
 
     def _glucose_history(self, horizon_minutes: int) -> list[_GlucoseSample]:
+        """Return the calibrated training series, oldest first."""
         newest = self.session.scalar(
             select(NightscoutGlucoseEntry)
             .where(
@@ -775,24 +847,21 @@ class GlucosePredictionService:
                 datetime.min.time(),
             )
         )
-        rows = self.session.scalars(
-            select(NightscoutGlucoseEntry)
-            .where(
-                NightscoutGlucoseEntry.owner_id == self.user_id,
-                NightscoutGlucoseEntry.timestamp >= training_from,
-                NightscoutGlucoseEntry.timestamp
-                <= newest_at + timedelta(minutes=horizon_minutes),
-                visible_glucose_filter(self.user_id),
-            )
-            .order_by(NightscoutGlucoseEntry.timestamp.asc())
-        ).all()
-        deduped: dict[datetime, float] = {}
-        for row in rows:
-            deduped[_as_utc(row.timestamp)] = float(row.value_mmol_l)
+        samples = GlucoseNormalizationService(self.session, self.user_id).series(
+            training_from,
+            newest_at + timedelta(minutes=horizon_minutes),
+        )
         return [
-            _GlucoseSample(timestamp, value)
-            for timestamp, value in sorted(deduped.items())
-            if 1.5 <= value <= 30
+            _GlucoseSample(
+                timestamp=sample.timestamp,
+                value=sample.normalized_mmol_l,
+                raw=sample.raw_mmol_l,
+                bias=sample.bias_mmol_l,
+                sensor_age_days=sample.sensor_age_days,
+                is_normalized=sample.is_normalized,
+            )
+            for sample in samples
+            if 1.5 <= sample.normalized_mmol_l <= 30
         ]
 
     def _feature_context(
@@ -1049,25 +1118,6 @@ class GlucosePredictionService:
             eligibility.append(target_eligibility)
         return rows, targets, row_times, eligibility
 
-    def _display_anchor(
-        self,
-        anchor: _GlucoseSample,
-        mode: Literal["raw", "normalized"],
-    ) -> tuple[float, float | None]:
-        dashboard = GlucoseDashboardService(self.session, self.user_id).dashboard(
-            local_wall_time(anchor.timestamp - timedelta(minutes=20)),
-            local_wall_time(anchor.timestamp),
-            mode,
-        )
-        latest = dashboard.points[-1] if dashboard.points else None
-        normalized = latest.normalized_value if latest is not None else None
-        display = (
-            normalized
-            if mode == "normalized" and normalized is not None
-            else anchor.value
-        )
-        return float(display), float(normalized) if normalized is not None else None
-
     def _empty_response(
         self,
         *,
@@ -1085,7 +1135,7 @@ class GlucosePredictionService:
                 local_wall_time(anchor.timestamp) if anchor is not None else None
             ),
             anchor_value=anchor.value if anchor is not None else None,
-            raw_anchor_value=anchor.value if anchor is not None else None,
+            raw_anchor_value=anchor.raw if anchor is not None else None,
             horizon_minutes=horizon_minutes,
             step_minutes=step_minutes,
             mode=mode,
@@ -1314,9 +1364,25 @@ def _features_at(
             sleep_hours,
             sin(angle),
             cos(angle),
+            _sensor_age_at(context, timestamp),
         ],
         coverage,
     )
+
+
+def _sensor_age_at(context: _FeatureContext, timestamp: datetime) -> float:
+    """Return sensor age in days at a timestamp, 0.0 when unknown.
+
+    Sensor age is a real regime variable: before a sensor has stable fingerstick
+    coverage its bias is unresolved, and forecasts made then were measurably
+    worse than persistence. Exposing it lets the model separate those windows
+    instead of averaging them into the rest of the history.
+    """
+    index = bisect_right(context.glucose_times, timestamp) - 1
+    if index < 0:
+        index = 0
+    age = context.glucose[index].sensor_age_days
+    return float(age) if age is not None else 0.0
 
 
 def _prediction_inputs(
@@ -1559,6 +1625,20 @@ def _scenario_design(
     )
 
 
+def _huber_score(residual: np.ndarray, delta: float = HUBER_DELTA_MMOL) -> float:
+    """Return mean Huber loss: quadratic within ``delta``, linear beyond it.
+
+    Selecting on mean absolute error drives every estimate to the conditional
+    median, which on a mostly-flat CGM is a near-flat forecast. Huber keeps the
+    quadratic pull toward the conditional mean for ordinary excursions and only
+    degrades to L1 for outliers such as compression lows and sensor jumps.
+    """
+    magnitude = np.abs(residual)
+    quadratic = np.minimum(magnitude, delta)
+    linear = magnitude - quadratic
+    return float(np.mean(0.5 * quadratic**2 + delta * linear))
+
+
 def _fit_scenario_coefficients(
     design: np.ndarray,
     targets: np.ndarray,
@@ -1580,7 +1660,7 @@ def _fit_scenario_coefficients(
                         + carb_weight * values[:, 1]
                         - insulin_weight * values[:, 2]
                     )
-                    score = float(np.mean(np.abs(estimate - actual)))
+                    score = _huber_score(estimate - actual)
                     if best_score is None or score < best_score:
                         best_score = score
                         best_coefficients = (
@@ -1597,12 +1677,13 @@ def _predict_known_input_scenario(
     design: np.ndarray,
     coefficients: np.ndarray,
 ) -> np.ndarray:
-    predictions = (
+    # Smoothing happens once, in the blend. Applying it here as well damped the
+    # kinetic branch twice and flattened exactly the excursions worth showing.
+    return (
         design[:, :, 0] * coefficients[:, 0]
         + design[:, :, 1] * coefficients[:, 1]
         - design[:, :, 2] * coefficients[:, 2]
     )
-    return _smooth_forecast_matrix(predictions)
 
 
 def _shape_features(x: np.ndarray) -> np.ndarray:
@@ -1652,6 +1733,95 @@ def _fit_shape_models(
     return _TreeFit(boosters)
 
 
+def _fit_quantile_models(
+    shape_x: np.ndarray,
+    scenario_design: np.ndarray,
+    targets: np.ndarray,
+    eligibility: np.ndarray,
+) -> _QuantileFit:
+    """Learn the lower and upper delta quantiles that bound the forecast."""
+    import lightgbm as lgb
+
+    boosters: dict[float, list[Any]] = {}
+    for quantile in INTERVAL_QUANTILES:
+        params = {**QUANTILE_LIGHTGBM_PARAMS, "alpha": quantile}
+        horizon_boosters: list[Any] = []
+        for horizon_index in range(targets.shape[1]):
+            use = eligibility[:, horizon_index]
+            features = _shape_horizon_features(
+                shape_x,
+                scenario_design,
+                horizon_index,
+            )
+            dataset = lgb.Dataset(
+                features[use],
+                label=targets[use, horizon_index],
+                free_raw_data=True,
+            )
+            horizon_boosters.append(
+                lgb.train(
+                    params,
+                    dataset,
+                    num_boost_round=QUANTILE_LIGHTGBM_ROUNDS,
+                )
+            )
+        boosters[quantile] = horizon_boosters
+    return _QuantileFit(boosters)
+
+
+def _predict_quantile_models(
+    fit: _QuantileFit,
+    shape_x: np.ndarray,
+    scenario_design: np.ndarray,
+) -> dict[float, np.ndarray]:
+    return {
+        quantile: np.column_stack(
+            [
+                booster.predict(
+                    _shape_horizon_features(
+                        shape_x,
+                        scenario_design,
+                        horizon_index,
+                    )
+                )
+                for horizon_index, booster in enumerate(boosters)
+            ]
+        )
+        for quantile, boosters in fit.boosters.items()
+    }
+
+
+def _conformal_interval_scale(
+    lower: np.ndarray,
+    upper: np.ndarray,
+    center: np.ndarray,
+    targets: np.ndarray,
+    eligibility: np.ndarray,
+) -> np.ndarray:
+    """Return the per-horizon factor that lifts holdout coverage to nominal.
+
+    Quantile regression alone under-covers on small personal histories. Scaling
+    each side by the empirical coverage quantile of the normalized conformity
+    score restores the stated level without assuming a residual distribution.
+    """
+    scales = np.ones(targets.shape[1], dtype=np.float64)
+    for index in range(targets.shape[1]):
+        use = eligibility[:, index]
+        if int(use.sum()) < MIN_CONFORMAL_ROWS:
+            continue
+        half_low = np.maximum(center[use, index] - lower[use, index], 1e-6)
+        half_high = np.maximum(upper[use, index] - center[use, index], 1e-6)
+        residual = targets[use, index] - center[use, index]
+        # Conformity score: how many half-widths away the outcome landed.
+        score = np.where(residual < 0, -residual / half_low, residual / half_high)
+        level = min(
+            1.0,
+            INTERVAL_TARGET_COVERAGE * (1.0 + 1.0 / int(use.sum())),
+        )
+        scales[index] = max(0.5, min(4.0, float(np.quantile(score, level))))
+    return scales
+
+
 def _predict_shape_models(
     fit: _TreeFit,
     shape_x: np.ndarray,
@@ -1690,11 +1860,14 @@ def _select_shape_blend(
     scores: dict[float, float] = {}
     for weight in SHAPE_BLEND_CANDIDATES:
         predictions = _blend_scenario_predictions(kinetic, shape, weight)
+        residual = predictions - targets
         scores[weight] = float(
-            _masked_mean_by_horizon(
-                np.abs(predictions - targets),
-                eligibility,
-            ).mean()
+            np.mean(
+                [
+                    _huber_score(residual[eligibility[:, index], index])
+                    for index in range(residual.shape[1])
+                ]
+            )
         )
     best_score = min(scores.values())
     tolerance = max(1e-6, best_score * SHAPE_BLEND_SCORE_TOLERANCE)
@@ -1724,12 +1897,15 @@ def _select_scenario_tau(
             design[train_end:calibration_end],
             coefficients,
         )
-        errors = np.abs(predictions - targets[train_end:calibration_end])
+        residual = predictions - targets[train_end:calibration_end]
+        window = eligibility[train_end:calibration_end]
         score = float(
-            _masked_mean_by_horizon(
-                errors,
-                eligibility[train_end:calibration_end],
-            ).mean()
+            np.mean(
+                [
+                    _huber_score(residual[window[:, index], index])
+                    for index in range(residual.shape[1])
+                ]
+            )
         )
         if best_score is None or score < best_score:
             best_score = score
@@ -1750,43 +1926,26 @@ def _masked_mean_by_horizon(
     )
 
 
-def _residual_quantiles(
-    errors: np.ndarray,
-    eligibility: np.ndarray,
+def _interval_half_widths(
+    lower_delta: np.ndarray,
+    upper_delta: np.ndarray,
+    center_delta: np.ndarray,
+    conformal_scale: np.ndarray,
     *,
-    post_meal_mask: np.ndarray | None,
-) -> np.ndarray:
-    quantiles = np.zeros(errors.shape[1], dtype=np.float64)
-    for index in range(errors.shape[1]):
-        use = eligibility[:, index]
-        if post_meal_mask is not None and int((use & post_meal_mask).sum()) >= 30:
-            use &= post_meal_mask
-        quantiles[index] = float(np.quantile(errors[use, index], 0.8))
-    return quantiles
+    minimum: float = MIN_CI_HALF_WIDTH_MMOL,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return conformalized lower/upper half-widths around the central forecast.
 
-
-def _select_ridge(
-    train_x: np.ndarray,
-    train_y: np.ndarray,
-    validation_x: np.ndarray,
-    validation_y: np.ndarray,
-) -> tuple[_Fit, np.ndarray]:
-    candidates = (1.0, 10.0, 50.0, 150.0)
-    best_score: float | None = None
-    best_fit: _Fit | None = None
-    best_predictions: np.ndarray | None = None
-    # Selection metric is attached by the caller; use stable coefficient size
-    # here, then the caller evaluates chronological holdout quality.
-    for alpha in candidates:
-        fit = _fit_ridge(train_x, train_y, alpha)
-        predictions = _predict_ridge(fit, validation_x)
-        score = float(np.mean(np.abs(predictions - validation_y)))
-        if best_score is None or score < best_score:
-            best_score = score
-            best_fit = fit
-            best_predictions = predictions
-    assert best_fit is not None and best_predictions is not None
-    return best_fit, best_predictions
+    The band is deliberately asymmetric: a rise driven by absorbing carbs and a
+    fall driven by active insulin do not carry the same uncertainty, and a
+    symmetric half-width had to cover the worse side on both.
+    """
+    half_low = np.maximum(center_delta - lower_delta, minimum) * conformal_scale
+    half_high = np.maximum(upper_delta - center_delta, minimum) * conformal_scale
+    return (
+        np.maximum(half_low, minimum),
+        np.maximum(half_high, minimum),
+    )
 
 
 def _chronological_day_splits(row_times: list[datetime]) -> tuple[int, int]:
@@ -1819,46 +1978,6 @@ def _chronological_day_splits(row_times: list[datetime]) -> tuple[int, int]:
     )
     calibration_end = min(calibration_end, len(row_times) - MIN_TEST_ROWS)
     return train_end, calibration_end
-
-
-def _fit_lightgbm(x: np.ndarray, y: np.ndarray) -> _TreeFit:
-    import lightgbm as lgb
-
-    boosters: list[Any] = []
-    for horizon_index in range(y.shape[1]):
-        dataset = lgb.Dataset(x, label=y[:, horizon_index], free_raw_data=True)
-        boosters.append(
-            lgb.train(
-                LIGHTGBM_PARAMS,
-                dataset,
-                num_boost_round=LIGHTGBM_ROUNDS,
-            )
-        )
-    return _TreeFit(boosters)
-
-
-def _predict_lightgbm(fit: _TreeFit, x: np.ndarray) -> np.ndarray:
-    return np.column_stack([booster.predict(x) for booster in fit.boosters])
-
-
-def _fit_ridge(x: np.ndarray, y: np.ndarray, alpha: float) -> _Fit:
-    mean = x.mean(axis=0)
-    scale = x.std(axis=0)
-    scale = np.where(scale < 1e-8, 1.0, scale)
-    standardized = (x - mean) / scale
-    design = np.column_stack([np.ones(len(standardized)), standardized])
-    penalty = np.eye(design.shape[1]) * alpha
-    penalty[0, 0] = 0.0
-    lhs = design.T @ design + penalty
-    rhs = design.T @ y
-    coefficients = np.linalg.solve(lhs, rhs)
-    return _Fit(mean=mean, scale=scale, coefficients=coefficients, alpha=alpha)
-
-
-def _predict_ridge(fit: _Fit, x: np.ndarray) -> np.ndarray:
-    standardized = (x - fit.mean) / fit.scale
-    design = np.column_stack([np.ones(len(standardized)), standardized])
-    return design @ fit.coefficients
 
 
 def _nearest_glucose(
@@ -1905,24 +2024,6 @@ def _model_confidence(
     ):
         return "medium"
     return "low"
-
-
-def _persistence_blend_weights(
-    predictions: np.ndarray,
-    targets: np.ndarray,
-) -> np.ndarray:
-    """Choose per-horizon ridge weight without losing to no-change baseline."""
-    weights = np.zeros(predictions.shape[1], dtype=np.float64)
-    candidates = np.linspace(0.0, 1.0, 21)
-    for horizon in range(predictions.shape[1]):
-        scores = [
-            float(
-                np.mean(np.abs(targets[:, horizon] - predictions[:, horizon] * weight))
-            )
-            for weight in candidates
-        ]
-        weights[horizon] = float(candidates[int(np.argmin(scores))])
-    return weights
 
 
 def _smooth_forecast(values: np.ndarray) -> np.ndarray:

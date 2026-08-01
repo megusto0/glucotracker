@@ -529,3 +529,124 @@ def test_recommendation_falls_back_to_icr_without_history(
     assert body["recommended_units"] == 4.0
     assert body["confidence"] == "low"
     assert body["matched_episode_count"] == 0
+
+
+def test_recommendation_corrects_near_low_outcomes_downward(
+    api_client: TestClient,
+) -> None:
+    """An episode that finished just above hypo lowers its own scaled dose.
+
+    Before, only high outcomes adjusted a dose and sub-3.9 outcomes were
+    dropped, so nothing could ever pull the estimate down.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 12, 0)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21, 28):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 4.0)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"outcome-near-low-{days_ago}",
+                    timestamp=occurred_at + timedelta(hours=2),
+                    value_mmol_l=4.2,
+                    value_mg_dl=round(4.2 * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.isf = 2.0
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    # (4.2 - 5.0) / 2.0 = -0.4 U on an identical 40 g meal.
+    assert body["recommended_units"] == 3.6
+    for match in body["matches"]:
+        assert match["scaled_units"] == 3.6
+
+
+def test_recommendation_keeps_in_range_outcomes_unchanged(
+    api_client: TestClient,
+) -> None:
+    """Comfortable outcomes are copied as-is, with no residual either way."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 12, 0)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21, 28):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 4.0)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"outcome-in-range-{days_ago}",
+                    timestamp=occurred_at + timedelta(hours=2),
+                    value_mmol_l=6.5,
+                    value_mg_dl=round(6.5 * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.isf = 2.0
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["recommended_units"] == 4.0
+    for match in body["matches"]:
+        assert match["outcome_weight"] == 1.0
+        assert match["scaled_units"] == 4.0
+
+
+def test_recommendation_still_drops_very_low_outcomes(
+    api_client: TestClient,
+) -> None:
+    """A rescued episode teaches no ratio and stays excluded."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 12, 0)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21, 28):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 9.0)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"outcome-very-low-{days_ago}",
+                    timestamp=occurred_at + timedelta(hours=2),
+                    value_mmol_l=2.6,
+                    value_mg_dl=round(2.6 * 18.0182),
+                    source="CGM",
+                )
+            )
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "insufficient_history"
+    assert body["matches"] == []

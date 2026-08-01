@@ -9,6 +9,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from glucotracker.application.glucose_normalization import (
+    GlucoseNormalizationService,
+)
 from glucotracker.application.on_board.classification import (
     is_liquid_meal,
     is_rapid_insulin_event,
@@ -27,7 +30,12 @@ from glucotracker.application.on_board.fitter import (
     RetrospectiveDay,
     fit_on_board_timing,
 )
-from glucotracker.application.time import local_now, local_timezone, local_wall_time
+from glucotracker.application.time import (
+    local_now,
+    local_timezone,
+    local_wall_time,
+    utc_instant_from_local_wall,
+)
 from glucotracker.application.twin.kernels import (
     CarbProfileWeights,
     PersonalizedInsulinKernel,
@@ -199,23 +207,28 @@ class OnBoardFitService:
                 PRODUCTION_FITTER_CONFIG.meal_lookback_minutes,
             )
         )
-        glucose_rows = self.repository.list_training_glucose(
-            training_from,
-            training_to,
-        )
         insulin_rows = self.repository.list_training_insulin(
             source_from,
             training_to,
         )
         meal_rows = self.repository.list_training_meals(source_from, training_to)
 
+        # Kernel timing is fitted against glucose excursions, so the series has
+        # to be on the same scale the rest of the app reasons about; a raw
+        # series compresses every excursion by the sensor bias.
         glucose = [
             CgmSample(
-                timestamp=_nightscout_local(row.timestamp),
-                glucose_mmol_l=float(row.value_mmol_l),
+                timestamp=_nightscout_local(sample.timestamp),
+                glucose_mmol_l=sample.normalized_mmol_l,
             )
-            for row in glucose_rows
-            if row.value_mmol_l > 0
+            for sample in GlucoseNormalizationService(
+                self.repository.session,
+                self.repository.user_id,
+            ).series(
+                utc_instant_from_local_wall(training_from),
+                utc_instant_from_local_wall(training_to),
+            )
+            if sample.normalized_mmol_l > 0
         ]
         rapid = [
             RapidInsulinEvent(

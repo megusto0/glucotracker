@@ -76,6 +76,12 @@ DEFERRED_UNTIL = timedelta(hours=3)
 MIN_CARBS_FOR_DEFERRED_G = 15.0
 OUTCOME_HORIZON = timedelta(hours=2)
 OUTCOME_SAMPLE_WINDOW = timedelta(minutes=20)
+# Floor of the comfortable +2 h landing zone. Finishing between this and the
+# hypo threshold is a near miss, so the episode's dose is corrected downward
+# rather than being copied as if it had gone well.
+OUTCOME_COMFORT_LOW_MMOL_L = 5.0
+# Cap on how far one episode's outcome may move its own dose, either way.
+MAX_OUTCOME_RESIDUAL_FRACTION = 0.25
 
 
 @dataclass(frozen=True)
@@ -605,21 +611,29 @@ class HistoricalInsulinRecommendationService:
         glucose = self._normalized_outcome_cache[target]
         if glucose is None:
             return match
-        # Post-meal lows must never teach the meal ratio. High/missing
-        # outcomes remain weak evidence so thin histories do not vanish.
-        if glucose < LOW_GLUCOSE_MMOL_L:
+        # A very low outcome carries no usable ratio: the episode was rescued
+        # with carbs, so its dose teaches nothing except "less than this".
+        if glucose < VERY_LOW_MMOL_L:
             return None
+        # Otherwise correct the historical dose toward the amount that would
+        # have landed in range. This has to be signed: an episode that finished
+        # just above the low threshold is a near miss, not an exemplar, and an
+        # upward-only residual made the estimator drift high over time.
         residual_units = 0.0
-        if (
-            glucose > TIR_HIGH_MMOL_L
-            and isf is not None
-            and isfinite(isf)
-            and isf > 0
-        ):
+        if isf is not None and isfinite(isf) and isf > 0:
             carb_scale = target_carbs / match.carbs_g
-            residual_units = min(
-                ((glucose - TIR_HIGH_MMOL_L) / isf) * carb_scale,
-                match.scaled_units * 0.25,
+            if glucose > TIR_HIGH_MMOL_L:
+                excess = glucose - TIR_HIGH_MMOL_L
+            elif glucose < OUTCOME_COMFORT_LOW_MMOL_L:
+                excess = glucose - OUTCOME_COMFORT_LOW_MMOL_L
+            else:
+                excess = 0.0
+            residual_units = max(
+                -match.scaled_units * MAX_OUTCOME_RESIDUAL_FRACTION,
+                min(
+                    (excess / isf) * carb_scale,
+                    match.scaled_units * MAX_OUTCOME_RESIDUAL_FRACTION,
+                ),
             )
         return HistoricalDoseMatch(
             occurred_at=match.occurred_at,

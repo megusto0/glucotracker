@@ -12,6 +12,8 @@ from sqlalchemy import select
 
 from glucotracker.application.glucose_prediction import (
     FEATURE_NAMES,
+    MODEL_ALGORITHM,
+    MODEL_VERSION,
     _chronological_day_splits,
     _fit_audit_calibration,
     _post_meal_validation_metrics,
@@ -113,11 +115,8 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
     assert len(payload["points"]) == 18
     assert payload["points"][-1]["horizon_minutes"] == 90
     assert payload["model"]["sample_count"] >= 240
-    assert payload["model"]["version"] == "personal_known_input_shape_scenario_v5"
-    assert (
-        payload["model"]["algorithm"]
-        == "known_input_kinetic_shape_ensemble_audit_calibrated"
-    )
+    assert payload["model"]["version"] == MODEL_VERSION
+    assert payload["model"]["algorithm"] == MODEL_ALGORITHM
     assert payload["model"]["forecast_assumption"] == "no_new_food_or_insulin"
     assert "cob_remaining_g" in payload["model"]["features_used"]
     assert "iob_remaining_units" in payload["model"]["features_used"]

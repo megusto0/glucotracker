@@ -24,7 +24,10 @@ from glucotracker.api.schemas import (
     TwinParamsPatch,
     TwinParamsRead,
 )
-from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.glucose_dashboard import _local_wall_from_utc
+from glucotracker.application.glucose_normalization import (
+    GlucoseNormalizationService,
+)
 from glucotracker.application.on_board.service import OnBoardFitService
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.application.twin.estimator import (
@@ -40,7 +43,6 @@ from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     FingerstickReading,
     Meal,
-    NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
     TwinParams,
     utc_now,
@@ -404,7 +406,8 @@ class TwinService:
             rows.insert(0, prior)
         return [
             BGAnchor(
-                timestamp=_local_wall_time(row.measured_at),
+                # measured_at is a UTC instant, like the CGM series it anchors.
+                timestamp=_local_wall_from_utc(row.measured_at),
                 mmol=row.glucose_mmol_l,
                 source="fingerstick",
             )
@@ -416,24 +419,24 @@ class TwinService:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[CGMPoint]:
-        rows = self.session.scalars(
-            select(NightscoutGlucoseEntry)
-            .where(
-                NightscoutGlucoseEntry.owner_id == self.user_id,
-                NightscoutGlucoseEntry.timestamp
-                >= utc_instant_from_local_wall(from_datetime),
-                NightscoutGlucoseEntry.timestamp
-                <= utc_instant_from_local_wall(to_datetime),
-                visible_glucose_filter(self.user_id),
-            )
-            .order_by(NightscoutGlucoseEntry.timestamp.asc())
-        ).all()
+        """Return calibrated CGM for fitting.
+
+        ISF and ICR are consumed against normalized glucose (the correction math
+        projects a normalized reading toward a normalized target), so they have
+        to be fitted on the same scale. Fitting on raw would make every ratio
+        wrong by the sensor bias, and the fingerstick anchors this fit is
+        compared against are already true-scale.
+        """
+        samples = GlucoseNormalizationService(self.session, self.user_id).series(
+            utc_instant_from_local_wall(from_datetime),
+            utc_instant_from_local_wall(to_datetime),
+        )
         return [
             CGMPoint(
-                timestamp=_local_wall_time(row.timestamp),
-                mmol=row.value_mmol_l,
+                timestamp=_local_wall_from_utc(sample.timestamp),
+                mmol=sample.normalized_mmol_l,
             )
-            for row in rows
+            for sample in samples
         ]
 
     def _fingerstick_count(

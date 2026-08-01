@@ -1120,7 +1120,7 @@ class GlucoseDashboardService:
 
         residual_points: list[BiasResidualPoint] = []
         for row in all_fingersticks:
-            measured_at = _local_wall_time(row.measured_at)
+            measured_at = _local_wall_from_utc(row.measured_at)
             age_h = (measured_at - sensor_start).total_seconds() / 3600
             match_result = _cgm_at(sensor_raw, measured_at)
             if match_result is None:
@@ -1232,7 +1232,11 @@ def _valid_calibration_points(
     valid: list[CalibrationPoint] = []
     last_used: datetime | None = None
     for row in fingersticks:
-        measured_at = _local_wall_time(row.measured_at)
+        # Both columns are DateTime(timezone=True) UTC instants, so they must
+        # use the same conversion. _local_wall_time passes a naive value through
+        # unchanged, which silently offset every fingerstick against the CGM
+        # series by the app's UTC offset wherever the driver drops tzinfo.
+        measured_at = _local_wall_from_utc(row.measured_at)
         if last_used and measured_at - last_used < timedelta(minutes=10):
             continue
         match = _cgm_at(raw_points, measured_at)
