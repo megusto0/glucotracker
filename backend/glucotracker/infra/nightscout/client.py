@@ -268,10 +268,12 @@ class NightscoutClient:
         meal: Meal,
     ) -> dict[str, Any]:
         """Update a diary-only carb treatment for an edited accepted meal."""
+        payload = _meal_treatment_payload(meal)
+        payload["_id"] = nightscout_id
         return await self._request(
             "PUT",
-            f"/api/v1/treatments/{nightscout_id}",
-            json_payload=_meal_treatment_payload(meal),
+            "/api/v1/treatments/",
+            json_payload=payload,
         )
 
     async def post_insulin_treatment(
@@ -301,14 +303,16 @@ class NightscoutClient:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Update a Glucotracker-created insulin treatment by remote id."""
+        payload = _manual_insulin_treatment_payload(
+            insulin_units=insulin_units,
+            recorded_at=recorded_at,
+            idempotency_key=idempotency_key,
+        )
+        payload["_id"] = nightscout_id
         return await self._request(
             "PUT",
-            f"/api/v1/treatments/{nightscout_id}",
-            json_payload=_manual_insulin_treatment_payload(
-                insulin_units=insulin_units,
-                recorded_at=recorded_at,
-                idempotency_key=idempotency_key,
-            ),
+            "/api/v1/treatments/",
+            json_payload=payload,
         )
 
     async def find_insulin_treatment(
