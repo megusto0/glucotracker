@@ -172,8 +172,8 @@ def main() -> None:
     sys.path.insert(0, backend)
     shutil.copyfile(snapshot, work)
 
-    from sqlalchemy import create_engine, text
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import create_engine, text  # noqa: PLC0415
+    from sqlalchemy.orm import sessionmaker  # noqa: PLC0415
 
     from glucotracker.application.glucose_prediction import (
         MODEL_VERSION,
@@ -232,37 +232,44 @@ def main() -> None:
     failures = empty = 0
     started = time.time()
     for index, anchor in enumerate(anchors):
-        with engine.begin() as connection:
-            cut = anchor.strftime(FMT)
-            meal_cut = (anchor + timedelta(minutes=offset_minutes)).strftime(FMT)
-            for table, column in (
-                ("nightscout_glucose_entries", "timestamp"),
-                ("nightscout_insulin_events", "timestamp"),
-                ("fingerstick_readings", "measured_at"),
-            ):
-                connection.execute(
-                    text(f"delete from {table} where {column} > :cut"), {"cut": cut}
-                )
-            # meals.eaten_at is local wall clock, not a UTC instant.
-            connection.execute(
-                text("delete from meals where eaten_at > :cut"), {"cut": meal_cut}
-            )
+        cut = anchor.strftime(FMT)
+        meal_cut = (anchor + timedelta(minutes=offset_minutes)).strftime(FMT)
+        response = None
+        # Hide the future inside one transaction and roll it back afterwards.
+        # The predict path is read-only, so the same session can see the
+        # uncommitted deletes without ever writing them. Restoring by file copy
+        # instead would move ~240 MB per anchor and dominate the runtime.
         try:
             with session_factory() as session:
-                response = GlucosePredictionService(session, owner).predict(
-                    mode="normalized", horizon_minutes=90, step_minutes=5
+                for table, column in (
+                    ("nightscout_glucose_entries", "timestamp"),
+                    ("nightscout_insulin_events", "timestamp"),
+                    ("fingerstick_readings", "measured_at"),
+                ):
+                    session.execute(
+                        text(f"delete from {table} where {column} > :cut"),
+                        {"cut": cut},
+                    )
+                # meals.eaten_at is local wall clock, not a UTC instant.
+                session.execute(
+                    text("delete from meals where eaten_at > :cut"), {"cut": meal_cut}
                 )
+                session.flush()
+                try:
+                    response = GlucosePredictionService(session, owner).predict(
+                        mode="normalized", horizon_minutes=90, step_minutes=5
+                    )
+                finally:
+                    session.rollback()
         except Exception as error:  # noqa: BLE001 - report and keep replaying
             failures += 1
             if failures <= 3:
                 print(f"  ! {type(error).__name__}: {error}")
-            shutil.copyfile(snapshot, work)
             continue
-        if not response.points:
+        if response is None or not response.points:
             empty += 1
-            if empty <= 3:
+            if empty <= 3 and response is not None:
                 print("  (no forecast)", response.notes[-1][:80])
-            shutil.copyfile(snapshot, work)
             continue
 
         # Score in the model's own space. The anchor bias converts a raw outcome
@@ -283,7 +290,6 @@ def main() -> None:
                     "age_h": age,
                 }
             )
-        shutil.copyfile(snapshot, work)
         if (index + 1) % 20 == 0:
             rate = (time.time() - started) / (index + 1)
             remaining = rate * (len(anchors) - index - 1) / 60
