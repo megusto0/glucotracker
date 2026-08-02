@@ -564,6 +564,9 @@ dependencies {
 
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.junit)
+    // src/test uses kotlin.test assertions but never declared them, so the unit
+    // test source set did not compile for either variant.
+    testImplementation(kotlin("test"))
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.ktor.mock)

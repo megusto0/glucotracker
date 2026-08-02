@@ -165,6 +165,12 @@
     <string name="today_episode_kicker">ПРИЁМ · %1$d×</string>
     <string name="today_episode_carbs">%1$s У</string>
     <string name="today_episode_kcal">%1$s ккал</string>
+    <!-- Coverage line under an episode header: what the dose actually worked out
+         to, and how much of it arrived after the food rather than with it. -->
+    <string name="today_episode_ratio">%1$s г/ЕД</string>
+    <string name="today_episode_split_on_time">сразу %1$s</string>
+    <string name="today_episode_split_late">позже %1$s</string>
+    <string name="today_episode_all_on_time">всё сразу</string>
     <string name="correction_sheet_title">Коррекция</string>
     <string name="correction_sheet_dose">%1$s ЕД · %2$s</string>
     <string name="correction_sheet_kicker">ОТВЕТ ГЛЮКОЗЫ</string>

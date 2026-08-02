@@ -89,6 +89,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.minutes
 
 class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     @Composable
@@ -423,12 +424,26 @@ private fun TodayEpisodeCard(
         ) {
             GTKicker(text = stringResource(R.string.today_episode_kicker, entries.size))
             Spacer(Modifier.weight(1f))
-            Text(
-                text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel.copy(fontSize = 11.sp),
-                maxLines = 1,
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                    maxLines = 1,
+                )
+                // The totals alone say nothing about whether the dose worked
+                // out: the same units can be right for the food and still land
+                // after it, which is what leaves insulin acting once the carbs
+                // are gone. Show the achieved ratio and the timing split.
+                todayEpisodeCoverage(entries, totalCarbs, totalInsulin)?.let { coverage ->
+                    Text(
+                        text = coverage,
+                        color = GT.colors.muted,
+                        style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                        maxLines = 1,
+                    )
+                }
+            }
         }
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
         entries.forEachIndexed { index, entry ->
@@ -448,6 +463,44 @@ private fun TodayEpisodeCard(
             )
         }
     }
+}
+
+@Composable
+private fun todayEpisodeCoverage(
+    entries: List<TodayMealEntry>,
+    totalCarbs: Double,
+    totalInsulin: Double,
+): String? {
+    val coverage = episodeCoverage(
+        doses = entries.flatMap { entry ->
+            entry.paired.map { event ->
+                EpisodeDose(
+                    units = event.doseUnits,
+                    lateBy = event.timestamp - entry.row.eatenAt,
+                )
+            }
+        },
+        totalCarbs = totalCarbs,
+        totalInsulin = totalInsulin,
+    ) ?: return null
+    val ratio = stringResource(
+        R.string.today_episode_ratio,
+        formatGrams(coverage.gramsPerUnit),
+    )
+    val split = if (coverage.lateUnits <= 0.0) {
+        stringResource(R.string.today_episode_all_on_time)
+    } else {
+        val onTimeText = stringResource(
+            R.string.today_episode_split_on_time,
+            formatInsulinDose(coverage.onTimeUnits),
+        )
+        val lateText = stringResource(
+            R.string.today_episode_split_late,
+            formatInsulinDose(coverage.lateUnits),
+        )
+        "$onTimeText · $lateText"
+    }
+    return "$ratio · $split"
 }
 
 @Composable
