@@ -176,13 +176,16 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val targetIds = mealId?.let { id ->
             context.mealEpisodeGroups.firstOrNull { id in it } ?: listOf(id)
         }.orEmpty()
-        val hasRecordedInsulin = targetIds.any { context.byMealId[it].orEmpty().isNotEmpty() }
+        // Units already anchored anywhere in this episode, not just this dish:
+        // the calculation covers the whole occasion, so the comparison must too.
+        val episodeUnits = targetIds.sumOf { id ->
+            context.byMealId[id].orEmpty().sumOf { it.doseUnits }
+        }
         val isCurrentDay =
             date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
         if (
             recommendationEligible &&
             isCurrentDay &&
-            !hasRecordedInsulin &&
             targetIds.isNotEmpty() &&
             targetIds.all { runCatching { java.util.UUID.fromString(it) }.isSuccess }
         ) {
@@ -191,6 +194,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 6.dp),
+                alreadyGivenUnits = episodeUnits,
             )
         }
     }
@@ -454,12 +458,16 @@ private fun TodayEpisodeCard(
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
             }
         }
-        if (recommendationEligible && entries.none { it.paired.isNotEmpty() }) {
+        if (recommendationEligible) {
+            // Kept visible after a dose exists: that is exactly when the
+            // question changes from "how much" to "was it enough", and hiding
+            // it removed the only place the two numbers meet.
             HistoricalInsulinButton(
                 mealIds = entries.mapNotNull { it.row.recordId },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 8.dp),
+                alreadyGivenUnits = totalInsulin,
             )
         }
     }

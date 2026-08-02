@@ -173,17 +173,28 @@ private fun InsulinRecommendationResponse.toUiState(): HistoricalInsulinUiState 
 fun HistoricalInsulinButton(
     mealIds: List<String>,
     modifier: Modifier = Modifier,
+    alreadyGivenUnits: Double = 0.0,
 ) {
     if (mealIds.isEmpty()) return
     var showSheet by remember(mealIds) { mutableStateOf(false) }
+    // Once insulin exists the calculation is no longer something to act on, but
+    // it is still the only way to see whether the dose matched the food.
+    val hasInsulin = alreadyGivenUnits > 0.0
     GTOutlineButton(
-        text = stringResource(R.string.insulin_history_button),
+        text = stringResource(
+            if (hasInsulin) {
+                R.string.insulin_history_button_compare
+            } else {
+                R.string.insulin_history_button
+            },
+        ),
         onClick = { showSheet = true },
         modifier = modifier,
     )
     if (showSheet) {
         HistoricalInsulinSheet(
             mealIds = mealIds,
+            alreadyGivenUnits = alreadyGivenUnits,
             onDismiss = { showSheet = false },
         )
     }
@@ -193,6 +204,7 @@ fun HistoricalInsulinButton(
 @Composable
 private fun HistoricalInsulinSheet(
     mealIds: List<String>,
+    alreadyGivenUnits: Double,
     onDismiss: () -> Unit,
     viewModel: HistoricalInsulinViewModel = hiltViewModel(),
 ) {
@@ -243,7 +255,10 @@ private fun HistoricalInsulinSheet(
                 )
             }
 
-            HistoricalEstimateBlock(state = state)
+            HistoricalEstimateBlock(
+                state = state,
+                alreadyGivenUnits = alreadyGivenUnits,
+            )
 
             Column(
                 modifier = Modifier
@@ -326,7 +341,10 @@ private fun HistoricalInsulinSheet(
 }
 
 @Composable
-private fun HistoricalEstimateBlock(state: HistoricalInsulinUiState) {
+private fun HistoricalEstimateBlock(
+    state: HistoricalInsulinUiState,
+    alreadyGivenUnits: Double,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -367,6 +385,30 @@ private fun HistoricalEstimateBlock(state: HistoricalInsulinUiState) {
                     color = GT.colors.ink2,
                     style = GT.type.monoLabel,
                 )
+                doseComparison(alreadyGivenUnits, state.recommendedUnits)?.let { verdict ->
+                    Text(
+                        text = "${stringResource(
+                            R.string.insulin_history_given,
+                            formatDose(alreadyGivenUnits),
+                        )} · ${
+                            when (verdict) {
+                                DoseComparison.Match ->
+                                    stringResource(R.string.insulin_history_delta_match)
+                                is DoseComparison.CalculationHigher -> stringResource(
+                                    R.string.insulin_history_delta_more,
+                                    formatDose(verdict.byUnits),
+                                )
+                                is DoseComparison.CalculationLower -> stringResource(
+                                    R.string.insulin_history_delta_less,
+                                    formatDose(verdict.byUnits),
+                                )
+                            }
+                        }",
+                        modifier = Modifier.padding(top = 6.dp),
+                        color = GT.colors.ink2,
+                        style = GT.type.monoLabel,
+                    )
+                }
             }
             is HistoricalInsulinUiState.Unavailable -> Text(
                 text = when (state.reason) {

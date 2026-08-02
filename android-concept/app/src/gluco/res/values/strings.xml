@@ -147,6 +147,13 @@
     <string name="insulin_history_low_or_falling">Глюкоза низкая или быстро снижается — итог не рассчитан.</string>
     <string name="insulin_history_error">Расчёт сейчас недоступен. Фактический инсулин можно записать ниже.</string>
     <string name="insulin_history_limits">Ориентир только для еды: без поправки на текущую глюкозу, активный инсулин, нагрузку или болезнь.</string>
+    <!-- Shown once the episode already has insulin: the calculation stops being
+         a recommendation and becomes a comparison against what was given. -->
+    <string name="insulin_history_button_compare">Сравнить с расчётом</string>
+    <string name="insulin_history_given">введено %1$s ЕД</string>
+    <string name="insulin_history_delta_more">расчёт больше на %1$s ЕД</string>
+    <string name="insulin_history_delta_less">расчёт меньше на %1$s ЕД</string>
+    <string name="insulin_history_delta_match">совпадает с расчётом</string>
     <string name="insulin_actual_title">Фактически введено</string>
     <string name="insulin_actual_submit">Записать фактический инсулин</string>
     <string name="insulin_units_short">ЕД</string>
