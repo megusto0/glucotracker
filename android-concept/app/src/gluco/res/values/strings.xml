@@ -170,7 +170,7 @@
     <string name="insulin_manage_delete_action">Удалить</string>
     <string name="insulin_manage_nightscout_note">Изменения отправятся в Nightscout. Импортированные записи доступны только для просмотра.</string>
     <string name="today_episode_kicker">ПРИЁМ · %1$d×</string>
-    <string name="today_episode_carbs">%1$s У</string>
+    <string name="today_episode_carbs">%1$s г</string>
     <string name="today_episode_kcal">%1$s ккал</string>
     <!-- Coverage line under an episode header: what the dose actually worked out
          to, and how much of it arrived after the food rather than with it. -->

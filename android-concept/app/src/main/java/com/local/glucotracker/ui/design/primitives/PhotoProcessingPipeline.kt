@@ -32,6 +32,9 @@ fun GTPhotoProcessingPipeline(
     state: PhotoProcessingUiState,
     modifier: Modifier = Modifier,
 ) {
+    // A finished pipeline is four green dots saying what the status line above
+    // already said, so it only costs height on the screen the user reads most.
+    if (state.stage == PhotoProcessingStage.Done) return
     val steps = pipelineSteps(state)
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -65,7 +68,10 @@ fun GTPhotoProcessingPipeline(
                     color = GT.colors.muted,
                     style = GT.type.sansLabel.copy(fontSize = 10.5.sp),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
+                    // A quarter of the width cannot hold "отправлено" on a
+                    // narrow phone; wrapping keeps the word rather than
+                    // clipping it to "отправл…".
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

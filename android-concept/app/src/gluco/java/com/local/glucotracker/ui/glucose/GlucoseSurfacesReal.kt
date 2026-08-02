@@ -637,13 +637,16 @@ private fun InlineInsulinLine(event: InsulinEvent) {
                 style = GT.type.monoLabel.copy(fontSize = 10.sp),
                 maxLines = 1,
             )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = event.sourceSuffix(),
-                color = GT.colors.ink2.copy(alpha = 0.46f),
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
-                maxLines = 1,
-            )
+            val suffix = event.sourceSuffix()
+            if (suffix.isNotEmpty()) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = suffix,
+                    color = GT.colors.ink2.copy(alpha = 0.46f),
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                    maxLines = 1,
+                )
+            }
         }
         if (showTooltip) {
             InsulinTooltip(event = event)
@@ -785,13 +788,28 @@ private fun InsulinTooltip(event: InsulinEvent) {
     }
 }
 
+/**
+ * Trailing label for one insulin line, or empty when there is nothing to say.
+ *
+ * Practically every event arrives from Nightscout, so repeating the word on
+ * each line cost the width that then truncated it — three identical "Nightscou"
+ * fragments under one meal. It is kept only where it distinguishes something:
+ * an event still in the outbox, or a source that is not the usual one.
+ */
 @Composable
-private fun InsulinEvent.sourceSuffix(): String =
-    if (eventType == InsulinEventType.Correction) {
-        "${stringResource(R.string.insulin_correction)} · ${displaySource()}"
-    } else {
-        displaySource()
+private fun InsulinEvent.sourceSuffix(): String {
+    val source = when {
+        isPending -> stringResource(R.string.insulin_source_pending)
+        source.equals("nightscout", ignoreCase = true) -> ""
+        else -> source
     }
+    val correction = if (eventType == InsulinEventType.Correction) {
+        stringResource(R.string.insulin_correction)
+    } else {
+        ""
+    }
+    return listOf(correction, source).filter { it.isNotBlank() }.joinToString(" · ")
+}
 
 /**
  * Descriptive glucose response around one standalone correction — same idea
