@@ -42,7 +42,10 @@ AdjustmentStatus = Literal[
 
 POINT_TOLERANCE = timedelta(minutes=15)
 DEFAULT_CARB_ADJUSTMENT_G_PER_MMOL_L = 4.0
-THERAPY_REVIEW_MODEL_VERSION = "retrospective-therapy-review-v1"
+# v2: the fall gate now judges where a fall lands rather than how fast it
+# moves, and follow-up boluses reach the meal training label. Both change
+# what a closed day computes, so cached v1 rows must not be served.
+THERAPY_REVIEW_MODEL_VERSION = "retrospective-therapy-review-v2"
 
 
 @dataclass(frozen=True)

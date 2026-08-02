@@ -8,6 +8,9 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from glucotracker.application.therapy_review import (
+    THERAPY_REVIEW_MODEL_VERSION,
+)
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
     Meal,
@@ -115,7 +118,7 @@ def test_daily_review_lists_meal_and_falling_carb_correction(
     assert body["date"] == "2026-07-25"
     assert body["horizon_minutes"] == 120
     assert body["cached"] is False
-    assert body["model_version"] == "retrospective-therapy-review-v1"
+    assert body["model_version"] == THERAPY_REVIEW_MODEL_VERSION
     by_key = {
         frozenset(item["key"].split("|")): item
         for item in body["items"]
