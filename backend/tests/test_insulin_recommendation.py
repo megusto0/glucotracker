@@ -735,3 +735,103 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
     # Meal dose is unchanged; only the correction component responds.
     assert body["recommended_units"] == 4.0
     assert body["total_recommended_units"] == 4.0
+
+
+def test_fast_fall_from_a_safe_level_does_not_hide_the_meal_dose(
+    api_client: TestClient,
+) -> None:
+    """Reported 2026-08-02: 76 g about to be eaten at 8.8 falling 4.0/h.
+
+    Rate alone used to withhold everything, including the meal component, even
+    though the fall lands near 5.8 and the food outweighs it several times over.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 2, 20, 26)
+    with session_factory() as session:
+        target_a = _meal(session, owner_id, target_at, 28.5, title="Картофель")
+        target_b = _meal(
+            session,
+            owner_id,
+            target_at + timedelta(minutes=8),
+            47.5,
+            title="Орешки",
+        )
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 76.0)
+            _insulin(session, owner_id, occurred_at, 8.0)
+        # 9.8 -> 8.8 over 15 minutes: -0.067 mmol/L per minute.
+        for index, value in enumerate((9.8, 9.4, 9.1, 8.8)):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"fast-fall-{index}",
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.isf = 2.6
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target_a.id), str(target_b.id)],
+            "correction_target_mmol_l": 6.0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["recommended_units"] is not None
+    assert body["correction_status"] != "low_or_falling"
+    assert body["total_recommended_units"] is not None
+
+
+def test_the_same_fall_from_a_low_level_still_withholds_everything(
+    api_client: TestClient,
+) -> None:
+    """5.0 falling at the same rate lands near 2.0, so nothing is shown."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 2, 20, 26)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 76.0)
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 76.0)
+            _insulin(session, owner_id, occurred_at, 8.0)
+        for index, value in enumerate((6.0, 5.6, 5.3, 5.0)):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"low-fall-{index}",
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.isf = 2.6
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target.id)],
+            "correction_target_mmol_l": 6.0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["correction_status"] == "low_or_falling"
+    assert body["status"] == "low_or_falling"
+    assert body["recommended_units"] is None
+    assert body["total_recommended_units"] is None

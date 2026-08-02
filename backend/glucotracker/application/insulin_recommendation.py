@@ -60,7 +60,10 @@ CORRECTION_PROJECTION_MINUTES = 15
 MAX_PROJECTED_CHANGE_MMOL_L = 2.0
 MAX_CGM_AGE = timedelta(minutes=15)
 MIN_TREND_SPAN_MINUTES = 5
-FAST_FALL_MMOL_L_PER_MIN = -1 / 18.0182
+# How far ahead a fall is followed before deciding it is dangerous. A rate on
+# its own says nothing: -4 mmol/L per hour from 8.8 lands at 5.8, while the same
+# rate from 5.5 lands at 2.5. Only the second is a reason to withhold a dose.
+FAST_FALL_LOOKAHEAD_MINUTES = 45
 LOW_GLUCOSE_MMOL_L = 3.9
 TIR_HIGH_MMOL_L = 10.0
 VERY_LOW_MMOL_L = 3.0
@@ -593,10 +596,21 @@ class HistoricalInsulinRecommendationService:
                 else None
             ),
         }
+        # Triggering on rate alone hid the entire calculation - meal dose
+        # included - at 8.8 mmol/L falling 4.0/h with 76 g about to be eaten,
+        # where the food outweighs the trend several times over. Follow the fall
+        # far enough to see where it actually lands instead. The trend is
+        # already reflected in ``projected``, so the correction shrinks with it
+        # without needing a second, blunter guard.
+        fall_landing = (
+            projected
+            if projection_source == "forecast"
+            else latest.display_value + trend * FAST_FALL_LOOKAHEAD_MINUTES
+        )
         if (
             latest.display_value < LOW_GLUCOSE_MMOL_L
             or projected < LOW_GLUCOSE_MMOL_L
-            or trend <= FAST_FALL_MMOL_L_PER_MIN
+            or fall_landing < LOW_GLUCOSE_MMOL_L
         ):
             return CorrectionEstimate(status="low_or_falling", **context)
 
