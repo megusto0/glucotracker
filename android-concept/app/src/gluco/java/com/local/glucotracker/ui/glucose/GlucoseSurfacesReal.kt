@@ -173,11 +173,19 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         if (paired.isNotEmpty()) {
             InsulinMetaRow(events = paired)
         }
+        // The episode may span more than one sitting, because a bolus inside the
+        // linking window of two meals joins them however far apart they are.
+        // Ask only about the sitting the tapped dish belongs to.
         val targetIds = mealId?.let { id ->
-            context.mealEpisodeGroups.firstOrNull { id in it } ?: listOf(id)
+            val episode = context.mealEpisodeGroups.firstOrNull { id in it }
+                ?: return@let listOf(id)
+            eatingOccasion(
+                episodeMealIds = episode,
+                eatenAt = meals.associate { it.id to it.eatenAt },
+                anchorId = id,
+            )
         }.orEmpty()
-        // Units already anchored anywhere in this episode, not just this dish:
-        // the calculation covers the whole occasion, so the comparison must too.
+        // Units anchored anywhere in that sitting, not just to this dish.
         val episodeUnits = targetIds.sumOf { id ->
             context.byMealId[id].orEmpty().sumOf { it.doseUnits }
         }
@@ -462,12 +470,27 @@ private fun TodayEpisodeCard(
             // Kept visible after a dose exists: that is exactly when the
             // question changes from "how much" to "was it enough", and hiding
             // it removed the only place the two numbers meet.
+            // Same narrowing as the single-dish path: an episode card can hold
+            // two sittings, and the last one is what a dose is being asked
+            // about. Anchor on the newest plate.
+            val anchorEntry = entries.maxByOrNull { it.row.eatenAt }
+            val sitting = anchorEntry?.row?.recordId?.let { anchorId ->
+                eatingOccasion(
+                    episodeMealIds = entries.mapNotNull { it.row.recordId },
+                    eatenAt = entries.mapNotNull { entry ->
+                        entry.row.recordId?.let { it to entry.row.eatenAt }
+                    }.toMap(),
+                    anchorId = anchorId,
+                )
+            }.orEmpty()
             HistoricalInsulinButton(
-                mealIds = entries.mapNotNull { it.row.recordId },
+                mealIds = sitting,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 8.dp),
-                alreadyGivenUnits = totalInsulin,
+                alreadyGivenUnits = entries
+                    .filter { it.row.recordId in sitting }
+                    .sumOf { entry -> entry.paired.sumOf { it.doseUnits } },
             )
         }
     }
