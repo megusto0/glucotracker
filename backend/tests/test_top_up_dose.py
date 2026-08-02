@@ -160,3 +160,54 @@ def test_top_up_never_reads_another_users_state(api_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "glucose_unavailable"
+
+
+def test_high_and_rising_is_not_reported_as_handled(
+    api_client: TestClient,
+) -> None:
+    """Reported 2026-08-02 17:30 onward.
+
+    78 g still absorbing against 9.8 U on board makes the balance a difference
+    of two large numbers; it returned "enough" for ninety minutes while glucose
+    climbed from 10.1 to 11.7. Above the high band the reading has already
+    contradicted that, so a correction toward target is offered.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    with factory() as session:
+        _cgm(session, owner_id, {15: 10.6, 10: 10.8, 0: 11.0})
+        _meal(session, owner_id, 70, 90.0)
+        _meal(session, owner_id, 10, 18.5)
+        _insulin(session, owner_id, 68, 10.1)
+        _insulin(session, owner_id, 42, 1.8)
+        _insulin(session, owner_id, 11, 1.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 9.3
+        params.isf = 2.6
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.get("/glucose/top-up-dose", params={"target_mmol_l": 6.0})
+
+    assert response.status_code == 200
+    body = response.json()
+    # The balance alone would have said the meal was already covered.
+    assert body["iob_units"] > 8.0
+    assert body["cob_g"] > 50
+    assert body["carb_units"] + body["correction_units"] - body["iob_units"] < 0.2
+    # But the reading is above the high band, so a number is offered.
+    assert body["status"] == "ready"
+    assert body["units"] is not None
+    assert 1.0 <= body["units"] <= 2.5
+
+
+def test_moderate_high_still_defers_to_the_balance(
+    api_client: TestClient,
+) -> None:
+    """Below the high band an over-insulinized meal still reports enough."""
+    _setup(api_client, carbs=30.0, units=9.0, glucose=9.5)
+
+    response = api_client.get("/glucose/top-up-dose", params={"target_mmol_l": 6.0})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "not_needed"

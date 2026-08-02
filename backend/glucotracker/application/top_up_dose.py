@@ -14,13 +14,14 @@ effectively a constant. Meanwhile the median state at that moment is 5.4 U
 already active and 39 g still absorbing, so the rise being reacted to is
 largely already covered.
 
-This turns that decision into an arithmetic one:
-
-    remaining carbohydrate / ICR  +  correction toward target  -  insulin on board
+This turns that decision into an arithmetic one. Where a forecast exists the
+distance from it to target is the answer, because a forecast already contains
+every unit on board and every gram still to absorb. Without one it falls back to
+a mass balance — carbohydrate left over ICR, plus the correction, minus insulin
+on board — which is workable at small quantities and unreliable at large ones.
 
 Every term is already computed elsewhere; none of them is visible at the moment
-the decision is made. The result is deliberately conservative — it is small
-precisely when a lot of insulin is already working.
+the decision is made.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ from glucotracker.application.insulin_recommendation import (
     DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT,
     DEFAULT_CORRECTION_TARGET_MMOL_L,
     LOW_GLUCOSE_MMOL_L,
+    TIR_HIGH_MMOL_L,
     _icr_for_time,
     _round_dose,
     _trusted_isf,
@@ -172,7 +174,26 @@ class TopUpDoseService:
 
         carb_units = summary.cob_g / icr
         correction_units = (projected - target) / isf
+
+        # The mass balance is right where the imbalance is large and obvious:
+        # 80 g against 1 U needs units, 30 g against 9 U needs none. It fails
+        # where the two sides are both large and nearly equal, because it is
+        # then a difference of big uncertain numbers — and because IOB * ISF
+        # stops being physical at that size, 9.8 U at ISF 2.6 implying a
+        # 25 mmol/L fall that cannot happen while carbohydrate is absorbing.
+        #
+        # On 2026-08-02 that regime returned "enough" for ninety minutes while
+        # glucose climbed from 10.1 to 11.7. Above the high band the belief that
+        # the situation is handled has been contradicted by the reading itself,
+        # so the correction toward target is offered instead of nothing.
         net = carb_units + correction_units - summary.iob_units
+        contradicted = (
+            net < MIN_SUGGESTION_UNITS
+            and min(glucose, projected) > TIR_HIGH_MMOL_L
+        )
+        if contradicted:
+            net = correction_units
+
         rounded = {
             "carb_units": round(carb_units, 2),
             "correction_units": round(correction_units, 2),

@@ -823,13 +823,22 @@ def _build_food_coverages(
         for event_id in coverage.event_ids:
             owner[event_id] = index
 
-    # Reattribute / attach deferred coverage to earlier under-covered food.
+    # Attach deferred coverage to earlier food.
+    #
+    # This used to run only for episodes with no linked bolus at all, so a meal
+    # that got a bolus at the plate and a follow-up an hour later was labelled
+    # with the first dose alone. Measured over 75 days: 62 of 201 food episodes
+    # had both, and 232 U of the 709 involved — a third — never reached the
+    # training label. The estimator then learned the under-dosed first bolus,
+    # recommended it, and the follow-up it provoked was discarded again.
+    #
+    # Stealing a bolus already attributed to a later meal still requires the
+    # episode to be uncovered: unowned insulin is evidence about this meal,
+    # another meal's bolus is not.
     for index, coverage in enumerate(coverages):
         if coverage.carbs_g < MIN_CARBS_FOR_DEFERRED_G:
             continue
         under_covered = coverage.linked_units <= 0
-        if not under_covered:
-            continue
 
         meal_at = coverage.occurred_at
         window_start = meal_at + DEFERRED_AFTER
@@ -838,7 +847,8 @@ def _build_food_coverages(
             coverages[index + 1].occurred_at if index + 1 < len(coverages) else None
         )
 
-        for ref in insulin_refs:
+        stealable = insulin_refs if under_covered else []
+        for ref in stealable:
             if "correction" in normalized_text(ref.event.event_type):
                 continue
             if ref.at <= window_start or ref.at > window_end:
