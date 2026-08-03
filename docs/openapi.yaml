@@ -3531,6 +3531,11 @@ components:
           - high
           title: Confidence
           type: string
+        correction_excess_iob_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Excess Iob Units
         correction_glucose_mmol_l:
           anyOf:
           - type: number
@@ -3555,6 +3560,11 @@ components:
             type: string
           - type: 'null'
           title: Correction Isf Source
+        correction_prior_cob_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Correction Prior Cob G
         correction_projected_glucose_mmol_l:
           anyOf:
           - type: number

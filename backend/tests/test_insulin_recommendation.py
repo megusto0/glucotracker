@@ -916,3 +916,102 @@ def test_sleep_without_a_long_gap_changes_nothing(api_client: TestClient) -> Non
     assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
 
 
+
+
+def test_surplus_insulin_reduces_the_meal_total(api_client: TestClient) -> None:
+    """Reported 2026-08-03: a 24 g pastry quoted 3.8 U on top of ~10 U working.
+
+    The correction floors at zero, so the leftover insulin used to be discarded
+    and the meal component was charged in full.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 17, 33)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 24.0, title="Пирожок")
+        # A covered meal an hour earlier: most of its carbohydrate is gone,
+        # most of its insulin is not.
+        _meal(session, owner_id, target_at - timedelta(hours=1), 113.0)
+        _insulin(session, owner_id, target_at - timedelta(hours=1), 10.8)
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 24.0)
+            _insulin(session, owner_id, occurred_at, 2.6)
+        for index, value in enumerate((8.9, 8.8, 8.7, 8.7)):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"surplus-cgm-{index}",
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 9.3
+        params.isf = 2.6
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target.id)],
+            "correction_target_mmol_l": 6.0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["correction_status"] == "not_needed"
+    assert body["correction_excess_iob_units"] > 0
+    # The meal component is unchanged; only the total absorbs the surplus.
+    assert body["recommended_units"] is not None
+    assert body["total_recommended_units"] < body["recommended_units"]
+
+
+def test_no_surplus_when_insulin_is_committed_to_carbs_still_absorbing(
+    api_client: TestClient,
+) -> None:
+    """A large meal just eaten leaves nothing spare, however big the IOB."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 17, 33)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 24.0)
+        _meal(session, owner_id, target_at - timedelta(minutes=20), 110.0)
+        _insulin(session, owner_id, target_at - timedelta(minutes=20), 11.0)
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 24.0)
+            _insulin(session, owner_id, occurred_at, 2.6)
+        for index, value in enumerate((7.0, 7.0, 7.0, 7.0)):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"committed-cgm-{index}",
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 9.3
+        params.isf = 2.6
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target.id)],
+            "correction_target_mmol_l": 6.0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["correction_prior_cob_g"] > 90
+    assert body["correction_excess_iob_units"] == 0.0

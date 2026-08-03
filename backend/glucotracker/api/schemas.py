@@ -388,6 +388,10 @@ class InsulinRecommendationResponse(BaseModel):
     correction_projection_source: Literal["linear_trend", "forecast"] = "linear_trend"
     correction_projection_horizon_minutes: int | None = None
     correction_projection_calibration_factor: float | None = None
+    # Carbohydrate still absorbing from earlier meals, and the insulin on board
+    # beyond what it needs. The surplus reduces the total.
+    correction_prior_cob_g: float | None = None
+    correction_excess_iob_units: float | None = None
     total_recommended_units: float | None = None
     total_range_low_units: float | None = None
     total_range_high_units: float | None = None

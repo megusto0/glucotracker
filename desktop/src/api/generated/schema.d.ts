@@ -4195,6 +4195,8 @@ export interface components {
              * @enum {string}
              */
             confidence: "none" | "low" | "medium" | "high";
+            /** Correction Excess Iob Units */
+            correction_excess_iob_units?: number | null;
             /** Correction Glucose Mmol L */
             correction_glucose_mmol_l?: number | null;
             /** Correction Iob Units */
@@ -4203,6 +4205,8 @@ export interface components {
             correction_isf_mmol_l_per_unit?: number | null;
             /** Correction Isf Source */
             correction_isf_source?: ("manual" | "fitted" | "default") | null;
+            /** Correction Prior Cob G */
+            correction_prior_cob_g?: number | null;
             /** Correction Projected Glucose Mmol L */
             correction_projected_glucose_mmol_l?: number | null;
             /** Correction Projection Calibration Factor */

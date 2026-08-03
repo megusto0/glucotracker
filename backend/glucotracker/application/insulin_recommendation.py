@@ -179,6 +179,10 @@ class CorrectionEstimate:
     projection_source: ProjectionSource = "linear_trend"
     projection_horizon_minutes: int = CORRECTION_PROJECTION_MINUTES
     projection_calibration_factor: float | None = None
+    # Carbohydrate still absorbing from *earlier* meals, and the insulin on
+    # board beyond what that carbohydrate needs.
+    prior_cob_g: float | None = None
+    excess_iob_units: float | None = None
 
 
 @dataclass(frozen=True)
@@ -314,24 +318,24 @@ class HistoricalInsulinRecommendationService:
 
         correction_is_usable = correction.status in {"ready", "not_needed"}
         correction_units = correction.units if correction_is_usable else None
-        total = (
-            _round_dose(meal_estimate.recommended_units + correction_units)
-            if meal_estimate.recommended_units is not None
-            and correction_units is not None
-            else None
+        # The correction floors at zero, so insulin left over after it was
+        # simply discarded and the meal component was charged in full. A 24 g
+        # pastry an hour after a covered 113 g meal was quoted 3.8 U against
+        # roughly 10 U still working. Carry the surplus into the total.
+        surplus = (
+            correction.excess_iob_units or 0.0
+            if correction_is_usable and (correction.units or 0.0) <= 0.0
+            else 0.0
         )
-        total_low = (
-            _round_dose(meal_estimate.range_low_units + correction_units)
-            if meal_estimate.range_low_units is not None
-            and correction_units is not None
-            else None
-        )
-        total_high = (
-            _round_dose(meal_estimate.range_high_units + correction_units)
-            if meal_estimate.range_high_units is not None
-            and correction_units is not None
-            else None
-        )
+
+        def _total(base: float | None) -> float | None:
+            if base is None or correction_units is None:
+                return None
+            return _round_dose(max(0.0, base + correction_units - surplus))
+
+        total = _total(meal_estimate.recommended_units)
+        total_low = _total(meal_estimate.range_low_units)
+        total_high = _total(meal_estimate.range_high_units)
         return InsulinCalculation(
             meal=meal_estimate,
             correction=correction,
@@ -651,6 +655,14 @@ class HistoricalInsulinRecommendationService:
             dia_minutes=twin_params.dia_minutes,
             additionally_excluded_ids=excluded_insulin_ids,
         )
+        # Insulin already working is not free to cover a new plate: most of it
+        # is committed to carbohydrate that is still absorbing. Only the
+        # surplus over that commitment should reduce the next dose.
+        own_carbs = sum(float(meal.total_carbs_g or 0) for meal in meals)
+        prior_cob = max(0.0, float(dashboard.summary.cob_g) - own_carbs)
+        icr_now = _icr_for_time(meal_at, twin_params)
+        committed = prior_cob / icr_now if icr_now and icr_now > 0 else 0.0
+        excess_iob = max(0.0, iob_units - committed)
         context = {
             "target_mmol_l": round(target_mmol_l, 1),
             "glucose_mmol_l": round(latest.display_value, 1),
@@ -666,6 +678,8 @@ class HistoricalInsulinRecommendationService:
                 if projection_source == "forecast"
                 else None
             ),
+            "prior_cob_g": round(prior_cob, 1),
+            "excess_iob_units": round(excess_iob, 2),
         }
         # Triggering on rate alone hid the entire calculation - meal dose
         # included - at 8.8 mmol/L falling 4.0/h with 76 g about to be eaten,

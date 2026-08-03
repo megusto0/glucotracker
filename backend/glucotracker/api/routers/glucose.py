@@ -388,6 +388,8 @@ def get_insulin_recommendation(
         correction_projection_calibration_factor=(
             correction.projection_calibration_factor
         ),
+        correction_prior_cob_g=correction.prior_cob_g,
+        correction_excess_iob_units=correction.excess_iob_units,
         total_recommended_units=calculation.total_recommended_units,
         total_range_low_units=calculation.total_range_low_units,
         total_range_high_units=calculation.total_range_high_units,
