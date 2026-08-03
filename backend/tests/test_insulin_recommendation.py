@@ -14,6 +14,7 @@ from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
     GlucosePredictionPointAudit,
     GlucosePredictionRun,
+    HealthConnectRecord,
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
@@ -837,7 +838,54 @@ def test_the_same_fall_from_a_low_level_still_withholds_everything(
     assert body["total_recommended_units"] is None
 
 
-def test_first_meal_after_a_long_break_gets_a_tighter_ratio(
+def _sleep(session, owner_id, *, start, end) -> None:
+    """A Health Connect sleep session, as the sync writes it."""
+    session.add(
+        HealthConnectRecord(
+            owner_id=owner_id,
+            record_id=f"sleep-{start.isoformat()}",
+            record_type="SleepSessionRecord",
+            start_time=start,
+            end_time=end,
+            payload={
+                "startTime": start.isoformat().replace("+00:00", "Z"),
+                "endTime": end.isoformat().replace("+00:00", "Z"),
+            },
+        )
+    )
+
+
+def _first_meal_case(api_client: TestClient, *, with_sleep: bool, gap_hours: int):
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    target_utc = datetime(2026, 8, 3, 12, 41, tzinfo=UTC)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 62.0, title="Панкейки")
+        _meal(session, owner_id, target_at - timedelta(hours=gap_hours), 30.0)
+        _insulin(session, owner_id, target_at - timedelta(hours=gap_hours), 3.0)
+        if with_sleep:
+            _sleep(
+                session,
+                owner_id,
+                start=target_utc - timedelta(hours=9),
+                end=target_utc - timedelta(hours=1),
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_first_meal_after_recorded_sleep_gets_a_tighter_ratio(
     api_client: TestClient,
 ) -> None:
     """Measured over 75 days: a gap of 7 h implies 7.1 g/U against 8.7.
@@ -846,56 +894,25 @@ def test_first_meal_after_a_long_break_gets_a_tighter_ratio(
     cannot stand in for the effect — this one is at 12:41, inside the configured
     "day" slot, exactly like the 2026-08-03 breakfast that peaked at 13.0.
     """
-    owner_id = UUID(str(api_client.app_state["current_user_id"]))
-    session_factory = api_client.app_state["session_factory"]
-    target_at = datetime(2026, 8, 3, 12, 41)
-    with session_factory() as session:
-        target = _meal(session, owner_id, target_at, 62.0, title="Панкейки")
-        # Last real meal 11 hours earlier, so this is the first after sleep.
-        _meal(session, owner_id, target_at - timedelta(hours=11), 30.0)
-        _insulin(session, owner_id, target_at - timedelta(hours=11), 3.0)
-        params = TwinRepository(session, owner_id).get_or_create_params()
-        params.icr_morning = 8.0
-        params.icr_day = 9.3
-        params.icr_evening = 10.0
-        params.last_fit_method = "manual"
-        session.commit()
+    body = _first_meal_case(api_client, with_sleep=True, gap_hours=11)
 
-    response = api_client.post(
-        "/glucose/insulin-recommendation",
-        json={"meal_ids": [str(target.id)]},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
     assert body["status"] == "ready"
-    # The day slot alone would give 62 / 9.3 = 6.7 U; the first-meal factor
-    # tightens the ratio to about 7.6 g/U, so roughly 8.2 U.
     assert body["recommended_units"] > 62.0 / 9.3
     assert 7.5 <= body["recommended_units"] <= 8.8
 
 
-def test_a_meal_soon_after_another_keeps_the_daypart_ratio(
+def test_a_long_gap_without_recorded_sleep_changes_nothing(
     api_client: TestClient,
 ) -> None:
-    owner_id = UUID(str(api_client.app_state["current_user_id"]))
-    session_factory = api_client.app_state["session_factory"]
-    target_at = datetime(2026, 8, 3, 12, 41)
-    with session_factory() as session:
-        target = _meal(session, owner_id, target_at, 62.0)
-        _meal(session, owner_id, target_at - timedelta(hours=3), 30.0)
-        _insulin(session, owner_id, target_at - timedelta(hours=3), 3.0)
-        params = TwinRepository(session, owner_id).get_or_create_params()
-        params.icr_morning = 8.0
-        params.icr_day = 9.3
-        params.icr_evening = 10.0
-        params.last_fit_method = "manual"
-        session.commit()
+    """An unlogged meal looks like a long gap, and must not raise the dose."""
+    body = _first_meal_case(api_client, with_sleep=False, gap_hours=11)
 
-    response = api_client.post(
-        "/glucose/insulin-recommendation",
-        json={"meal_ids": [str(target.id)]},
-    )
+    assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
 
-    assert response.status_code == 200
-    assert abs(response.json()["recommended_units"] - 62.0 / 9.3) < 0.2
+
+def test_sleep_without_a_long_gap_changes_nothing(api_client: TestClient) -> None:
+    body = _first_meal_case(api_client, with_sleep=True, gap_hours=3)
+
+    assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
+
+

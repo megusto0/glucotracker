@@ -14,12 +14,13 @@ record.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from math import isfinite, log
 from statistics import median
 from typing import Literal
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
@@ -47,7 +48,12 @@ from glucotracker.application.time import (
     utc_instant_from_local_wall as _utc_instant_from_local_wall,
 )
 from glucotracker.application.twin.kernels import PersonalizedInsulinKernel
-from glucotracker.infra.db.models import Meal, NightscoutInsulinEvent, TwinParams
+from glucotracker.infra.db.models import (
+    HealthConnectRecord,
+    Meal,
+    NightscoutInsulinEvent,
+    TwinParams,
+)
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.db.repositories.twin import TwinRepository
 
@@ -91,7 +97,14 @@ OUTCOME_SAMPLE_WINDOW = timedelta(minutes=20)
 # to 20:00 with a median at 14:00, so the configured morning window caught
 # almost none of them, and by hour the morning and day slots are indistinguishable
 # (7.7 against 7.9) while only the evening separates.
+# A gap alone cannot stand in for waking. Meals are sometimes not logged, and a
+# missing log looks exactly like a long gap — far more often than sleep actually
+# occurs. That failure points the wrong way, since it would raise the dose. The
+# factor therefore requires a recorded sleep session inside the gap, and simply
+# does not apply when sleep is not being recorded at all.
 FIRST_MEAL_GAP = timedelta(hours=7)
+MIN_SLEEP_FOR_FIRST_MEAL = timedelta(hours=3)
+SLEEP_TO_FIRST_MEAL_WINDOW = timedelta(hours=6)
 FIRST_MEAL_ICR_FACTOR = 7.1 / 8.7
 # Floor of the comfortable +2 h landing zone. Finishing between this and the
 # hypo threshold is a near miss, so the episode's dose is corrected downward
@@ -422,10 +435,13 @@ class HistoricalInsulinRecommendationService:
             target_carbs,
             target_at,
             twin_params,
-            hours_since_previous_meal=_hours_since_previous_meal(
-                components,
+            after_sleep=self._is_first_meal_after_sleep(
                 target_at,
-                excluded_meal_ids=set(unique_ids),
+                hours_since_previous_meal=_hours_since_previous_meal(
+                    components,
+                    target_at,
+                    excluded_meal_ids=set(unique_ids),
+                ),
             ),
         )
 
@@ -496,6 +512,44 @@ class HistoricalInsulinRecommendationService:
             confidence=confidence,
             matches=matches,
         )
+
+    def _is_first_meal_after_sleep(
+        self,
+        target_at: datetime,
+        *,
+        hours_since_previous_meal: float | None,
+    ) -> bool:
+        """Return whether a recorded sleep separates this meal from the last.
+
+        Both conditions must hold: a long enough gap, and a sleep session that
+        actually ended inside it. Without sleep records this is always False,
+        which leaves the daypart ratio untouched.
+        """
+        if hours_since_previous_meal is None:
+            return False
+        if hours_since_previous_meal < FIRST_MEAL_GAP.total_seconds() / 3600.0:
+            return False
+        target_utc = _utc_instant_from_local_wall(target_at)
+        rows = self.repository.session.scalars(
+            select(HealthConnectRecord).where(
+                HealthConnectRecord.owner_id == self.repository.user_id,
+                HealthConnectRecord.record_type == "SleepSessionRecord",
+                HealthConnectRecord.start_time
+                >= target_utc - timedelta(hours=24),
+                HealthConnectRecord.start_time <= target_utc,
+            )
+        ).all()
+        for row in rows:
+            payload = row.payload or {}
+            start = _payload_instant(payload.get("startTime"))
+            end = _payload_instant(payload.get("endTime"))
+            if start is None or end is None or end <= start:
+                continue
+            if end - start < MIN_SLEEP_FOR_FIRST_MEAL:
+                continue
+            if timedelta(0) <= target_utc - end <= SLEEP_TO_FIRST_MEAL_WINDOW:
+                return True
+        return False
 
     def _correction_estimate(
         self,
@@ -1020,12 +1074,23 @@ def _hours_since_previous_meal(
     return (target_at - max(previous)).total_seconds() / 3600.0
 
 
+def _payload_instant(value: object) -> datetime | None:
+    """Parse an ISO instant out of a Health Connect payload field."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
 def _icr_dose(
     carbs: float,
     meal_at: datetime,
     twin_params: TwinParams,
     *,
-    hours_since_previous_meal: float | None = None,
+    after_sleep: bool = False,
 ) -> float | None:
     icr = _icr_for_time(meal_at, twin_params)
     if icr is None or icr <= 0 or not isfinite(icr):
@@ -1040,10 +1105,7 @@ def _icr_dose(
         # A constrained fit landing exactly on a bound is not a trustworthy
         # personal ratio. Keep history usable, but do not blend/fallback to it.
         return None
-    if (
-        hours_since_previous_meal is not None
-        and hours_since_previous_meal >= FIRST_MEAL_GAP.total_seconds() / 3600.0
-    ):
+    if after_sleep:
         icr *= FIRST_MEAL_ICR_FACTOR
     dose = carbs / icr
     if not 0 < dose <= 100:
