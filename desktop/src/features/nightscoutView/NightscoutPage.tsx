@@ -1218,10 +1218,12 @@ function NightscoutChart({
                   : "C",
             therapyClass,
             timestamp: event.timestamp,
-            valueLabel:
-              typeof suggestedCarbs === "number"
-                ? `~${suggestedCarbs.toFixed(0)}g`
-                : `${event.carbs_g.toFixed(0)}g`,
+            // The marker reports what was eaten. It used to show the rescue
+            // suggestion instead, so a 24 g pastry classified as a carb
+            // correction was drawn on the chart as "~15g" — the ADA default,
+            // not anything the user did. The suggestion stays in the detail
+            // text, which already gives both numbers.
+            valueLabel: `${event.carbs_g.toFixed(0)}g`,
           },
         ]
       : [];
