@@ -85,6 +85,14 @@ DEFERRED_UNTIL = timedelta(hours=3)
 MIN_CARBS_FOR_DEFERRED_G = 15.0
 OUTCOME_HORIZON = timedelta(hours=2)
 OUTCOME_SAMPLE_WINDOW = timedelta(minutes=20)
+# The first plate after a long break needs more insulin per gram: measured over
+# 75 days, episodes following a gap of this length implied 7.1 g/U against 8.7
+# for the rest. The clock cannot stand in for it — those episodes ran from 06:00
+# to 20:00 with a median at 14:00, so the configured morning window caught
+# almost none of them, and by hour the morning and day slots are indistinguishable
+# (7.7 against 7.9) while only the evening separates.
+FIRST_MEAL_GAP = timedelta(hours=7)
+FIRST_MEAL_ICR_FACTOR = 7.1 / 8.7
 # Floor of the comfortable +2 h landing zone. Finishing between this and the
 # hypo threshold is a near miss, so the episode's dose is corrected downward
 # rather than being copied as if it had gone well.
@@ -410,7 +418,16 @@ class HistoricalInsulinRecommendationService:
             ),
         )[:MAX_MATCHES]
 
-        icr_dose = _icr_dose(target_carbs, target_at, twin_params)
+        icr_dose = _icr_dose(
+            target_carbs,
+            target_at,
+            twin_params,
+            hours_since_previous_meal=_hours_since_previous_meal(
+                components,
+                target_at,
+                excluded_meal_ids=set(unique_ids),
+            ),
+        )
 
         if len(matches) < MIN_MATCHES:
             if icr_dose is not None:
@@ -983,10 +1000,32 @@ def _outcome_weight(glucose_plus_2h: float | None) -> float:
     return 0.4
 
 
+def _hours_since_previous_meal(
+    components: list[EpisodeComponent],
+    target_at: datetime,
+    *,
+    excluded_meal_ids: set[UUID],
+) -> float | None:
+    """Hours from the last real meal to this one, or None when unknown."""
+    previous = [
+        meal.eaten_at
+        for component in components
+        for meal in component.meals
+        if meal.id not in excluded_meal_ids
+        and meal.eaten_at < target_at
+        and float(meal.total_carbs_g or 0) >= 10.0
+    ]
+    if not previous:
+        return None
+    return (target_at - max(previous)).total_seconds() / 3600.0
+
+
 def _icr_dose(
     carbs: float,
     meal_at: datetime,
     twin_params: TwinParams,
+    *,
+    hours_since_previous_meal: float | None = None,
 ) -> float | None:
     icr = _icr_for_time(meal_at, twin_params)
     if icr is None or icr <= 0 or not isfinite(icr):
@@ -1001,6 +1040,11 @@ def _icr_dose(
         # A constrained fit landing exactly on a bound is not a trustworthy
         # personal ratio. Keep history usable, but do not blend/fallback to it.
         return None
+    if (
+        hours_since_previous_meal is not None
+        and hours_since_previous_meal >= FIRST_MEAL_GAP.total_seconds() / 3600.0
+    ):
+        icr *= FIRST_MEAL_ICR_FACTOR
     dose = carbs / icr
     if not 0 < dose <= 100:
         return None

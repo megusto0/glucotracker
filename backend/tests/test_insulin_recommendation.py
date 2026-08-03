@@ -835,3 +835,67 @@ def test_the_same_fall_from_a_low_level_still_withholds_everything(
     assert body["status"] == "low_or_falling"
     assert body["recommended_units"] is None
     assert body["total_recommended_units"] is None
+
+
+def test_first_meal_after_a_long_break_gets_a_tighter_ratio(
+    api_client: TestClient,
+) -> None:
+    """Measured over 75 days: a gap of 7 h implies 7.1 g/U against 8.7.
+
+    Those episodes ran from 06:00 to 20:00 with a median at 14:00, so the clock
+    cannot stand in for the effect — this one is at 12:41, inside the configured
+    "day" slot, exactly like the 2026-08-03 breakfast that peaked at 13.0.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 62.0, title="Панкейки")
+        # Last real meal 11 hours earlier, so this is the first after sleep.
+        _meal(session, owner_id, target_at - timedelta(hours=11), 30.0)
+        _insulin(session, owner_id, target_at - timedelta(hours=11), 3.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    # The day slot alone would give 62 / 9.3 = 6.7 U; the first-meal factor
+    # tightens the ratio to about 7.6 g/U, so roughly 8.2 U.
+    assert body["recommended_units"] > 62.0 / 9.3
+    assert 7.5 <= body["recommended_units"] <= 8.8
+
+
+def test_a_meal_soon_after_another_keeps_the_daypart_ratio(
+    api_client: TestClient,
+) -> None:
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 62.0)
+        _meal(session, owner_id, target_at - timedelta(hours=3), 30.0)
+        _insulin(session, owner_id, target_at - timedelta(hours=3), 3.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    assert abs(response.json()["recommended_units"] - 62.0 / 9.3) < 0.2
