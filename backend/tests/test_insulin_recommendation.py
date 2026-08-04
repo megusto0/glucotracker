@@ -9,6 +9,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from glucotracker.application.glucose_prediction import MODEL_VERSION
+from glucotracker.application.insulin_recommendation import (
+    _hr_sample_instant,
+    _hr_trough_ended_within_window,
+)
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
@@ -855,7 +859,38 @@ def _sleep(session, owner_id, *, start, end) -> None:
     )
 
 
-def _first_meal_case(api_client: TestClient, *, with_sleep: bool, gap_hours: int):
+def _hr_trough(
+    session,
+    owner_id,
+    *,
+    target_utc: datetime,
+    trough_start: datetime,
+    trough_end: datetime,
+) -> None:
+    """Heart-rate samples at 45 bpm across the trough, 75 bpm elsewhere."""
+    at = target_utc - timedelta(hours=24)
+    while at < target_utc:
+        bpm = 45 if trough_start <= at <= trough_end else 75
+        session.add(
+            HealthConnectRecord(
+                owner_id=owner_id,
+                record_id=f"hr-{at.isoformat()}-{bpm}",
+                record_type="HeartRateRecord",
+                start_time=at,
+                end_time=at,
+                payload={"samples": [{"beatsPerMinute": bpm}]},
+            )
+        )
+        at += timedelta(minutes=5)
+
+
+def _first_meal_case(
+    api_client: TestClient,
+    *,
+    with_sleep: bool,
+    gap_hours: int,
+    hr_trough: tuple[int, int] | None = None,
+):
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]
     target_at = datetime(2026, 8, 3, 12, 41)
@@ -870,6 +905,15 @@ def _first_meal_case(api_client: TestClient, *, with_sleep: bool, gap_hours: int
                 owner_id,
                 start=target_utc - timedelta(hours=9),
                 end=target_utc - timedelta(hours=1),
+            )
+        if hr_trough is not None:
+            start_hours, end_hours = hr_trough
+            _hr_trough(
+                session,
+                owner_id,
+                target_utc=target_utc,
+                trough_start=target_utc - timedelta(hours=start_hours),
+                trough_end=target_utc - timedelta(hours=end_hours),
             )
         params = TwinRepository(session, owner_id).get_or_create_params()
         params.icr_morning = 8.0
@@ -914,6 +958,159 @@ def test_sleep_without_a_long_gap_changes_nothing(api_client: TestClient) -> Non
     body = _first_meal_case(api_client, with_sleep=True, gap_hours=3)
 
     assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
+
+
+def test_hr_trough_ending_just_before_meal_gets_a_tighter_ratio(
+    api_client: TestClient,
+) -> None:
+    """No sleep session is synced, but the low-HR trough ended 2 h before the
+    meal — the fallback wake signal stands in for the sleep record."""
+    body = _first_meal_case(
+        api_client,
+        with_sleep=False,
+        gap_hours=11,
+        hr_trough=(11, 2),
+    )
+
+    assert body["status"] == "ready"
+    assert body["recommended_units"] > 62.0 / 9.3
+    assert 7.5 <= body["recommended_units"] <= 8.8
+
+
+def test_hr_trough_ending_too_long_before_meal_changes_nothing(
+    api_client: TestClient,
+) -> None:
+    """The trough ended 8 h before the meal, outside the 6 h window."""
+    body = _first_meal_case(
+        api_client,
+        with_sleep=False,
+        gap_hours=11,
+        hr_trough=(17, 8),
+    )
+
+    assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
+
+
+def test_hr_trough_does_not_override_a_missing_long_gap(
+    api_client: TestClient,
+) -> None:
+    """A trough ending near a meal is irrelevant without the 7 h meal gap."""
+    body = _first_meal_case(
+        api_client,
+        with_sleep=False,
+        gap_hours=3,
+        hr_trough=(11, 2),
+    )
+
+    assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
+
+
+def _trough_samples(
+    *,
+    target: datetime,
+    trough_start: datetime,
+    trough_end: datetime,
+    low: int = 45,
+    high: int = 75,
+) -> list[tuple[datetime, int]]:
+    samples = []
+    at = target - timedelta(hours=24)
+    while at < target:
+        bpm = low if trough_start <= at <= trough_end else high
+        samples.append((at, bpm))
+        at += timedelta(minutes=5)
+    return samples
+
+
+def test_hr_trough_accepts_a_trough_that_ended_inside_the_window() -> None:
+    target = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+    samples = _trough_samples(
+        target=target,
+        trough_start=datetime(2026, 8, 3, 2, 0, tzinfo=UTC),
+        trough_end=datetime(2026, 8, 3, 11, 0, tzinfo=UTC),
+    )
+
+    assert _hr_trough_ended_within_window(samples, target)
+
+
+def test_hr_trough_rejects_a_trough_that_ended_too_long_ago() -> None:
+    target = datetime(2026, 8, 3, 18, 0, tzinfo=UTC)
+    samples = _trough_samples(
+        target=target,
+        trough_start=datetime(2026, 8, 3, 2, 0, tzinfo=UTC),
+        trough_end=datetime(2026, 8, 3, 11, 0, tzinfo=UTC),
+    )
+
+    assert not _hr_trough_ended_within_window(samples, target)
+
+
+def test_hr_trough_survives_noise_inside_the_trough() -> None:
+    """A single above-threshold minute is a sensor spike, not an awakening."""
+    target = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+    samples = _trough_samples(
+        target=target,
+        trough_start=datetime(2026, 8, 3, 2, 0, tzinfo=UTC),
+        trough_end=datetime(2026, 8, 3, 11, 0, tzinfo=UTC),
+    )
+    for hh, mm in ((3, 30), (5, 15), (7, 45)):
+        samples.append((datetime(2026, 8, 3, hh, mm, tzinfo=UTC), 75))
+        samples.append((datetime(2026, 8, 3, hh, mm + 1, tzinfo=UTC), 75))
+
+    assert _hr_trough_ended_within_window(samples, target)
+
+
+def test_hr_trough_rejects_a_short_trough() -> None:
+    """A 1 h dip cannot stand in for a night of sleep."""
+    target = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+    samples = _trough_samples(
+        target=target,
+        trough_start=datetime(2026, 8, 3, 10, 30, tzinfo=UTC),
+        trough_end=datetime(2026, 8, 3, 11, 30, tzinfo=UTC),
+    )
+
+    assert not _hr_trough_ended_within_window(samples, target)
+
+
+def test_hr_trough_rejects_a_monotone_window() -> None:
+    """All-low (or all-high) data must not read as a trough."""
+    target = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+    samples = _trough_samples(
+        target=target,
+        trough_start=datetime(2026, 8, 3, 2, 0, tzinfo=UTC),
+        trough_end=datetime(2026, 8, 3, 11, 0, tzinfo=UTC),
+        low=75,
+        high=75,
+    )
+
+    assert not _hr_trough_ended_within_window(samples, target)
+
+
+def test_hr_sample_instant_reapplies_the_wall_clock_offset() -> None:
+    row = HealthConnectRecord(
+        owner_id=uuid4(),
+        record_id="hr-offset",
+        record_type="HeartRateRecord",
+        start_time=datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        end_time=datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        payload={"startZoneOffset": "+04:00"},
+    )
+    sample = {"beatsPerMinute": 60, "time": "2026-08-03T02:00:00Z"}
+
+    assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
+
+
+def test_hr_sample_instant_falls_back_to_row_start_time() -> None:
+    row = HealthConnectRecord(
+        owner_id=uuid4(),
+        record_id="hr-fallback",
+        record_type="HeartRateRecord",
+        start_time=datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        end_time=datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        payload={},
+    )
+    sample = {"beatsPerMinute": 60}
+
+    assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
 
 
 

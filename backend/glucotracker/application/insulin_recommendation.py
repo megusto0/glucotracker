@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import isfinite, log
 from statistics import median
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -106,6 +106,15 @@ FIRST_MEAL_GAP = timedelta(hours=7)
 MIN_SLEEP_FOR_FIRST_MEAL = timedelta(hours=3)
 SLEEP_TO_FIRST_MEAL_WINDOW = timedelta(hours=6)
 FIRST_MEAL_ICR_FACTOR = 7.1 / 8.7
+# When Health Connect records no sleep session, the nightly low-HR trough is
+# the fallback wake signal. HR percentile within the lookback window, the run
+# breaks on a gap this long (a missed sample is not an awakening), and the
+# trough must end inside SLEEP_TO_FIRST_MEAL_WINDOW before the meal just like
+# a recorded session.
+HR_SLEEP_PERCENTILE = 0.30
+HR_SLEEP_RUN_GAP = timedelta(minutes=10)
+HR_SLEEP_RECOVERY_WINDOW = timedelta(hours=2)
+HR_SLEEP_LOOKBACK = timedelta(hours=24)
 # Floor of the comfortable +2 h landing zone. Finishing between this and the
 # hypo threshold is a near miss, so the episode's dose is corrected downward
 # rather than being copied as if it had gone well.
@@ -526,8 +535,9 @@ class HistoricalInsulinRecommendationService:
         """Return whether a recorded sleep separates this meal from the last.
 
         Both conditions must hold: a long enough gap, and a sleep session that
-        actually ended inside it. Without sleep records this is always False,
-        which leaves the daypart ratio untouched.
+        actually ended inside it. Without sleep records the daily low-HR trough
+        stands in for the session when it too ended inside the window. Without
+        either, this is always False, which leaves the daypart ratio untouched.
         """
         if hours_since_previous_meal is None:
             return False
@@ -544,16 +554,45 @@ class HistoricalInsulinRecommendationService:
             )
         ).all()
         for row in rows:
-            payload = row.payload or {}
-            start = _payload_instant(payload.get("startTime"))
-            end = _payload_instant(payload.get("endTime"))
+            start = _as_utc(row.start_time) if row.start_time is not None else None
+            end = _as_utc(row.end_time) if row.end_time is not None else None
             if start is None or end is None or end <= start:
                 continue
             if end - start < MIN_SLEEP_FOR_FIRST_MEAL:
                 continue
             if timedelta(0) <= target_utc - end <= SLEEP_TO_FIRST_MEAL_WINDOW:
                 return True
-        return False
+        return self._hr_wake_ended_within_window(target_utc)
+
+    def _hr_wake_ended_within_window(self, target_utc: datetime) -> bool:
+        """Return whether the low-HR trough ended inside the first-meal window.
+
+        Falls back to heart-rate data only when no sleep session qualified
+        above. A trough is a sustained run of samples at or below the 30th
+        percentile of the lookback window; it must last at least
+        MIN_SLEEP_FOR_FIRST_MEAL and end no more than SLEEP_TO_FIRST_MEAL_WINDOW
+        before the meal.
+        """
+        rows = self.repository.session.scalars(
+            select(HealthConnectRecord).where(
+                HealthConnectRecord.owner_id == self.repository.user_id,
+                HealthConnectRecord.record_type == "HeartRateRecord",
+                HealthConnectRecord.start_time
+                >= target_utc - HR_SLEEP_LOOKBACK,
+                HealthConnectRecord.start_time <= target_utc,
+            )
+        ).all()
+        samples: list[tuple[datetime, int]] = []
+        for row in rows:
+            for sample in (row.payload or {}).get("samples", []):
+                sample_at = _hr_sample_instant(sample, row)
+                raw_bpm = sample.get("beatsPerMinute")
+                if sample_at is None or not isinstance(raw_bpm, (int, float)):
+                    continue
+                samples.append((sample_at, int(raw_bpm)))
+        if len(samples) < 2:
+            return False
+        return _hr_trough_ended_within_window(samples, target_utc)
 
     def _correction_estimate(
         self,
@@ -1088,15 +1127,112 @@ def _hours_since_previous_meal(
     return (target_at - max(previous)).total_seconds() / 3600.0
 
 
-def _payload_instant(value: object) -> datetime | None:
-    """Parse an ISO instant out of a Health Connect payload field."""
-    if not isinstance(value, str) or not value.strip():
+def _as_utc(value: datetime) -> datetime:
+    """Return a timezone-aware UTC instant, tolerating naive DB values.
+
+    PostgreSQL returns aware instants from tz columns, while the in-memory
+    SQLite used by the test suite returns naive ones; comparisons against the
+    aware target instant need both sides on the same footing.
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _payload_zone_offset(payload: dict[str, Any]) -> timedelta | None:
+    """Return the wall-clock offset Health Connect attached to a payload."""
+    raw = payload.get("startZoneOffset") or payload.get("endZoneOffset")
+    if not isinstance(raw, str) or not raw.strip():
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(f"2026-01-01T00:00:00{raw}").utcoffset()
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _hr_sample_instant(
+    sample: dict[str, Any],
+    row: HealthConnectRecord,
+) -> datetime | None:
+    """Return the true UTC instant of a heart-rate sample.
+
+    The wearable writes sample times as local wall-clock values tagged with a
+    misleading "Z" (the column start_time carries the corrected UTC). Reapply
+    the recorded zone offset; fall back to the row's own start_time.
+    """
+    raw = sample.get("time")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            naive = datetime.fromisoformat(raw.replace("Z", ""))
+        except ValueError:
+            naive = None
+        if naive is not None and naive.tzinfo is None:
+            offset = _payload_zone_offset(row.payload or {})
+            if offset is not None:
+                return (naive + offset).replace(tzinfo=UTC)
+    return _as_utc(row.start_time) if row.start_time is not None else None
+
+
+def _hr_trough_ended_within_window(
+    samples: list[tuple[datetime, int]],
+    target_utc: datetime,
+) -> bool:
+    """Return whether a sustained low-HR trough ended just before the meal.
+
+    The trough threshold is the 30th percentile of the window so it adapts to
+    the wearer rather than a fixed bpm. A run is a span of samples at or below
+    the threshold; a single above-threshold minute does not end it, but a rise
+    sustained past HR_SLEEP_RUN_GAP or a gap between low samples that long does.
+    Any qualifying run must last at least MIN_SLEEP_FOR_FIRST_MEAL and end no
+    more than SLEEP_TO_FIRST_MEAL_WINDOW before the meal, and the trough must
+    actually be followed by heart rate rising above the threshold within
+    HR_SLEEP_RECOVERY_WINDOW — otherwise a monotone or too-short window would
+    let the percentile swallow every sample and read as a trough.
+    """
+    ordered = sorted(samples)
+    thresholds = sorted(bpm for _, bpm in ordered)
+    threshold = float(
+        thresholds[min(len(thresholds) - 1, int(HR_SLEEP_PERCENTILE * len(thresholds)))]
+    )
+    runs: list[tuple[datetime, datetime]] = []
+    run_start: datetime | None = None
+    last_low_time: datetime | None = None
+    for sample_at, bpm in ordered:
+        if bpm <= threshold:
+            if run_start is None:
+                run_start = sample_at
+            elif (
+                last_low_time is not None
+                and sample_at - last_low_time > HR_SLEEP_RUN_GAP
+            ):
+                runs.append((run_start, last_low_time))
+                run_start = sample_at
+            last_low_time = sample_at
+        elif (
+            run_start is not None
+            and last_low_time is not None
+            and sample_at - last_low_time > HR_SLEEP_RUN_GAP
+        ):
+            runs.append((run_start, last_low_time))
+            run_start = None
+            last_low_time = None
+    if run_start is not None and last_low_time is not None:
+        runs.append((run_start, last_low_time))
+    for run_start, run_end in runs:
+        if run_end - run_start < MIN_SLEEP_FOR_FIRST_MEAL:
+            continue
+        if not (
+            timedelta(0) <= target_utc - run_end <= SLEEP_TO_FIRST_MEAL_WINDOW
+        ):
+            continue
+        if not any(
+            bpm > threshold
+            for sample_at, bpm in ordered
+            if timedelta(0) < sample_at - run_end <= HR_SLEEP_RECOVERY_WINDOW
+        ):
+            continue
+        return True
+    return False
 
 
 def _icr_dose(

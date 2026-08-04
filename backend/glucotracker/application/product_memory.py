@@ -28,17 +28,17 @@ class ProductMemoryService:
         self.user_id = user_id
 
     def remember_items(self, items: list[MealItem]) -> None:
-        """Persist all eligible accepted label items into local product memory."""
+        """Persist all eligible accepted items into local product memory."""
         for item in items:
-            self._remember_label_item_as_product(item)
+            self._remember_item_as_product(item)
 
     def remember_item(
         self,
         item: MealItem,
         aliases: list[str] | None = None,
     ) -> Product:
-        """Persist one eligible label item and attach it back to the meal item."""
-        product = self._remember_label_item_as_product(item)
+        """Persist one eligible item and attach it back to the meal item."""
+        product = self._remember_item_as_product(item)
         if product is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -129,9 +129,7 @@ class ProductMemoryService:
         if isinstance(nutrition_per_100g, dict):
             return {
                 "carbs_per_100g": self._as_float(nutrition_per_100g.get("carbs_g")),
-                "protein_per_100g": self._as_float(
-                    nutrition_per_100g.get("protein_g")
-                ),
+                "protein_per_100g": self._as_float(nutrition_per_100g.get("protein_g")),
                 "fat_per_100g": self._as_float(nutrition_per_100g.get("fat_g")),
                 "fiber_per_100g": self._as_float(nutrition_per_100g.get("fiber_g")),
                 "kcal_per_100g": self._as_float(nutrition_per_100g.get("kcal")),
@@ -140,16 +138,12 @@ class ProductMemoryService:
         extracted_facts = evidence.get("extracted_facts")
         if isinstance(extracted_facts, dict):
             return {
-                "carbs_per_100g": self._as_float(
-                    extracted_facts.get("carbs_per_100g")
-                ),
+                "carbs_per_100g": self._as_float(extracted_facts.get("carbs_per_100g")),
                 "protein_per_100g": self._as_float(
                     extracted_facts.get("protein_per_100g")
                 ),
                 "fat_per_100g": self._as_float(extracted_facts.get("fat_per_100g")),
-                "fiber_per_100g": self._as_float(
-                    extracted_facts.get("fiber_per_100g")
-                ),
+                "fiber_per_100g": self._as_float(extracted_facts.get("fiber_per_100g")),
                 "kcal_per_100g": self._as_float(extracted_facts.get("kcal_per_100g")),
             }
         return {}
@@ -231,9 +225,7 @@ class ProductMemoryService:
         lowered = item.name.casefold()
         if "сырок" in lowered:
             aliases.extend(["сырок", "глазированный сырок", "творожный сырок"])
-        if "бисквит" in lowered and (
-            "сэндвич" in lowered or "сандвич" in lowered
-        ):
+        if "бисквит" in lowered and ("сэндвич" in lowered or "сандвич" in lowered):
             aliases.extend(["бисквит", "бисквит-сэндвич", "сэндвич"])
         return aliases
 
@@ -251,14 +243,20 @@ class ProductMemoryService:
             for nutrient in item.nutrients
         }
 
-    def _find_existing_label_product(self, item: MealItem) -> Product | None:
+    @staticmethod
+    def _product_source_kind(item: MealItem) -> str:
+        source_kind = item.source_kind
+        if isinstance(source_kind, ItemSourceKind):
+            return source_kind.value
+        return str(source_kind or ItemSourceKind.label_calc.value)
+
+    def _find_existing_product(self, item: MealItem) -> Product | None:
         if item.product_id is not None:
             product = self.session.scalar(
                 select(Product)
                 .where(Product.id == item.product_id)
                 .where(
-                    (Product.owner_id.is_(None))
-                    | (Product.owner_id == self.user_id)
+                    (Product.owner_id.is_(None)) | (Product.owner_id == self.user_id)
                 )
                 .options(selectinload(Product.aliases))
             )
@@ -272,8 +270,7 @@ class ProductMemoryService:
                 select(Product)
                 .where(Product.barcode == str(barcode))
                 .where(
-                    (Product.owner_id.is_(None))
-                    | (Product.owner_id == self.user_id)
+                    (Product.owner_id.is_(None)) | (Product.owner_id == self.user_id)
                 )
                 .options(selectinload(Product.aliases))
             )
@@ -288,8 +285,7 @@ class ProductMemoryService:
                 select(Product)
                 .where(Product.image_url == image_url)
                 .where(
-                    (Product.owner_id.is_(None))
-                    | (Product.owner_id == self.user_id)
+                    (Product.owner_id.is_(None)) | (Product.owner_id == self.user_id)
                 )
                 .options(selectinload(Product.aliases))
             )
@@ -310,12 +306,12 @@ class ProductMemoryService:
             .options(selectinload(Product.aliases))
         )
 
-    def _remember_label_item_as_product(self, item: MealItem) -> Product | None:
+    def _remember_item_as_product(self, item: MealItem) -> Product | None:
+        if not item.name.strip():
+            return None
         is_label_item = item.source_kind == ItemSourceKind.label_calc or (
             item.calculation_method or ""
         ).startswith("label_")
-        if not is_label_item or not item.name.strip():
-            return None
 
         nutrition_per_100g = self._nutrition_per_100g_from_evidence(item)
         default_grams = self._default_label_serving_size(item)
@@ -330,19 +326,20 @@ class ProductMemoryService:
         image_url = self._photo_file_url(item.photo_id) or self._first_meal_photo_url(
             item.meal_id
         )
-        product = self._find_existing_label_product(item)
+        product = self._find_existing_product(item)
 
         product_values = {
             "barcode": str(barcode) if barcode else None,
             "brand": item.brand,
             "name": item.name,
             "default_grams": default_grams,
-            "default_serving_text": item.serving_text or (
-                f"{default_grams:g} г" if default_grams else None
-            ),
+            "default_serving_text": item.serving_text
+            or (f"{default_grams:g} г" if default_grams else None),
             **nutrition_per_100g,
             **serving_values,
-            "source_kind": "label_calc",
+            "source_kind": (
+                "label_calc" if is_label_item else self._product_source_kind(item)
+            ),
             "image_url": image_url,
             "nutrients_json": nutrients_json,
         }
@@ -355,7 +352,7 @@ class ProductMemoryService:
                     for key, value in product_values.items()
                     if value is not None
                     or key in {"name", "source_kind", "nutrients_json"}
-                }
+                },
             )
             self.session.add(product)
         else:

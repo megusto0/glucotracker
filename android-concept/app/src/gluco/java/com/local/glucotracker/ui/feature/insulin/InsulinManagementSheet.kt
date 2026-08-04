@@ -47,7 +47,10 @@ import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -107,7 +110,7 @@ fun InsulinManagementSheet(
     val units = unitsText.replace(',', '.').toDoubleOrNull()
         ?.takeIf { it > 0.0 && it <= 100.0 }
     val recordedAt = remember(date, time) {
-        LocalDateTime(date, time).toInstant(zone)
+        resolveRecordedAt(date, time, zone, Clock.System.now())
     }
     val changed = units != null &&
         (kotlin.math.abs(units - event.doseUnits) >= 0.01 || recordedAt != event.timestamp)
@@ -293,3 +296,22 @@ private fun DateTimeCell(
 
 private fun formatEditableInsulin(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else value.toString().replace('.', ',')
+
+private val FutureRollbackMin = 12.hours
+private val FutureRollbackMax = 25.hours
+
+internal fun resolveRecordedAt(
+    date: LocalDate,
+    time: LocalTime,
+    zone: TimeZone,
+    now: Instant,
+): Instant {
+    val candidate = LocalDateTime(date, time).toInstant(zone)
+    val futureBy = candidate - now
+    if (futureBy in FutureRollbackMin..FutureRollbackMax) {
+        // A record created just after midnight lands on the new day; picking a
+        // late-evening time then means the just-ended evening, not ~a day ahead.
+        return LocalDateTime(date.minus(DatePeriod(days = 1)), time).toInstant(zone)
+    }
+    return candidate
+}
