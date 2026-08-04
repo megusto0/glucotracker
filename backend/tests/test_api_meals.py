@@ -1063,6 +1063,56 @@ def test_remember_product_endpoint_adds_user_aliases(
     )
 
 
+def test_remember_product_saves_photo_estimate_item(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """A confirmed photo-estimated item can be remembered as a product."""
+    created = api_client.post(
+        "/meals",
+        json=meal_payload(
+            title="Обед",
+            source="photo",
+            status="accepted",
+            items=[
+                {
+                    "name": "Лаваш с курицей",
+                    "grams": 220,
+                    "serving_text": "220 г",
+                    "carbs_g": 62,
+                    "protein_g": 28,
+                    "fat_g": 18,
+                    "fiber_g": 4,
+                    "kcal": 520,
+                    "source_kind": "photo_estimate",
+                    "calculation_method": "photo_estimate",
+                }
+            ],
+        ),
+    ).json()
+    item_id = created["items"][0]["id"]
+
+    response = api_client.post(
+        f"/meal_items/{item_id}/remember_product",
+        json={"aliases": ["лаваш"]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Лаваш с курицей"
+    assert body["source_kind"] == "photo_estimate"
+    assert body["carbs_per_serving"] == 62
+    assert body["kcal_per_serving"] == 520
+    assert "лаваш" in body["aliases"]
+    with Session(db_engine) as session:
+        item = session.get(MealItem, UUID(item_id))
+        assert item is not None
+        assert item.product_id is not None
+        product = session.get(Product, item.product_id)
+        assert product is not None
+        assert product.source_kind == "photo_estimate"
+
+
 def test_discard_meal_sets_discarded(api_client: TestClient) -> None:
     """POST /meals/{id}/discard marks the meal discarded."""
     created = api_client.post(
