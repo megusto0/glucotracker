@@ -13,7 +13,7 @@ record.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from math import isfinite, log
 from statistics import median
@@ -138,6 +138,21 @@ class HistoricalDoseMatch:
     glucose_plus_2h_mmol: float | None = None
 
 
+Daypart = Literal["morning", "day", "evening"]
+
+
+@dataclass(frozen=True)
+class IcrBasis:
+    """The configured ratio behind the ICR half of a meal estimate."""
+
+    daypart: Daypart
+    configured_g_per_unit: float
+    #: After the first-meal-after-sleep tightening, when it applied.
+    effective_g_per_unit: float
+    after_sleep: bool
+    dose_units: float
+
+
 @dataclass(frozen=True)
 class HistoricalDoseEstimate:
     """Backend result before API serialization."""
@@ -157,6 +172,24 @@ class HistoricalDoseEstimate:
     confidence: Literal["none", "low", "medium", "high"]
     matches: list[HistoricalDoseMatch]
     method_version: str = METHOD_VERSION
+    # How the meal number was arrived at, so a client can show its working
+    # rather than a bare figure. The recommendation is a weighted blend of the
+    # personal history median and the configured ratio; either side can be
+    # absent, and which one dominated is the first thing worth reading.
+    icr_daypart: Daypart | None = None
+    icr_g_per_unit: float | None = None
+    icr_configured_g_per_unit: float | None = None
+    icr_after_sleep: bool = False
+    icr_dose_units: float | None = None
+    history_median_units: float | None = None
+    history_weight: float | None = None
+
+    @property
+    def implied_icr_g_per_unit(self) -> float | None:
+        """Grams per unit the meal recommendation actually works out to."""
+        if not self.recommended_units or self.target_carbs_g <= 0:
+            return None
+        return round(self.target_carbs_g / self.recommended_units, 1)
 
 
 CorrectionStatus = Literal[
@@ -305,17 +338,12 @@ class HistoricalInsulinRecommendationService:
         # low/falling. Keep only the historical matches for auditability; even
         # a meal-only number is too easy to misread as a recommendation.
         if correction.status == "low_or_falling":
-            meal_estimate = HistoricalDoseEstimate(
+            meal_estimate = replace(
+                meal_estimate,
                 status="low_or_falling",
-                meal_ids=meal_estimate.meal_ids,
-                target_carbs_g=meal_estimate.target_carbs_g,
-                target_kcal=meal_estimate.target_kcal,
                 recommended_units=None,
                 range_low_units=None,
                 range_high_units=None,
-                confidence=meal_estimate.confidence,
-                matches=meal_estimate.matches,
-                method_version=meal_estimate.method_version,
             )
             return InsulinCalculation(
                 meal=meal_estimate,
@@ -458,6 +486,8 @@ class HistoricalInsulinRecommendationService:
             ),
         )
 
+        icr_fields = _icr_fields(icr_dose)
+
         if len(matches) < MIN_MATCHES:
             if icr_dose is not None:
                 return HistoricalDoseEstimate(
@@ -465,11 +495,13 @@ class HistoricalInsulinRecommendationService:
                     meal_ids=unique_ids,
                     target_carbs_g=round(target_carbs, 1),
                     target_kcal=round(target_kcal, 1),
-                    recommended_units=_round_dose(icr_dose),
-                    range_low_units=_round_dose(icr_dose * 0.85),
-                    range_high_units=_round_dose(icr_dose * 1.15),
+                    recommended_units=_round_dose(icr_dose.dose_units),
+                    range_low_units=_round_dose(icr_dose.dose_units * 0.85),
+                    range_high_units=_round_dose(icr_dose.dose_units * 1.15),
                     confidence="low",
                     matches=matches,
+                    history_weight=0.0,
+                    **icr_fields,
                 )
             return HistoricalDoseEstimate(
                 status="insufficient_history",
@@ -490,6 +522,7 @@ class HistoricalInsulinRecommendationService:
         high = _round_dose(_weighted_percentile(scaled, weights, 0.75))
 
         recommendation = history_median
+        history_weight = 1.0
         if icr_dose is not None:
             # More history and tighter spread → trust personal matches more.
             spread = (high - low) / history_median if history_median > 0 else 1.0
@@ -497,10 +530,11 @@ class HistoricalInsulinRecommendationService:
                 0.85 if spread <= 0.35 else 0.7 if spread <= 0.6 else 0.55
             )
             recommendation = _round_dose(
-                history_weight * history_median + (1.0 - history_weight) * icr_dose
+                history_weight * history_median
+                + (1.0 - history_weight) * icr_dose.dose_units
             )
-            low = _round_dose(min(low, recommendation, icr_dose))
-            high = _round_dose(max(high, recommendation, icr_dose))
+            low = _round_dose(min(low, recommendation, icr_dose.dose_units))
+            high = _round_dose(max(high, recommendation, icr_dose.dose_units))
 
         spread = (
             (high - low) / recommendation
@@ -524,6 +558,9 @@ class HistoricalInsulinRecommendationService:
             range_high_units=high,
             confidence=confidence,
             matches=matches,
+            history_median_units=history_median,
+            history_weight=round(history_weight, 2),
+            **icr_fields,
         )
 
     def _is_first_meal_after_sleep(
@@ -699,7 +736,7 @@ class HistoricalInsulinRecommendationService:
         # surplus over that commitment should reduce the next dose.
         own_carbs = sum(float(meal.total_carbs_g or 0) for meal in meals)
         prior_cob = max(0.0, float(dashboard.summary.cob_g) - own_carbs)
-        icr_now = _icr_for_time(meal_at, twin_params)
+        _, icr_now = _icr_for_time(meal_at, twin_params)
         committed = prior_cob / icr_now if icr_now and icr_now > 0 else 0.0
         excess_iob = max(0.0, iob_units - committed)
         context = {
@@ -1235,14 +1272,27 @@ def _hr_trough_ended_within_window(
     return False
 
 
+def _icr_fields(basis: IcrBasis | None) -> dict[str, Any]:
+    """Spread an ICR basis over the estimate fields that report it."""
+    if basis is None:
+        return {}
+    return {
+        "icr_daypart": basis.daypart,
+        "icr_g_per_unit": basis.effective_g_per_unit,
+        "icr_configured_g_per_unit": basis.configured_g_per_unit,
+        "icr_after_sleep": basis.after_sleep,
+        "icr_dose_units": _round_dose(basis.dose_units),
+    }
+
+
 def _icr_dose(
     carbs: float,
     meal_at: datetime,
     twin_params: TwinParams,
     *,
     after_sleep: bool = False,
-) -> float | None:
-    icr = _icr_for_time(meal_at, twin_params)
+) -> IcrBasis | None:
+    daypart, icr = _icr_for_time(meal_at, twin_params)
     if icr is None or icr <= 0 or not isfinite(icr):
         return None
     if (
@@ -1255,25 +1305,33 @@ def _icr_dose(
         # A constrained fit landing exactly on a bound is not a trustworthy
         # personal ratio. Keep history usable, but do not blend/fallback to it.
         return None
-    if after_sleep:
-        icr *= FIRST_MEAL_ICR_FACTOR
-    dose = carbs / icr
+    effective = icr * FIRST_MEAL_ICR_FACTOR if after_sleep else icr
+    dose = carbs / effective
     if not 0 < dose <= 100:
         return None
-    return dose
+    return IcrBasis(
+        daypart=daypart,
+        configured_g_per_unit=round(icr, 2),
+        effective_g_per_unit=round(effective, 2),
+        after_sleep=after_sleep,
+        dose_units=dose,
+    )
 
 
-def _icr_for_time(meal_at: datetime, twin_params: TwinParams) -> float | None:
+def _icr_for_time(
+    meal_at: datetime,
+    twin_params: TwinParams,
+) -> tuple[Daypart, float | None]:
     """Return the daypart ICR: morning / day / evening (overnight → evening)."""
     minutes = meal_at.hour * 60 + meal_at.minute
     morning = twin_params.morning_start_minutes
     day = twin_params.day_start_minutes
     evening = twin_params.evening_start_minutes
     if morning <= minutes < day:
-        return twin_params.icr_morning
+        return "morning", twin_params.icr_morning
     if day <= minutes < evening:
-        return twin_params.icr_day
-    return twin_params.icr_evening
+        return "day", twin_params.icr_day
+    return "evening", twin_params.icr_evening
 
 
 def _trusted_isf(twin_params: TwinParams) -> float | None:

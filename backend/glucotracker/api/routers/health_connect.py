@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
+from glucotracker.application.health_connect_samples import heart_rate_samples
 from glucotracker.application.time import (
     local_wall_time,
     utc_instant_from_local_wall,
@@ -123,43 +124,11 @@ def get_heart_rate_series(
             detail="Heart-rate range cannot exceed 7 days.",
         )
 
-    # Health Connect metadata from the current Android client can be shifted by
-    # the local UTC offset. Query a safe margin, then trust each sample's
-    # embedded instant and strictly filter it to the requested range.
-    metadata_margin = timedelta(days=1)
-    records = HealthConnectRepository(
-        session,
-        current_user.id,
-    ).list_records_by_type_and_time(
-        "HeartRateRecord",
-        from_utc - metadata_margin,
-        to_utc + metadata_margin,
-    )
-
-    samples_by_time: dict[datetime, float] = {}
-    for record in records:
-        raw_samples = record.payload.get("samples")
-        if not isinstance(raw_samples, list):
-            continue
-        for sample in raw_samples:
-            if not isinstance(sample, dict):
-                continue
-            timestamp = _payload_timestamp(sample.get("time"))
-            bpm = _finite_number(sample.get("beatsPerMinute"))
-            if (
-                timestamp is None
-                or bpm is None
-                or bpm < 25
-                or bpm > 240
-                or timestamp < from_utc
-                or timestamp >= to_utc
-            ):
-                continue
-            samples_by_time[timestamp] = bpm
+    samples = heart_rate_samples(session, current_user.id, from_utc, to_utc)
 
     bin_seconds = bin_minutes * 60
     values_by_bin: dict[datetime, list[float]] = defaultdict(list)
-    for timestamp, bpm in samples_by_time.items():
+    for timestamp, bpm in samples:
         bucket_epoch = int(timestamp.timestamp()) // bin_seconds * bin_seconds
         bucket = datetime.fromtimestamp(bucket_epoch, tz=UTC)
         values_by_bin[bucket].append(bpm)
@@ -180,23 +149,3 @@ def get_heart_rate_series(
     )
 
 
-def _payload_timestamp(value: Any) -> datetime | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
-
-
-def _finite_number(value: Any) -> float | None:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if number != number or number in (float("inf"), float("-inf")):
-        return None
-    return number

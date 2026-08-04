@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { TherapyReviewDayResponse } from "../../api/client";
 import {
   useGlucoseTherapyReview,
+  usePrefetchGlucoseTherapyReview,
   useRecalculateGlucoseTherapyReview,
 } from "../glucose/useGlucoseDashboard";
 import { TherapyReviewPage } from "./TherapyReviewPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
   useGlucoseTherapyReview: vi.fn(),
+  usePrefetchGlucoseTherapyReview: vi.fn(),
   useRecalculateGlucoseTherapyReview: vi.fn(),
 }));
 
@@ -17,18 +19,53 @@ const mockedUseReview = vi.mocked(useGlucoseTherapyReview);
 const mockedUseRecalculation = vi.mocked(
   useRecalculateGlucoseTherapyReview,
 );
+const mockedUsePrefetch = vi.mocked(usePrefetchGlucoseTherapyReview);
 const refetch = vi.fn();
 const recalculate = vi.fn();
+const prefetch = vi.fn();
 
 const review: TherapyReviewDayResponse = {
   cached: true,
   computed_at: "2026-07-25T22:00:00Z",
   date: "2026-07-25",
   horizon_minutes: 120,
-  model_version: "retrospective-therapy-review-v1",
+  model_version: "retrospective-therapy-review-v3",
   target_mmol_l: 6,
+  body_states: [
+    {
+      confidence: "high",
+      end_at: "2026-07-25T07:10:00",
+      kind: "sleep",
+      minutes: 430,
+      source: "recorded",
+      start_at: "2026-07-25T00:00:00",
+      total_minutes: 430,
+    },
+    {
+      confidence: "medium",
+      end_at: "2026-07-25T18:35:00",
+      kind: "activity",
+      minutes: 35,
+      peak_bpm: 148,
+      source: "heart_rate",
+      start_at: "2026-07-25T18:00:00",
+      total_minutes: 35,
+    },
+  ],
   items: [
     {
+      body_context: ["after_sleep"],
+      // Ends on target after two hours above the high band: the case that used
+      // to read as a clean episode.
+      outcome_quality: "spike",
+      peak_mmol_l: 13.1,
+      peak_after_minutes: 40,
+      nadir_mmol_l: 5.2,
+      nadir_after_minutes: 120,
+      minutes_above_high: 70,
+      minutes_below_low: 0,
+      trajectory: [6.2, 10.4, 13.1, 10.8, 7.1, 5.6, 5.2],
+      trajectory_step_minutes: 20,
       actual_value: 8.5,
       adjusted_actual_value: 8.2,
       adjustment_status: "ready",
@@ -52,6 +89,15 @@ const review: TherapyReviewDayResponse = {
       value_unit: "U",
     },
     {
+      outcome_quality: "in_range",
+      peak_mmol_l: 6.7,
+      peak_after_minutes: 0,
+      nadir_mmol_l: 4.6,
+      nadir_after_minutes: 60,
+      minutes_above_high: 0,
+      minutes_below_low: 0,
+      trajectory: [6.7, 5.4, 4.6, 4.7, 4.9],
+      trajectory_step_minutes: 30,
       actual_value: 7,
       adjusted_actual_value: 11.5,
       adjustment_status: "ready",
@@ -81,6 +127,8 @@ describe("TherapyReviewPage", () => {
   beforeEach(() => {
     refetch.mockReset();
     recalculate.mockReset();
+    prefetch.mockReset();
+    mockedUsePrefetch.mockReturnValue(prefetch);
     mockedUseReview.mockReturnValue({
       data: review,
       error: null,
@@ -150,6 +198,57 @@ describe("TherapyReviewPage", () => {
     expect(
       screen.getByRole("button", { name: "Анализ ICR и ISF" }),
     ).toBeInTheDocument();
+  });
+
+  test("an episode that spiked is not badged as clean just for landing on target", () => {
+    render(
+      <MemoryRouter>
+        <TherapyReviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("был пик")).toBeInTheDocument();
+    expect(screen.getByText(/пик 13\.1 · \+40 мин/)).toBeInTheDocument();
+    expect(screen.getByText(/выше 10: 70 мин/)).toBeInTheDocument();
+    // The carb rescue stayed in range throughout and keeps the clean badge.
+    expect(screen.getByText("чисто")).toBeInTheDocument();
+  });
+
+  test("shows the day's sleep and effort, and marks the meal that followed sleep", () => {
+    render(
+      <MemoryRouter>
+        <TherapyReviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Контекст дня")).toBeInTheDocument();
+    expect(screen.getByText(/сон 7 ч 10 мин/)).toBeInTheDocument();
+    expect(screen.getByText(/нагрузок: 1/)).toBeInTheDocument();
+    // The inferred workout has to say it came from heart rate, not the watch.
+    expect(
+      screen.getByText(/Нагрузка · 18:00–18:35 · 35 мин · по пульсу/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("первый после сна")).toBeInTheDocument();
+  });
+
+  test("says so plainly when there is neither a session nor a pulse", () => {
+    mockedUseReview.mockReturnValue({
+      data: { ...review, body_states: [] },
+      error: null,
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      refetch,
+    } as unknown as ReturnType<typeof useGlucoseTherapyReview>);
+
+    render(
+      <MemoryRouter>
+        <TherapyReviewPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/сон не найден/)).toBeInTheDocument();
+    expect(screen.getByText(/восстановить/)).toBeInTheDocument();
   });
 
   test("does not report an empty day while a new date is still loading", () => {

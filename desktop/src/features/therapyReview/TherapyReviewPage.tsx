@@ -5,17 +5,20 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TherapyReviewDayResponse } from "../../api/client";
 import {
   useGlucoseTherapyReview,
+  usePrefetchGlucoseTherapyReview,
   useRecalculateGlucoseTherapyReview,
 } from "../glucose/useGlucoseDashboard";
 import "../nightscoutView/nightscout-page.css";
 import "./therapy-review-page.css";
 
 type ReviewItem = TherapyReviewDayResponse["items"][number];
+type BodyState = NonNullable<TherapyReviewDayResponse["body_states"]>[number];
+type BodyContext = NonNullable<ReviewItem["body_context"]>[number];
 
 const CLASS_LABELS: Record<ReviewItem["classification"], string> = {
   meal: "Приём пищи",
@@ -24,6 +27,12 @@ const CLASS_LABELS: Record<ReviewItem["classification"], string> = {
   insulin_correction: "Коррекция инсулином",
   mixed: "Смешанный эпизод",
   unresolved: "Требует разбора",
+};
+
+const BODY_CONTEXT_LABELS: Record<BodyContext, string> = {
+  after_sleep: "первый после сна",
+  during_sleep: "во сне",
+  near_activity: "рядом с нагрузкой",
 };
 
 const HORIZONS = [
@@ -92,6 +101,218 @@ function calculationMessage(item: ReviewItem) {
   return null;
 }
 
+/** Fraction of the day, so a state can be drawn on a 24-hour strip. */
+function dayFraction(timestamp: string, date: string) {
+  const dayStart = new Date(`${date}T00:00:00`).getTime();
+  const value = new Date(timestamp).getTime();
+  if (!Number.isFinite(value) || !Number.isFinite(dayStart)) return 0;
+  return Math.min(1, Math.max(0, (value - dayStart) / 86_400_000));
+}
+
+function duration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours && rest) return `${hours} ч ${rest} мин`;
+  if (hours) return `${hours} ч`;
+  return `${rest} мин`;
+}
+
+function stateTitle(state: BodyState) {
+  const kind = state.kind === "sleep" ? "Сон" : (state.label ?? "Нагрузка");
+  const source =
+    state.source === "recorded" ? "с часов" : "по пульсу";
+  const peak =
+    state.kind === "activity" && typeof state.peak_bpm === "number"
+      ? ` · пик ${state.peak_bpm.toFixed(0)} уд/мин`
+      : "";
+  return `${kind} · ${displayTime(state.start_at)}–${displayTime(state.end_at)} · ${duration(state.total_minutes)} · ${source}${peak}`;
+}
+
+/**
+ * A 24-hour strip of the day's sleep and hard effort.
+ *
+ * The dosing model still ignores exercise entirely, so a meal that landed
+ * beside a session has numbers that should not be read the same way as the
+ * rest. Showing the day's shape is what makes that visible.
+ */
+function DayContext({
+  date,
+  states,
+}: {
+  date: string;
+  states: BodyState[];
+}) {
+  const sleepMinutes = states
+    .filter((state) => state.kind === "sleep")
+    .reduce((total, state) => total + state.minutes, 0);
+  const activity = states.filter((state) => state.kind === "activity");
+
+  return (
+    <section className="therapy-review-context">
+      <header>
+        <strong>Контекст дня</strong>
+        <span>
+          {sleepMinutes ? `сон ${duration(sleepMinutes)}` : "сон не найден"}
+          {activity.length
+            ? ` · нагрузок: ${activity.length}`
+            : " · нагрузок нет"}
+        </span>
+      </header>
+
+      {states.length ? (
+        <>
+          <div
+            aria-label="Сон и нагрузки за сутки"
+            className="therapy-review-context-strip"
+            role="img"
+          >
+            {states.map((state) => (
+              <span
+                className={`therapy-review-context-band therapy-review-context-band--${state.kind} therapy-review-context-band--${state.source.replace(/_/g, "-")}`}
+                key={`${state.kind}-${state.start_at}`}
+                style={{
+                  left: `${dayFraction(state.start_at, date) * 100}%`,
+                  width: `${Math.max(
+                    0.6,
+                    (dayFraction(state.end_at, date) -
+                      dayFraction(state.start_at, date)) *
+                      100,
+                  )}%`,
+                }}
+                title={stateTitle(state)}
+              />
+            ))}
+            {[6, 12, 18].map((hour) => (
+              <span
+                aria-hidden="true"
+                className="therapy-review-context-tick"
+                key={hour}
+                style={{ left: `${(hour / 24) * 100}%` }}
+              />
+            ))}
+          </div>
+          <ul className="therapy-review-context-list">
+            {states.map((state) => (
+              <li key={`row-${state.kind}-${state.start_at}`}>
+                <b
+                  className={`therapy-review-context-dot therapy-review-context-dot--${state.kind}`}
+                />
+                <span>{stateTitle(state)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p>
+          Нет ни сессий с часов, ни пульса, по которому их можно было бы
+          восстановить.
+        </p>
+      )}
+    </section>
+  );
+}
+
+const QUALITY_LABELS: Record<ReviewItem["outcome_quality"], string> = {
+  in_range: "без выхода за диапазон",
+  spike: "был пик",
+  low: "был провал",
+  spike_and_low: "пик и провал",
+  unknown: "нет данных о ходе",
+};
+
+/**
+ * The episode's glucose curve across the horizon.
+ *
+ * Two endpoints cannot tell a flat landing apart from a spike that came back
+ * down by the time anyone looked, and those need different answers — the first
+ * is a dose that worked, the second a dose that arrived too late.
+ */
+function Trajectory({ item, target }: { item: ReviewItem; target: number }) {
+  const values = item.trajectory ?? [];
+  const known = values.filter((value): value is number => value !== null);
+  if (known.length < 2) return null;
+
+  const step = item.trajectory_step_minutes ?? 10;
+  const width = 100;
+  const height = 34;
+  const low = Math.min(3.0, ...known);
+  const high = Math.max(11.0, ...known);
+  const span = Math.max(1, high - low);
+  const x = (index: number) => (index / (values.length - 1)) * width;
+  const y = (value: number) => height - ((value - low) / span) * height;
+  const path = values
+    .map((value, index) =>
+      value === null ? null : `${x(index).toFixed(1)},${y(value).toFixed(1)}`,
+    )
+    .filter((point): point is string => point !== null)
+    .join(" ");
+  const bandTop = y(Math.min(high, 10));
+  const bandBottom = y(Math.max(low, 3.9));
+
+  return (
+    <div className="therapy-review-trajectory">
+      <svg
+        aria-label={`Ход глюкозы за ${Math.round(((values.length - 1) * step) / 60)} ч`}
+        preserveAspectRatio="none"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <rect
+          className="therapy-review-trajectory-band"
+          height={Math.max(1, bandBottom - bandTop)}
+          width={width}
+          x="0"
+          y={bandTop}
+        />
+        <line
+          className="therapy-review-trajectory-target"
+          x1="0"
+          x2={width}
+          y1={y(target)}
+          y2={y(target)}
+        />
+        <polyline className="therapy-review-trajectory-line" points={path} />
+      </svg>
+      <div className="therapy-review-trajectory-marks">
+        {typeof item.peak_mmol_l === "number" ? (
+          <span
+            className={
+              item.peak_mmol_l > 10 ? "therapy-review-mark--high" : undefined
+            }
+          >
+            пик {item.peak_mmol_l.toFixed(1)}
+            {typeof item.peak_after_minutes === "number"
+              ? ` · +${item.peak_after_minutes} мин`
+              : ""}
+          </span>
+        ) : null}
+        {typeof item.nadir_mmol_l === "number" ? (
+          <span
+            className={
+              item.nadir_mmol_l < 3.9 ? "therapy-review-mark--low" : undefined
+            }
+          >
+            минимум {item.nadir_mmol_l.toFixed(1)}
+            {typeof item.nadir_after_minutes === "number"
+              ? ` · +${item.nadir_after_minutes} мин`
+              : ""}
+          </span>
+        ) : null}
+        {item.minutes_above_high ? (
+          <span className="therapy-review-mark--high">
+            выше 10: {item.minutes_above_high} мин
+          </span>
+        ) : null}
+        {item.minutes_below_low ? (
+          <span className="therapy-review-mark--low">
+            ниже 3,9: {item.minutes_below_low} мин
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ReviewCard({
   item,
   target,
@@ -107,8 +328,12 @@ function ReviewCard({
     item.glucose_after_normalized,
     item.glucose_after_raw,
   );
+  const quality = item.outcome_quality ?? "unknown";
   const outcomeInRange =
     typeof after === "number" && after >= 3.9 && after <= 10;
+  // An endpoint in range with a spike behind it is not a clean episode, and
+  // the badge is the first thing read on this card.
+  const clean = outcomeInRange && quality === "in_range";
   const calculationNote = calculationMessage(item);
 
   return (
@@ -121,19 +346,35 @@ function ReviewCard({
           <span>{CLASS_LABELS[item.classification]}</span>
         </div>
         <span
-          className={`therapy-review-outcome${outcomeInRange ? " therapy-review-outcome--range" : ""}`}
+          className={`therapy-review-outcome${clean ? " therapy-review-outcome--range" : ""}${quality === "low" || quality === "spike_and_low" ? " therapy-review-outcome--low" : ""}`}
         >
           {typeof after === "number"
-            ? outcomeInRange
-              ? "в диапазоне"
-              : after < 3.9
-                ? "низко"
-                : "высоко"
+            ? clean
+              ? "чисто"
+              : quality === "unknown"
+                ? outcomeInRange
+                  ? "в диапазоне"
+                  : after < 3.9
+                    ? "низко"
+                    : "высоко"
+                : QUALITY_LABELS[quality]
             : "нет исхода"}
         </span>
       </header>
 
       <h2>{item.title}</h2>
+      {item.body_context?.length ? (
+        <div className="therapy-review-context-tags">
+          {item.body_context.map((context) => (
+            <span
+              className={`therapy-review-context-tag therapy-review-context-tag--${context.replace(/_/g, "-")}`}
+              key={context}
+            >
+              {BODY_CONTEXT_LABELS[context]}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="therapy-review-glucose">
         <div>
           <span>Глюкоза до</span>
@@ -153,6 +394,8 @@ function ReviewCard({
           </small>
         </div>
       </div>
+
+      <Trajectory item={item} target={target} />
 
       <div className="therapy-review-values">
         <div>
@@ -191,7 +434,20 @@ export function TherapyReviewPage() {
   const [horizon, setHorizon] = useState(120);
   const review = useGlucoseTherapyReview(date, target, horizon);
   const recalculation = useRecalculateGlucoseTherapyReview();
+  const prefetchReview = usePrefetchGlucoseTherapyReview();
   const isRefreshing = review.isFetching || recalculation.isPending;
+
+  // Stepping day by day is how this page is read, so the neighbours are built
+  // while the current day is on screen.
+  useEffect(() => {
+    const neighbours = [shiftDate(date, -1), shiftDate(date, -2)];
+    if (date < today) neighbours.push(shiftDate(date, 1));
+    const timer = window.setTimeout(
+      () => prefetchReview(neighbours, target, horizon),
+      600,
+    );
+    return () => window.clearTimeout(timer);
+  }, [date, horizon, prefetchReview, target, today]);
 
   return (
     <div className="therapy-review-page">
@@ -305,14 +561,16 @@ export function TherapyReviewPage() {
             <small>
               {review.data.cached
                 ? "Загружен сохранённый расчёт"
-                : date < today
-                  ? "Расчёт выполнен и сохранён"
-                  : "Текущий день пересчитывается"}
+                : "Расчёт выполнен и сохранён"}
               {" · "}
               {new Date(review.data.computed_at).toLocaleString("ru-RU")}
             </small>
           ) : null}
         </section>
+
+        {review.data ? (
+          <DayContext date={date} states={review.data.body_states ?? []} />
+        ) : null}
 
         {review.isLoading ||
         (review.isFetching && !review.data?.items.length) ? (

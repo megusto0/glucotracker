@@ -101,6 +101,151 @@
     monospace;
 }
 
+/* A thin estimate must not read as a peer of a solid one. */
+.therapy-analysis-summary-card--muted {
+  border-color: #414141;
+}
+
+.therapy-analysis-summary-card--muted strong {
+  color: #9aa3a6;
+}
+
+.therapy-analysis-caveat {
+  color: #c98a55 !important;
+}
+
+.therapy-analysis-proposal-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #40545a;
+  border-radius: 7px;
+  background: #171717;
+}
+
+.therapy-analysis-proposal-card header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.therapy-analysis-proposal-card header strong {
+  color: var(--ns-cyan);
+  font:
+    600 11px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.therapy-analysis-proposal-card header span,
+.therapy-analysis-proposal-card header small,
+.therapy-analysis-proposal-card footer span {
+  color: #8a8a8a;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-analysis-proposal-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.therapy-analysis-proposal-list li {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #131313;
+}
+
+.therapy-analysis-proposal-slot {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.therapy-analysis-proposal-slot strong {
+  color: #ddd;
+  font-size: 12px;
+}
+
+.therapy-analysis-proposal-slot small,
+.therapy-analysis-proposal-note {
+  color: #777;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-analysis-proposal-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+
+.therapy-analysis-proposal-values > div {
+  display: grid;
+  gap: 2px;
+}
+
+.therapy-analysis-proposal-values span {
+  color: #7d7d7d;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.therapy-analysis-proposal-values b {
+  color: #ddd;
+  font:
+    600 15px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-analysis-proposal-values i {
+  color: #555;
+  font-style: normal;
+}
+
+.therapy-analysis-proposal-move b {
+  color: #d7a26a;
+}
+
+.therapy-analysis-proposal-hold b {
+  color: #6b8a5a;
+  font-size: 11px;
+}
+
+.therapy-analysis-proposal-card footer {
+  display: grid;
+  gap: 4px;
+}
+
+.therapy-analysis-proposal-card footer strong {
+  color: #8e9699;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-analysis-metric--thin strong {
+  color: #8a8a8a;
+}
+
 .therapy-analysis-table-card {
   overflow: hidden;
   border: 1px solid #484848;

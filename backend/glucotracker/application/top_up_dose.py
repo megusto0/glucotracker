@@ -131,7 +131,7 @@ class TopUpDoseService:
             if twin_params.last_fit_method == "manual"
             else "fitted"
         )
-        icr = _icr_for_time(now, twin_params)
+        _, icr = _icr_for_time(now, twin_params)
         if icr is None or icr <= 0:
             return TopUpSuggestion(
                 status="icr_unavailable",

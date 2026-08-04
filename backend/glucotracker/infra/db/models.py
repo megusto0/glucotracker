@@ -1497,6 +1497,10 @@ class TherapyReviewCache(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    #: Digest of the meals, insulin, CGM and wearable records the stored result
+    #: was built from. A row whose digest no longer matches is recalculated,
+    #: which is what lets today's page be cached at all.
+    input_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     owner: Mapped[User] = relationship()
 

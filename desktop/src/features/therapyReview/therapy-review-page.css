@@ -198,6 +198,193 @@
     monospace;
 }
 
+.therapy-review-context {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  background: #191919;
+}
+
+.therapy-review-context header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.therapy-review-context strong {
+  color: #cfd8d4;
+  font:
+    600 11px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.therapy-review-context header span,
+.therapy-review-context p {
+  margin: 0;
+  color: #8a8a8a;
+  font:
+    500 11px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-context-strip {
+  position: relative;
+  height: 16px;
+  overflow: hidden;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: #131313;
+}
+
+.therapy-review-context-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+}
+
+.therapy-review-context-band--sleep {
+  background: rgb(120 150 200 / 42%);
+}
+
+.therapy-review-context-band--activity {
+  background: rgb(224 150 80 / 55%);
+}
+
+/* Inferred spans read as a hint, recorded ones as a fact. */
+.therapy-review-context-band--heart-rate {
+  border: 1px dashed rgb(255 255 255 / 22%);
+  opacity: 0.62;
+}
+
+.therapy-review-context-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(255 255 255 / 9%);
+}
+
+.therapy-review-context-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.therapy-review-context-list li {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #9a9a9a;
+  font:
+    500 11px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-context-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.therapy-review-context-dot--sleep {
+  background: rgb(120 150 200 / 75%);
+}
+
+.therapy-review-context-dot--activity {
+  background: rgb(224 150 80 / 85%);
+}
+
+.therapy-review-trajectory {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.therapy-review-trajectory svg {
+  width: 100%;
+  height: 46px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: #131313;
+}
+
+.therapy-review-trajectory-band {
+  fill: rgb(107 138 90 / 14%);
+}
+
+.therapy-review-trajectory-target {
+  stroke: rgb(255 255 255 / 22%);
+  stroke-dasharray: 3 3;
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.therapy-review-trajectory-line {
+  fill: none;
+  stroke: var(--ns-cyan);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.therapy-review-trajectory-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  color: #8a8a8a;
+  font:
+    500 10px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-mark--high {
+  color: #d7a26a;
+}
+
+.therapy-review-mark--low {
+  color: #d97a7a;
+}
+
+.therapy-review-outcome--low {
+  border-color: #6a3b3b;
+  color: #d97a7a;
+}
+
+.therapy-review-context-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.therapy-review-context-tag {
+  padding: 2px 7px;
+  border: 1px solid #3f4a56;
+  border-radius: 4px;
+  color: #9fb4c8;
+  font:
+    500 10px/1.5 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-review-context-tag--near-activity {
+  border-color: #5c4630;
+  color: #d7a26a;
+}
+
 .therapy-review-list {
   position: relative;
   display: grid;

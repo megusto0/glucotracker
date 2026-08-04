@@ -9,6 +9,7 @@ import type {
 } from "../../api/client";
 import {
   useCreateNightscoutInsulin,
+  useGlucoseBodyStates,
   useGlucoseDashboard,
   useGlucoseEpisodes,
   useGlucosePrediction,
@@ -20,6 +21,7 @@ import { NightscoutPage } from "./NightscoutPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
   useCreateNightscoutInsulin: vi.fn(),
+  useGlucoseBodyStates: vi.fn(),
   useGlucoseDashboard: vi.fn(),
   useGlucoseEpisodes: vi.fn(),
   useGlucosePrediction: vi.fn(),
@@ -32,6 +34,7 @@ const mockedUseDashboard = vi.mocked(useGlucoseDashboard);
 const mockedUseEpisodes = vi.mocked(useGlucoseEpisodes);
 const mockedUsePrediction = vi.mocked(useGlucosePrediction);
 const mockedUseHeartRate = vi.mocked(useHeartRateSeries);
+const mockedUseBodyStates = vi.mocked(useGlucoseBodyStates);
 const mockedUseRecommendation = vi.mocked(useInsulinRecommendation);
 const mockedUseCreateInsulin = vi.mocked(useCreateNightscoutInsulin);
 const mockedUseTopUp = vi.mocked(useTopUpDose);
@@ -215,6 +218,40 @@ describe("NightscoutPage", () => {
           isLoading: false,
         }) as ReturnType<typeof useHeartRateSeries>,
     );
+    // Anchored to the same window the overview chart is drawn from, which the
+    // dashboard mock pins regardless of the range it was asked for.
+    mockedUseBodyStates.mockImplementation(
+      (from, to) =>
+        ({
+          data: {
+            from_datetime: from,
+            to_datetime: to,
+            states: [
+              {
+                confidence: "high",
+                end_at: "2026-07-12T05:30:00Z",
+                kind: "sleep",
+                minutes: 90,
+                source: "recorded",
+                start_at: "2026-07-12T04:00:00Z",
+                total_minutes: 420,
+              },
+              {
+                confidence: "medium",
+                end_at: "2026-07-12T06:40:00Z",
+                kind: "activity",
+                minutes: 30,
+                peak_bpm: 151,
+                source: "heart_rate",
+                start_at: "2026-07-12T06:10:00Z",
+                total_minutes: 30,
+              },
+            ],
+          },
+          error: null,
+          isLoading: false,
+        }) as ReturnType<typeof useGlucoseBodyStates>,
+    );
     mockedUseEpisodes.mockReturnValue({
       data: {
         from_datetime: "2026-07-12T04:00:00Z",
@@ -334,6 +371,25 @@ describe("NightscoutPage", () => {
       expect.any(String),
       10,
     );
+  });
+
+  test("marks sleep and hard effort on the 24-hour overview", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    const sleep = container.querySelectorAll(".ns-body-state--sleep");
+    const activity = container.querySelectorAll(".ns-body-state--activity");
+    expect(sleep).toHaveLength(1);
+    expect(activity).toHaveLength(1);
+    // The inferred one has to say where it came from, both in class and title.
+    expect(activity[0]).toHaveClass("ns-body-state--heart-rate");
+    expect(activity[0]?.querySelector("title")?.textContent).toContain(
+      "по пульсу",
+    );
+    expect(sleep[0]?.querySelector("title")?.textContent).toContain("с часов");
   });
 
   test("opens the daily therapy review from the top-right menu", () => {

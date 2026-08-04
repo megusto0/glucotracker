@@ -383,6 +383,26 @@ export interface paths {
         patch: operations["patchFingerstick"];
         trace?: never;
     };
+    "/glucose/body-states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Body States
+         * @description Return sleep and hard-effort spans, recorded or read from heart rate.
+         */
+        get: operations["getGlucoseBodyStates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/dashboard": {
         parameters: {
             query?: never;
@@ -2305,6 +2325,65 @@ export interface components {
             /** Sensor Age Hours */
             sensor_age_hours: number;
         };
+        /**
+         * BodyStateIntervalResponse
+         * @description One sleep or hard-effort span, recorded or inferred from heart rate.
+         */
+        BodyStateIntervalResponse: {
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "sleep" | "activity";
+            /** Label */
+            label?: string | null;
+            /** Mean Bpm */
+            mean_bpm?: number | null;
+            /** Minutes */
+            minutes: number;
+            /** Peak Bpm */
+            peak_bpm?: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "recorded" | "heart_rate";
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Total Minutes */
+            total_minutes: number;
+        };
+        /**
+         * BodyStatesResponse
+         * @description Sleep and hard-effort context for a local wall-clock range.
+         */
+        BodyStatesResponse: {
+            /**
+             * From Datetime
+             * Format: date-time
+             */
+            from_datetime: string;
+            /** States */
+            states: components["schemas"]["BodyStateIntervalResponse"][];
+            /**
+             * To Datetime
+             * Format: date-time
+             */
+            to_datetime: string;
+        };
         /** Body_createMealFromPhoto */
         Body_createMealFromPhoto: {
             /**
@@ -4011,6 +4090,43 @@ export interface components {
             to_datetime: string;
         };
         /**
+         * IcrDaypartComparisonResponse
+         * @description Configured ratio for one slot against what its outcomes imply.
+         */
+        IcrDaypartComparisonResponse: {
+            /**
+             * Capped
+             * @default false
+             */
+            capped: boolean;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "none" | "low" | "medium" | "high";
+            /** Configured Icr G Per Unit */
+            configured_icr_g_per_unit?: number | null;
+            /**
+             * Daypart
+             * @enum {string}
+             */
+            daypart: "morning" | "day" | "evening";
+            /** End Hour */
+            end_hour: number;
+            /** Episode Count */
+            episode_count: number;
+            /** Label */
+            label: string;
+            /** Measured Icr G Per Unit */
+            measured_icr_g_per_unit?: number | null;
+            /** Note */
+            note?: string | null;
+            /** Proposed Icr G Per Unit */
+            proposed_icr_g_per_unit?: number | null;
+            /** Start Hour */
+            start_hour: number;
+        };
+        /**
          * InsulinLinkDayPutRequest
          * @description Replace reviewed food/insulin links for one day atomically.
          */
@@ -4230,6 +4346,25 @@ export interface components {
             correction_trend_mmol_l_per_min?: number | null;
             /** Correction Units */
             correction_units?: number | null;
+            /** History Median Units */
+            history_median_units?: number | null;
+            /** History Weight */
+            history_weight?: number | null;
+            /**
+             * Icr After Sleep
+             * @default false
+             */
+            icr_after_sleep: boolean;
+            /** Icr Configured G Per Unit */
+            icr_configured_g_per_unit?: number | null;
+            /** Icr Daypart */
+            icr_daypart?: ("morning" | "day" | "evening") | null;
+            /** Icr Dose Units */
+            icr_dose_units?: number | null;
+            /** Icr G Per Unit */
+            icr_g_per_unit?: number | null;
+            /** Implied Icr G Per Unit */
+            implied_icr_g_per_unit?: number | null;
             /** Matched Episode Count */
             matched_episode_count: number;
             /** Matches */
@@ -7054,10 +7189,33 @@ export interface components {
              * Format: date
              */
             from_date: string;
+            /**
+             * Icr Excluded For Activity
+             * @default 0
+             */
+            icr_excluded_for_activity: number;
             /** Icr Horizon Minutes */
             icr_horizon_minutes: number;
+            /** Icr Proposals */
+            icr_proposals?: components["schemas"]["IcrDaypartComparisonResponse"][];
+            /**
+             * Isf Correction Count
+             * @default 0
+             */
+            isf_correction_count: number;
             /** Isf Horizon Minutes */
             isf_horizon_minutes: number;
+            /**
+             * Isf Identifiability
+             * @default not_identified
+             * @enum {string}
+             */
+            isf_identifiability: "identified" | "thin" | "not_identified";
+            /**
+             * Isf Note
+             * @default
+             */
+            isf_note: string;
             /**
              * Isf Source
              * @enum {string}
@@ -7143,6 +7301,8 @@ export interface components {
          * @description Retrospective therapy review for one local day.
          */
         TherapyReviewDayResponse: {
+            /** Body States */
+            body_states?: components["schemas"]["BodyStateIntervalResponse"][];
             /** Cached */
             cached: boolean;
             /**
@@ -7178,6 +7338,8 @@ export interface components {
              * @enum {string}
              */
             adjustment_status: "ready" | "no_actual" | "no_outcome" | "calculation_withheld";
+            /** Body Context */
+            body_context?: ("after_sleep" | "during_sleep" | "near_activity")[];
             /** Calculated Value */
             calculated_value?: number | null;
             /** Calculation Status */
@@ -7206,8 +7368,32 @@ export interface components {
             isf_mmol_l_per_unit?: number | null;
             /** Key */
             key: string;
+            /**
+             * Minutes Above High
+             * @default 0
+             */
+            minutes_above_high: number;
+            /**
+             * Minutes Below Low
+             * @default 0
+             */
+            minutes_below_low: number;
+            /** Nadir After Minutes */
+            nadir_after_minutes?: number | null;
+            /** Nadir Mmol L */
+            nadir_mmol_l?: number | null;
             /** Notes */
             notes?: string[];
+            /**
+             * Outcome Quality
+             * @default unknown
+             * @enum {string}
+             */
+            outcome_quality: "in_range" | "spike" | "low" | "spike_and_low" | "unknown";
+            /** Peak After Minutes */
+            peak_after_minutes?: number | null;
+            /** Peak Mmol L */
+            peak_mmol_l?: number | null;
             /**
              * Start At
              * Format: date-time
@@ -7221,6 +7407,13 @@ export interface components {
             total_carbs_g: number;
             /** Total Insulin Units */
             total_insulin_units: number;
+            /** Trajectory */
+            trajectory?: (number | null)[];
+            /**
+             * Trajectory Step Minutes
+             * @default 10
+             */
+            trajectory_step_minutes: number;
             /**
              * Value Unit
              * @enum {string}
@@ -8474,6 +8667,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FingerstickReadingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGlucoseBodyStates: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyStatesResponse"];
                 };
             };
             /** @description Validation Error */

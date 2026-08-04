@@ -663,6 +663,127 @@
         "title": "BiasResidualPoint",
         "type": "object"
       },
+      "BodyStateIntervalResponse": {
+        "description": "One sleep or hard-effort span, recorded or inferred from heart rate.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "sleep",
+              "activity"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "mean_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Bpm"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "peak_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Bpm"
+          },
+          "source": {
+            "enum": [
+              "recorded",
+              "heart_rate"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "total_minutes": {
+            "title": "Total Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "source",
+          "start_at",
+          "end_at",
+          "minutes",
+          "total_minutes",
+          "confidence"
+        ],
+        "title": "BodyStateIntervalResponse",
+        "type": "object"
+      },
+      "BodyStatesResponse": {
+        "description": "Sleep and hard-effort context for a local wall-clock range.",
+        "properties": {
+          "from_datetime": {
+            "format": "date-time",
+            "title": "From Datetime",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/BodyStateIntervalResponse"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "to_datetime": {
+            "format": "date-time",
+            "title": "To Datetime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_datetime",
+          "to_datetime",
+          "states"
+        ],
+        "title": "BodyStatesResponse",
+        "type": "object"
+      },
       "Body_createMealFromPhoto": {
         "properties": {
           "captured_at": {
@@ -4914,6 +5035,105 @@
         "title": "HeartRateSeriesResponse",
         "type": "object"
       },
+      "IcrDaypartComparisonResponse": {
+        "description": "Configured ratio for one slot against what its outcomes imply.",
+        "properties": {
+          "capped": {
+            "default": false,
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "confidence": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "configured_icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured Icr G Per Unit"
+          },
+          "daypart": {
+            "enum": [
+              "morning",
+              "day",
+              "evening"
+            ],
+            "title": "Daypart",
+            "type": "string"
+          },
+          "end_hour": {
+            "title": "End Hour",
+            "type": "integer"
+          },
+          "episode_count": {
+            "title": "Episode Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "measured_icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Icr G Per Unit"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "proposed_icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Icr G Per Unit"
+          },
+          "start_hour": {
+            "title": "Start Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "daypart",
+          "label",
+          "start_hour",
+          "end_hour",
+          "episode_count",
+          "confidence"
+        ],
+        "title": "IcrDaypartComparisonResponse",
+        "type": "object"
+      },
       "InsulinLinkDayPutRequest": {
         "description": "Replace reviewed food/insulin links for one day atomically.",
         "properties": {
@@ -5504,6 +5724,95 @@
               }
             ],
             "title": "Correction Units"
+          },
+          "history_median_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Median Units"
+          },
+          "history_weight": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Weight"
+          },
+          "icr_after_sleep": {
+            "default": false,
+            "title": "Icr After Sleep",
+            "type": "boolean"
+          },
+          "icr_configured_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icr Configured G Per Unit"
+          },
+          "icr_daypart": {
+            "anyOf": [
+              {
+                "enum": [
+                  "morning",
+                  "day",
+                  "evening"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icr Daypart"
+          },
+          "icr_dose_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icr Dose Units"
+          },
+          "icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icr G Per Unit"
+          },
+          "implied_icr_g_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implied Icr G Per Unit"
           },
           "matched_episode_count": {
             "title": "Matched Episode Count",
@@ -12915,13 +13224,45 @@
             "title": "From Date",
             "type": "string"
           },
+          "icr_excluded_for_activity": {
+            "default": 0,
+            "title": "Icr Excluded For Activity",
+            "type": "integer"
+          },
           "icr_horizon_minutes": {
             "title": "Icr Horizon Minutes",
+            "type": "integer"
+          },
+          "icr_proposals": {
+            "items": {
+              "$ref": "#/components/schemas/IcrDaypartComparisonResponse"
+            },
+            "title": "Icr Proposals",
+            "type": "array"
+          },
+          "isf_correction_count": {
+            "default": 0,
+            "title": "Isf Correction Count",
             "type": "integer"
           },
           "isf_horizon_minutes": {
             "title": "Isf Horizon Minutes",
             "type": "integer"
+          },
+          "isf_identifiability": {
+            "default": "not_identified",
+            "enum": [
+              "identified",
+              "thin",
+              "not_identified"
+            ],
+            "title": "Isf Identifiability",
+            "type": "string"
+          },
+          "isf_note": {
+            "default": "",
+            "title": "Isf Note",
+            "type": "string"
           },
           "isf_source": {
             "enum": [
@@ -13134,6 +13475,13 @@
       "TherapyReviewDayResponse": {
         "description": "Retrospective therapy review for one local day.",
         "properties": {
+          "body_states": {
+            "items": {
+              "$ref": "#/components/schemas/BodyStateIntervalResponse"
+            },
+            "title": "Body States",
+            "type": "array"
+          },
           "cached": {
             "title": "Cached",
             "type": "boolean"
@@ -13214,6 +13562,18 @@
             ],
             "title": "Adjustment Status",
             "type": "string"
+          },
+          "body_context": {
+            "items": {
+              "enum": [
+                "after_sleep",
+                "during_sleep",
+                "near_activity"
+              ],
+              "type": "string"
+            },
+            "title": "Body Context",
+            "type": "array"
           },
           "calculated_value": {
             "anyOf": [
@@ -13314,12 +13674,78 @@
             "title": "Key",
             "type": "string"
           },
+          "minutes_above_high": {
+            "default": 0,
+            "title": "Minutes Above High",
+            "type": "integer"
+          },
+          "minutes_below_low": {
+            "default": 0,
+            "title": "Minutes Below Low",
+            "type": "integer"
+          },
+          "nadir_after_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nadir After Minutes"
+          },
+          "nadir_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nadir Mmol L"
+          },
           "notes": {
             "items": {
               "type": "string"
             },
             "title": "Notes",
             "type": "array"
+          },
+          "outcome_quality": {
+            "default": "unknown",
+            "enum": [
+              "in_range",
+              "spike",
+              "low",
+              "spike_and_low",
+              "unknown"
+            ],
+            "title": "Outcome Quality",
+            "type": "string"
+          },
+          "peak_after_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak After Minutes"
+          },
+          "peak_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Mmol L"
           },
           "start_at": {
             "format": "date-time",
@@ -13341,6 +13767,25 @@
           "total_insulin_units": {
             "title": "Total Insulin Units",
             "type": "number"
+          },
+          "trajectory": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Trajectory",
+            "type": "array"
+          },
+          "trajectory_step_minutes": {
+            "default": 10,
+            "title": "Trajectory Step Minutes",
+            "type": "integer"
           },
           "value_unit": {
             "enum": [
@@ -16570,6 +17015,84 @@
           }
         ],
         "summary": "Patch Fingerstick",
+        "tags": [
+          "glucose"
+        ],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/body-states": {
+      "get": {
+        "description": "Return sleep and hard-effort spans, recorded or read from heart rate.",
+        "operationId": "getGlucoseBodyStates",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BodyStatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Glucose Body States",
         "tags": [
           "glucose"
         ],

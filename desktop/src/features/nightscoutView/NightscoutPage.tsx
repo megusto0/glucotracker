@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
+  BodyStatesResponse,
   DayEpisodesResponse,
   GlucoseDashboardResponse,
   GlucoseMode,
@@ -18,6 +19,7 @@ import type {
 } from "../../api/client";
 import {
   useCreateNightscoutInsulin,
+  useGlucoseBodyStates,
   useGlucoseDashboard,
   useGlucoseEpisodes,
   useGlucosePrediction,
@@ -28,6 +30,7 @@ import {
 import "./nightscout-page.css";
 
 type DisplayMode = Extract<GlucoseMode, "raw" | "normalized">;
+type BodyState = BodyStatesResponse["states"][number];
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
 type FoodEvent = GlucoseDashboardResponse["food_events"][number];
 type SelectableFoodEvent = Omit<FoodEvent, "meal_id"> & {
@@ -245,6 +248,10 @@ export function NightscoutPage() {
     overviewRange.from,
     overviewRange.to,
     10,
+  );
+  const bodyStates = useGlucoseBodyStates(
+    overviewRange.from,
+    overviewRange.to,
   );
   const prediction = useGlucosePrediction(mode);
   const episodes = useGlucoseEpisodes(range.from, range.to);
@@ -528,6 +535,7 @@ export function NightscoutPage() {
         mode={mode}
         overview={overview.data}
         heartRate={heartRate.data}
+        bodyStates={bodyStates.data}
         prediction={prediction.data}
         predictionError={Boolean(prediction.error)}
         onFoodSelect={setSelectedFood}
@@ -690,6 +698,50 @@ function correctionStatusText(
     return "Коррекция не нужна с учётом тренда и IOB.";
   if (!status) return "Для коррекции нужен обновлённый backend.";
   return null;
+}
+
+const DAYPART_LABELS: Record<"morning" | "day" | "evening", string> = {
+  morning: "утро",
+  day: "день",
+  evening: "вечер",
+};
+
+/**
+ * The ratio behind the food half, and how it was weighed against history.
+ *
+ * The headline is a blend of two estimators. Without this line the only way to
+ * tell which one produced it is to recompute it by hand.
+ */
+function IcrExplanation({
+  data,
+}: {
+  data: NonNullable<ReturnType<typeof useInsulinRecommendation>["data"]>;
+}) {
+  const ratio = data.icr_g_per_unit;
+  if (typeof ratio !== "number") return null;
+  const daypart = data.icr_daypart ? DAYPART_LABELS[data.icr_daypart] : null;
+  const weight = data.history_weight;
+  return (
+    <small>
+      ICR {ratio.toFixed(1)} г/Ед{daypart ? ` · ${daypart}` : ""}
+      {data.icr_after_sleep &&
+      typeof data.icr_configured_g_per_unit === "number"
+        ? ` · первый после сна, обычно ${data.icr_configured_g_per_unit.toFixed(1)}`
+        : ""}
+      {typeof data.icr_dose_units === "number"
+        ? ` · по ICR ${formatDose(data.icr_dose_units)} Ед`
+        : ""}
+      {typeof data.history_median_units === "number"
+        ? ` · по истории ${formatDose(data.history_median_units)} Ед`
+        : ""}
+      {typeof weight === "number" && typeof data.icr_dose_units === "number"
+        ? ` · смешано ${Math.round(weight * 100)}/${Math.round((1 - weight) * 100)}`
+        : ""}
+      {typeof data.implied_icr_g_per_unit === "number"
+        ? ` · по факту ${data.implied_icr_g_per_unit.toFixed(1)} г/Ед`
+        : ""}
+    </small>
+  );
 }
 
 function InsulinEpisodePanel({
@@ -877,6 +929,7 @@ function InsulinEpisodePanel({
               {formatDose(recommendationData.range_high_units)} Ед · похожих
               приёмов: {recommendationData.matched_episode_count}
             </small>
+            <IcrExplanation data={recommendationData} />
             {inRangeMatchCount || deferredMatchCount ? (
               <small>
                 +2 ч в диапазоне: {inRangeMatchCount}
@@ -948,6 +1001,21 @@ function InsulinEpisodePanel({
   );
 }
 
+function bodyStateTitle(state: BodyState) {
+  const kind = state.kind === "sleep" ? "Сон" : (state.label ?? "Нагрузка");
+  const source = state.source === "recorded" ? "с часов" : "по пульсу";
+  const clock = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const span = `${clock.format(new Date(state.start_at))}–${clock.format(new Date(state.end_at))}`;
+  const peak =
+    state.kind === "activity" && typeof state.peak_bpm === "number"
+      ? ` · пик ${state.peak_bpm.toFixed(0)} уд/мин`
+      : "";
+  return `${kind} · ${span} · ${state.total_minutes} мин · ${source}${peak}`;
+}
+
 function NightscoutChart({
   data,
   error,
@@ -956,6 +1024,7 @@ function NightscoutChart({
   mode,
   overview,
   heartRate,
+  bodyStates,
   prediction,
   predictionError,
   onFoodSelect,
@@ -968,6 +1037,7 @@ function NightscoutChart({
   mode: DisplayMode;
   overview?: GlucoseDashboardResponse;
   heartRate?: HeartRateSeriesResponse;
+  bodyStates?: BodyStatesResponse;
   prediction?: GlucosePredictionResponse;
   predictionError: boolean;
   onFoodSelect: (food: SelectableFoodEvent) => void;
@@ -1083,6 +1153,7 @@ function NightscoutChart({
   const insulinEvents = dedupeInsulinEvents(data?.insulin_events ?? []);
   const overviewPoints = overview?.points ?? [];
   const heartRatePoints = heartRate?.points ?? [];
+  const bodyStatePoints = bodyStates?.states ?? [];
   const forecastToMs = forecastPoints.length
     ? Date.parse(forecastPoints[forecastPoints.length - 1]!.timestamp)
     : historicalToMs;
@@ -1657,6 +1728,27 @@ function NightscoutChart({
           x="0"
           y={overviewTop}
         />
+        {/* Sleep fills the band behind everything; effort is a thin rule along
+            its top edge. Both stay quiet enough to read the glucose over. */}
+        {bodyStatePoints.map((state) => {
+          const startX = Math.max(left, overviewX(state.start_at));
+          const endX = Math.min(left + chartWidth, overviewX(state.end_at));
+          if (!(endX > startX)) return null;
+          const isSleep = state.kind === "sleep";
+          const bandHeight = isSleep ? overviewHeight : 4;
+          return (
+            <rect
+              className={`ns-body-state ns-body-state--${state.kind} ns-body-state--${state.source.replace(/_/g, "-")}`}
+              height={bandHeight}
+              key={`body-state-${state.kind}-${state.start_at}`}
+              width={Math.max(1.5, endX - startX)}
+              x={startX}
+              y={overviewTop + (isSleep ? 0 : 1)}
+            >
+              <title>{bodyStateTitle(state)}</title>
+            </rect>
+          );
+        })}
         {heartRatePoints.length ? (
           <g aria-label="Пульс за 24 часа" role="img">
             <text

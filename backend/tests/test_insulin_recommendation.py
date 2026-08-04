@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -537,6 +538,64 @@ def test_recommendation_falls_back_to_icr_without_history(
     assert body["recommended_units"] == 4.0
     assert body["confidence"] == "low"
     assert body["matched_episode_count"] == 0
+    # With no history the ratio is the whole answer, and it has to say so.
+    assert body["icr_g_per_unit"] == 10.0
+    assert body["icr_daypart"] == "day"
+    assert body["icr_dose_units"] == 4.0
+    assert body["history_weight"] == 0.0
+    assert body["history_median_units"] is None
+    assert body["implied_icr_g_per_unit"] == 10.0
+
+
+def test_recommendation_reports_how_history_and_the_ratio_were_blended(
+    api_client: TestClient,
+) -> None:
+    """The client shows its working, so both halves have to reach it."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 12, 0)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21, 28):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 5.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 10.0
+        session.commit()
+
+    body = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    ).json()
+
+    assert body["status"] == "ready"
+    assert body["history_median_units"] == 5.0
+    assert body["icr_dose_units"] == 4.0
+    weight = body["history_weight"]
+    assert 0.0 < weight < 1.0
+    # The headline must be exactly the blend it reports, or the working lies.
+    assert body["recommended_units"] == pytest.approx(
+        round(weight * 5.0 + (1.0 - weight) * 4.0, 1),
+        abs=0.05,
+    )
+    assert body["implied_icr_g_per_unit"] == pytest.approx(
+        round(40.0 / body["recommended_units"], 1),
+        abs=0.05,
+    )
+
+
+def test_the_first_meal_after_sleep_reports_the_tightened_ratio(
+    api_client: TestClient,
+) -> None:
+    """Applying the factor silently would leave the shown ratio contradicting
+    the shown dose."""
+    body = _first_meal_case(api_client, with_sleep=True, gap_hours=11)
+
+    assert body["icr_after_sleep"] is True
+    assert body["icr_configured_g_per_unit"] == 9.3
+    # Configured stays reportable next to what was actually applied.
+    assert body["icr_g_per_unit"] == pytest.approx(9.3 * 7.1 / 8.7, abs=0.01)
 
 
 def test_recommendation_corrects_near_low_outcomes_downward(

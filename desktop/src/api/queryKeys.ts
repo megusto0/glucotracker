@@ -47,6 +47,8 @@ export const queryKeys = {
       targetMmolL,
       horizonMinutes,
     ] as const,
+  glucoseBodyStates: (from: string, to: string) =>
+    ["glucose", "body-states", from, to] as const,
   glucoseTherapyAnalysis: (periodDays: number, targetMmolL: number) =>
     [
       "glucose",

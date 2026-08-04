@@ -103,6 +103,9 @@ export type GlucosePredictionResponse =
 export type DayEpisodesResponse = components["schemas"]["DayEpisodesResponse"];
 export type TherapyReviewDayResponse =
   components["schemas"]["TherapyReviewDayResponse"];
+export type BodyStatesResponse = components["schemas"]["BodyStatesResponse"];
+export type BodyStateIntervalResponse =
+  components["schemas"]["BodyStateIntervalResponse"];
 export type TherapyAnalysisResponse =
   components["schemas"]["TherapyAnalysisResponse"];
 export type InsulinRecommendationRequest =
@@ -962,6 +965,11 @@ export const apiClient = {
         timeoutMs: 90_000,
       },
     ),
+
+  getGlucoseBodyStates: (config: ApiConfig, from: string, to: string) =>
+    apiRequest<BodyStatesResponse>("/glucose/body-states", config, {
+      query: { from, to },
+    }),
 
   getGlucoseTherapyAnalysis: (
     config: ApiConfig,

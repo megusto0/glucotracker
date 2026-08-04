@@ -138,15 +138,41 @@
     <string name="insulin_entry_placeholder">0,0</string>
     <string name="insulin_history_button">Инсулин по истории</string>
     <string name="insulin_history_title">Инсулин для приёма</string>
-    <string name="insulin_history_estimate_label">РАСЧЁТ ПО ИСТОРИИ</string>
+    <string name="insulin_history_estimate_label">РАСЧЁТ</string>
     <string name="insulin_history_loading">Сравниваем с прошлыми приёмами…</string>
     <string name="insulin_history_units_value">%1$s ЕД</string>
     <string name="insulin_history_range">%1$s–%2$s ЕД · похожих приёмов: %3$d</string>
+    <!-- The headline is meal + correction. The breakdown keeps both halves
+         visible so the number is never a bare figure to take on trust. -->
+    <string name="insulin_history_breakdown">еда %1$s %2$s коррекция = %3$s ЕД</string>
+    <string name="insulin_history_breakdown_meal_only">только еда: %1$s ЕД</string>
+    <string name="insulin_history_gap_target">Без цели глюкозы коррекция не посчитана.</string>
+    <string name="insulin_history_gap_isf">Нет надёжного ISF — коррекция не посчитана.</string>
+    <string name="insulin_history_gap_glucose">Нет свежей глюкозы — коррекция не посчитана.</string>
+    <string name="insulin_history_gap_trend">Мало точек для тренда — коррекция не посчитана.</string>
+    <string name="insulin_history_icr">ICR %1$s г/ЕД</string>
+    <string name="insulin_history_icr_with_daypart">ICR %1$s г/ЕД · %2$s</string>
+    <string name="insulin_history_icr_after_sleep">первый после сна, обычно %1$s</string>
+    <string name="insulin_history_icr_implied">по факту %1$s г/ЕД</string>
+    <string name="insulin_history_daypart_morning">утро</string>
+    <string name="insulin_history_daypart_day">день</string>
+    <string name="insulin_history_daypart_evening">вечер</string>
+    <string name="insulin_history_reasoning_show">Как посчитано</string>
+    <string name="insulin_history_reasoning_hide">Свернуть расчёт</string>
+    <string name="insulin_history_why_carbs">Углеводы: %1$s г</string>
+    <string name="insulin_history_why_icr">По ICR: %1$s г ÷ %2$s = %3$s ЕД</string>
+    <string name="insulin_history_why_history">По истории: %1$s ЕД (медиана, похожих приёмов: %2$d)</string>
+    <string name="insulin_history_why_blend">Смешано: %1$d%% история + %2$d%% ICR = %3$s ЕД</string>
+    <string name="insulin_history_why_correction_trend">Коррекция: %1$s → %2$s по тренду, цель %3$s, ISF %4$s</string>
+    <string name="insulin_history_why_correction_forecast">Коррекция: %1$s → %2$s по прогнозу, цель %3$s, ISF %4$s</string>
+    <string name="insulin_history_why_iob">Активный инсулин: %1$s ЕД вычтено</string>
+    <string name="insulin_history_why_excess_iob">Излишек активного инсулина: %1$s ЕД снят с еды</string>
+    <string name="insulin_history_why_isf_default">ISF взят по умолчанию — задайте личный в двойнике.</string>
     <string name="insulin_history_insufficient">Недостаточно истории: найдено %1$d из 3 нужных приёмов.</string>
     <string name="insulin_history_no_carbs">В этом приёме нет углеводов для исторического расчёта.</string>
     <string name="insulin_history_low_or_falling">Глюкоза низкая или быстро снижается — итог не рассчитан.</string>
     <string name="insulin_history_error">Расчёт сейчас недоступен. Фактический инсулин можно записать ниже.</string>
-    <string name="insulin_history_limits">Ориентир только для еды: без поправки на текущую глюкозу, активный инсулин, нагрузку или болезнь.</string>
+    <string name="insulin_history_limits">Учтены еда, текущая глюкоза и активный инсулин. Не учтены нагрузка и болезнь.</string>
     <!-- Shown once the episode already has insulin: the calculation stops being
          a recommendation and becomes a comparison against what was given. -->
     <string name="insulin_history_button_compare">Сравнить с расчётом</string>

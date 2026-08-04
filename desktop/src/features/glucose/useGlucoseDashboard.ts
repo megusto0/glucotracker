@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import {
   apiClient,
   type FingerstickReadingCreate,
@@ -10,7 +11,12 @@ import {
   type NightscoutInsulinEntryCreate,
   type SensorSessionCreate,
   type SensorSessionPatch,
+  type TherapyReviewDayResponse,
 } from "../../api/client";
+import {
+  readPersistedQuery,
+  writePersistedQuery,
+} from "../../api/persistentQueryCache";
 import { queryKeys } from "../../api/queryKeys";
 import { useApiConfig } from "../settings/settingsStore";
 
@@ -76,26 +82,41 @@ export function useGlucoseEpisodes(from: string, to: string) {
   });
 }
 
+/** A closed day never changes once the backend agrees it is settled. */
+const THERAPY_REVIEW_STALE_MS = 5 * 60 * 1000;
+
 export function useGlucoseTherapyReview(
   date: string,
   targetMmolL: number,
   horizonMinutes: number,
 ) {
   const config = useApiConfig();
+  const queryKey = queryKeys.glucoseTherapyReview(
+    date,
+    targetMmolL,
+    horizonMinutes,
+  );
+  // Rebuilding a day costs the backend seconds, so a day that has already been
+  // looked at is read straight off disk and revalidated in the background
+  // rather than being waited for again after every reload.
+  const persisted = useMemo(
+    () => readPersistedQuery<TherapyReviewDayResponse>(queryKey),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [date, targetMmolL, horizonMinutes],
+  );
 
   return useQuery({
-    queryKey: queryKeys.glucoseTherapyReview(
-      date,
-      targetMmolL,
-      horizonMinutes,
-    ),
-    queryFn: () =>
-      apiClient.getGlucoseTherapyReview(
+    queryKey,
+    queryFn: async () => {
+      const data = await apiClient.getGlucoseTherapyReview(
         config,
         date,
         targetMmolL,
         horizonMinutes,
-      ),
+      );
+      writePersistedQuery(queryKey, data);
+      return data;
+    },
     enabled: Boolean(
       config.token.trim() &&
       date &&
@@ -103,9 +124,64 @@ export function useGlucoseTherapyReview(
       horizonMinutes,
     ),
     gcTime: 30 * 60 * 1000,
+    initialData: persisted?.data,
+    initialDataUpdatedAt: persisted?.updatedAt,
+    // Deliberately no placeholder from the previous day: one day's episodes
+    // shown under another day's heading is worse than a moment of waiting,
+    // and prefetching the neighbours makes that moment rare.
     retry: 1,
-    staleTime: 5 * 60 * 1000,
+    staleTime: THERAPY_REVIEW_STALE_MS,
   });
+}
+
+/**
+ * Warm the days on either side of the one being read.
+ *
+ * Stepping through days is how this page is used, and the day the user is
+ * about to ask for is exactly the one the backend has not computed yet.
+ */
+export function usePrefetchGlucoseTherapyReview() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (dates: string[], targetMmolL: number, horizonMinutes: number) => {
+      if (!config.token.trim()) return;
+      for (const date of dates) {
+        if (!date) continue;
+        const queryKey = queryKeys.glucoseTherapyReview(
+          date,
+          targetMmolL,
+          horizonMinutes,
+        );
+        if (queryClient.getQueryData(queryKey) !== undefined) continue;
+        const persisted = readPersistedQuery<TherapyReviewDayResponse>(queryKey);
+        if (persisted) {
+          queryClient.setQueryData(queryKey, persisted.data, {
+            updatedAt: persisted.updatedAt,
+          });
+          if (Date.now() - persisted.updatedAt < THERAPY_REVIEW_STALE_MS) {
+            continue;
+          }
+        }
+        void queryClient.prefetchQuery({
+          queryKey,
+          queryFn: async () => {
+            const data = await apiClient.getGlucoseTherapyReview(
+              config,
+              date,
+              targetMmolL,
+              horizonMinutes,
+            );
+            writePersistedQuery(queryKey, data);
+            return data;
+          },
+          staleTime: THERAPY_REVIEW_STALE_MS,
+        });
+      }
+    },
+    [config, queryClient],
+  );
 }
 
 export function useRecalculateGlucoseTherapyReview() {
@@ -130,15 +206,28 @@ export function useRecalculateGlucoseTherapyReview() {
         true,
       ),
     onSuccess: (data, variables) => {
-      queryClient.setQueryData(
-        queryKeys.glucoseTherapyReview(
-          variables.date,
-          variables.targetMmolL,
-          variables.horizonMinutes,
-        ),
-        data,
+      const queryKey = queryKeys.glucoseTherapyReview(
+        variables.date,
+        variables.targetMmolL,
+        variables.horizonMinutes,
       );
+      queryClient.setQueryData(queryKey, data);
+      writePersistedQuery(queryKey, data);
     },
+  });
+}
+
+export function useGlucoseBodyStates(from: string, to: string) {
+  const config = useApiConfig();
+
+  return useQuery({
+    queryKey: queryKeys.glucoseBodyStates(from, to),
+    queryFn: () => apiClient.getGlucoseBodyStates(config, from, to),
+    enabled: Boolean(config.token.trim() && from && to),
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

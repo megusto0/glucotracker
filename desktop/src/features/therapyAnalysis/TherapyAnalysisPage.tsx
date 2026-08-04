@@ -10,6 +10,9 @@ import "./therapy-analysis-page.css";
 type Metric = TherapyAnalysisResponse["overall_icr_g_per_unit"];
 type BasalProfile = TherapyAnalysisResponse["basal_profile"];
 type BasalSlot = BasalProfile["slots"][number];
+type IcrComparison = NonNullable<
+  TherapyAnalysisResponse["icr_proposals"]
+>[number];
 type BasalMetricKey =
   | "quiet_drift_mmol_l_per_hour"
   | "elevated_hr_drift_mmol_l_per_hour"
@@ -73,13 +76,19 @@ function MetricSummary({
   label,
   metric,
   unit,
+  muted,
+  note,
 }: {
   label: string;
   metric: Metric;
   unit: string;
+  muted?: boolean;
+  note?: string;
 }) {
   return (
-    <article className="therapy-analysis-summary-card">
+    <article
+      className={`therapy-analysis-summary-card${muted ? " therapy-analysis-summary-card--muted" : ""}`}
+    >
       <span>{label}</span>
       <strong>{metricValue(metric, unit)}</strong>
       <small>{metricRange(metric)}</small>
@@ -87,39 +96,171 @@ function MetricSummary({
         {metric.sample_count} чистых случаев · достоверность{" "}
         {CONFIDENCE_LABELS[metric.confidence]}
       </small>
+      {note ? <small className="therapy-analysis-caveat">{note}</small> : null}
     </article>
   );
 }
 
+function ratio(value?: number | null) {
+  return typeof value === "number" ? value.toFixed(1) : "—";
+}
+
+/**
+ * Configured ratio against what outcomes imply, on the configured slots.
+ *
+ * The four-hour table below cannot answer "should I change anything?" — its
+ * bins are not the bins the settings use, so the two numbers were never
+ * comparable. These rows are.
+ */
+function ConfiguredVsMeasured({
+  rows,
+  excludedForActivity,
+}: {
+  rows: IcrComparison[];
+  excludedForActivity: number;
+}) {
+  if (!rows.length) return null;
+  return (
+    <section className="therapy-analysis-proposal-card">
+      <header>
+        <div>
+          <strong>Настройки против данных</strong>
+          <span>ICR по вашим слотам, г/Ед</span>
+        </div>
+        <small>
+          Предложение сдвинуто к текущему значению и ограничено по шагу
+        </small>
+      </header>
+
+      <ul className="therapy-analysis-proposal-list">
+        {rows.map((row) => {
+          const delta =
+            typeof row.proposed_icr_g_per_unit === "number" &&
+            typeof row.configured_icr_g_per_unit === "number"
+              ? row.proposed_icr_g_per_unit - row.configured_icr_g_per_unit
+              : null;
+          const meaningful = delta !== null && Math.abs(delta) >= 0.2;
+          return (
+            <li key={row.daypart}>
+              <div className="therapy-analysis-proposal-slot">
+                <strong>{row.label}</strong>
+                <small>
+                  {`${String(row.start_hour).padStart(2, "0")}:00–${String(row.end_hour).padStart(2, "0")}:00`}
+                </small>
+              </div>
+              <div className="therapy-analysis-proposal-values">
+                <div>
+                  <span>сейчас</span>
+                  <b>{ratio(row.configured_icr_g_per_unit)}</b>
+                </div>
+                <i aria-hidden="true">→</i>
+                <div>
+                  <span>по данным</span>
+                  <b>{ratio(row.measured_icr_g_per_unit)}</b>
+                </div>
+                <div
+                  className={
+                    meaningful
+                      ? "therapy-analysis-proposal-move"
+                      : "therapy-analysis-proposal-hold"
+                  }
+                >
+                  <span>предложение</span>
+                  <b>
+                    {row.proposed_icr_g_per_unit == null
+                      ? "—"
+                      : meaningful
+                        ? `${ratio(row.proposed_icr_g_per_unit)}`
+                        : "без изменений"}
+                  </b>
+                </div>
+              </div>
+              <small className="therapy-analysis-proposal-note">
+                {row.note
+                  ? row.note
+                  : `${row.episode_count} приёмов · достоверность ${CONFIDENCE_LABELS[row.confidence]}${row.capped ? " · шаг ограничен" : ""}`}
+              </small>
+            </li>
+          );
+        })}
+      </ul>
+
+      <footer>
+        {excludedForActivity ? (
+          <span>
+            Рядом с нагрузкой исключено приёмов: {excludedForActivity}.
+          </span>
+        ) : null}
+        <strong>
+          Ничего не применяется автоматически. Значение меняется вручную в
+          цифровом двойнике.
+        </strong>
+      </footer>
+    </section>
+  );
+}
+
+/** Below this a cell is one or two episodes, and a bar makes it look solid. */
+const MIN_SAMPLES_FOR_BAR = 3;
+
+/**
+ * Bars are scaled to the values present, not to a fixed domain.
+ *
+ * Against a fixed maximum of 40 g/U every real ratio sat in the first quarter
+ * of the track, so 8.0 and 11.0 drew the same bar and the column carried no
+ * information at all.
+ */
 function MetricCell({
   metric,
-  maximum,
+  domain,
   unit,
 }: {
   metric: Metric;
-  maximum: number;
+  domain: { min: number; max: number };
   unit: string;
 }) {
+  const span = Math.max(0.1, domain.max - domain.min);
+  const thin = metric.sample_count < MIN_SAMPLES_FOR_BAR;
   const width =
     metric.value == null
       ? 0
-      : Math.max(2, Math.min(100, (metric.value / maximum) * 100));
+      : Math.max(4, Math.min(100, ((metric.value - domain.min) / span) * 100));
   return (
-    <div className="therapy-analysis-metric">
+    <div
+      className={`therapy-analysis-metric${thin ? " therapy-analysis-metric--thin" : ""}`}
+    >
       <div>
         <strong>{metricValue(metric, unit)}</strong>
         <small>{metric.sample_count} сл.</small>
       </div>
-      <div className="therapy-analysis-bar" aria-hidden="true">
-        <i style={{ width: `${width}%` }} />
-      </div>
+      {metric.value != null && !thin ? (
+        <div className="therapy-analysis-bar" aria-hidden="true">
+          <i style={{ width: `${width}%` }} />
+        </div>
+      ) : null}
       <small>
-        {metric.q1 == null || metric.q3 == null
+        {metric.value == null
           ? CONFIDENCE_LABELS[metric.confidence]
-          : `${metric.q1.toFixed(2)}–${metric.q3.toFixed(2)} · ${CONFIDENCE_LABELS[metric.confidence]}`}
+          : thin
+            ? "мало случаев"
+            : metric.q1 == null || metric.q3 == null
+              ? CONFIDENCE_LABELS[metric.confidence]
+              : `${metric.q1.toFixed(2)}–${metric.q3.toFixed(2)} · ${CONFIDENCE_LABELS[metric.confidence]}`}
       </small>
     </div>
   );
+}
+
+/** Range across the slots that actually carry evidence, padded a little. */
+function metricDomain(values: Array<number | null | undefined>) {
+  const known = values.filter(
+    (value): value is number => typeof value === "number",
+  );
+  if (!known.length) return { min: 0, max: 1 };
+  const min = Math.min(...known);
+  const max = Math.max(...known);
+  const pad = Math.max(0.5, (max - min) * 0.25);
+  return { min: Math.max(0, min - pad), max: max + pad };
 }
 
 function chartX(hour: number) {
@@ -415,9 +556,18 @@ export function TherapyAnalysisPage() {
               <MetricSummary
                 label="Общий ISF"
                 metric={analysis.data.overall_isf_mmol_l_per_unit}
+                muted={analysis.data.isf_identifiability !== "identified"}
+                note={analysis.data.isf_note || undefined}
                 unit="ммоль/л/Ед"
               />
             </section>
+
+            <ConfiguredVsMeasured
+              excludedForActivity={
+                analysis.data.icr_excluded_for_activity ?? 0
+              }
+              rows={analysis.data.icr_proposals ?? []}
+            />
 
             <section className="therapy-analysis-table-card">
               <header>
@@ -446,14 +596,22 @@ export function TherapyAnalysisPage() {
                         <th scope="row">{slot.label}</th>
                         <td>
                           <MetricCell
-                            maximum={40}
+                            domain={metricDomain(
+                              analysis.data.slots.map(
+                                (row) => row.icr_g_per_unit.value,
+                              ),
+                            )}
                             metric={slot.icr_g_per_unit}
                             unit="г/Ед"
                           />
                         </td>
                         <td>
                           <MetricCell
-                            maximum={8}
+                            domain={metricDomain(
+                              analysis.data.slots.map(
+                                (row) => row.isf_mmol_l_per_unit.value,
+                              ),
+                            )}
                             metric={slot.isf_mmol_l_per_unit}
                             unit="ммоль/л/Ед"
                           />

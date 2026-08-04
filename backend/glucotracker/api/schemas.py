@@ -210,6 +210,29 @@ class DayEpisodesResponse(BaseModel):
     episodes: list[DayEpisodeResponse]
 
 
+class BodyStateIntervalResponse(BaseModel):
+    """One sleep or hard-effort span, recorded or inferred from heart rate."""
+
+    kind: Literal["sleep", "activity"]
+    source: Literal["recorded", "heart_rate"]
+    start_at: datetime
+    end_at: datetime
+    minutes: int
+    total_minutes: int
+    confidence: Literal["low", "medium", "high"]
+    label: str | None = None
+    mean_bpm: float | None = None
+    peak_bpm: float | None = None
+
+
+class BodyStatesResponse(BaseModel):
+    """Sleep and hard-effort context for a local wall-clock range."""
+
+    from_datetime: datetime
+    to_datetime: datetime
+    states: list[BodyStateIntervalResponse]
+
+
 class TherapyReviewItemResponse(BaseModel):
     """One retrospective daily therapy row."""
 
@@ -246,6 +269,26 @@ class TherapyReviewItemResponse(BaseModel):
     total_carbs_g: float
     total_insulin_units: float
     notes: list[str] = Field(default_factory=list)
+    body_context: list[Literal["after_sleep", "during_sleep", "near_activity"]] = Field(
+        default_factory=list
+    )
+    # The path between start and outcome. Two numbers with a gap between them
+    # cannot distinguish a flat landing from a spike that came back down.
+    peak_mmol_l: float | None = None
+    peak_after_minutes: int | None = None
+    nadir_mmol_l: float | None = None
+    nadir_after_minutes: int | None = None
+    minutes_above_high: int = 0
+    minutes_below_low: int = 0
+    outcome_quality: Literal[
+        "in_range",
+        "spike",
+        "low",
+        "spike_and_low",
+        "unknown",
+    ] = "unknown"
+    trajectory: list[float | None] = Field(default_factory=list)
+    trajectory_step_minutes: int = 10
 
 
 class TherapyReviewDayResponse(BaseModel):
@@ -255,6 +298,7 @@ class TherapyReviewDayResponse(BaseModel):
     target_mmol_l: float
     horizon_minutes: int
     items: list[TherapyReviewItemResponse]
+    body_states: list[BodyStateIntervalResponse] = Field(default_factory=list)
     cached: bool
     computed_at: datetime
     model_version: str
@@ -304,6 +348,22 @@ class TherapyBasalProfileResponse(BaseModel):
     slots: list[TherapyBasalSlotResponse]
 
 
+class IcrDaypartComparisonResponse(BaseModel):
+    """Configured ratio for one slot against what its outcomes imply."""
+
+    daypart: Literal["morning", "day", "evening"]
+    label: str
+    start_hour: int
+    end_hour: int
+    configured_icr_g_per_unit: float | None = None
+    measured_icr_g_per_unit: float | None = None
+    proposed_icr_g_per_unit: float | None = None
+    episode_count: int
+    confidence: Literal["none", "low", "medium", "high"]
+    capped: bool = False
+    note: str | None = None
+
+
 class TherapyAnalysisResponse(BaseModel):
     """Long-term retrospective ICR, ISF, and basal stability analysis."""
 
@@ -321,6 +381,17 @@ class TherapyAnalysisResponse(BaseModel):
     basal_profile: TherapyBasalProfileResponse
     computed_at: datetime
     model_version: str
+    # How thin the ISF evidence is. A median of a handful of episodes shown
+    # beside a solid ICR reads as an equal, and it is not one.
+    isf_identifiability: Literal["identified", "thin", "not_identified"] = (
+        "not_identified"
+    )
+    isf_note: str = ""
+    isf_correction_count: int = 0
+    icr_proposals: list[IcrDaypartComparisonResponse] = Field(
+        default_factory=list
+    )
+    icr_excluded_for_activity: int = 0
     notes: list[str] = Field(default_factory=list)
 
 
@@ -365,6 +436,17 @@ class InsulinRecommendationResponse(BaseModel):
     recommended_units: float | None = None
     range_low_units: float | None = None
     range_high_units: float | None = None
+    # How the meal half was arrived at. The recommendation is a weighted blend
+    # of the personal history median and the configured carbohydrate ratio, so
+    # a client can show its working instead of a bare number.
+    icr_daypart: Literal["morning", "day", "evening"] | None = None
+    icr_g_per_unit: float | None = None
+    icr_configured_g_per_unit: float | None = None
+    icr_after_sleep: bool = False
+    icr_dose_units: float | None = None
+    implied_icr_g_per_unit: float | None = None
+    history_median_units: float | None = None
+    history_weight: float | None = Field(default=None, ge=0, le=1)
     correction_status: Literal[
         "ready",
         "not_needed",

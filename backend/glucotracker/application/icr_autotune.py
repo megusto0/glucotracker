@@ -237,7 +237,7 @@ class IcrAutotuneService:
         return _icr_for_time(
             datetime(2000, 1, 1, reference // 60, reference % 60),
             twin,
-        )
+        )[1]
 
     def isf(self) -> float:
         return _trusted_isf(self.params()) or DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT

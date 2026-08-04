@@ -18,6 +18,7 @@ from glucotracker.infra.db.models import (
     NightscoutInsulinEvent,
     User,
 )
+from glucotracker.infra.db.repositories.twin import TwinRepository
 from glucotracker.infra.security import hash_password
 
 
@@ -109,10 +110,6 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     now = datetime(2026, 7, 31, 12)
     monkeypatch.setattr(
         "glucotracker.application.therapy_analysis.local_now",
-        lambda: now,
-    )
-    monkeypatch.setattr(
-        "glucotracker.application.therapy_review.local_now",
         lambda: now,
     )
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
@@ -212,7 +209,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     assert body["icr_horizon_minutes"] == 120
     assert body["isf_horizon_minutes"] == 240
     assert body["bin_hours"] == 4
-    assert body["model_version"] == "retrospective-therapy-analysis-v2"
+    assert body["model_version"] == "retrospective-therapy-analysis-v3"
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,
@@ -260,6 +257,82 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     assert basal_slots["14:00"]["quiet_drift_mmol_l_per_hour"][
         "sample_count"
     ] == 0
+
+
+def test_isf_says_how_thin_its_evidence_is_next_to_a_solid_icr(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One isolated correction is not a measurement, and the page said nothing
+    to distinguish it from the 76-episode ICR beside it."""
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_analysis.local_now",
+        lambda: datetime(2026, 7, 31, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    correction_at = datetime(2026, 7, 10, 18)
+    with session_factory() as session:
+        _insulin(session, owner_id, correction_at, 1)
+        _glucose(session, owner_id, correction_at, 9.0)
+        _glucose(session, owner_id, correction_at + timedelta(hours=4), 6.5)
+        session.commit()
+
+    body = api_client.get(
+        "/glucose/therapy-analysis",
+        params={"period_days": 30, "target_mmol_l": 6},
+    ).json()
+
+    assert body["overall_isf_mmol_l_per_unit"]["sample_count"] == 1
+    assert body["isf_identifiability"] == "thin"
+    assert body["isf_correction_count"] == 1
+    assert "только ICR" in body["isf_note"]
+
+
+def test_measured_ratios_are_compared_against_the_configured_slots(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The four-hour table cannot answer "should I change my settings?"; its
+    bins are not the bins the settings use."""
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_analysis.local_now",
+        lambda: datetime(2026, 7, 31, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        # Eight clean day-slot meals, every one landing on target at 40 g for
+        # 4 U, which implies 10.0 g/U against the configured 9.3.
+        for index in range(8):
+            meal_at = datetime(2026, 7, 5 + index, 13)
+            _meal(session, owner_id, meal_at, 40, f"Обед {index}")
+            _insulin(session, owner_id, meal_at, 4, correction=False)
+            _glucose(session, owner_id, meal_at, 6.0)
+            _glucose(session, owner_id, meal_at + timedelta(hours=2), 6.0)
+        session.commit()
+
+    body = api_client.get(
+        "/glucose/therapy-analysis",
+        params={"period_days": 30, "target_mmol_l": 6},
+    ).json()
+
+    by_daypart = {row["daypart"]: row for row in body["icr_proposals"]}
+    assert set(by_daypart) == {"morning", "day", "evening"}
+    day = by_daypart["day"]
+    assert day["configured_icr_g_per_unit"] == 9.3
+    assert day["measured_icr_g_per_unit"] == 10.0
+    assert day["episode_count"] == 8
+    # Shrunk toward the configured value rather than jumping to the measurement.
+    assert 9.3 < day["proposed_icr_g_per_unit"] < 10.0
+    # Slots without evidence say so instead of proposing from nothing.
+    assert by_daypart["morning"]["proposed_icr_g_per_unit"] is None
+    assert by_daypart["morning"]["confidence"] == "none"
 
 
 def test_analysis_rejects_unsupported_period(api_client: TestClient) -> None:

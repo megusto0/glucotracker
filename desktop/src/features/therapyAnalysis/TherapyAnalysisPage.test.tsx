@@ -61,7 +61,54 @@ const analysis: TherapyAnalysisResponse = {
   icr_horizon_minutes: 120,
   isf_horizon_minutes: 240,
   isf_source: "correction_episodes",
-  model_version: "retrospective-therapy-analysis-v2",
+  // Three isolated corrections against 41 boluses: an estimate, not a
+  // measurement, and it must not be shown as ICR's equal.
+  isf_identifiability: "thin",
+  isf_note: "Изолированных коррекций: 3 из 41. Надёжно определяется только ICR.",
+  isf_correction_count: 41,
+  icr_excluded_for_activity: 2,
+  icr_proposals: [
+    {
+      capped: false,
+      confidence: "none",
+      configured_icr_g_per_unit: 8,
+      daypart: "morning",
+      end_hour: 11,
+      episode_count: 2,
+      label: "Утро",
+      measured_icr_g_per_unit: null,
+      note: "нужно минимум 6 приёмов, есть 2",
+      proposed_icr_g_per_unit: null,
+      start_hour: 6,
+    },
+    {
+      capped: false,
+      confidence: "medium",
+      configured_icr_g_per_unit: 9.3,
+      daypart: "day",
+      end_hour: 18,
+      episode_count: 11,
+      label: "День",
+      measured_icr_g_per_unit: 10.4,
+      note: null,
+      proposed_icr_g_per_unit: 9.9,
+      start_hour: 11,
+    },
+    {
+      capped: false,
+      confidence: "medium",
+      configured_icr_g_per_unit: 10,
+      daypart: "evening",
+      end_hour: 6,
+      episode_count: 9,
+      label: "Вечер",
+      measured_icr_g_per_unit: 10.1,
+      note: null,
+      proposed_icr_g_per_unit: 10.05,
+      start_hour: 18,
+    },
+  ],
+  model_version: "retrospective-therapy-analysis-v3",
   notes: ["Использованы только чистые случаи."],
   overall_icr_g_per_unit: {
     confidence: "medium",
@@ -144,6 +191,41 @@ describe("TherapyAnalysisPage", () => {
       screen.getByRole("img", {
         name: "Фоновое изменение глюкозы по часам суток",
       }),
+    ).toBeInTheDocument();
+  });
+
+  test("puts the configured ratio next to what the data implies", () => {
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Настройки против данных")).toBeInTheDocument();
+    // Configured 9.3 against a measured 10.4, proposed 9.9 — a real move.
+    expect(screen.getByText("9.3")).toBeInTheDocument();
+    expect(screen.getByText("10.4")).toBeInTheDocument();
+    expect(screen.getByText("9.9")).toBeInTheDocument();
+    // Evening lands within a tenth of what is configured: nothing to do.
+    expect(screen.getByText("без изменений")).toBeInTheDocument();
+    // A slot with two episodes proposes nothing and says why.
+    expect(
+      screen.getByText("нужно минимум 6 приёмов, есть 2"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Рядом с нагрузкой исключено приёмов: 2/),
+    ).toBeInTheDocument();
+  });
+
+  test("says out loud that the ISF number rests on thin evidence", () => {
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText(/Изолированных коррекций: 3 из 41/),
     ).toBeInTheDocument();
   });
 

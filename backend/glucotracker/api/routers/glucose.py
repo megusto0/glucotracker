@@ -9,9 +9,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from glucotracker.api.dependencies import CurrentUserDep, SessionDep
+from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
+    BodyStateIntervalResponse,
+    BodyStatesResponse,
     CgmCalibrationModelResponse,
     DayEpisodeInsulinResponse,
     DayEpisodeResponse,
@@ -24,6 +26,7 @@ from glucotracker.api.schemas import (
     GlucosePredictionResponse,
     GlucoseTirDailyResponse,
     GlucoseTirDayResponse,
+    IcrDaypartComparisonResponse,
     InsulinRecommendationMatchResponse,
     InsulinRecommendationRequest,
     InsulinRecommendationResponse,
@@ -43,6 +46,7 @@ from glucotracker.api.schemas import (
     TherapyReviewItemResponse,
     TopUpDoseResponse,
 )
+from glucotracker.application.body_states import BodyStateService
 from glucotracker.application.episode_therapy import classify_episode_therapy
 from glucotracker.application.episodes import (
     EpisodeQueryService,
@@ -62,7 +66,10 @@ from glucotracker.application.stats_insights import (
     generate_glucose_tir_daily,
 )
 from glucotracker.application.therapy_analysis import TherapyAnalysisService
-from glucotracker.application.therapy_review import TherapyReviewService
+from glucotracker.application.therapy_review import (
+    TRAJECTORY_STEP_MINUTES,
+    TherapyReviewService,
+)
 from glucotracker.application.top_up_dose import TopUpDoseService
 
 router = APIRouter(
@@ -222,9 +229,49 @@ def get_glucose_therapy_review(
         computed_at=review.computed_at,
         model_version=review.model_version,
         items=[
-            TherapyReviewItemResponse(**vars(item))
+            TherapyReviewItemResponse(
+                **vars(item),
+                trajectory_step_minutes=TRAJECTORY_STEP_MINUTES,
+            )
             for item in review.items
         ],
+        body_states=[
+            BodyStateIntervalResponse(**vars(state))
+            for state in review.body_states
+        ],
+    )
+
+
+@router.get(
+    "/glucose/body-states",
+    response_model=BodyStatesResponse,
+    operation_id="getGlucoseBodyStates",
+)
+def get_glucose_body_states(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    from_datetime: Annotated[datetime, Query(alias="from")],
+    to_datetime: Annotated[datetime, Query(alias="to")],
+) -> BodyStatesResponse:
+    """Return sleep and hard-effort spans, recorded or read from heart rate."""
+    if to_datetime <= from_datetime:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'to' must be after 'from'.",
+        )
+    if to_datetime - from_datetime > timedelta(days=7):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Body-state range cannot exceed 7 days.",
+        )
+    states = BodyStateService(session, current_user.id).intervals(
+        from_datetime,
+        to_datetime,
+    )
+    return BodyStatesResponse(
+        from_datetime=from_datetime,
+        to_datetime=to_datetime,
+        states=[BodyStateIntervalResponse(**vars(state)) for state in states],
     )
 
 
@@ -260,6 +307,10 @@ def get_glucose_therapy_analysis(
             "overall_isf_mmol_l_per_unit": TherapyAnalysisMetricResponse(
                 **vars(analysis.overall_isf_mmol_l_per_unit)
             ),
+            "icr_proposals": [
+                IcrDaypartComparisonResponse(**vars(proposal))
+                for proposal in analysis.icr_proposals
+            ],
             "slots": [
                 TherapyAnalysisSlotResponse(
                     start_hour=slot.start_hour,
@@ -372,6 +423,14 @@ def get_insulin_recommendation(
         recommended_units=estimate.recommended_units,
         range_low_units=estimate.range_low_units,
         range_high_units=estimate.range_high_units,
+        icr_daypart=estimate.icr_daypart,
+        icr_g_per_unit=estimate.icr_g_per_unit,
+        icr_configured_g_per_unit=estimate.icr_configured_g_per_unit,
+        icr_after_sleep=estimate.icr_after_sleep,
+        icr_dose_units=estimate.icr_dose_units,
+        implied_icr_g_per_unit=estimate.implied_icr_g_per_unit,
+        history_median_units=estimate.history_median_units,
+        history_weight=estimate.history_weight,
         correction_status=correction.status,
         correction_units=correction.units,
         correction_target_mmol_l=correction.target_mmol_l,

@@ -33,6 +33,7 @@ from glucotracker.infra.db.models import (
     DailyActivity,
     DailyTotal,
     FingerstickReading,
+    HealthConnectRecord,
     Meal,
     MealInsulinLink,
     MealItem,
@@ -402,6 +403,24 @@ def _seed_twin_fit_log(
     return row
 
 
+def _seed_sleep_session(
+    session: Session,
+    owner_id: UUID,
+    start: datetime,
+) -> HealthConnectRecord:
+    row = HealthConnectRecord(
+        owner_id=owner_id,
+        record_id=f"sleep-{owner_id}-{start.isoformat()}",
+        record_type="SleepSessionRecord",
+        start_time=start,
+        end_time=start + timedelta(hours=7),
+        payload={"title": f"sleep-{owner_id}"},
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
 def _populate(env: dict) -> dict:
     """Seed both users with private data. Returns entity IDs for assertions."""
     sf = env["session_factory"]
@@ -427,6 +446,13 @@ def _populate(env: dict) -> dict:
     alice_ns_insulin = _seed_nightscout_insulin(s, alice, now - timedelta(hours=1))
     alice_twin_params = _seed_twin_params(s, alice, 11)
     alice_twin_fit_log = _seed_twin_fit_log(s, alice, "alice")
+    # Only Alice sleeps: Bob's body-state reply must therefore be empty.
+    _seed_sleep_session(
+        s,
+        alice,
+        datetime.combine(alice_day, datetime.min.time(), tzinfo=UTC)
+        + timedelta(hours=1),
+    )
     s.commit()
     s.close()
 
@@ -743,6 +769,54 @@ class TestGETIsolation:
         assert str(self.ids["bob_meal"]) in bob_keys
         assert str(self.ids["alice_meal"]) not in bob_keys
         assert str(self.ids["alice_ns_insulin"]) not in bob_keys
+
+    def test_glucose_therapy_analysis(self):
+        params = {"period_days": 30, "to_date": self.ids["today"].isoformat()}
+        alice_response = self.client.get(
+            "/glucose/therapy-analysis",
+            params=params,
+            headers=self.alice_headers,
+        )
+        bob_response = self.client.get(
+            "/glucose/therapy-analysis",
+            params=params,
+            headers=self.bob_headers,
+        )
+        assert alice_response.status_code == 200
+        assert bob_response.status_code == 200
+        for data in (alice_response.json(), bob_response.json()):
+            # Nothing owner-identifying may ride along in the aggregates.
+            assert str(self.ids["alice_meal"]) not in _collect_ids(data)
+            assert str(self.ids["bob_meal"]) not in _collect_ids(data)
+        # Each side may only count its own episodes.
+        assert (
+            alice_response.json()["overall_icr_g_per_unit"]["sample_count"]
+            + bob_response.json()["overall_icr_g_per_unit"]["sample_count"]
+            <= 2
+        )
+
+    def test_glucose_body_states(self):
+        day = self.ids["alice_day"]
+        params = {
+            "from": f"{day.isoformat()}T00:00:00",
+            "to": f"{day.isoformat()}T23:59:00",
+        }
+        alice_response = self.client.get(
+            "/glucose/body-states",
+            params=params,
+            headers=self.alice_headers,
+        )
+        bob_response = self.client.get(
+            "/glucose/body-states",
+            params=params,
+            headers=self.bob_headers,
+        )
+        assert alice_response.status_code == 200
+        assert bob_response.status_code == 200
+        assert [
+            state["kind"] for state in alice_response.json()["states"]
+        ] == ["sleep"]
+        assert bob_response.json()["states"] == []
 
     @pytest.mark.parametrize(
         ("owner_meal_key", "owner_headers_key", "other_headers_key"),

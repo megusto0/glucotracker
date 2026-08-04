@@ -597,6 +597,26 @@
   pointer-events: none;
 }
 
+/* Context, not data: these sit behind the overview and must never compete
+   with the glucose dots or the heart-rate bars for attention. */
+.ns-body-state--sleep {
+  fill: #6f8dc0;
+  opacity: 0.1;
+}
+
+.ns-body-state--activity {
+  fill: #e09650;
+  opacity: 0.55;
+}
+
+.ns-body-state--heart-rate {
+  opacity: 0.06;
+}
+
+.ns-body-state--activity.ns-body-state--heart-rate {
+  opacity: 0.32;
+}
+
 .ns-overview-selection {
   fill: rgb(255 255 255 / 2%);
   stroke: #bbb;

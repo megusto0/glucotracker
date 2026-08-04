@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
+from glucotracker.application.body_states import BodyStateService
 from glucotracker.application.episode_therapy import (
     TherapyClass,
     TherapyConfidence,
@@ -27,6 +28,13 @@ from glucotracker.application.episodes import (
     EpisodeQueryService,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.icr_autotune import (
+    EXERCISE_EXCLUSION,
+    Daypart,
+    IcrEpisode,
+    daypart_of,
+    propose,
+)
 from glucotracker.application.insulin_recommendation import (
     DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT,
     _trusted_isf,
@@ -47,9 +55,15 @@ from glucotracker.infra.db.repositories.twin import TwinRepository
 
 AnalysisConfidence = Literal["none", "low", "medium", "high"]
 IsfSource = Literal["correction_episodes", "configured_fallback"]
+IsfIdentifiability = Literal["identified", "thin", "not_identified"]
 BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 
-THERAPY_ANALYSIS_MODEL_VERSION = "retrospective-therapy-analysis-v2"
+# v3: measured ratios are compared against the configured slots, episodes near
+# effort are excluded, and ISF says how thin its evidence is.
+THERAPY_ANALYSIS_MODEL_VERSION = "retrospective-therapy-analysis-v3"
+# Below this many isolated corrections the ISF median is an estimate rather
+# than a measurement, and the page must say so.
+MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
 ICR_HORIZON_MINUTES = 120
 ISF_HORIZON_MINUTES = 240
 BIN_HOURS = 4
@@ -118,6 +132,23 @@ class TherapyBasalProfile:
 
 
 @dataclass(frozen=True)
+class IcrDaypartComparison:
+    """What is configured for a slot against what its outcomes imply."""
+
+    daypart: Daypart
+    label: str
+    start_hour: int
+    end_hour: int
+    configured_icr_g_per_unit: float | None
+    measured_icr_g_per_unit: float | None
+    proposed_icr_g_per_unit: float | None
+    episode_count: int
+    confidence: AnalysisConfidence
+    capped: bool
+    note: str | None
+
+
+@dataclass(frozen=True)
 class TherapyAnalysis:
     """Complete long-term therapy analysis response."""
 
@@ -135,6 +166,15 @@ class TherapyAnalysis:
     basal_profile: TherapyBasalProfile
     computed_at: datetime
     model_version: str
+    # ISF is structurally harder to see than ICR: it needs a correction with no
+    # food anywhere near it, and most boluses sit beside a meal. Printing a
+    # number without saying how thin the evidence was invites acting on noise.
+    isf_identifiability: IsfIdentifiability = "not_identified"
+    isf_note: str = ""
+    isf_correction_count: int = 0
+    #: Measured against what is actually configured, on the configured slots.
+    icr_proposals: list[IcrDaypartComparison] = field(default_factory=list)
+    icr_excluded_for_activity: int = 0
     notes: list[str] = field(default_factory=list)
 
 
@@ -142,6 +182,8 @@ class TherapyAnalysis:
 class _Evidence:
     timestamp: datetime
     value: float
+    #: Carbohydrates behind this episode; larger plates carry more evidence.
+    weight: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -243,14 +285,17 @@ class TherapyAnalysisService:
             )
             for start_hour in range(0, 24, BIN_HOURS)
         }
-        icr_evidence = self._icr_evidence(
+        active_spans = self._active_spans(period_start, period_end)
+        icr_evidence, excluded_for_activity = self._icr_evidence(
             period_candidates,
             candidates,
             target_mmol_l,
             analysis_isf,
             slot_isf,
+            active_spans,
         )
         overall_icr = _metric([item.value for item in icr_evidence])
+        icr_proposals = _icr_proposals(icr_evidence, params)
         basal_profile = self._basal_profile(
             period_start=period_start,
             period_end=period_end,
@@ -301,6 +346,21 @@ class TherapyAnalysisService:
                 "Чистых коррекций для ISF не найдено; при поправке ICR "
                 f"использован текущий ISF {analysis_isf:.2f}."
             )
+        if excluded_for_activity:
+            notes.append(
+                f"Исключено рядом с нагрузкой: {excluded_for_activity} "
+                "приёмов — эффект тренировки больше, чем эта оценка способна "
+                "отделить."
+            )
+
+        correction_count = sum(
+            item.classification == "insulin_correction"
+            for item in period_candidates
+        )
+        identifiability, isf_note = _isf_identifiability(
+            isolated=overall_isf.sample_count,
+            corrections=correction_count,
+        )
 
         return TherapyAnalysis(
             from_date=period_start,
@@ -313,12 +373,36 @@ class TherapyAnalysisService:
             overall_icr_g_per_unit=overall_icr,
             overall_isf_mmol_l_per_unit=overall_isf,
             isf_source=isf_source,
+            isf_identifiability=identifiability,
+            isf_note=isf_note,
+            isf_correction_count=correction_count,
+            icr_proposals=icr_proposals,
+            icr_excluded_for_activity=excluded_for_activity,
             slots=slots,
             basal_profile=basal_profile,
             computed_at=datetime.now(UTC),
             model_version=THERAPY_ANALYSIS_MODEL_VERSION,
             notes=notes,
         )
+
+    def _active_spans(
+        self,
+        period_start: date,
+        period_end: date,
+    ) -> list[tuple[datetime, datetime]]:
+        """Return effort windows widened by the exclusion margin, in local time."""
+        states = BodyStateService(self.session, self.user_id).intervals(
+            datetime.combine(period_start, time.min),
+            datetime.combine(period_end + timedelta(days=1), time.min),
+        )
+        return [
+            (
+                state.start_at - EXERCISE_EXCLUSION,
+                state.end_at + EXERCISE_EXCLUSION,
+            )
+            for state in states
+            if state.kind == "activity"
+        ]
 
     def _basal_profile(
         self,
@@ -647,8 +731,18 @@ class TherapyAnalysisService:
         target_mmol_l: float,
         fallback_isf: float,
         slot_isf: dict[int, TherapyAnalysisMetric],
-    ) -> list[_Evidence]:
+        active_spans: list[tuple[datetime, datetime]],
+    ) -> tuple[list[_Evidence], int]:
+        """Return usable ICR evidence and how much of it exercise removed.
+
+        Effort moves the ratio by more than this estimator could separate, so
+        an episode next to a session is dropped rather than allowed to drag the
+        ratio for every other meal of that daypart. The count of what was
+        dropped is reported, because an exclusion nobody can see is
+        indistinguishable from a bug.
+        """
         evidence: list[_Evidence] = []
+        excluded_for_activity = 0
         for item in period_items:
             if (
                 item.classification not in {"meal", "snack"}
@@ -666,6 +760,9 @@ class TherapyAnalysisService:
                 )
             ):
                 continue
+            if _within_any(item.timestamp, active_spans):
+                excluded_for_activity += 1
+                continue
             local_isf = slot_isf[_slot_start(item.timestamp.hour)]
             isf = (
                 local_isf.value
@@ -679,8 +776,121 @@ class TherapyAnalysisService:
                 continue
             value = item.carbs_g / adjusted_units
             if MIN_ICR <= value <= MAX_ICR:
-                evidence.append(_Evidence(item.timestamp, value))
-        return evidence
+                evidence.append(
+                    _Evidence(item.timestamp, value, weight=item.carbs_g)
+                )
+        return evidence, excluded_for_activity
+
+
+def _within_any(
+    at: datetime,
+    spans: list[tuple[datetime, datetime]],
+) -> bool:
+    return any(start <= at <= end for start, end in spans)
+
+
+DAYPART_LABELS: dict[Daypart, str] = {
+    "morning": "Утро",
+    "day": "День",
+    "evening": "Вечер",
+}
+
+
+def _icr_proposals(
+    evidence: list[_Evidence],
+    params,
+) -> list[IcrDaypartComparison]:
+    """Group measured ratios onto the configured slots and propose a value.
+
+    The four-hour table cannot answer "should I change my settings?", because
+    its bins are not the bins the settings use. This one is aligned to the
+    configured boundaries so the two numbers on each row are comparable.
+    """
+    bounds: dict[Daypart, tuple[int, int]] = {
+        "morning": (params.morning_start_minutes, params.day_start_minutes),
+        "day": (params.day_start_minutes, params.evening_start_minutes),
+        "evening": (params.evening_start_minutes, params.morning_start_minutes),
+    }
+    comparisons: list[IcrDaypartComparison] = []
+    for daypart in ("morning", "day", "evening"):
+        # The ratio and its carbohydrate weight are the only fields propose()
+        # reads; units and outcome were already folded into the implied ratio
+        # by _icr_evidence, so they are not carried again here.
+        episodes = [
+            IcrEpisode(
+                occurred_at=item.timestamp,
+                carbs_g=item.weight,
+                units=0.0,
+                outcome_mmol_l=0.0,
+                implied_icr=item.value,
+            )
+            for item in evidence
+            if daypart_of(item.timestamp, params) == daypart
+        ]
+        configured = _configured_icr(daypart, params)
+        proposal = propose(
+            daypart=daypart,
+            episodes=episodes,
+            current_icr=configured,
+        )
+        start_minutes, end_minutes = bounds[daypart]
+        comparisons.append(
+            IcrDaypartComparison(
+                daypart=daypart,
+                label=DAYPART_LABELS[daypart],
+                start_hour=start_minutes // 60,
+                end_hour=end_minutes // 60,
+                configured_icr_g_per_unit=(
+                    round(configured, 1) if configured else None
+                ),
+                measured_icr_g_per_unit=proposal.estimated_icr,
+                proposed_icr_g_per_unit=proposal.proposed_icr,
+                episode_count=proposal.episode_count,
+                confidence=proposal.confidence,
+                capped=proposal.capped,
+                note=proposal.note,
+            )
+        )
+    return comparisons
+
+
+def _configured_icr(daypart: Daypart, params) -> float | None:
+    return {
+        "morning": params.icr_morning,
+        "day": params.icr_day,
+        "evening": params.icr_evening,
+    }[daypart]
+
+
+def _isf_identifiability(
+    *,
+    isolated: int,
+    corrections: int,
+) -> tuple[IsfIdentifiability, str]:
+    """Say how much of the correction evidence survived isolation, and why.
+
+    Measured over 75 days for this owner: 75% of boluses land within ten
+    minutes of a meal, so almost nothing is a clean correction and only the
+    carbohydrate ratio is really determined. The page has to say that instead
+    of printing a median of a handful of episodes beside a solid ICR.
+    """
+    if isolated == 0:
+        return (
+            "not_identified",
+            "Ни одной изолированной коррекции: ISF по данным не определяется, "
+            "показано настроенное значение.",
+        )
+    if isolated < MIN_ISF_EPISODES_FOR_CONFIDENCE:
+        return (
+            "thin",
+            f"Изолированных коррекций: {isolated} из {corrections}. "
+            "Болюсы почти всегда стоят рядом с едой, поэтому надёжно "
+            "определяется только ICR — это оценка, а не измерение.",
+        )
+    return (
+        "identified",
+        f"Изолированных коррекций: {isolated} из {corrections}.",
+    )
 
 
 def _has_neighbor(
