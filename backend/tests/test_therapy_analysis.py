@@ -209,7 +209,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     assert body["icr_horizon_minutes"] == 120
     assert body["isf_horizon_minutes"] == 240
     assert body["bin_hours"] == 4
-    assert body["model_version"] == "retrospective-therapy-analysis-v3"
+    assert body["model_version"] == "retrospective-therapy-analysis-v4"
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,
@@ -287,6 +287,59 @@ def test_isf_says_how_thin_its_evidence_is_next_to_a_solid_icr(
     assert body["isf_identifiability"] == "thin"
     assert body["isf_correction_count"] == 1
     assert "только ICR" in body["isf_note"]
+    # The median is auditable: the episode behind it is reported.
+    assert len(body["isf_cases"]) == 1
+    assert body["isf_cases"][0]["glucose_start"] == 9.0
+    assert body["isf_cases"][0]["isf_mmol_l_per_unit"] == 2.5
+
+
+def test_isf_measures_the_fall_a_correction_caused_not_the_rebound(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reported 2026-08-04: 1 U visibly took 11 to 7, but the page's range
+    topped out at 3.26. It read glucose at exactly four hours, by which point
+    insulin is ~90% finished and the curve has already turned back up."""
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_analysis.local_now",
+        lambda: datetime(2026, 7, 31, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    correction_at = datetime(2026, 7, 10, 14)
+    with session_factory() as session:
+        _insulin(session, owner_id, correction_at, 1)
+        # 11.0 down to 7.0 at +2h30, drifting back to 8.6 by the horizon.
+        for minutes, value in (
+            (0, 11.0),
+            (60, 9.8),
+            (120, 7.6),
+            (150, 7.0),
+            (210, 7.9),
+            (240, 8.6),
+        ):
+            _glucose(
+                session,
+                owner_id,
+                correction_at + timedelta(minutes=minutes),
+                value,
+            )
+        session.commit()
+
+    body = api_client.get(
+        "/glucose/therapy-analysis",
+        params={"period_days": 30, "target_mmol_l": 6},
+    ).json()
+
+    case = body["isf_cases"][0]
+    assert case["glucose_start"] == 11.0
+    assert case["glucose_nadir"] == 7.0
+    assert case["minutes_to_nadir"] == 150
+    # The endpoint is still reported, so the difference stays visible.
+    assert case["glucose_at_horizon"] == 8.6
+    # 4.0, not the 2.4 the four-hour reading would have produced.
+    assert case["isf_mmol_l_per_unit"] == 4.0
+    assert body["overall_isf_mmol_l_per_unit"]["value"] == 4.0
 
 
 def test_measured_ratios_are_compared_against_the_configured_slots(

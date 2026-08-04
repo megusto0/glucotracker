@@ -246,6 +246,93 @@
   color: #8a8a8a;
 }
 
+.therapy-analysis-isf-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #484848;
+  border-radius: 7px;
+  background: #171717;
+}
+
+.therapy-analysis-isf-card header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.therapy-analysis-isf-card header strong {
+  color: #cfd8d4;
+  font:
+    600 11px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.therapy-analysis-isf-card header span,
+.therapy-analysis-isf-card header small,
+.therapy-analysis-isf-card footer {
+  color: #8a8a8a;
+  font:
+    500 10px/1.5 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-analysis-isf-scroll {
+  overflow-x: auto;
+}
+
+.therapy-analysis-isf-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.therapy-analysis-isf-card th,
+.therapy-analysis-isf-card td {
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid #2a2a2a;
+  color: #bbb;
+  font:
+    500 11px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.therapy-analysis-isf-card thead th {
+  color: #7d7d7d;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.therapy-analysis-isf-card td b {
+  color: var(--ns-cyan);
+  font-weight: 600;
+}
+
+.therapy-analysis-isf-card td small {
+  color: #6d6d6d;
+}
+
+/* The reading the old measurement used, kept visible but subordinate. */
+.therapy-analysis-isf-horizon {
+  color: #6d6d6d !important;
+}
+
+.therapy-analysis-isf-card footer ul {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0 0 0 14px;
+}
+
 .therapy-analysis-table-card {
   overflow: hidden;
   border: 1px solid #484848;

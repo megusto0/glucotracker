@@ -30,6 +30,7 @@ from glucotracker.api.schemas import (
     InsulinRecommendationMatchResponse,
     InsulinRecommendationRequest,
     InsulinRecommendationResponse,
+    IsfCaseResponse,
     SensorCodeCreate,
     SensorCodePatch,
     SensorCodeResponse,
@@ -310,6 +311,9 @@ def get_glucose_therapy_analysis(
             "icr_proposals": [
                 IcrDaypartComparisonResponse(**vars(proposal))
                 for proposal in analysis.icr_proposals
+            ],
+            "isf_cases": [
+                IsfCaseResponse(**vars(case)) for case in analysis.isf_cases
             ],
             "slots": [
                 TherapyAnalysisSlotResponse(

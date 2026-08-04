@@ -348,6 +348,18 @@ class TherapyBasalProfileResponse(BaseModel):
     slots: list[TherapyBasalSlotResponse]
 
 
+class IsfCaseResponse(BaseModel):
+    """One isolated correction and the ratio it implies."""
+
+    occurred_at: datetime
+    insulin_units: float
+    glucose_start: float
+    glucose_nadir: float
+    glucose_at_horizon: float | None = None
+    minutes_to_nadir: int
+    isf_mmol_l_per_unit: float
+
+
 class IcrDaypartComparisonResponse(BaseModel):
     """Configured ratio for one slot against what its outcomes imply."""
 
@@ -388,6 +400,8 @@ class TherapyAnalysisResponse(BaseModel):
     )
     isf_note: str = ""
     isf_correction_count: int = 0
+    isf_cases: list[IsfCaseResponse] = Field(default_factory=list)
+    isf_rejections: dict[str, int] = Field(default_factory=dict)
     icr_proposals: list[IcrDaypartComparisonResponse] = Field(
         default_factory=list
     )

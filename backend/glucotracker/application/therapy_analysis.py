@@ -58,12 +58,18 @@ IsfSource = Literal["correction_episodes", "configured_fallback"]
 IsfIdentifiability = Literal["identified", "thin", "not_identified"]
 BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 
+# v4: ISF is measured to the trough a correction reached rather than to the
+# reading at exactly four hours, which caught the rebound and understated every
+# ratio.
 # v3: measured ratios are compared against the configured slots, episodes near
 # effort are excluded, and ISF says how thin its evidence is.
-THERAPY_ANALYSIS_MODEL_VERSION = "retrospective-therapy-analysis-v3"
+THERAPY_ANALYSIS_MODEL_VERSION = "retrospective-therapy-analysis-v4"
 # Below this many isolated corrections the ISF median is an estimate rather
 # than a measurement, and the page must say so.
 MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
+# Insulin needs time before the fall it caused can be read; a trough sooner
+# than this is sensor noise or the tail of something earlier.
+MIN_MINUTES_TO_NADIR = timedelta(minutes=45)
 ICR_HORIZON_MINUTES = 120
 ISF_HORIZON_MINUTES = 240
 BIN_HOURS = 4
@@ -132,6 +138,19 @@ class TherapyBasalProfile:
 
 
 @dataclass(frozen=True)
+class IsfCase:
+    """One isolated correction and the ratio it implies."""
+
+    occurred_at: datetime
+    insulin_units: float
+    glucose_start: float
+    glucose_nadir: float
+    glucose_at_horizon: float | None
+    minutes_to_nadir: int
+    isf_mmol_l_per_unit: float
+
+
+@dataclass(frozen=True)
 class IcrDaypartComparison:
     """What is configured for a slot against what its outcomes imply."""
 
@@ -172,6 +191,10 @@ class TherapyAnalysis:
     isf_identifiability: IsfIdentifiability = "not_identified"
     isf_note: str = ""
     isf_correction_count: int = 0
+    #: The individual corrections behind the median, newest first, and a tally
+    #: of why the rest were rejected.
+    isf_cases: list[IsfCase] = field(default_factory=list)
+    isf_rejections: dict[str, int] = field(default_factory=dict)
     #: Measured against what is actually configured, on the configured slots.
     icr_proposals: list[IcrDaypartComparison] = field(default_factory=list)
     icr_excluded_for_activity: int = 0
@@ -197,6 +220,9 @@ class _Candidate:
     glucose_start: float | None
     glucose_plus_2h: float | None
     glucose_plus_4h: float | None
+    #: Lowest reading inside the four-hour window, and when it arrived.
+    glucose_nadir: float | None = None
+    nadir_after_minutes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -255,7 +281,7 @@ class TherapyAnalysisService:
             if period_start <= item.timestamp.date() <= period_end
         ]
 
-        isf_evidence = self._isf_evidence(
+        isf_evidence, isf_cases, isf_rejections = self._isf_evidence(
             period_candidates,
             candidates,
             target_mmol_l,
@@ -376,6 +402,12 @@ class TherapyAnalysisService:
             isf_identifiability=identifiability,
             isf_note=isf_note,
             isf_correction_count=correction_count,
+            isf_cases=sorted(
+                isf_cases,
+                key=lambda case: case.occurred_at,
+                reverse=True,
+            ),
+            isf_rejections=isf_rejections,
             icr_proposals=icr_proposals,
             icr_excluded_for_activity=excluded_for_activity,
             slots=slots,
@@ -666,6 +698,19 @@ class TherapyAnalysisService:
             points,
             component.start_at + timedelta(hours=4),
         )
+        # A correction's effect is how far it pushed glucose down, and the
+        # trough arrives before the four-hour mark. Insulin is ~90% finished by
+        # then, so the endpoint has already started climbing back and reading
+        # it as the effect understates every ratio.
+        trough = [
+            (point.timestamp, value)
+            for point in points
+            if component.start_at + MIN_MINUTES_TO_NADIR
+            <= point.timestamp
+            <= component.start_at + timedelta(hours=4)
+            and (value := _point_value(point)) is not None
+        ]
+        nadir_at, nadir = min(trough, key=lambda item: item[1], default=(None, None))
         return _Candidate(
             key="|".join(
                 sorted(
@@ -685,6 +730,12 @@ class TherapyAnalysisService:
             glucose_start=_point_value(start),
             glucose_plus_2h=_point_value(plus_2h),
             glucose_plus_4h=_point_value(plus_4h),
+            glucose_nadir=nadir,
+            nadir_after_minutes=(
+                round((nadir_at - component.start_at).total_seconds() / 60)
+                if nadir_at is not None
+                else None
+            ),
         )
 
     def _isf_evidence(
@@ -692,37 +743,69 @@ class TherapyAnalysisService:
         period_items: list[_Candidate],
         all_items: list[_Candidate],
         target_mmol_l: float,
-    ) -> list[_Evidence]:
+    ) -> tuple[list[_Evidence], list[IsfCase], dict[str, int]]:
+        """Measure each isolated correction by how far it actually pushed down.
+
+        Returns the evidence, the individual cases behind it, and a tally of
+        why the rest were rejected. A median of seven episodes is not something
+        anyone should take on trust, so the episodes themselves are reported.
+        """
         evidence: list[_Evidence] = []
+        cases: list[IsfCase] = []
+        rejected: dict[str, int] = defaultdict(int)
         for item in period_items:
             if (
                 item.classification != "insulin_correction"
-                or item.confidence == "low"
                 or item.carbs_g > 0
                 or item.insulin_units <= 0
-                or item.insulin_units > 15
-                or _has_neighbor(
-                    item,
-                    all_items,
-                    before=timedelta(hours=4),
-                    after=timedelta(hours=4),
-                )
             ):
+                continue
+            if item.confidence == "low":
+                rejected["low_confidence"] += 1
+                continue
+            if item.insulin_units > 15:
+                rejected["dose_too_large"] += 1
+                continue
+            if _has_neighbor(
+                item,
+                all_items,
+                before=timedelta(hours=4),
+                after=timedelta(hours=4),
+            ):
+                rejected["not_isolated"] += 1
                 continue
             start = item.glucose_start
-            after = item.glucose_plus_4h
-            if (
-                start is None
-                or after is None
-                or start < target_mmol_l + 0.8
-                or after < 3.0
-                or after >= start
-            ):
+            nadir = item.glucose_nadir
+            if start is None or nadir is None:
+                rejected["glucose_missing"] += 1
                 continue
-            value = (start - after) / item.insulin_units
-            if MIN_ISF <= value <= MAX_ISF:
-                evidence.append(_Evidence(item.timestamp, value))
-        return evidence
+            if start < target_mmol_l + 0.8:
+                rejected["not_elevated"] += 1
+                continue
+            if nadir < 3.0 or nadir >= start:
+                rejected["no_fall"] += 1
+                continue
+            value = (start - nadir) / item.insulin_units
+            if not MIN_ISF <= value <= MAX_ISF:
+                rejected["implausible"] += 1
+                continue
+            evidence.append(_Evidence(item.timestamp, value))
+            cases.append(
+                IsfCase(
+                    occurred_at=item.timestamp,
+                    insulin_units=round(item.insulin_units, 2),
+                    glucose_start=round(start, 1),
+                    glucose_nadir=round(nadir, 1),
+                    glucose_at_horizon=(
+                        round(item.glucose_plus_4h, 1)
+                        if item.glucose_plus_4h is not None
+                        else None
+                    ),
+                    minutes_to_nadir=item.nadir_after_minutes or 0,
+                    isf_mmol_l_per_unit=round(value, 2),
+                )
+            )
+        return evidence, cases, dict(rejected)
 
     def _icr_evidence(
         self,

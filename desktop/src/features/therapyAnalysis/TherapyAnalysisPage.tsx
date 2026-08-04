@@ -13,6 +13,17 @@ type BasalSlot = BasalProfile["slots"][number];
 type IcrComparison = NonNullable<
   TherapyAnalysisResponse["icr_proposals"]
 >[number];
+type IsfCase = NonNullable<TherapyAnalysisResponse["isf_cases"]>[number];
+
+const REJECTION_LABELS: Record<string, string> = {
+  not_isolated: "рядом была еда или другой болюс",
+  not_elevated: "глюкоза не была повышена",
+  no_fall: "глюкоза не снизилась",
+  glucose_missing: "нет данных CGM",
+  low_confidence: "эпизод определён неуверенно",
+  dose_too_large: "доза больше 15 Ед",
+  implausible: "результат вне правдоподобных границ",
+};
 type BasalMetricKey =
   | "quiet_drift_mmol_l_per_hour"
   | "elevated_hr_drift_mmol_l_per_hour"
@@ -103,6 +114,101 @@ function MetricSummary({
 
 function ratio(value?: number | null) {
   return typeof value === "number" ? value.toFixed(1) : "—";
+}
+
+function caseTime(value: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  }).format(new Date(value));
+}
+
+/**
+ * The corrections behind the ISF median, one row each.
+ *
+ * A median of seven episodes is not something to take on trust, and it was
+ * previously impossible to check: the page showed the number and the count and
+ * nothing else. Each row carries the fall it was measured from and the reading
+ * at four hours, so a value that looks wrong can be traced to its episode.
+ */
+function IsfCases({
+  cases,
+  rejections,
+  correctionCount,
+}: {
+  cases: IsfCase[];
+  rejections: Record<string, number>;
+  correctionCount: number;
+}) {
+  const rejected = Object.entries(rejections).filter(([, count]) => count > 0);
+  if (!cases.length && !rejected.length) return null;
+
+  return (
+    <section className="therapy-analysis-isf-card">
+      <header>
+        <div>
+          <strong>Из чего сложился ISF</strong>
+          <span>
+            {cases.length} из {correctionCount} коррекций за период
+          </span>
+        </div>
+        <small>Снижение считается до минимума, а не до отметки «4 часа»</small>
+      </header>
+
+      {cases.length ? (
+        <div className="therapy-analysis-isf-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Когда</th>
+                <th>Доза</th>
+                <th>Глюкоза</th>
+                <th>Минимум</th>
+                <th>Через 4 ч</th>
+                <th>ISF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cases.map((item) => (
+                <tr key={item.occurred_at}>
+                  <th scope="row">{caseTime(item.occurred_at)}</th>
+                  <td>{item.insulin_units.toFixed(1)} Ед</td>
+                  <td>{item.glucose_start.toFixed(1)}</td>
+                  <td>
+                    {item.glucose_nadir.toFixed(1)}
+                    <small> +{item.minutes_to_nadir} мин</small>
+                  </td>
+                  <td className="therapy-analysis-isf-horizon">
+                    {typeof item.glucose_at_horizon === "number"
+                      ? item.glucose_at_horizon.toFixed(1)
+                      : "—"}
+                  </td>
+                  <td>
+                    <b>{item.isf_mmol_l_per_unit.toFixed(2)}</b>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {rejected.length ? (
+        <footer>
+          <span>Остальные коррекции не подошли:</span>
+          <ul>
+            {rejected.map(([reason, count]) => (
+              <li key={reason}>
+                {REJECTION_LABELS[reason] ?? reason} — {count}
+              </li>
+            ))}
+          </ul>
+        </footer>
+      ) : null}
+    </section>
+  );
 }
 
 /**
@@ -567,6 +673,12 @@ export function TherapyAnalysisPage() {
                 analysis.data.icr_excluded_for_activity ?? 0
               }
               rows={analysis.data.icr_proposals ?? []}
+            />
+
+            <IsfCases
+              cases={analysis.data.isf_cases ?? []}
+              correctionCount={analysis.data.isf_correction_count ?? 0}
+              rejections={analysis.data.isf_rejections ?? {}}
             />
 
             <section className="therapy-analysis-table-card">

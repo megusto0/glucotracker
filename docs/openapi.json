@@ -5936,6 +5936,57 @@
         "title": "InsulinRecommendationResponse",
         "type": "object"
       },
+      "IsfCaseResponse": {
+        "description": "One isolated correction and the ratio it implies.",
+        "properties": {
+          "glucose_at_horizon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glucose At Horizon"
+          },
+          "glucose_nadir": {
+            "title": "Glucose Nadir",
+            "type": "number"
+          },
+          "glucose_start": {
+            "title": "Glucose Start",
+            "type": "number"
+          },
+          "insulin_units": {
+            "title": "Insulin Units",
+            "type": "number"
+          },
+          "isf_mmol_l_per_unit": {
+            "title": "Isf Mmol L Per Unit",
+            "type": "number"
+          },
+          "minutes_to_nadir": {
+            "title": "Minutes To Nadir",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "occurred_at",
+          "insulin_units",
+          "glucose_start",
+          "glucose_nadir",
+          "minutes_to_nadir",
+          "isf_mmol_l_per_unit"
+        ],
+        "title": "IsfCaseResponse",
+        "type": "object"
+      },
       "IssuedTokensResponse": {
         "description": "Issued access and refresh token response.",
         "properties": {
@@ -13240,6 +13291,13 @@
             "title": "Icr Proposals",
             "type": "array"
           },
+          "isf_cases": {
+            "items": {
+              "$ref": "#/components/schemas/IsfCaseResponse"
+            },
+            "title": "Isf Cases",
+            "type": "array"
+          },
           "isf_correction_count": {
             "default": 0,
             "title": "Isf Correction Count",
@@ -13263,6 +13321,13 @@
             "default": "",
             "title": "Isf Note",
             "type": "string"
+          },
+          "isf_rejections": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Isf Rejections",
+            "type": "object"
           },
           "isf_source": {
             "enum": [

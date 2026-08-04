@@ -66,6 +66,20 @@ const analysis: TherapyAnalysisResponse = {
   isf_identifiability: "thin",
   isf_note: "Изолированных коррекций: 3 из 41. Надёжно определяется только ICR.",
   isf_correction_count: 41,
+  isf_cases: [
+    {
+      // The reported case: 1 U took 11.0 to 7.0, drifting back to 8.6 by the
+      // horizon. Measured to the endpoint this reads 2.4 instead of 4.0.
+      glucose_at_horizon: 8.6,
+      glucose_nadir: 7,
+      glucose_start: 11,
+      insulin_units: 1,
+      isf_mmol_l_per_unit: 4,
+      minutes_to_nadir: 150,
+      occurred_at: "2026-07-28T14:00:00",
+    },
+  ],
+  isf_rejections: { not_isolated: 31, not_elevated: 6 },
   icr_excluded_for_activity: 2,
   icr_proposals: [
     {
@@ -226,6 +240,25 @@ describe("TherapyAnalysisPage", () => {
 
     expect(
       screen.getByText(/Изолированных коррекций: 3 из 41/),
+    ).toBeInTheDocument();
+  });
+
+  test("shows the corrections the ISF median was built from", () => {
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Из чего сложился ISF")).toBeInTheDocument();
+    expect(screen.getByText("1 из 41 коррекций за период")).toBeInTheDocument();
+    // The fall it was measured from, and the endpoint the old method used.
+    expect(screen.getByText("11.0")).toBeInTheDocument();
+    expect(screen.getByText("7.0")).toBeInTheDocument();
+    expect(screen.getByText("8.6")).toBeInTheDocument();
+    expect(screen.getByText("4.00")).toBeInTheDocument();
+    expect(
+      screen.getByText(/рядом была еда или другой болюс — 31/),
     ).toBeInTheDocument();
   });
 

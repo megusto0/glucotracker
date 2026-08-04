@@ -4396,6 +4396,29 @@ export interface components {
             total_recommended_units?: number | null;
         };
         /**
+         * IsfCaseResponse
+         * @description One isolated correction and the ratio it implies.
+         */
+        IsfCaseResponse: {
+            /** Glucose At Horizon */
+            glucose_at_horizon?: number | null;
+            /** Glucose Nadir */
+            glucose_nadir: number;
+            /** Glucose Start */
+            glucose_start: number;
+            /** Insulin Units */
+            insulin_units: number;
+            /** Isf Mmol L Per Unit */
+            isf_mmol_l_per_unit: number;
+            /** Minutes To Nadir */
+            minutes_to_nadir: number;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /**
          * IssuedTokensResponse
          * @description Issued access and refresh token response.
          */
@@ -7198,6 +7221,8 @@ export interface components {
             icr_horizon_minutes: number;
             /** Icr Proposals */
             icr_proposals?: components["schemas"]["IcrDaypartComparisonResponse"][];
+            /** Isf Cases */
+            isf_cases?: components["schemas"]["IsfCaseResponse"][];
             /**
              * Isf Correction Count
              * @default 0
@@ -7216,6 +7241,10 @@ export interface components {
              * @default
              */
             isf_note: string;
+            /** Isf Rejections */
+            isf_rejections?: {
+                [key: string]: number;
+            };
             /**
              * Isf Source
              * @enum {string}
