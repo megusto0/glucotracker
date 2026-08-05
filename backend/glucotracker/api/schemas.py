@@ -157,9 +157,11 @@ class DayEpisodeInsulinResponse(BaseModel):
     id: UUID
     timestamp: datetime
     insulin_units: float | None = None
-    # "food" when the event is attributed to meals nearby, "correction"
-    # when it stands alone. Display attribution only, never advice.
-    kind: Literal["food", "correction"]
+    # "food" when the event is attributed to meals nearby, "correction" when it
+    # stands alone, "catch_up" when it chased a rise the meal was already
+    # causing — given knowing the first bolus had not held, which the dose at
+    # the plate could not know. Display attribution only, never advice.
+    kind: Literal["food", "correction", "catch_up"]
     anchor_meal_id: UUID | None = None
     editable: bool = False
 

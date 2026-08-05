@@ -11,9 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal
+from uuid import UUID
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
 from glucotracker.application.episodes import EpisodeComponent
+from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.on_board.classification import normalized_text
 
 TherapyClass = Literal[
@@ -35,6 +37,13 @@ TREND_LOOKBACK = timedelta(minutes=20)
 OUTCOME_HORIZON = timedelta(hours=2)
 PEAK_HORIZON = timedelta(minutes=150)
 SNACK_ROLES = {"snack", "drink", "dessert"}
+# A bolus this soon after the plate is still part of dosing it; past the far
+# edge the meal is no longer plausibly the cause of what is being chased.
+CATCH_UP_AFTER = timedelta(minutes=20)
+CATCH_UP_UNTIL = timedelta(hours=3)
+# +0.3 mmol/L per 15 min. Comfortably above the noise a flat trace shows, and
+# well under the +1.80/h these boluses were measured to sit on.
+CATCH_UP_RISING_PER_MINUTE = 0.02
 
 
 @dataclass(frozen=True)
@@ -222,6 +231,53 @@ def _nearest(
         return None
     nearest = min(points, key=lambda point: abs(point.timestamp - target))
     return nearest if abs(nearest.timestamp - target) <= POINT_TOLERANCE else None
+
+
+def catch_up_event_ids(
+    component: EpisodeComponent,
+    points: list[GlucoseDashboardPoint],
+) -> set[UUID]:
+    """Boluses given to chase a rise the meal was already causing.
+
+    Not meal insulin and not a correction. It answers a rise that has already
+    started, so it is given knowing something the dose at the plate could not:
+    that the first bolus did not hold. Counting it as ordinary meal coverage
+    makes the food look like it needed more insulin, when what it needed was
+    the same insulin earlier — and a recommendation that quotes the inflated
+    total up front is a different, riskier act than 8 U now and 4 U if it
+    climbs.
+
+    Measured over 75 days for this owner: boluses at the plate sit on a
+    −0.40 mmol/L per hour trend, later ones on +1.80 with 86% rising. The two
+    acts separate on what glucose was doing, so that is the test used here.
+    A bolus given while glucose is flat or falling stays an ordinary one.
+    """
+    if not component.meals:
+        return set()
+    sitting_at = min(meal.eaten_at for meal in component.meals)
+    catch_ups: set[UUID] = set()
+    for event in component.insulin:
+        at = _local_wall_time(event.timestamp)
+        if not (
+            sitting_at + CATCH_UP_AFTER <= at <= sitting_at + CATCH_UP_UNTIL
+        ):
+            continue
+        # A later plate makes the rise ambiguous; that insulin belongs to it.
+        if any(
+            sitting_at < meal.eaten_at <= at for meal in component.meals
+        ):
+            continue
+        rising = [
+            trend
+            for trend in (
+                _trend(points, at, normalized=True),
+                _trend(points, at, normalized=False),
+            )
+            if trend is not None
+        ]
+        if rising and max(rising) >= CATCH_UP_RISING_PER_MINUTE:
+            catch_ups.add(event.id)
+    return catch_ups
 
 
 def _trend(

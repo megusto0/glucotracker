@@ -2009,7 +2009,8 @@
           "kind": {
             "enum": [
               "food",
-              "correction"
+              "correction",
+              "catch_up"
             ],
             "title": "Kind",
             "type": "string"

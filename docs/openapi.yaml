@@ -1344,6 +1344,7 @@ components:
           enum:
           - food
           - correction
+          - catch_up
           title: Kind
           type: string
         timestamp:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -15,6 +15,7 @@ from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
     Meal,
     MealInsulinEpisodeSnapshot,
+    NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
     User,
 )
@@ -47,6 +48,24 @@ def _seed_meal(
     session.add(meal)
     session.flush()
     return meal
+
+
+def _seed_glucose(
+    session: Session,
+    owner_id: UUID,
+    timestamp: datetime,
+    value: float,
+) -> None:
+    session.add(
+        NightscoutGlucoseEntry(
+            owner_id=owner_id,
+            source_key=f"episodes-cgm-{timestamp.isoformat()}",
+            timestamp=timestamp,
+            value_mmol_l=value,
+            value_mg_dl=round(value * 18.0182),
+            source="CGM",
+        )
+    )
 
 
 def _seed_insulin(
@@ -235,6 +254,86 @@ def test_insulin_joins_one_sitting_and_never_bridges_two(
     # Each bolus lands on its own sitting rather than bridging the two.
     assert by_meal[str(early.id)]["total_insulin_units"] == 4.6
     assert by_meal[str(late.id)]["total_insulin_units"] == 12.0
+
+
+def test_a_bolus_chasing_a_rise_is_marked_catch_up(
+    api_client: TestClient,
+) -> None:
+    """A second bolus an hour in, given after watching glucose climb, was
+    recorded as ordinary meal insulin — so the food looked like it needed the
+    whole amount, when what it needed was the same amount earlier."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    meal_at = datetime(2026, 8, 5, 12, 0)
+    with session_factory() as session:
+        _seed_meal(session, owner_id, "Панкейки", meal_at, carbs=62)
+        _seed_insulin(session, owner_id, "ns-meal", meal_at, units=8.0)
+        _seed_insulin(
+            session,
+            owner_id,
+            "ns-chase",
+            meal_at + timedelta(hours=1),
+            units=4.0,
+        )
+        # Climbing hard through the hour before the second bolus.
+        for index, value in enumerate((6.2, 8.1, 10.0, 11.6, 12.8)):
+            _seed_glucose(
+                session,
+                owner_id,
+                meal_at + timedelta(minutes=15 * index),
+                value,
+            )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
+    ).json()["episodes"]
+
+    kinds = {
+        event["insulin_units"]: event["kind"]
+        for episode in episodes
+        for event in episode["insulin"]
+    }
+    assert kinds[8.0] == "food"
+    assert kinds[4.0] == "catch_up"
+
+
+def test_a_bolus_given_on_a_flat_trace_stays_ordinary(
+    api_client: TestClient,
+) -> None:
+    """Only a rise makes it a chase. Split dosing on a steady trace is not."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    meal_at = datetime(2026, 8, 5, 12, 0)
+    with session_factory() as session:
+        _seed_meal(session, owner_id, "Панкейки", meal_at, carbs=62)
+        _seed_insulin(session, owner_id, "ns-meal", meal_at, units=8.0)
+        _seed_insulin(
+            session,
+            owner_id,
+            "ns-second",
+            meal_at + timedelta(hours=1),
+            units=4.0,
+        )
+        for index in range(5):
+            _seed_glucose(
+                session,
+                owner_id,
+                meal_at + timedelta(minutes=15 * index),
+                6.2,
+            )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
+    ).json()["episodes"]
+
+    kinds = [
+        event["kind"] for episode in episodes for event in episode["insulin"]
+    ]
+    assert "catch_up" not in kinds
 
 
 def test_episodes_standalone_insulin_is_correction(api_client: TestClient) -> None:

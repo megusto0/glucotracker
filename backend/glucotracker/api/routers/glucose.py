@@ -48,7 +48,10 @@ from glucotracker.api.schemas import (
     TopUpDoseResponse,
 )
 from glucotracker.application.body_states import BodyStateService
-from glucotracker.application.episode_therapy import classify_episode_therapy
+from glucotracker.application.episode_therapy import (
+    catch_up_event_ids,
+    classify_episode_therapy,
+)
 from glucotracker.application.episodes import (
     EpisodeQueryService,
     anchor_meal_id,
@@ -149,13 +152,20 @@ def get_glucose_episodes(
     episodes: list[DayEpisodeResponse] = []
     for component in components:
         therapy = classify_episode_therapy(component, therapy_points)
+        catch_ups = catch_up_event_ids(component, therapy_points)
         # Raw UTC timestamps, same as /nightscout/insulin — clients convert.
         insulin = [
             DayEpisodeInsulinResponse(
                 id=event.id,
                 timestamp=event.timestamp,
                 insulin_units=event.insulin_units,
-                kind="food" if component.meals else "correction",
+                kind=(
+                    "catch_up"
+                    if event.id in catch_ups
+                    else "food"
+                    if component.meals
+                    else "correction"
+                ),
                 anchor_meal_id=anchor_meal_id(event, component),
                 editable=(
                     event.source_key.startswith("manual_insulin:")

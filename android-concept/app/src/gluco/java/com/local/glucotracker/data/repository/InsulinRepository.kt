@@ -23,6 +23,7 @@ import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 
 private const val CorrectionKind = "correction"
+private const val CatchUpKind = "catch_up"
 
 @Singleton
 class InsulinRepository @Inject constructor(
@@ -124,10 +125,10 @@ private fun CachedInsulinEventEntity.toDomain(): InsulinEvent =
         doseUnits = doseUnits,
         source = "Nightscout",
         sourceEventId = id,
-        eventType = if (kind == CorrectionKind) {
-            InsulinEventType.Correction
-        } else {
-            InsulinEventType.Bolus
+        eventType = when (kind) {
+            CorrectionKind -> InsulinEventType.Correction
+            CatchUpKind -> InsulinEventType.CatchUp
+            else -> InsulinEventType.Bolus
         },
         isReadOnly = !isEditable,
     )

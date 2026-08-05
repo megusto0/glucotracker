@@ -190,6 +190,9 @@
     <string name="insulin_actual_submit">Записать фактический инсулин</string>
     <string name="insulin_units_short">ЕД</string>
     <string name="insulin_correction">коррекция</string>
+    <!-- Given to chase a rise the meal was already causing, after the first
+         bolus visibly did not hold. Neither meal insulin nor a correction. -->
+    <string name="insulin_catch_up">догоняющий</string>
     <string name="insulin_source_nightscout">Nightscout</string>
     <string name="insulin_source_pending">в очереди</string>
     <string name="insulin_manage_title">Изменить инсулин</string>

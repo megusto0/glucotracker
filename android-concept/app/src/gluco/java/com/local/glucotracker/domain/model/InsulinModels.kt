@@ -16,6 +16,13 @@ data class InsulinEvent(
 
 enum class InsulinEventType {
     Bolus,
+
+    /**
+     * Given to chase a rise the meal was already causing, once the first bolus
+     * had visibly not held. Neither ordinary meal insulin nor a correction: it
+     * knows something the dose at the plate could not.
+     */
+    CatchUp,
     Correction,
     Basal,
     Unknown,

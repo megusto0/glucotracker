@@ -2891,7 +2891,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "food" | "correction";
+            kind: "food" | "correction" | "catch_up";
             /**
              * Timestamp
              * Format: date-time

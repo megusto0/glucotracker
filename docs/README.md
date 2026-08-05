@@ -30,6 +30,15 @@ prompt files, temporary specs, old screenshots, and old OpenAPI dumps live under
 9. [`doc-audit.md`](doc-audit.md) - inventory, archived material, conflicts, and
    remaining manual verification.
 
+## Working Records
+
+- [`../CHANGELOG.md`](../CHANGELOG.md) - version history. Versions 0.1.0-0.9.0
+  were reconstructed from git history and are untagged; versioning from
+  `[Unreleased]` onward is real.
+- [`research-log.md`](research-log.md) - append-only record of external sources
+  consulted. Required for anything touching clinical or pharmacokinetic values,
+  or Nightscout, Health Connect, and Gemini behavior.
+
 ## API Contract
 
 [`openapi.json`](openapi.json) is the source of truth for client-consumable API

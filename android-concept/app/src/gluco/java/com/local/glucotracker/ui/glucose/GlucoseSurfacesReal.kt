@@ -923,12 +923,12 @@ private fun InsulinEvent.sourceSuffix(): String {
         source.equals("nightscout", ignoreCase = true) -> ""
         else -> source
     }
-    val correction = if (eventType == InsulinEventType.Correction) {
-        stringResource(R.string.insulin_correction)
-    } else {
-        ""
+    val kind = when (eventType) {
+        InsulinEventType.Correction -> stringResource(R.string.insulin_correction)
+        InsulinEventType.CatchUp -> stringResource(R.string.insulin_catch_up)
+        else -> ""
     }
-    return listOf(correction, source).filter { it.isNotBlank() }.joinToString(" · ")
+    return listOf(kind, source).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
 /**
