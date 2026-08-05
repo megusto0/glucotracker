@@ -626,6 +626,9 @@ private fun OutboxItem.toPendingRow(
                     outboxItem = this,
                     queuePosition = queuePosition,
                     queueSize = queueSize,
+                    // A confirmed capture remains here only while the accepted
+                    // server meal has not reached the observable day cache yet.
+                    acceptedMealVisible = false,
                 ),
             )
         }

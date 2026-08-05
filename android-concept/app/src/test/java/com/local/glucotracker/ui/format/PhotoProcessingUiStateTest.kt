@@ -99,6 +99,33 @@ class PhotoProcessingUiStateTest {
     }
 
     @Test
+    fun confirmedPhotoDoesNotShowDoneBeforeAcceptedMealIsVisible() {
+        val state = mapOutboxAndMealToPhotoProcessingUiState(
+            outboxItem = outboxItem(
+                state = OutboxState.Confirmed,
+                linkedMealId = "meal-1",
+            ),
+            acceptedMealVisible = false,
+        )
+
+        assertEquals(PhotoProcessingStage.Estimating, state?.stage)
+        assertFalse(state?.statusText.orEmpty().contains("оценка готова"))
+    }
+
+    @Test
+    fun confirmedPhotoShowsDoneWhenAcceptedMealIsVisible() {
+        val state = mapOutboxAndMealToPhotoProcessingUiState(
+            outboxItem = outboxItem(
+                state = OutboxState.Confirmed,
+                linkedMealId = "meal-1",
+            ),
+        )
+
+        assertEquals(PhotoProcessingStage.Done, state?.stage)
+        assertEquals("оценка готова", state?.statusText)
+    }
+
+    @Test
     fun acceptedMealDoesNotGetPendingPipeline() {
         val state = mapOutboxAndMealToPhotoProcessingUiState(
             meal = meal(status = "accepted", estimateStatus = null),

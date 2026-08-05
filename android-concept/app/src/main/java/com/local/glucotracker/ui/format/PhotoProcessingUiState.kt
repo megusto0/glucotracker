@@ -43,6 +43,7 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
     queuePosition: Int? = null,
     queueSize: Int? = null,
     uploadProgress: Float? = null,
+    acceptedMealVisible: Boolean = true,
 ): PhotoProcessingUiState? {
     if (outboxItem.kind !is OutboxKind.CapturedMeal) return null
     val queueText = queuePositionText(queuePosition, queueSize)
@@ -84,17 +85,21 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
                 canRetry = false,
             )
         }
-        OutboxState.Confirmed -> PhotoProcessingUiState(
-            stage = PhotoProcessingStage.Done,
-            title = "Фото",
-            statusText = "оценка готова",
-            helperText = null,
-            queuePositionText = queueText,
-            uploadProgress = null,
-            estimateElapsedSeconds = null,
-            estimateDeadlineSeconds = null,
-            canRetry = false,
-        )
+        OutboxState.Confirmed -> if (acceptedMealVisible) {
+            PhotoProcessingUiState(
+                stage = PhotoProcessingStage.Done,
+                title = "Фото",
+                statusText = "оценка готова",
+                helperText = null,
+                queuePositionText = queueText,
+                uploadProgress = null,
+                estimateElapsedSeconds = null,
+                estimateDeadlineSeconds = null,
+                canRetry = false,
+            )
+        } else {
+            estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+        }
         OutboxState.Stuck -> if (outboxItem.linkedMealId != null) {
             estimateStuckState()
         } else {
