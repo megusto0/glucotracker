@@ -35,15 +35,20 @@ class GlucoSettingsStore @Inject constructor(
             )
         }
 
+    // Defaults on. Raw sensor values read 1.0-2.8 mmol/L below true glucose for
+    // this owner, so every chart, KPI and threshold drawn from them was low by
+    // the same amount; the desktop already defaults to the calibrated series.
+    // The toggle stays, because raw is still the right view when comparing
+    // against what the sensor itself reports.
     val normalizedGlucoseDisplay: Flow<Boolean> =
         dataStore.data.map { preferences ->
-            preferences[Keys.NormalizedGlucoseDisplay] ?: false
+            preferences[Keys.NormalizedGlucoseDisplay] ?: true
         }
 
     suspend fun toggleNormalizedGlucoseDisplay() {
         dataStore.edit { preferences ->
             preferences[Keys.NormalizedGlucoseDisplay] =
-                !(preferences[Keys.NormalizedGlucoseDisplay] ?: false)
+                !(preferences[Keys.NormalizedGlucoseDisplay] ?: true)
         }
     }
 

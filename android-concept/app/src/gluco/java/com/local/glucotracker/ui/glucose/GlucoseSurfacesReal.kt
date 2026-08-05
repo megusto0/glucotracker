@@ -264,9 +264,13 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     ) {
         val viewModel: GlucoseSparklineViewModel = hiltViewModel()
         val readings by viewModel.readings(date).collectAsStateWithLifecycle(initialValue = emptyList())
+        val contextViewModel: InsulinContextViewModel = hiltViewModel()
+        val context by contextViewModel.context(date)
+            .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         DayTimelineGluco(
             meals = meals,
             readings = readings,
+            classification = context.classificationByMealId,
             onMealTap = onMealTap,
             modifier = modifier,
         )
@@ -1102,6 +1106,7 @@ private val InsulinDoseFormat = DecimalFormat(
 private fun DayTimelineGluco(
     meals: List<HistoryTimelineMeal>,
     readings: List<GlucoseReading>,
+    classification: Map<String, EpisodeTherapyClass>,
     onMealTap: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1205,12 +1210,13 @@ private fun DayTimelineGluco(
         laidOut.forEach { layout ->
             val meal = mealsById.getValue(layout.id)
             val center = Offset(layout.x, layout.y)
+            // Same axis as the row rails below. These used to be coloured by
+            // glycemic response, so a bubble could be warn for spiking while
+            // its own row was tinted for being an insulin correction - two
+            // palettes answering different questions on one screen.
+            val kind = entryKindColor(classification[meal.id], colors)
             drawCircle(
-                color = responseColor(
-                    responseKey = meal.responseKey,
-                    colors = colors,
-                    alpha = 0.5f,
-                ),
+                color = kind.copy(alpha = 0.5f),
                 radius = layout.radius,
                 center = center,
             )
@@ -1218,11 +1224,7 @@ private fun DayTimelineGluco(
                 color = if (meal.stuck) {
                     colors.warn.copy(alpha = 0.8f)
                 } else {
-                    responseColor(
-                        responseKey = meal.responseKey,
-                        colors = colors,
-                        alpha = 0.8f,
-                    )
+                    kind.copy(alpha = 0.8f)
                 },
                 radius = layout.radius,
                 center = center,
@@ -1938,18 +1940,25 @@ private fun Density.computeTimelineRadiusPx(kcal: Int?): Float {
     return TimelineMinRadius.toPx() + normalized * (TimelineMaxRadius.toPx() - TimelineMinRadius.toPx())
 }
 
-private fun responseColor(
-    responseKey: String?,
+/**
+ * Bubble fill by entry kind, matching the History row rails exactly.
+ *
+ * An ordinary meal stays neutral so the uncommon kinds stand out, which is the
+ * same rule the rails follow.
+ */
+private fun entryKindColor(
+    classification: EpisodeTherapyClass?,
     colors: GTColors,
-    alpha: Float,
-): Color =
-    when (responseKey?.lowercase()) {
-        "spike" -> colors.warn.copy(alpha = alpha)
-        "unstable" -> colors.warn.copy(alpha = alpha * 0.75f)
-        "moderate" -> colors.info.copy(alpha = alpha)
-        "gentle" -> colors.accent.copy(alpha = alpha)
-        else -> colors.muted.copy(alpha = alpha)
-    }
+): Color = when (classification) {
+    EpisodeTherapyClass.Snack -> colors.accent.copy(alpha = 0.45f)
+    EpisodeTherapyClass.CarbCorrection -> colors.warn
+    EpisodeTherapyClass.InsulinCorrection -> colors.info
+    EpisodeTherapyClass.Meal,
+    EpisodeTherapyClass.Mixed,
+    EpisodeTherapyClass.Unresolved,
+    null,
+    -> colors.muted
+}
 
 internal fun CachedView<GlucoseRange>.toMiniGlucose(): MiniGlucoseUiState {
     val readings = value?.readings.orEmpty()
