@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +61,11 @@ import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.max
+import kotlinx.coroutines.delay
 
 @Composable
 fun MoreRoute(
@@ -192,31 +197,64 @@ fun MoreScreen(
 
 @Composable
 private fun DebugHealthConnectSection() {
-    val healthConnectAvailable = remember {
-        runCatching {
-            Class.forName("com.local.glucotracker.healthconnect.DebugHealthConnectSync")
-        }.isSuccess
+    if (!HealthConnectSyncBridge.available) return
+
+    var isRunning by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf(HcSyncStatus()) }
+
+    LaunchedEffect(Unit) {
+        status = HealthConnectSyncBridge.lastSyncStatus()
+        if (HealthConnectSyncBridge.isRunning()) {
+            isRunning = true
+        }
     }
-    if (!healthConnectAvailable) return
+    LaunchedEffect(isRunning) {
+        if (!isRunning) return@LaunchedEffect
+        while (HealthConnectSyncBridge.isRunning()) {
+            delay(1000)
+        }
+        status = HealthConnectSyncBridge.lastSyncStatus()
+        isRunning = false
+    }
+
+    val description = when {
+        isRunning -> stringResource(R.string.more_hc_sync_run_desc)
+        status.error != null -> stringResource(R.string.more_hc_status_error)
+        status.lastSyncAt <= 0L -> stringResource(R.string.more_health_connect_hint)
+        status.skipped > 0 -> stringResource(
+            R.string.more_hc_status_partial,
+            status.lastSyncAt.timeLabel(),
+        )
+        status.records > 0 -> stringResource(
+            R.string.more_hc_status_records,
+            status.records,
+            status.lastSyncAt.timeLabel(),
+        )
+        else -> stringResource(
+            R.string.more_hc_status_uptodate,
+            status.lastSyncAt.timeLabel(),
+        )
+    }
 
     SettingsSection(title = stringResource(R.string.more_health_connect_title)) {
         SettingsGroup {
             SettingsRow(
                 title = stringResource(R.string.more_health_connect_title),
-                description = stringResource(R.string.more_health_connect_hint),
+                description = description,
                 glyph = SettingsGlyphKind.Signal,
                 action = {
                     GTOutlineButton(
-                        text = stringResource(R.string.more_health_connect_connect),
+                        text = stringResource(
+                            when {
+                                isRunning -> R.string.more_hc_sync_running
+                                status.lastSyncAt <= 0L -> R.string.more_health_connect_connect
+                                else -> R.string.more_hc_sync_now
+                            },
+                        ),
+                        enabled = !isRunning,
                         onClick = {
-                            runCatching {
-                                Class
-                                    .forName(
-                                        "com.local.glucotracker.healthconnect.DebugHealthConnectSync",
-                                    )
-                                    .getMethod("requestSync")
-                                    .invoke(null)
-                            }
+                            HealthConnectSyncBridge.forceSyncNow()
+                            isRunning = true
                         },
                     )
                 },
@@ -224,6 +262,58 @@ private fun DebugHealthConnectSection() {
         }
     }
 }
+
+private data class HcSyncStatus(
+    val lastSyncAt: Long = -1L,
+    val records: Int = 0,
+    val deleted: Int = 0,
+    val skipped: Int = 0,
+    val error: String? = null,
+)
+
+private object HealthConnectSyncBridge {
+    private const val ClassName = "com.local.glucotracker.healthconnect.DebugHealthConnectSync"
+
+    val available: Boolean by lazy {
+        runCatching { Class.forName(ClassName) }.isSuccess
+    }
+
+    fun forceSyncNow() {
+        runCatching {
+            Class.forName(ClassName).getMethod("forceSyncNow").invoke(null)
+        }
+    }
+
+    fun isRunning(): Boolean =
+        runCatching {
+            Class.forName(ClassName).getMethod("isSyncRunning").invoke(null) as? Boolean
+        }.getOrNull() ?: false
+
+    fun lastSyncStatus(): HcSyncStatus =
+        if (!available) {
+            HcSyncStatus()
+        } else {
+            runCatching {
+                val cls = Class.forName(ClassName)
+                HcSyncStatus(
+                    lastSyncAt = (cls.getMethod("getLastSyncAtMillis")
+                        .invoke(null) as? Number)?.toLong() ?: -1L,
+                    records = (cls.getMethod("getLastSyncRecords")
+                        .invoke(null) as? Number)?.toInt() ?: 0,
+                    deleted = (cls.getMethod("getLastSyncDeleted")
+                        .invoke(null) as? Number)?.toInt() ?: 0,
+                    skipped = (cls.getMethod("getLastSyncSkipped")
+                        .invoke(null) as? Number)?.toInt() ?: 0,
+                    error = cls.getMethod("getLastSyncError").invoke(null) as? String,
+                )
+            }.getOrNull() ?: HcSyncStatus()
+        }
+}
+
+private fun Long.timeLabel(): String =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("HH:mm"))
 
 @Composable
 private fun BaseSection(

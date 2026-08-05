@@ -68,6 +68,11 @@ object DebugHealthConnectSync {
     private const val PreferencesName = "health_connect_sync"
     private const val RequestedPermissionsVersionKey = "requested_permissions_version"
     private const val RequestedPermissionsVersion = 2
+    private const val LastSyncAtKey = "last_sync_at"
+    private const val LastSyncRecordsKey = "last_sync_records"
+    private const val LastSyncDeletedKey = "last_sync_deleted"
+    private const val LastSyncSkippedKey = "last_sync_skipped"
+    private const val LastSyncErrorKey = "last_sync_error"
     private const val ProviderPackage = "com.google.android.apps.healthdata"
     private const val DaysToAggregate = 14
     private const val PageSize = 500
@@ -142,6 +147,9 @@ object DebugHealthConnectSync {
     private var permissionLauncher: ActivityResultLauncher<Set<String>>? = null
     private var appContext: Context? = null
 
+    @Volatile
+    private var syncInProgress = false
+
     @JvmStatic
     fun install(activity: ComponentActivity) {
         if (HealthConnectClient.getSdkStatus(activity, ProviderPackage) !=
@@ -208,6 +216,44 @@ object DebugHealthConnectSync {
         }
     }
 
+    @JvmStatic
+    fun forceSyncNow() {
+        requestSync()
+    }
+
+    @JvmStatic
+    fun isSyncRunning(): Boolean = syncInProgress
+
+    @JvmStatic
+    fun getLastSyncAtMillis(): Long =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getLong(LastSyncAtKey, -1L)
+            ?: -1L
+
+    @JvmStatic
+    fun getLastSyncRecords(): Int =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getInt(LastSyncRecordsKey, 0)
+            ?: 0
+
+    @JvmStatic
+    fun getLastSyncDeleted(): Int =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getInt(LastSyncDeletedKey, 0)
+            ?: 0
+
+    @JvmStatic
+    fun getLastSyncSkipped(): Int =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getInt(LastSyncSkippedKey, 0)
+            ?: 0
+
+    @JvmStatic
+    fun getLastSyncError(): String? =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getString(LastSyncErrorKey, null)
+            ?.takeIf { it.isNotEmpty() }
+
     internal suspend fun syncFromWorker(context: Context): Boolean {
         if (HealthConnectClient.getSdkStatus(context, ProviderPackage) !=
             HealthConnectClient.SDK_AVAILABLE
@@ -220,9 +266,11 @@ object DebugHealthConnectSync {
             return true
         }
         return runCatching {
-            syncGrantedData(context, client, granted)
+            val counts = syncGrantedData(context, client, granted)
+            persistLastSync(context, counts, error = null)
             true
         }.getOrElse { error ->
+            persistLastSync(context, SyncRunCounts(), error = error.safeFailureName())
             Log.w(Tag, "Background sync failed: ${error.safeFailureName()}")
             !error.shouldRetryInBackground()
         }
@@ -243,17 +291,46 @@ object DebugHealthConnectSync {
         client: HealthConnectClient,
         granted: Set<String>,
     ) {
-        runCatching { syncGrantedData(context, client, granted) }
-            .onFailure { error ->
-                Log.w(Tag, "Foreground sync failed: ${error.safeFailureName()}")
-            }
+        syncInProgress = true
+        try {
+            val counts = syncGrantedData(context, client, granted)
+            persistLastSync(context, counts, error = null)
+        } catch (error: Throwable) {
+            persistLastSync(context, SyncRunCounts(), error = error.safeFailureName())
+            Log.w(Tag, "Foreground sync failed: ${error.safeFailureName()}")
+        } finally {
+            syncInProgress = false
+        }
     }
+
+    private fun persistLastSync(
+        context: Context,
+        counts: SyncRunCounts,
+        error: String?,
+    ) {
+        context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(LastSyncAtKey, System.currentTimeMillis())
+            .putInt(LastSyncRecordsKey, counts.records)
+            .putInt(LastSyncDeletedKey, counts.deleted)
+            .putInt(LastSyncSkippedKey, counts.skipped)
+            .putString(LastSyncErrorKey, error.orEmpty())
+            .apply()
+    }
+
+    private class SyncRunCounts(
+        var records: Int = 0,
+        var deleted: Int = 0,
+        var days: Int = 0,
+        var skipped: Int = 0,
+    )
 
     private suspend fun syncGrantedData(
         context: Context,
         client: HealthConnectClient,
         granted: Set<String>,
-    ) {
+    ): SyncRunCounts {
+        val counts = SyncRunCounts()
         val entryPoint = EntryPointAccessors.fromApplication(
             context,
             HealthConnectEntryPoint::class.java,
@@ -263,6 +340,7 @@ object DebugHealthConnectSync {
                 client = client,
                 syncApi = entryPoint.syncApi(),
                 grantedPermissions = granted,
+                counts = counts,
             )
         }
         if (granted.any { it in recordReadPermissions }) {
@@ -271,8 +349,10 @@ object DebugHealthConnectSync {
                 client = client,
                 api = entryPoint.healthConnectApi(),
                 grantedPermissions = granted,
+                counts = counts,
             )
         }
+        return counts
     }
 
     private suspend fun syncRawRecords(
@@ -280,6 +360,7 @@ object DebugHealthConnectSync {
         client: HealthConnectClient,
         api: HealthConnectApi,
         grantedPermissions: Set<String>,
+        counts: SyncRunCounts,
     ) {
         val canReadHistory = HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY in
             grantedPermissions
@@ -293,6 +374,7 @@ object DebugHealthConnectSync {
                     api = api,
                     recordType = recordType,
                     canReadHistory = canReadHistory,
+                    counts = counts,
                 )
             } catch (error: Throwable) {
                 if (error is HealthConnectUploadException || error.isRetryableSyncFailure()) {
@@ -300,8 +382,9 @@ object DebugHealthConnectSync {
                 }
                 Log.w(
                     Tag,
-                    "Skipped ${recordType.simpleName}: ${error::class.java.simpleName}",
+                    "Skipped ${recordType.simpleName}: ${error.stackTraceToString()}",
                 )
+                counts.skipped += 1
             }
         }
     }
@@ -312,6 +395,7 @@ object DebugHealthConnectSync {
         api: HealthConnectApi,
         recordType: KClass<out Record>,
         canReadHistory: Boolean,
+        counts: SyncRunCounts,
         allowExpiredTokenReset: Boolean = true,
     ) {
         val preferences = context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
@@ -332,6 +416,7 @@ object DebugHealthConnectSync {
                 recordType = recordType,
                 start = start,
                 end = Instant.now(),
+                counts = counts,
             )
             preferences.edit().putString(tokenKey, changesToken).apply()
         }
@@ -348,6 +433,7 @@ object DebugHealthConnectSync {
                         api = api,
                         recordType = recordType,
                         canReadHistory = canReadHistory,
+                        counts = counts,
                         allowExpiredTokenReset = false,
                     )
                 }
@@ -359,7 +445,7 @@ object DebugHealthConnectSync {
             val deletions = response.changes
                 .filterIsInstance<DeletionChange>()
                 .map { it.recordId }
-            upload(api, upserts, deletions)
+            upload(api, upserts, deletions, counts)
             activeToken = response.nextChangesToken
             preferences.edit().putString(tokenKey, activeToken).apply()
             if (!response.hasMore) return
@@ -372,6 +458,7 @@ object DebugHealthConnectSync {
         recordType: KClass<out Record>,
         start: Instant,
         end: Instant,
+        counts: SyncRunCounts,
     ) {
         var pageToken: String? = null
         do {
@@ -384,7 +471,7 @@ object DebugHealthConnectSync {
                     pageToken = pageToken,
                 ),
             )
-            upload(api, response.records, emptyList())
+            upload(api, response.records, emptyList(), counts)
             pageToken = response.pageToken
         } while (pageToken != null)
     }
@@ -393,6 +480,7 @@ object DebugHealthConnectSync {
         api: HealthConnectApi,
         records: List<Record>,
         deletedRecordIds: List<String>,
+        counts: SyncRunCounts,
     ) {
         records.chunked(PageSize).forEach { batch ->
             send(
@@ -402,6 +490,7 @@ object DebugHealthConnectSync {
                     deletedRecordIds = emptyList(),
                 ),
             )
+            counts.records += batch.size
         }
         deletedRecordIds.chunked(1000).forEach { batch ->
             send(
@@ -411,6 +500,7 @@ object DebugHealthConnectSync {
                     deletedRecordIds = batch,
                 ),
             )
+            counts.deleted += batch.size
         }
     }
 
@@ -544,13 +634,14 @@ object DebugHealthConnectSync {
         client: HealthConnectClient,
         syncApi: SyncApi,
         grantedPermissions: Set<String>,
+        counts: SyncRunCounts,
     ) {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         (0 until DaysToAggregate).forEach { offset ->
             val day = today.minusDays(offset.toLong())
             try {
-                syncActivityDay(client, syncApi, day, zone, grantedPermissions)
+                syncActivityDay(client, syncApi, day, zone, grantedPermissions, counts)
             } catch (error: Throwable) {
                 if (error.isRetryableSyncFailure()) throw error
                 Log.w(Tag, "Activity aggregate skipped: ${error::class.java.simpleName}")
@@ -564,6 +655,7 @@ object DebugHealthConnectSync {
         day: LocalDate,
         zone: ZoneId,
         grantedPermissions: Set<String>,
+        counts: SyncRunCounts,
     ) {
         val start = day.atStartOfDay(zone).toInstant()
         val end = day.plusDays(1).atStartOfDay(zone).toInstant()
@@ -627,6 +719,7 @@ object DebugHealthConnectSync {
                 calorieConfidence = confidence,
             ),
         )
+        counts.days += 1
     }
 
     private fun Double.toBigDecimalOrZero(): BigDecimal =
