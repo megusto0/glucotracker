@@ -12,6 +12,11 @@ import kotlinx.datetime.Instant
  * apart they are. That is the right unit for attributing insulin, but not for
  * asking how much a meal needs: on 2026-08-02 it joined a 16:19 lunch to a
  * 17:21 snack and offered a dose for both at once.
+ *
+ * Must equal SITTING_SPAN in backend `grouping.py`. ADR-019 §2.3 wants this
+ * narrowing gone and the sitting supplied by the backend; it stays until the
+ * episodes response carries sittings, because insulin-linked episodes still
+ * span wider than one and removing it would undo 9b41bef.
  */
 val EatingOccasionGap: Duration = 30.minutes
 

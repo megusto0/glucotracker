@@ -121,6 +121,64 @@ def test_episodes_group_many_meals_and_insulin_into_one(
     assert event["anchor_meal_id"] == str(nuggets.id)
 
 
+def test_a_sitting_is_anchored_to_its_first_meal_not_chained(
+    api_client: TestClient,
+) -> None:
+    """Observed 2026-08-05: 18:10 → 18:41 → 19:25 became one episode because
+    every individual hop was under the window, so three eating events 75
+    minutes apart end to end shared one carbohydrate total and one dose."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        first = _seed_meal(
+            session,
+            owner_id,
+            "Пирожки",
+            datetime(2026, 8, 5, 18, 10),
+            carbs=55,
+        )
+        # 31 minutes after the anchor: a new sitting, though only 31 minutes
+        # from the meal before it, which is what used to chain them.
+        second = _seed_meal(
+            session,
+            owner_id,
+            "Выпечка",
+            datetime(2026, 8, 5, 18, 41),
+            carbs=42,
+        )
+        # 44 minutes after the second, 75 after the first.
+        third = _seed_meal(
+            session,
+            owner_id,
+            "Лапша",
+            datetime(2026, 8, 5, 19, 25),
+            carbs=55,
+        )
+        # Inside the anchor's span, so it joins the third sitting.
+        with_third = _seed_meal(
+            session,
+            owner_id,
+            "Лепёшка",
+            datetime(2026, 8, 5, 19, 40),
+            carbs=43,
+        )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
+    ).json()["episodes"]
+
+    by_meals = {
+        frozenset(episode["meal_ids"]): episode for episode in episodes
+    }
+    assert len(episodes) == 3
+    assert frozenset({str(first.id)}) in by_meals
+    assert frozenset({str(second.id)}) in by_meals
+    third_sitting = by_meals[frozenset({str(third.id), str(with_third.id)})]
+    assert third_sitting["total_carbs_g"] == 98.0
+
+
 def test_episodes_standalone_insulin_is_correction(api_client: TestClient) -> None:
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]

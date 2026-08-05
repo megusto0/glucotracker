@@ -38,6 +38,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from glucotracker.application.grouping import Horizon
 from glucotracker.application.insulin_recommendation import (
     AUTO_FIT_ICR_MAX_G_PER_UNIT,
     AUTO_FIT_ICR_MIN_G_PER_UNIT,
@@ -51,7 +52,7 @@ from glucotracker.infra.db.repositories.twin import TwinRepository
 Daypart = Literal["morning", "day", "evening"]
 
 LOOKBACK_DAYS = 30
-OUTCOME_AT = timedelta(hours=3)
+OUTCOME_AT = Horizon.FULL_ABSORPTION.value
 OUTCOME_TOLERANCE = timedelta(minutes=20)
 MIN_CARBS_G = 20.0
 MIN_EPISODES = 6

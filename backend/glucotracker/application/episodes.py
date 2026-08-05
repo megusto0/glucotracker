@@ -14,12 +14,16 @@ evidence for a user-reviewed meal-only estimate; it never writes treatment.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from glucotracker.application.grouping import (
+    INSULIN_COVERAGE_WINDOW,
+    SITTING_SPAN,
+)
 from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_AFTER,
     INSULIN_WINDOW_BEFORE,
@@ -33,8 +37,10 @@ from glucotracker.infra.db.models import (
     NightscoutInsulinEvent,
 )
 
-FOOD_ONLY_CLUSTER_WINDOW = timedelta(minutes=45)
-EPISODE_INSULIN_BUFFER = timedelta(minutes=90)
+# Kept as aliases so nothing outside has to change at once; the definitions now
+# live in one place (ADR-019).
+FOOD_ONLY_CLUSTER_WINDOW = SITTING_SPAN
+EPISODE_INSULIN_BUFFER = INSULIN_COVERAGE_WINDOW
 
 
 @dataclass(frozen=True)
@@ -150,13 +156,22 @@ def group_components(
         (meal for meal in meals if meal.id not in linked_meal_ids),
         key=lambda meal: meal.eaten_at,
     )
-    for previous, current in zip(
-        food_only_meals,
-        food_only_meals[1:],
-        strict=False,
-    ):
-        if current.eaten_at - previous.eaten_at <= FOOD_ONLY_CLUSTER_WINDOW:
-            add_edge(f"m:{previous.id}", f"m:{current.id}")
+    # Anchored to the first meal of the sitting, never to the previous one.
+    # Chaining to the previous meal bounded nothing: on 2026-08-05 three eating
+    # events 75 minutes end to end became one episode because each individual
+    # hop was under the window (18:10 → 18:41 → 19:25). A whole day of grazing
+    # collapses the same way, and everything downstream — the implied ratio
+    # autotune votes with, the carbohydrate impulse the predictor sees, the
+    # therapy class — inherits that one wrong span.
+    sitting_anchor: Meal | None = None
+    for meal in food_only_meals:
+        if (
+            sitting_anchor is None
+            or meal.eaten_at - sitting_anchor.eaten_at > SITTING_SPAN
+        ):
+            sitting_anchor = meal
+            continue
+        add_edge(f"m:{sitting_anchor.id}", f"m:{meal.id}")
 
     visited: set[str] = set()
     components: list[EpisodeComponent] = []

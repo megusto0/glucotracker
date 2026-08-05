@@ -25,6 +25,7 @@ from glucotracker.application.episode_therapy import (
 )
 from glucotracker.application.episodes import EpisodeComponent, EpisodeQueryService
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.grouping import GROUPING_VERSION
 from glucotracker.application.insulin_recommendation import (
     DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT,
     LOW_GLUCOSE_MMOL_L,
@@ -59,7 +60,9 @@ DEFAULT_CARB_ADJUSTMENT_G_PER_MMOL_L = 4.0
 # hindsight adjustment is no longer allowed to contradict that path.
 # v3: the day carries its sleep and effort context, and every cached row carries
 # a fingerprint of the inputs it was built from.
-THERAPY_REVIEW_MODEL_VERSION = "retrospective-therapy-review-v4"
+THERAPY_REVIEW_MODEL_VERSION = (
+    f"retrospective-therapy-review-v5+{GROUPING_VERSION}"
+)
 # An episode is sampled this often across its horizon so the page can draw the
 # curve instead of two numbers with a gap between them.
 TRAJECTORY_STEP_MINUTES = 10

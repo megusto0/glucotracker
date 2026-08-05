@@ -207,9 +207,11 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     assert body["to_date"] == "2026-07-31"
     assert body["period_days"] == 30
     assert body["icr_horizon_minutes"] == 120
-    assert body["isf_horizon_minutes"] == 240
+    # 4.5 h, not 4: insulin action is ~90% done by 244 min, so the old window
+    # cut the correction evidence short (ADR-019 §2.4).
+    assert body["isf_horizon_minutes"] == 270
     assert body["bin_hours"] == 4
-    assert body["model_version"] == "retrospective-therapy-analysis-v4"
+    assert body["model_version"].startswith("retrospective-therapy-analysis-v5")
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,

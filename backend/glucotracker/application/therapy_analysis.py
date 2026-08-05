@@ -28,6 +28,7 @@ from glucotracker.application.episodes import (
     EpisodeQueryService,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.application.grouping import GROUPING_VERSION, Horizon
 from glucotracker.application.icr_autotune import (
     EXERCISE_EXCLUSION,
     Daypart,
@@ -63,15 +64,20 @@ BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 # ratio.
 # v3: measured ratios are compared against the configured slots, episodes near
 # effort are excluded, and ISF says how thin its evidence is.
-THERAPY_ANALYSIS_MODEL_VERSION = "retrospective-therapy-analysis-v4"
+THERAPY_ANALYSIS_MODEL_VERSION = (
+    f"retrospective-therapy-analysis-v5+{GROUPING_VERSION}"
+)
 # Below this many isolated corrections the ISF median is an estimate rather
 # than a measurement, and the page must say so.
 MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
 # Insulin needs time before the fall it caused can be read; a trough sooner
 # than this is sensor noise or the tail of something earlier.
 MIN_MINUTES_TO_NADIR = timedelta(minutes=45)
-ICR_HORIZON_MINUTES = 120
-ISF_HORIZON_MINUTES = 240
+# Both estimate their quantity from the same episodes as icr_autotune, which
+# used to ask at three hours while this asked at two. Named horizons make that
+# a choice instead of a coincidence (ADR-019 §2.4).
+ICR_HORIZON_MINUTES = Horizon.IMMEDIATE_RESPONSE.minutes
+ISF_HORIZON_MINUTES = Horizon.INSULIN_EXHAUSTED.minutes
 BIN_HOURS = 4
 BACKGROUND_WINDOW_MINUTES = 60
 BACKGROUND_WASHOUT_MINUTES = 240
