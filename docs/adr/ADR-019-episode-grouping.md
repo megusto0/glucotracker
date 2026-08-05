@@ -194,6 +194,9 @@ definitions in one chart.
    sitting, plausibly not. This wants measurement against the export, not taste.
 2. **Should a sitting ever split on composition?** A rescue eaten mid-meal is a
    different act from the meal around it, and merging them hides both.
+   *Partly answered by `c4cdb9c`*: a bolus chasing a rise the meal caused is now
+   classified `catch_up` rather than folded into meal coverage. What ICR does
+   with it remains open — see the handover's note against `97e2402`.
 3. **What happens to already-stored results** computed under the old grouping —
    recompute, or keep and mark? Recomputation changes historical charts the owner
    has already looked at.
