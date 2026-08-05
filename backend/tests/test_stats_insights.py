@@ -16,7 +16,14 @@ from glucotracker.application.stats_insights import (
 from glucotracker.application.time import local_now
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
-from glucotracker.infra.db.models import Meal, MealItem, NightscoutGlucoseEntry, User
+from glucotracker.infra.db.models import (
+    FingerstickReading,
+    Meal,
+    MealItem,
+    NightscoutGlucoseEntry,
+    SensorSession,
+    User,
+)
 from glucotracker.infra.security import hash_password, issue_access_token
 
 EXTRA_BANNED_COPY = ("превышение", "плохо", "цель не достигнута", "нарушение", "опасно")
@@ -383,6 +390,69 @@ def test_glucose_tir_daily_returns_band_shares(api_client: TestClient) -> None:
     empty_row = payload["days"][0]
     assert empty_row["points"] == 0
     assert empty_row["in_range_pct"] is None
+
+
+def test_glucose_tir_daily_reads_the_calibrated_series(
+    api_client: TestClient,
+) -> None:
+    """Raw sensor values sit well below true glucose for this owner, so bands
+    computed from them called ordinary readings hypoglycemia."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    midday = local_now().replace(hour=12, minute=0, second=0, microsecond=0)
+    started_at = midday - timedelta(days=1)
+    session.add(
+        SensorSession(
+            owner_id=user_id,
+            started_at=started_at,
+            label="tir-calibration",
+        )
+    )
+    session.flush()
+    # Three stable pairs on the previous day, each reading 2.0 mmol/L under
+    # the meter, so today's rows are only the ten readings under test.
+    for index in range(3):
+        at = started_at + timedelta(hours=1 + index)
+        session.add(
+            NightscoutGlucoseEntry(
+                owner_id=user_id,
+                source_key=f"tir-cal-ref-{index}",
+                timestamp=at.replace(tzinfo=UTC),
+                value_mmol_l=5.0,
+            )
+        )
+        session.add(
+            FingerstickReading(
+                owner_id=user_id,
+                measured_at=at,
+                glucose_mmol_l=7.0,
+            )
+        )
+    # Every reading sits just under the low threshold before calibration and
+    # comfortably in range after it.
+    for index in range(10):
+        session.add(
+            NightscoutGlucoseEntry(
+                owner_id=user_id,
+                source_key=f"tir-cal-{index}",
+                timestamp=(midday + timedelta(minutes=5 * index)).replace(tzinfo=UTC),
+                value_mmol_l=3.6,
+            )
+        )
+    session.commit()
+    session.close()
+
+    payload = api_client.get(
+        "/glucose/tir-daily",
+        params={"period": "7d"},
+    ).json()
+
+    today_row = payload["days"][-1]
+    assert today_row["points"] == 10
+    # Read raw, all ten would have counted as below range.
+    assert today_row["low_pct"] == pytest.approx(0.0)
+    assert today_row["in_range_pct"] == pytest.approx(100.0)
 
 
 @pytest.mark.parametrize("role", [UserRole.gluco, UserRole.food])

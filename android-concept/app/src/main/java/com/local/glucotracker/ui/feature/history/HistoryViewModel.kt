@@ -76,6 +76,27 @@ data class HistoryMealRowUi(
     val deltaMaxMmolL: Double? = null,
 )
 
+/**
+ * How an entry should read at a glance.
+ *
+ * A rescue eaten to climb out of a low is not the same act as an ordinary
+ * plate, and a standalone correction is a third thing again. The gluco flavor
+ * supplies the backend classification and the word for it; the food flavor
+ * leaves it null and every row renders plain. The label travels with the kind
+ * because treatment vocabulary must not live in the shared string table.
+ */
+data class HistoryEntryTone(
+    val kind: Kind,
+    val label: String?,
+) {
+    enum class Kind {
+        Meal,
+        Snack,
+        CarbCorrection,
+        InsulinCorrection,
+    }
+}
+
 enum class HistoryMealRowKind {
     Accepted,
     Pending,

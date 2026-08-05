@@ -588,9 +588,13 @@ private fun AboutSection() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
+                    // Commit and build time, so the screen says which binary
+                    // is installed rather than a version that never moves.
                     text = stringResource(
                         R.string.more_about_version,
                         BuildConfig.VERSION_NAME,
+                        BuildConfig.BUILD_COMMIT,
+                        BuildConfig.BUILD_STAMP,
                     ),
                     color = GT.colors.muted,
                     style = GT.type.monoLabel,

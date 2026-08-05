@@ -463,6 +463,6 @@
     <string name="more_cache_clear_short">Очистить</string>
     <string name="more_export_section">Экспорт</string>
     <string name="more_about_section">О приложении</string>
-    <string name="more_about_version">версия %1$s · android</string>
+    <string name="more_about_version">версия %1$s · %2$s · %3$s</string>
     <string name="more_about_flavor">gluco</string>
 </resources>

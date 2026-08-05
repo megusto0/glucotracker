@@ -39,7 +39,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -651,9 +654,10 @@ private fun HistoryDaySection(
             LocalGlucoseSurfaces.current.HistoryRows(
                 date = day.date,
                 rows = day.rows,
-                rowContent = { row, extraMetaContent ->
+                rowContent = { row, tone, extraMetaContent ->
                     HistoryMealRow(
                         row = row,
+                        tone = tone,
                         onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
                         extraMetaContent = extraMetaContent,
                     )
@@ -669,6 +673,7 @@ private fun HistoryDaySection(
 @Composable
 private fun HistoryMealRow(
     row: HistoryMealRowUi,
+    tone: HistoryEntryTone?,
     onOpenMealStack: (String) -> Unit,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -676,7 +681,22 @@ private fun HistoryMealRow(
     val clickModifier = clickId?.let { id ->
         Modifier.clickable { onOpenMealStack(id) }
     } ?: Modifier
-    Box(modifier = clickModifier) {
+    val railColor = toneColor(tone)
+    val railModifier = if (railColor == null) {
+        clickModifier
+    } else {
+        // A hairline rail down the start edge. Every tone also says its name in
+        // the meta line, so colour is never the only thing carrying it.
+        clickModifier.drawBehind {
+            drawRoundRect(
+                color = railColor,
+                topLeft = Offset(0f, 6.dp.toPx()),
+                size = Size(2.dp.toPx(), size.height - 12.dp.toPx()),
+                cornerRadius = CornerRadius(1.dp.toPx()),
+            )
+        }
+    }
+    Box(modifier = railModifier) {
         GTMealRow(
             time = row.eatenAt.timeText(),
             photo = row.photo,
@@ -686,7 +706,9 @@ private fun HistoryMealRow(
             // It now reports how the meal landed, and falls back to the source
             // only when no glucose response was recorded.
             meta = row.pendingErrorText()
-                ?: outcomeText(row)
+                ?: listOfNotNull(tone?.label, outcomeText(row))
+                    .takeIf { it.isNotEmpty() }
+                    ?.joinToString(" · ")
                 ?: sourceLabel(row.source),
             primaryRight = primaryRightText(row),
             secondaryRight = secondaryRightText(row),
@@ -711,6 +733,20 @@ private fun HistoryDayUi.summaryText(): String {
         formatKcal(totals?.kcal ?: 0.0),
         balance,
     )
+}
+
+/**
+ * Palette per entry kind, from the existing tokens only.
+ *
+ * A plain meal gets no rail: tinting the common case would leave nothing for
+ * the uncommon ones to stand out against.
+ */
+@Composable
+private fun toneColor(tone: HistoryEntryTone?): Color? = when (tone?.kind) {
+    HistoryEntryTone.Kind.Snack -> GT.colors.accent.copy(alpha = 0.45f)
+    HistoryEntryTone.Kind.CarbCorrection -> GT.colors.warn
+    HistoryEntryTone.Kind.InsulinCorrection -> GT.colors.info
+    HistoryEntryTone.Kind.Meal, null -> null
 }
 
 /**

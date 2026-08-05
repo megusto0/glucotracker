@@ -54,6 +54,7 @@ import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.EpisodeTherapyClass
 import com.local.glucotracker.domain.model.InsulinDayContext
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
@@ -65,6 +66,7 @@ import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
+import com.local.glucotracker.ui.feature.history.HistoryEntryTone
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinButton
 import com.local.glucotracker.ui.feature.insulin.InsulinManagementSheet
@@ -234,6 +236,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         rows: List<HistoryMealRowUi>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
+            tone: HistoryEntryTone?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
@@ -246,6 +249,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             rows = rows,
             rowId = { row -> row.id },
             rowTime = { row -> row.eatenAt },
+            rowTone = { row -> context.classificationByMealId[row.id].toTone() },
             rowContent = rowContent,
             separator = divider,
         )
@@ -584,8 +588,10 @@ private fun <T> InsulinAwareRows(
     rows: List<T>,
     rowId: (T) -> String,
     rowTime: (T) -> Instant,
+    rowTone: @Composable (T) -> HistoryEntryTone?,
     rowContent: @Composable (
         row: T,
+        tone: HistoryEntryTone?,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
     separator: @Composable () -> Unit = { Spacer(Modifier.height(14.dp)) },
@@ -593,20 +599,37 @@ private fun <T> InsulinAwareRows(
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
     val timeline = remember(context, rows) {
         val rowIds = rows.map(rowId).toSet()
+        val rowById = rows.associateBy(rowId)
         // Events anchored to meals not present in the row list (e.g. other
         // statuses) still surface as standalone rows instead of vanishing.
         val unanchored = context.byMealId
             .filterKeys { mealId -> mealId !in rowIds }
             .values
             .flatten()
+        // One sitting used to appear as several unrelated rows with the
+        // insulin hanging off whichever item happened to be anchored, which
+        // read as though the rest of the plate went uncovered.
+        val grouped = mutableSetOf<String>()
+        val episodes = context.mealEpisodeGroups.mapNotNull { group ->
+            val present = group.mapNotNull { rowById[it] }
+            if (present.size < 2) return@mapNotNull null
+            present.forEach { grouped += rowId(it) }
+            InsulinTimelineItem.Episode(
+                rows = present.sortedByDescending(rowTime),
+                paired = present.flatMap { context.byMealId[rowId(it)].orEmpty() }
+                    .distinctBy { event -> event.id },
+                timestamp = present.maxOf(rowTime),
+            )
+        }
         (
-            rows.map { row ->
-                InsulinTimelineItem.Meal(
-                    row = row,
-                    paired = context.byMealId[rowId(row)].orEmpty(),
-                    timestamp = rowTime(row),
-                )
-            } +
+            episodes +
+                rows.filterNot { rowId(it) in grouped }.map { row ->
+                    InsulinTimelineItem.Meal(
+                        row = row,
+                        paired = context.byMealId[rowId(row)].orEmpty(),
+                        timestamp = rowTime(row),
+                    )
+                } +
                 (context.orphans + unanchored).map { event ->
                     InsulinTimelineItem.Orphan(event = event, timestamp = event.timestamp)
                 }
@@ -616,9 +639,22 @@ private fun <T> InsulinAwareRows(
     timeline.forEachIndexed { index, item ->
         when (item) {
             is InsulinTimelineItem.Meal -> {
-                rowContent(item.row) {
+                rowContent(item.row, rowTone(item.row)) {
                     item.paired.forEach { event ->
                         InlineInsulinLine(event = event)
+                    }
+                }
+            }
+            is InsulinTimelineItem.Episode -> {
+                // The insulin belongs to the sitting, so it is stated once
+                // under the last item rather than beside an arbitrary one.
+                item.rows.forEachIndexed { rowIndex, row ->
+                    rowContent(row, rowTone(row)) {
+                        if (rowIndex == item.rows.lastIndex) {
+                            item.paired.forEach { event ->
+                                InlineInsulinLine(event = event)
+                            }
+                        }
                     }
                 }
             }
@@ -639,11 +675,40 @@ private fun <T> InsulinAwareRows(
     }
 }
 
+/** Mixed and unresolved stay untinted: a guess is not worth a colour. */
+@Composable
+private fun EpisodeTherapyClass?.toTone(): HistoryEntryTone? = when (this) {
+    EpisodeTherapyClass.Meal -> HistoryEntryTone(HistoryEntryTone.Kind.Meal, null)
+    EpisodeTherapyClass.Snack -> HistoryEntryTone(
+        HistoryEntryTone.Kind.Snack,
+        stringResource(R.string.history_tone_snack),
+    )
+    EpisodeTherapyClass.CarbCorrection -> HistoryEntryTone(
+        HistoryEntryTone.Kind.CarbCorrection,
+        stringResource(R.string.history_tone_carb_correction),
+    )
+    EpisodeTherapyClass.InsulinCorrection -> HistoryEntryTone(
+        HistoryEntryTone.Kind.InsulinCorrection,
+        stringResource(R.string.history_tone_insulin_correction),
+    )
+    EpisodeTherapyClass.Mixed,
+    EpisodeTherapyClass.Unresolved,
+    null,
+    -> null
+}
+
 private sealed interface InsulinTimelineItem<out T> {
     val timestamp: Instant
 
     data class Meal<T>(
         val row: T,
+        val paired: List<InsulinEvent>,
+        override val timestamp: Instant,
+    ) : InsulinTimelineItem<T>
+
+    /** Several rows the backend reads as one sitting, sharing their insulin. */
+    data class Episode<T>(
+        val rows: List<T>,
         val paired: List<InsulinEvent>,
         override val timestamp: Instant,
     ) : InsulinTimelineItem<T>

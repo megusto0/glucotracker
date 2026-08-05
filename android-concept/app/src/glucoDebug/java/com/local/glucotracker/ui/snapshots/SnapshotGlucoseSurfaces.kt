@@ -23,6 +23,7 @@ import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.tokens.GTColors
+import com.local.glucotracker.ui.feature.history.HistoryEntryTone
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import com.local.glucotracker.ui.glucose.GlucoseSurfaces
@@ -102,12 +103,26 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         rows: List<HistoryMealRowUi>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
+            tone: HistoryEntryTone?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, {})
+            // Deterministic spread so a snapshot covers every tinted kind.
+            val tone = when (index % 4) {
+                1 -> HistoryEntryTone(HistoryEntryTone.Kind.Snack, "перекус")
+                2 -> HistoryEntryTone(
+                    HistoryEntryTone.Kind.CarbCorrection,
+                    "коррекция углеводами",
+                )
+                3 -> HistoryEntryTone(
+                    HistoryEntryTone.Kind.InsulinCorrection,
+                    "коррекция инсулином",
+                )
+                else -> HistoryEntryTone(HistoryEntryTone.Kind.Meal, null)
+            }
+            rowContent(row, tone, {})
             if (index < rows.lastIndex) divider()
         }
     }

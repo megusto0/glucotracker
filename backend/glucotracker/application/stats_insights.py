@@ -15,7 +15,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from glucotracker.application.categorization.window import anchor_is_typical_morning
-from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.glucose_normalization import (
+    GlucoseNormalizationService,
+    NormalizedGlucoseSample,
+)
 from glucotracker.application.product_categories import is_sweet_text
 from glucotracker.application.time import (
     local_day_bounds,
@@ -25,7 +28,7 @@ from glucotracker.application.time import (
 )
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
-from glucotracker.infra.db.models import Meal, MealItem, NightscoutGlucoseEntry, User
+from glucotracker.infra.db.models import Meal, MealItem, User
 
 InsightPeriod = Literal["7d", "14d", "30d"]
 InsightSlot = Literal["today", "stats"]
@@ -231,7 +234,11 @@ class InsightGlucosePoint:
     timestamp: datetime
     local_date: date_type
     hour: int
+    #: Calibrated value; every clinical statement is made from this one.
     value_mmol_l: float
+    raw_mmol_l: float = 0.0
+    #: False when no sensor calibration covered this reading.
+    calibrated: bool = True
 
 
 @dataclass(frozen=True)
@@ -388,20 +395,21 @@ class StatsInsightsRepository:
             .options(selectinload(Meal.items).selectinload(MealItem.product))
             .order_by(Meal.eaten_at.asc())
         ).all()
-        glucose_rows = self.session.scalars(
-            select(NightscoutGlucoseEntry)
-            .where(
-                NightscoutGlucoseEntry.owner_id == self.user_id,
-                NightscoutGlucoseEntry.timestamp >= utc_start,
-                NightscoutGlucoseEntry.timestamp < utc_end,
-                visible_glucose_filter(self.user_id),
-            )
-            .order_by(NightscoutGlucoseEntry.timestamp.asc())
-        ).all()
+        # Raw sensor values read 1.0-2.8 mmol/L below true glucose for this
+        # owner, so every share, threshold and low-episode count computed from
+        # them was wrong in the same direction: reading raw once produced "30%
+        # of time below 3.9" where the calibrated figure was 1.6%. Insights are
+        # clinical statements, so they use the calibrated series. The service
+        # applies the same visibility filter as the query it replaces and
+        # calibrates each sensor session on its own fingersticks.
+        glucose_samples = GlucoseNormalizationService(
+            self.session,
+            self.user_id,
+        ).series(utc_start, utc_end)
         user = self.session.get(User, self.user_id)
         return InsightContext(
             meals=[_meal_feature(row) for row in rows],
-            glucose_points=[_glucose_feature(row) for row in glucose_rows],
+            glucose_points=[_glucose_feature(sample) for sample in glucose_samples],
             days=days,
             anchor_minutes=(
                 user.day_anchor_user_override_minutes
@@ -1051,13 +1059,17 @@ def _meal_feature(meal: Meal) -> InsightMeal:
     )
 
 
-def _glucose_feature(row: NightscoutGlucoseEntry) -> InsightGlucosePoint:
-    local_at = local_wall_time(row.timestamp)
+def _glucose_feature(sample: NormalizedGlucoseSample) -> InsightGlucosePoint:
+    local_at = local_wall_time(sample.timestamp)
     return InsightGlucosePoint(
         timestamp=local_at,
         local_date=local_at.date(),
         hour=local_at.hour,
-        value_mmol_l=float(row.value_mmol_l),
+        # Falls back to the raw reading when no sensor calibration covers the
+        # sample, which is what the service already reports as "none".
+        value_mmol_l=float(sample.normalized_mmol_l),
+        raw_mmol_l=float(sample.raw_mmol_l),
+        calibrated=sample.is_normalized,
     )
 
 

@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import com.local.glucotracker.ui.feature.history.HistoryEntryTone
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import androidx.compose.ui.unit.dp
@@ -129,8 +130,11 @@ interface GlucoseSurfaces {
     fun HistoryRows(
         date: LocalDate,
         rows: List<HistoryMealRowUi>,
+        // tone is the backend episode classification, or null when unknown or
+        // for the food flavor, in which case the row renders plain.
         rowContent: @Composable (
             row: HistoryMealRowUi,
+            tone: HistoryEntryTone?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
@@ -211,12 +215,13 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         rows: List<HistoryMealRowUi>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
+            tone: HistoryEntryTone?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, {})
+            rowContent(row, null, {})
             if (index < rows.lastIndex) divider()
         }
     }

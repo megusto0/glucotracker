@@ -138,6 +138,12 @@
     <string name="insulin_entry_placeholder">0,0</string>
     <string name="insulin_history_button">Инсулин по истории</string>
     <string name="insulin_history_title">Инсулин для приёма</string>
+    <!-- Entry kinds from the backend episode engine. Each tinted history row
+         names its kind, so colour is never the only signal. These live in the
+         gluco source set: the food flavor must ship no treatment vocabulary. -->
+    <string name="history_tone_snack">перекус</string>
+    <string name="history_tone_carb_correction">коррекция углеводами</string>
+    <string name="history_tone_insulin_correction">коррекция инсулином</string>
     <string name="insulin_history_estimate_label">РАСЧЁТ</string>
     <string name="insulin_history_loading">Сравниваем с прошлыми приёмами…</string>
     <string name="insulin_history_units_value">%1$s ЕД</string>

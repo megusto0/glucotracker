@@ -1,5 +1,7 @@
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.zip.ZipFile
 
 plugins {
@@ -22,6 +24,17 @@ val debugApiBaseUrl = providers.gradleProperty("glucotracker.debugApiBaseUrl")
     .orElse(providers.environmentVariable("GLUCOTRACKER_DEBUG_API_BASE_URL"))
     .orElse("https://megusto.duckdns.org:1338")
 
+// versionName has sat at 0.1.0 for the project's whole life, so the About
+// screen could not tell one build from another on a device. The commit and
+// build time identify the actual binary; they do not change the declared
+// version, which package managers care about.
+val buildCommit: String = providers.exec {
+    commandLine("git", "rev-parse", "--short=7", "HEAD")
+}.standardOutput.asText.map { it.trim() }.orElse("nogit").get().ifEmpty { "nogit" }
+
+val buildStamp: String = LocalDateTime.now()
+    .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
+
 android {
     namespace = "com.local.glucotracker"
     compileSdk = 35
@@ -32,6 +45,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
+        buildConfigField("String", "BUILD_STAMP", "\"$buildStamp\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

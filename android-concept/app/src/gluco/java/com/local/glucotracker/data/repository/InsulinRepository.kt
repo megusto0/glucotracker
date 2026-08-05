@@ -3,7 +3,9 @@ package com.local.glucotracker.data.repository
 import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.data.local.CachedInsulinEventDao
 import com.local.glucotracker.data.local.CachedInsulinEventEntity
+import com.local.glucotracker.domain.model.EpisodeTherapyClass
 import com.local.glucotracker.domain.model.InsulinDayContext
+import com.local.glucotracker.generated.model.DayEpisodeTherapyResponse
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
 import javax.inject.Inject
@@ -31,6 +33,8 @@ class InsulinRepository @Inject constructor(
     // a record. Kept in memory from the last fetch; offline simply degrades
     // to ungrouped cards — no records are ever lost.
     private val episodeGroups = MutableStateFlow<Map<LocalDate, List<List<String>>>>(emptyMap())
+    private val episodeClasses =
+        MutableStateFlow<Map<LocalDate, Map<String, EpisodeTherapyClass>>>(emptyMap())
 
     /**
      * Local-first day attribution: emits the Room cache immediately (so
@@ -38,7 +42,11 @@ class InsulinRepository @Inject constructor(
      * keeps emitting as [refreshDay] lands fresh server data.
      */
     fun observeContextForDay(date: LocalDate): Flow<InsulinDayContext> =
-        combine(insulinEventDao.observeDay(date), episodeGroups) { entities, groups ->
+        combine(
+            insulinEventDao.observeDay(date),
+            episodeGroups,
+            episodeClasses,
+        ) { entities, groups, classes ->
             val byMealId = mutableMapOf<String, MutableList<InsulinEvent>>()
             val orphans = mutableListOf<InsulinEvent>()
             entities.forEach { entity ->
@@ -54,6 +62,7 @@ class InsulinRepository @Inject constructor(
                 byMealId = byMealId,
                 orphans = orphans,
                 mealEpisodeGroups = groups[date].orEmpty(),
+                classificationByMealId = classes[date].orEmpty(),
             )
         }
 
@@ -88,8 +97,25 @@ class InsulinRepository @Inject constructor(
             .map { episode -> episode.mealIds.map { it.toString() } }
             .filter { it.size >= 2 }
         episodeGroups.update { it + (date to groups) }
+        val classes = episodes.flatMap { episode ->
+            val classification = episode.therapy.classification.toDomain()
+            episode.mealIds.map { it.toString() to classification }
+        }.toMap()
+        episodeClasses.update { it + (date to classes) }
     }
 }
+
+private fun DayEpisodeTherapyResponse.Classification.toDomain(): EpisodeTherapyClass =
+    when (this) {
+        DayEpisodeTherapyResponse.Classification.MEAL -> EpisodeTherapyClass.Meal
+        DayEpisodeTherapyResponse.Classification.SNACK -> EpisodeTherapyClass.Snack
+        DayEpisodeTherapyResponse.Classification.CARB_CORRECTION ->
+            EpisodeTherapyClass.CarbCorrection
+        DayEpisodeTherapyResponse.Classification.INSULIN_CORRECTION ->
+            EpisodeTherapyClass.InsulinCorrection
+        DayEpisodeTherapyResponse.Classification.MIXED -> EpisodeTherapyClass.Mixed
+        DayEpisodeTherapyResponse.Classification.UNRESOLVED -> EpisodeTherapyClass.Unresolved
+    }
 
 private fun CachedInsulinEventEntity.toDomain(): InsulinEvent =
     InsulinEvent(

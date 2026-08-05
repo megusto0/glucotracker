@@ -28,12 +28,29 @@ enum class InsulinEventType {
  * to the insulin events anchored to it; [orphans] are standalone events
  * (corrections) plus optimistic outbox entries not yet on the server.
  */
+/**
+ * How the backend read an episode: food, a small one, sugar taken to recover
+ * from a low, or insulin given on its own. Assigned by the episode engine, not
+ * inferred on the client.
+ */
+enum class EpisodeTherapyClass {
+    Meal,
+    Snack,
+    CarbCorrection,
+    InsulinCorrection,
+    Mixed,
+    Unresolved,
+}
+
 data class InsulinDayContext(
     val byMealId: Map<String, List<InsulinEvent>>,
     val orphans: List<InsulinEvent>,
     // Meal ids that the backend episode engine groups as one eating event
     // (only groups with 2+ meals). Drives "one card per episode" on Today.
     val mealEpisodeGroups: List<List<String>> = emptyList(),
+    // Backend classification per meal id. A rescue eaten to climb out of a low
+    // and an ordinary plate are different acts and should not read alike.
+    val classificationByMealId: Map<String, EpisodeTherapyClass> = emptyMap(),
 ) {
     val allEvents: List<InsulinEvent>
         get() = byMealId.values.flatten() + orphans
