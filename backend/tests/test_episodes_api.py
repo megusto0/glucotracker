@@ -179,6 +179,64 @@ def test_a_sitting_is_anchored_to_its_first_meal_not_chained(
     assert third_sitting["total_carbs_g"] == 98.0
 
 
+def test_insulin_joins_one_sitting_and_never_bridges_two(
+    api_client: TestClient,
+) -> None:
+    """The sitting rule only touched meals with no bolus, so on a real day it
+    never ran. A bolus links to every meal from 30 min before to 90 min after,
+    and the component walk chained meal -> insulin -> meal, so 18:10 to 20:31
+    stayed one episode."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        early = _seed_meal(
+            session,
+            owner_id,
+            "Пирожки",
+            datetime(2026, 8, 5, 18, 10),
+            carbs=55,
+        )
+        late = _seed_meal(
+            session,
+            owner_id,
+            "Лапша",
+            datetime(2026, 8, 5, 19, 25),
+            carbs=55,
+        )
+        # Inside the 90-minute window of BOTH meals, so it used to link to each
+        # and fuse them into one episode.
+        _seed_insulin(
+            session,
+            owner_id,
+            "ns-bridging-bolus",
+            datetime(2026, 8, 5, 19, 33),
+            units=12,
+        )
+        _seed_insulin(
+            session,
+            owner_id,
+            "ns-early-bolus",
+            datetime(2026, 8, 5, 18, 12),
+            units=4.6,
+        )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
+    ).json()["episodes"]
+
+    assert len(episodes) == 2
+    by_meal = {
+        episode["meal_ids"][0]: episode
+        for episode in episodes
+        if episode["meal_ids"]
+    }
+    # Each bolus lands on its own sitting rather than bridging the two.
+    assert by_meal[str(early.id)]["total_insulin_units"] == 4.6
+    assert by_meal[str(late.id)]["total_insulin_units"] == 12.0
+
+
 def test_episodes_standalone_insulin_is_correction(api_client: TestClient) -> None:
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]

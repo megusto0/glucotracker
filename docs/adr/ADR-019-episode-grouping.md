@@ -211,6 +211,14 @@ the 30-minute span is a reasoned guess, not a measured one.
 Implemented:
 
 - §2.2 anchored clustering, in `episodes.py`. `SITTING_SPAN = 30 min`.
+  **First attempt was ineffective**: it clustered only meals with no insulin
+  link, so on any real day — where every plate has a bolus — it never ran. An
+  automatic link joins a bolus to every meal from 30 min before to 90 min after
+  it, and the component walk then chained meal → insulin → meal without bound,
+  which kept 18:10 → 20:31 as one episode. Sittings are now formed over every
+  meal, a reviewed link is still drawn as given, and an automatic link joins
+  only the nearest meal — reaching that meal's whole sitting and no further.
+  This is §5.4 answered: coverage anchors to the sitting, not to each meal.
 - §2.4 `Horizon` in the new `grouping.py`; `therapy_analysis` and `icr_autotune`
   now name the horizon they want. **This moved the ISF horizon from 4 h to
   4.5 h**, so ISF estimates change again on top of the trough fix in `51726a5`.

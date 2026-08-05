@@ -148,23 +148,14 @@ def group_components(
         for pair in pairs
         if pair.meal_id in meal_by_id and pair.insulin_event_id in insulin_by_id
     ]
-    for pair in visible_pairs:
-        add_edge(f"m:{pair.meal_id}", f"i:{pair.insulin_event_id}")
 
-    linked_meal_ids = {pair.meal_id for pair in visible_pairs}
-    food_only_meals = sorted(
-        (meal for meal in meals if meal.id not in linked_meal_ids),
-        key=lambda meal: meal.eaten_at,
-    )
-    # Anchored to the first meal of the sitting, never to the previous one.
-    # Chaining to the previous meal bounded nothing: on 2026-08-05 three eating
-    # events 75 minutes end to end became one episode because each individual
-    # hop was under the window (18:10 → 18:41 → 19:25). A whole day of grazing
-    # collapses the same way, and everything downstream — the implied ratio
-    # autotune votes with, the carbohydrate impulse the predictor sees, the
-    # therapy class — inherits that one wrong span.
+    # Sittings first, over every meal. Anchored to the sitting's own first meal,
+    # never to the previous one: chaining to the previous meal bounded nothing,
+    # so on 2026-08-05 three eating events 75 minutes end to end became one
+    # episode because each individual hop was under the window.
+    ordered_meals = sorted(meals, key=lambda meal: meal.eaten_at)
     sitting_anchor: Meal | None = None
-    for meal in food_only_meals:
+    for meal in ordered_meals:
         if (
             sitting_anchor is None
             or meal.eaten_at - sitting_anchor.eaten_at > SITTING_SPAN
@@ -172,6 +163,34 @@ def group_components(
             sitting_anchor = meal
             continue
         add_edge(f"m:{sitting_anchor.id}", f"m:{meal.id}")
+
+    # A reviewed link is an explicit decision about what covered what, so it is
+    # drawn as given even when it joins two sittings.
+    for pair in visible_pairs:
+        if pair.source == "manual":
+            add_edge(f"m:{pair.meal_id}", f"i:{pair.insulin_event_id}")
+
+    # An automatic link is a guess from a window, and the window is wide: a
+    # bolus links to every meal from 30 min before it to 90 min after. Drawing
+    # all of those made insulin a bridge between sittings, and the component
+    # walk chained meal → insulin → meal without bound — which is why an
+    # episode could still span 18:10 to 20:31 after sittings were introduced.
+    # Each event now joins the single nearest meal; because that meal is already
+    # tied to the rest of its sitting, the event reaches the whole sitting and
+    # no further.
+    auto_by_event: dict[UUID, list[EpisodePair]] = {}
+    for pair in visible_pairs:
+        if pair.source != "manual":
+            auto_by_event.setdefault(pair.insulin_event_id, []).append(pair)
+    for event_id, candidates in auto_by_event.items():
+        event_at = _local_wall_time(insulin_by_id[event_id].timestamp)
+        nearest = min(
+            candidates,
+            key=lambda pair: abs(
+                (meal_by_id[pair.meal_id].eaten_at - event_at).total_seconds()
+            ),
+        )
+        add_edge(f"m:{nearest.meal_id}", f"i:{event_id}")
 
     visited: set[str] = set()
     components: list[EpisodeComponent] = []
