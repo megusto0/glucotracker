@@ -144,6 +144,17 @@ interface GlucoseSurfaces {
         modifier: Modifier = Modifier,
     )
 
+    /**
+     * Second line of a history day heading: how the day went.
+     *
+     * The first line counts what went in. On a diabetes journal the share of
+     * the day spent in range is the number worth reading next to it, and it
+     * comes from the backend rather than being recomputed here. The food noop
+     * renders nothing.
+     */
+    @Composable
+    fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier = Modifier)
+
     @Composable
     fun MoreNightscoutSection()
 }
@@ -217,6 +228,9 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         onMealTap: (String) -> Unit,
         modifier: Modifier,
     ) = Unit
+
+    @Composable
+    override fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier) = Unit
 
     @Composable
     override fun MoreNightscoutSection() = Unit

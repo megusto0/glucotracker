@@ -24,6 +24,14 @@ class NutritionFormatTest {
     }
 
     @Test
+    fun signedMmolUsesTheTypographicalMinusAndRussianSeparator() {
+        assertEquals("+3,3", formatSignedMmol(3.3))
+        // U+2212, never the hyphen-minus, per the number formatting rules.
+        assertEquals("−1,8", formatSignedMmol(-1.8))
+        assertEquals("+0,0", formatSignedMmol(0.0))
+    }
+
+    @Test
     fun fixedDecimalFormattingStaysInsideFormatPackage() {
         val sourceRoot = Path.of("src", "main", "java").toAbsolutePath()
         val offenders = Files.walk(sourceRoot).use { paths ->

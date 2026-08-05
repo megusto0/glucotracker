@@ -106,6 +106,9 @@ class PhotoProcessingUiStateTest {
                 linkedMealId = "meal-1",
             ),
             acceptedMealVisible = false,
+            // Pinned: with the wall clock this fixture aged past the estimate
+            // deadline and the assertion only held near its own date.
+            now = now + 10.seconds,
         )
 
         assertEquals(PhotoProcessingStage.Estimating, state?.stage)

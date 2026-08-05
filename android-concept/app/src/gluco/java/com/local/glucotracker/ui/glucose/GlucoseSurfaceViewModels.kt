@@ -109,6 +109,63 @@ data class TirDayUi(
     val hasData: Boolean,
 )
 
+data class HistoryDayGlucoseUi(
+    val inRangePct: Int,
+    val highPct: Int,
+    val lowPct: Int,
+)
+
+/**
+ * Backend-computed band shares for the days a history list is showing.
+ *
+ * One request covers the whole visible window and every day reads its own row
+ * out of it, so scrolling does not fan out into a request per heading. Time in
+ * range is never recomputed here - the backend owns it.
+ */
+@HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
+class HistoryDayGlucoseViewModel @Inject constructor(
+    private val glucoseApi: GlucoseApi,
+) : ViewModel() {
+    private val days = MutableStateFlow<Map<LocalDate, HistoryDayGlucoseUi>>(emptyMap())
+    private var loading = false
+
+    val state: StateFlow<Map<LocalDate, HistoryDayGlucoseUi>> = days
+
+    fun ensureLoaded() {
+        if (loading) return
+        loading = true
+        viewModelScope.launch {
+            val loaded = runCatching { glucoseApi.tirDaily(HistoryTirPeriod) }
+                .getOrNull()
+                ?.days
+                .orEmpty()
+                .mapNotNull { day ->
+                    val inRange = day.inRangePct ?: return@mapNotNull null
+                    if (day.points <= 0) return@mapNotNull null
+                    day.date to HistoryDayGlucoseUi(
+                        inRangePct = inRange.toDouble().roundToInt(),
+                        highPct = (
+                            (day.highPct?.toDouble() ?: 0.0) +
+                                (day.veryHighPct?.toDouble() ?: 0.0)
+                            ).roundToInt(),
+                        lowPct = (
+                            (day.lowPct?.toDouble() ?: 0.0) +
+                                (day.veryLowPct?.toDouble() ?: 0.0)
+                            ).roundToInt(),
+                    )
+                }
+                .toMap()
+            if (loaded.isNotEmpty()) days.value = loaded
+            loading = false
+        }
+    }
+}
+
+// The endpoint accepts 7d/14d/30d; the longest of those covers what a history
+// scroll reaches before the summary line simply stops appearing.
+private const val HistoryTirPeriod = "30d"
+
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsTirViewModel @Inject constructor(

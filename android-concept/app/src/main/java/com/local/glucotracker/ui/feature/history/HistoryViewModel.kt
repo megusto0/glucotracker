@@ -71,6 +71,9 @@ data class HistoryMealRowUi(
     val mealRole: String?,
     val errorMessage: String?,
     val responseKey: String? = null,
+    //: How far glucose rose after this meal. The journal recorded what went in
+    //: and never how it landed, which is the half that makes a day readable.
+    val deltaMaxMmolL: Double? = null,
 )
 
 enum class HistoryMealRowKind {
@@ -267,6 +270,7 @@ private fun List<Meal>.toAcceptedRows(outbox: List<OutboxItem>): List<HistoryMea
                 isSweet = "sweet" in meal.tags || meal.hasSweetText(),
                 mealRole = meal.mealRole,
                 responseKey = meal.postprandialResponse?.glycemicResponse,
+                deltaMaxMmolL = meal.postprandialResponse?.deltaMaxMmolL,
                 errorMessage = activeItem?.errorMessage,
             )
         }

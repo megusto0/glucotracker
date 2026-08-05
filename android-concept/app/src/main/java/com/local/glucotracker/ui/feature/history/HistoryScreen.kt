@@ -65,6 +65,7 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatSignedKcal
+import com.local.glucotracker.ui.format.formatSignedMmol
 import com.local.glucotracker.ui.format.pluralizeDay
 import com.local.glucotracker.ui.format.pluralizeMeal
 import com.local.glucotracker.ui.format.pluralizePhoto
@@ -168,15 +169,10 @@ fun HistoryScreen(
                 )
             }
         }
-        if (visibleDays.isNotEmpty()) {
-            stickyHeader {
-                HourScaleHeader(
-                    modifier = Modifier
-                        .background(GT.colors.bg)
-                        .padding(horizontal = 18.dp, vertical = 4.dp),
-                )
-            }
-        }
+        // The hour scale used to be pinned above the whole list, separated
+        // from the sparklines it labels by a divider and a day heading, so it
+        // read as page furniture. It now sits directly on top of each day's
+        // own timeline.
         if (visibleDays.isEmpty() && !state.isRefreshing) {
             item {
                 GTHintBox(
@@ -629,8 +625,14 @@ private fun HistoryDaySection(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // What went in, then how it went. Absent for the food flavor.
+                LocalGlucoseSurfaces.current.HistoryDayGlucoseSummary(
+                    date = day.date,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
+        HourScaleHeader(modifier = Modifier.padding(top = 10.dp))
         LocalGlucoseSurfaces.current.HistoryDayTimeline(
             date = day.date,
             meals = day.rows.toTimelineMeals(),
@@ -679,12 +681,13 @@ private fun HistoryMealRow(
             time = row.eatenAt.timeText(),
             photo = row.photo,
             name = row.title ?: fallbackTitle(row),
+            // The time already sits in the gutter and the thumbnail already
+            // says there is a photo, so this line used to carry nothing new.
+            // It now reports how the meal landed, and falls back to the source
+            // only when no glucose response was recorded.
             meta = row.pendingErrorText()
-                ?: stringResource(
-                    R.string.today_meal_meta,
-                    row.eatenAt.timeText(),
-                    sourceLabel(row.source),
-                ),
+                ?: outcomeText(row)
+                ?: sourceLabel(row.source),
             primaryRight = primaryRightText(row),
             secondaryRight = secondaryRightText(row),
             status = null,
@@ -708,6 +711,19 @@ private fun HistoryDayUi.summaryText(): String {
         formatKcal(totals?.kcal ?: 0.0),
         balance,
     )
+}
+
+/**
+ * How far glucose rose after the meal, when that was measured.
+ *
+ * One number, not a verdict: the review page owns the curve and the judgement.
+ * Here it only has to make a day scannable for which meals moved the needle.
+ */
+@Composable
+private fun outcomeText(row: HistoryMealRowUi): String? {
+    if (row.kind != HistoryMealRowKind.Accepted) return null
+    val delta = row.deltaMaxMmolL ?: return null
+    return stringResource(R.string.history_meal_outcome, formatSignedMmol(delta))
 }
 
 @Composable

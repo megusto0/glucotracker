@@ -26,6 +26,12 @@ fun formatKg(value: Double): String =
 fun formatSignedKcal(value: Long): String =
     if (value < 0) "−${-value}" else value.toString()
 
+/** Signed mmol/L with the typographical minus, never the hyphen. */
+fun formatSignedMmol(value: Double): String {
+    val magnitude = formatMmol(kotlin.math.abs(value))
+    return if (value < 0) "−$magnitude" else "+$magnitude"
+}
+
 fun formatPercent(value: Double): String =
     "${value.roundToInt()}%"
 

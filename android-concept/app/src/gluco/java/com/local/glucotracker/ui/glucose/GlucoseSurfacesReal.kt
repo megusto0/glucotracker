@@ -269,6 +269,34 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     }
 
     @Composable
+    override fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier) {
+        val viewModel: HistoryDayGlucoseViewModel = hiltViewModel()
+        LaunchedEffect(Unit) { viewModel.ensureLoaded() }
+        val days by viewModel.state.collectAsStateWithLifecycle()
+        val day = days[date] ?: return
+        Text(
+            text = if (day.highPct == 0 && day.lowPct == 0) {
+                stringResource(
+                    R.string.history_day_glucose_clean,
+                    formatPercent(day.inRangePct.toDouble()),
+                )
+            } else {
+                stringResource(
+                    R.string.history_day_glucose,
+                    formatPercent(day.inRangePct.toDouble()),
+                    formatPercent(day.highPct.toDouble()),
+                    formatPercent(day.lowPct.toDouble()),
+                )
+            },
+            modifier = modifier,
+            color = GT.colors.muted,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+
+    @Composable
     override fun MoreNightscoutSection() {
         MoreGlucoseSettingsSurface()
     }

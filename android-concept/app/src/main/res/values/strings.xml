@@ -133,7 +133,10 @@
     <string name="today_pending_error">ошибка · %1$s</string>
     <string name="today_meal_meta">%1$s · %2$s</string>
     <string name="today_macros_line">Б %1$s · Ж %2$s · У %3$s</string>
-    <string name="today_right_carbs">%1$s У</string>
+    <!-- Grams, spelled the same way everywhere. The screen used to carry "У"
+         in rows and "углев" in day summaries for the same quantity. -->
+    <string name="today_right_carbs">%1$s г</string>
+    <string name="history_meal_outcome">глюкоза %1$s ммоль/л</string>
     <string name="today_right_kcal">%1$s ккал</string>
     <string name="today_delete">Удалить</string>
     <string name="today_duplicate">Дублировать</string>
@@ -158,8 +161,11 @@
     <string name="history_status_all">Все</string>
     <string name="history_status_button">%1$s ▼</string>
     <string name="history_status_sheet_title">Статус</string>
-    <string name="history_day_summary">%1$d приёмов · %2$s углев · %3$s ккал · %4$s баланс</string>
-    <string name="history_day_summary_compact">%1$s · %2$s углев · %3$s ккал · %4$s баланс</string>
+    <string name="history_day_summary">%1$d приёмов · %2$s г · %3$s ккал · %4$s баланс</string>
+    <string name="history_day_summary_compact">%1$s · %2$s г · %3$s ккал · %4$s баланс</string>
+    <!-- Second summary line: how the day went, not only what went into it. -->
+    <string name="history_day_glucose">в диапазоне %1$s · выше %2$s · ниже %3$s</string>
+    <string name="history_day_glucose_clean">в диапазоне %1$s</string>
     <string name="history_balance_empty">&#8212;</string>
     <string name="history_old_cache_hint">Старее 14 дней — нужна сеть</string>
     <string name="history_empty">Нет записей</string>

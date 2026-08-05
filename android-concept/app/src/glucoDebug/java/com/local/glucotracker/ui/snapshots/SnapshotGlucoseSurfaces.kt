@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
@@ -206,6 +207,18 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
                 )
             }
         }
+    }
+
+    @Composable
+    override fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier) {
+        // Fixed shares: snapshots must not depend on a network reply.
+        Text(
+            text = stringResource(R.string.history_day_glucose, "68%", "24%", "8%"),
+            modifier = modifier,
+            color = GT.colors.muted,
+            style = GT.type.monoLabel,
+            maxLines = 1,
+        )
     }
 
     @Composable

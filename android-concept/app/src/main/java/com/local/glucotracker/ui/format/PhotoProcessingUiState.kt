@@ -44,13 +44,17 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
     queueSize: Int? = null,
     uploadProgress: Float? = null,
     acceptedMealVisible: Boolean = true,
+    // Injectable so a test can pin the elapsed estimate window. Without it the
+    // estimating branch read the wall clock and any fixed fixture timestamp
+    // eventually aged past the deadline into "stuck".
+    now: Instant = Clock.System.now(),
 ): PhotoProcessingUiState? {
     if (outboxItem.kind !is OutboxKind.CapturedMeal) return null
     val queueText = queuePositionText(queuePosition, queueSize)
     return when (outboxItem.state) {
         OutboxState.Queued -> {
             if (outboxItem.linkedMealId != null) {
-                estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+                estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt, now = now)
             } else {
                 PhotoProcessingUiState(
                     stage = PhotoProcessingStage.WaitingUpload,
@@ -69,7 +73,7 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
         }
         OutboxState.Uploading -> {
             if (outboxItem.linkedMealId != null) {
-                return estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+                return estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt, now = now)
             }
             val safeProgress = uploadProgress?.coerceIn(0f, 1f)
             PhotoProcessingUiState(
@@ -98,7 +102,7 @@ fun mapOutboxAndMealToPhotoProcessingUiState(
                 canRetry = false,
             )
         } else {
-            estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt)
+            estimatingState(estimateStartedAt = outboxItem.enteredCurrentStateAt, now = now)
         }
         OutboxState.Stuck -> if (outboxItem.linkedMealId != null) {
             estimateStuckState()
