@@ -564,15 +564,8 @@ export function NightscoutPage() {
           </p>
         </div>
       ) : null}
-      {selectedEpisode?.therapy?.classification === "carb_correction" ? (
-        <CarbCorrectionPanel
-          episode={selectedEpisode}
-          foodEvents={selectedFoodEvents}
-          key={selectedEpisode.key}
-          onClose={() => setSelectedFood(null)}
-        />
-      ) : selectedEpisode ? (
-        <InsulinEpisodePanel
+      {selectedEpisode ? (
+        <EpisodePanel
           episode={selectedEpisode}
           foodEvents={selectedFoodEvents}
           key={selectedEpisode.key}
@@ -609,7 +602,16 @@ function formatCarbs(value?: number | null) {
     : "—";
 }
 
-function CarbCorrectionPanel({
+/**
+ * The rescue reading is an opinion, so it must not be the only thing on offer.
+ *
+ * A carbohydrate rescue used to replace the dose panel outright, which meant a
+ * plate the classifier read wrong could not be asked about at all — the one
+ * screen that answers "how much insulin" simply disappeared. The rescue view
+ * still leads, because when it is right it is the more useful answer, but the
+ * calculation is always one click away.
+ */
+function EpisodePanel({
   episode,
   foodEvents,
   onClose,
@@ -617,6 +619,37 @@ function CarbCorrectionPanel({
   episode: DayEpisode;
   foodEvents: FoodEvent[];
   onClose: () => void;
+}) {
+  const [showDose, setShowDose] = useState(false);
+  if (episode.therapy?.classification === "carb_correction" && !showDose) {
+    return (
+      <CarbCorrectionPanel
+        episode={episode}
+        foodEvents={foodEvents}
+        onClose={onClose}
+        onShowDose={() => setShowDose(true)}
+      />
+    );
+  }
+  return (
+    <InsulinEpisodePanel
+      episode={episode}
+      foodEvents={foodEvents}
+      onClose={onClose}
+    />
+  );
+}
+
+function CarbCorrectionPanel({
+  episode,
+  foodEvents,
+  onClose,
+  onShowDose,
+}: {
+  episode: DayEpisode;
+  foodEvents: FoodEvent[];
+  onClose: () => void;
+  onShowDose: () => void;
 }) {
   const therapy = episode.therapy;
   return (
@@ -674,6 +707,14 @@ function CarbCorrectionPanel({
           </small>
         ) : null}
       </section>
+
+      <button
+        className="ns-carb-show-dose"
+        onClick={onShowDose}
+        type="button"
+      >
+        Это обычный приём — показать расчёт дозы
+      </button>
     </div>
   );
 }
@@ -899,6 +940,27 @@ function InsulinEpisodePanel({
                   {formatDose(recommendationData.correction_units)} Ед
                 </strong>
               </div>
+              {/* Insulin still working is subtracted from the total, but only
+                  once the correction itself has floored at zero. Omitting it
+                  published arithmetic that does not hold — a 4,9 Ед meal with
+                  no correction adding up to 0. */}
+              {typeof recommendationData.correction_excess_iob_units ===
+                "number" &&
+              recommendationData.correction_excess_iob_units > 0 &&
+              (recommendationData.correction_units ?? 0) <= 0 ? (
+                <>
+                  <b aria-hidden="true">−</b>
+                  <div>
+                    <span>Активный инсулин</span>
+                    <strong>
+                      {formatDose(
+                        recommendationData.correction_excess_iob_units,
+                      )}{" "}
+                      Ед
+                    </strong>
+                  </div>
+                </>
+              ) : null}
               <b aria-hidden="true">=</b>
               <div className="ns-insulin-total">
                 <span>Итого</span>

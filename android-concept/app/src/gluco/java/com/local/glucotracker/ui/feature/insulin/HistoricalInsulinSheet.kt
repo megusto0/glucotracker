@@ -52,6 +52,7 @@ import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.generated.model.InsulinRecommendationResponse
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.glucose.GlucoCardAction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -290,7 +291,7 @@ fun HistoricalInsulinButton(
     // Once insulin exists the calculation is no longer something to act on, but
     // it is still the only way to see whether the dose matched the food.
     val hasInsulin = alreadyGivenUnits > 0.0
-    GTOutlineButton(
+    GlucoCardAction(
         text = stringResource(
             if (hasInsulin) {
                 R.string.insulin_history_button_compare
@@ -561,7 +562,23 @@ private fun HistoricalEstimateBlock(
 @Composable
 private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
     val correction = state.correction
-    val text = if (correction != null) {
+    // Insulin still working is subtracted from the total, but only when the
+    // correction itself already floored at zero. Leaving it out of the line
+    // published arithmetic that does not hold: a 4,9 U meal with no correction
+    // summing to 0. Shown here, not only under "Как посчитано", because this
+    // is the line that states the total.
+    val surplus = correction
+        ?.excessIobUnits
+        ?.takeIf { it > 0.0 && correction.units <= 0.0 }
+    val text = if (correction != null && surplus != null) {
+        stringResource(
+            R.string.insulin_history_breakdown_with_iob,
+            formatDose(state.mealUnits),
+            formatSignedDose(correction.units),
+            formatDose(surplus),
+            formatDose(state.headlineUnits),
+        )
+    } else if (correction != null) {
         stringResource(
             R.string.insulin_history_breakdown,
             formatDose(state.mealUnits),

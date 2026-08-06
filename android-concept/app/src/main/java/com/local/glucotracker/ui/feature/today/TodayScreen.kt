@@ -382,7 +382,7 @@ private fun DayState(
                 LocalGlucoseSurfaces.current.TodayRows(
                     date = state.date,
                     rows = state.rows,
-                ) { row, framed, extraMetaContent ->
+                ) { row, framed, showTime, extraMetaContent ->
                     SwipeMealRow(
                         row = row,
                         lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
@@ -391,6 +391,7 @@ private fun DayState(
                         isOnline = state.isOnline,
                         compact = brandAccentColor != null,
                         framed = framed,
+                        showTime = showTime,
                         extraMetaContent = extraMetaContent,
                     )
                 }
@@ -852,6 +853,7 @@ private fun SwipeMealRow(
     isOnline: Boolean = true,
     compact: Boolean = false,
     framed: Boolean = true,
+    showTime: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val canDeleteLocally = row.recordId == null && row.outboxId != null
@@ -863,6 +865,7 @@ private fun SwipeMealRow(
             isOnline = isOnline,
             compact = compact,
             framed = framed,
+            showTime = showTime,
             extraMetaContent = extraMetaContent,
         )
         return
@@ -890,6 +893,7 @@ private fun SwipeMealRow(
             isOnline = isOnline,
             compact = compact,
             framed = framed,
+            showTime = showTime,
             extraMetaContent = extraMetaContent,
         )
     }
@@ -974,6 +978,7 @@ private fun MealRowSurface(
     isOnline: Boolean = true,
     compact: Boolean = false,
     framed: Boolean = true,
+    showTime: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     var highlighted by remember(row.id, lastAddedId) { mutableStateOf(row.id == lastAddedId) }
@@ -1022,15 +1027,14 @@ private fun MealRowSurface(
             )
         } else {
             GTMealRow(
-                time = row.eatenAt.timeText(),
+                // Blank where the row above it already stated this minute.
+                time = if (showTime) row.eatenAt.timeText() else "",
                 photo = row.photo,
                 name = row.title ?: fallbackTitle(row),
-                meta = row.pendingErrorText()
-                    ?: stringResource(
-                        R.string.today_meal_meta,
-                        row.eatenAt.timeText(),
-                        sourceLabel(row.source),
-                    ),
+                // The time used to be repeated here under the title, beside a
+                // word naming the source. The gutter already gives the time,
+                // and the thumbnail already says it came from a photo.
+                meta = row.pendingErrorText() ?: sourceMeta(row.source),
                 primaryRight = primaryRightText(row, isOnline),
                 secondaryRight = secondaryRightText(row),
                 status = null,
@@ -1120,6 +1124,16 @@ private fun fallbackTitle(row: TodayMealRowUi): String =
     } else {
         stringResource(R.string.today_meal_fallback)
     }
+
+/**
+ * The source, except when the thumbnail beside it has already said so.
+ *
+ * A photo row carried the word "фото" next to its own photo. The other sources
+ * have no picture to speak for them, so they keep their label.
+ */
+@Composable
+private fun sourceMeta(source: TodayMealSource): String =
+    if (source == TodayMealSource.Photo) "" else sourceLabel(source)
 
 @Composable
 private fun sourceLabel(source: TodayMealSource): String =

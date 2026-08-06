@@ -62,7 +62,16 @@ def _point(
     )
 
 
-def test_low_cookie_is_carb_correction_even_when_normalized_is_not_low() -> None:
+def test_low_raw_reading_alone_is_not_a_rescue() -> None:
+    """A raw 2.5 that calibrates to 4.8 is an ordinary in-range dessert.
+
+    This used to classify on min(raw, normalized) so that a deeply low raw
+    reading won regardless, on the reasoning that an alarm should err low.
+    That is right for an alarm and wrong for a label: this sensor runs 1.0-2.8
+    mmol/L under true glucose, so the +2.3 seen here is the expected offset and
+    nothing about the moment was low. Every such plate was being filed as a
+    rescue. Both raw figures stay in the response; only the judgement changed.
+    """
     at = datetime(2026, 7, 25, 14, 47)
     cookie = _meal(
         at,
@@ -82,13 +91,65 @@ def test_low_cookie_is_carb_correction_even_when_normalized_is_not_low() -> None
         points,
     )
 
-    assert result.classification == "carb_correction"
-    assert result.confidence == "high"
-    assert result.suggested_carbs_g == 15.0
-    assert result.suggestion_source == "ada_default"
+    assert result.classification == "snack"
     assert result.glucose_at_start_raw == 2.5
     assert result.glucose_at_start_normalized == 4.8
     assert result.peak_post_event_normalized == 9.0
+
+
+def test_low_calibrated_glucose_before_food_is_a_rescue() -> None:
+    """The same shape, but the calibrated value is the one below range."""
+    at = datetime(2026, 7, 25, 14, 47)
+    cookie = _meal(
+        at,
+        carbs=30,
+        role="dessert",
+        title="Шоколадное печенье",
+    )
+    points = [
+        _point(at - timedelta(minutes=10), raw=1.4, normalized=3.7),
+        _point(at, raw=1.2, normalized=3.4),
+        _point(at + timedelta(hours=2), raw=6.0, normalized=8.3),
+        _point(at + timedelta(minutes=140), raw=6.7, normalized=9.0),
+    ]
+
+    result = classify_episode_therapy(
+        EpisodeComponent(meals=[cookie], insulin=[], pairs=[]),
+        points,
+    )
+
+    assert result.classification == "carb_correction"
+    assert result.suggested_carbs_g == 15.0
+    assert result.suggestion_source == "ada_default"
+
+
+def test_sitting_in_progress_is_not_called_a_rescue() -> None:
+    """Food, no bolus yet, drifting down — the shape of a half-entered lunch.
+
+    The user photographs dish by dish and doses at the end, so "no insulin" is
+    not evidence until a bolus would no longer be attributed to the sitting.
+    """
+    at = datetime(2026, 7, 25, 13, 0)
+    plate = _meal(at, carbs=25, role="main")
+    points = [
+        _point(at - timedelta(minutes=20), raw=6.4, normalized=8.6),
+        _point(at, raw=5.0, normalized=7.2),
+    ]
+    component = EpisodeComponent(meals=[plate], insulin=[], pairs=[])
+
+    fresh = classify_episode_therapy(
+        component,
+        points,
+        now=at + timedelta(minutes=10),
+    )
+    settled = classify_episode_therapy(
+        component,
+        points,
+        now=at + timedelta(hours=3),
+    )
+
+    assert fresh.classification == "meal"
+    assert settled.classification == "carb_correction"
 
 
 def test_dessert_at_in_range_glucose_is_snack() -> None:

@@ -169,6 +169,10 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
         val date = eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val signature = remember(meals) {
+            mealGroupingSignature(meals.map { MealGroupingKey(it.id, it.eatenAt) })
+        }
+        LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "stack", signature) }
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         val paired = mealId?.let { context.byMealId[it] }.orEmpty()
@@ -219,10 +223,19 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         rowContent: @Composable (
             row: TodayMealRowUi,
             framed: Boolean,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
+        val signature = remember(rows) {
+            mealGroupingSignature(
+                rows.mapNotNull { row ->
+                    row.recordId?.let { MealGroupingKey(it, row.eatenAt, row.totalCarbsG) }
+                },
+            )
+        }
+        LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "today", signature) }
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         TodayEpisodeRows(
@@ -240,11 +253,20 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
         val viewModel: InsulinContextViewModel = hiltViewModel()
+        val signature = remember(rows) {
+            mealGroupingSignature(
+                rows.mapNotNull { row ->
+                    row.recordId?.let { MealGroupingKey(it, row.eatenAt, row.totalCarbsG) }
+                },
+            )
+        }
+        LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "history", signature) }
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
         InsulinAwareRows(
@@ -348,6 +370,7 @@ private fun TodayEpisodeRows(
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
+        showTime: Boolean,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
 ) {
@@ -358,21 +381,10 @@ private fun TodayEpisodeRows(
 
     items.forEachIndexed { index, item ->
         when (item) {
-            is TodayTimelineItem.Single -> rowContent(item.entry.row, true) {
-                item.entry.paired.forEach { event -> InlineInsulinLine(event = event) }
-                item.entry.row.recordId
-                    ?.takeIf { item.entry.row.kind == TodayMealRowKind.Accepted }
-                    ?.let { mealId ->
-                        // Kept after a dose: it stops being a suggestion and
-                        // becomes a comparison against what was given.
-                        HistoricalInsulinButton(
-                            mealIds = listOf(mealId),
-                            modifier = Modifier.padding(top = 4.dp),
-                            alreadyGivenUnits = item.entry.paired
-                                .sumOf { event -> event.doseUnits },
-                        )
-                    }
-            }
+            is TodayTimelineItem.Single -> TodaySingleCard(
+                entry = item.entry,
+                rowContent = rowContent,
+            )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
                 entries = item.entries,
                 recommendationEligible = isCurrentDay,
@@ -399,6 +411,7 @@ private data class TodayMealEntry(
     val row: TodayMealRowUi,
     val paired: List<InsulinEvent>,
 )
+
 
 private sealed interface TodayTimelineItem {
     val timestamp: Instant
@@ -449,6 +462,55 @@ private fun buildTodayTimeline(
     return (episodes + singles + orphans).sortedByDescending { it.timestamp }
 }
 
+/**
+ * One dish, in the same shape a sitting of several gets.
+ *
+ * Its actions used to hang off the row's meta column, which has the time
+ * gutter and the photo taken out of its width — so the pair wrapped and sat
+ * indented under a short divider while the sitting beside it had them side by
+ * side across the card. Same structure for both now: card, rows, hairline,
+ * footer. The row itself is drawn unframed, exactly as it is inside a sitting,
+ * so this card supplies the surface.
+ */
+@Composable
+private fun TodaySingleCard(
+    entry: TodayMealEntry,
+    rowContent: @Composable (
+        row: TodayMealRowUi,
+        framed: Boolean,
+        showTime: Boolean,
+        extraMetaContent: @Composable ColumnScope.() -> Unit,
+    ) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
+    ) {
+        rowContent(entry.row, false, true) {
+            entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+        }
+        entry.row.recordId
+            ?.takeIf { entry.row.kind == TodayMealRowKind.Accepted }
+            ?.let { mealId ->
+                GlucoCardActionRow {
+                    // Kept after a dose: it stops being a suggestion and
+                    // becomes a comparison against what was given.
+                    HistoricalInsulinButton(
+                        mealIds = listOf(mealId),
+                        alreadyGivenUnits = entry.paired
+                            .sumOf { event -> event.doseUnits },
+                    )
+                    SittingTimeButton(
+                        meals = listOf(SittingMeal(mealId, entry.row.eatenAt)),
+                    )
+                }
+            }
+    }
+}
+
 @Composable
 private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
@@ -456,6 +518,7 @@ private fun TodayEpisodeCard(
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
+        showTime: Boolean,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
 ) {
@@ -499,40 +562,54 @@ private fun TodayEpisodeCard(
             }
         }
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+        // The time stays in the gutter, where the rest of the page keeps it.
+        // Only the repeats go: a plate that starts a new minute states it, the
+        // ones photographed alongside it leave the column blank.
+        var statedMinute: String? = null
         entries.forEachIndexed { index, entry ->
-            rowContent(entry.row, false) {
+            val minute = entry.row.eatenAt.timeText()
+            val showTime = minute != statedMinute
+            statedMinute = minute
+            rowContent(entry.row, false, showTime) {
                 entry.paired.forEach { event -> InlineInsulinLine(event = event) }
             }
             if (index < entries.lastIndex) {
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
             }
         }
-        if (recommendationEligible) {
-            // Kept visible after a dose exists: that is exactly when the
-            // question changes from "how much" to "was it enough", and hiding
-            // it removed the only place the two numbers meet.
-            // Same narrowing as the single-dish path: an episode card can hold
-            // two sittings, and the last one is what a dose is being asked
-            // about. Anchor on the newest plate.
-            val anchorEntry = entries.maxByOrNull { it.row.eatenAt }
-            val sitting = anchorEntry?.row?.recordId?.let { anchorId ->
-                eatingOccasion(
-                    episodeMealIds = entries.mapNotNull { it.row.recordId },
-                    eatenAt = entries.mapNotNull { entry ->
-                        entry.row.recordId?.let { it to entry.row.eatenAt }
-                    }.toMap(),
-                    anchorId = anchorId,
-                )
-            }.orEmpty()
-            HistoricalInsulinButton(
-                mealIds = sitting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                alreadyGivenUnits = entries
-                    .filter { it.row.recordId in sitting }
-                    .sumOf { entry -> entry.paired.sumOf { it.doseUnits } },
+        // An episode card can hold two sittings, and the last one is what any
+        // question is being asked about. Anchor on the newest plate.
+        val anchorEntry = entries.maxByOrNull { it.row.eatenAt }
+        val sitting = anchorEntry?.row?.recordId?.let { anchorId ->
+            eatingOccasion(
+                episodeMealIds = entries.mapNotNull { it.row.recordId },
+                eatenAt = entries.mapNotNull { entry ->
+                    entry.row.recordId?.let { it to entry.row.eatenAt }
+                }.toMap(),
+                anchorId = anchorId,
             )
+        }.orEmpty()
+        val sittingMeals = entries.mapNotNull { entry ->
+            entry.row.recordId
+                ?.takeIf { it in sitting }
+                ?.let { SittingMeal(it, entry.row.eatenAt) }
+        }
+        // No divider over an empty row.
+        if (recommendationEligible || sittingMeals.size >= 2) GlucoCardActionRow {
+            if (recommendationEligible) {
+                // Kept visible after a dose exists: that is exactly when the
+                // question changes from "how much" to "was it enough", and
+                // hiding it removed the only place the two numbers meet.
+                HistoricalInsulinButton(
+                    mealIds = sitting,
+                    alreadyGivenUnits = entries
+                        .filter { it.row.recordId in sitting }
+                        .sumOf { entry -> entry.paired.sumOf { it.doseUnits } },
+                )
+            }
+            // Not gated on the day: a sitting logged at the wrong hour is
+            // exactly the thing you come back to History to fix.
+            SittingTimeButton(meals = sittingMeals)
         }
     }
 }
@@ -602,6 +679,7 @@ private fun <T> InsulinAwareRows(
     rowContent: @Composable (
         row: T,
         tone: HistoryEntryTone?,
+        showTime: Boolean,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
     separator: @Composable () -> Unit = { Spacer(Modifier.height(14.dp)) },
@@ -649,7 +727,7 @@ private fun <T> InsulinAwareRows(
     timeline.forEachIndexed { index, item ->
         when (item) {
             is InsulinTimelineItem.Meal -> {
-                rowContent(item.row, rowTone(item.row)) {
+                rowContent(item.row, rowTone(item.row), true) {
                     item.paired.forEach { event ->
                         InlineInsulinLine(event = event)
                     }
@@ -662,12 +740,22 @@ private fun <T> InsulinAwareRows(
             is InsulinTimelineItem.Episode -> {
                 // The insulin belongs to the sitting, so it is stated once
                 // under the last item rather than beside an arbitrary one.
+                // Same for the time: a plate that starts a new minute states
+                // it, the ones photographed alongside it leave it blank.
+                var statedMinute: String? = null
                 item.rows.forEachIndexed { rowIndex, row ->
-                    rowContent(row, rowTone(row)) {
+                    val minute = rowTime(row).timeText()
+                    val showTime = minute != statedMinute
+                    statedMinute = minute
+                    rowContent(row, rowTone(row), showTime) {
                         if (rowIndex == item.rows.lastIndex) {
                             item.paired.forEach { event ->
                                 InlineInsulinLine(event = event)
                             }
+                            // Only the calculation here. History's column is
+                            // narrower than Today's and the second action was
+                            // clipped to a single letter; the sitting's time is
+                            // editable on Today, where it fits.
                             HistoryRecommendationButton(
                                 mealIds = item.rows.mapNotNull(rowRecordId),
                                 givenUnits = item.paired.sumOf { it.doseUnits },
@@ -727,11 +815,7 @@ private fun HistoryRecommendationButton(mealIds: List<String>, givenUnits: Doubl
         runCatching { java.util.UUID.fromString(id) }.isSuccess
     }
     if (valid.isEmpty()) return
-    HistoricalInsulinButton(
-        mealIds = valid,
-        modifier = Modifier.padding(top = 4.dp),
-        alreadyGivenUnits = givenUnits,
-    )
+    HistoricalInsulinButton(mealIds = valid, alreadyGivenUnits = givenUnits)
 }
 
 private sealed interface InsulinTimelineItem<out T> {
@@ -826,7 +910,17 @@ private fun OrphanInsulinRow(
             showTooltip = false
         }
     }
-    Column(modifier = Modifier.padding(horizontal = 18.dp)) {
+    // On its own surface like everything else on the page. A correction with
+    // no meal is still a record, and rendering it as a bare line between two
+    // cards read as something that had failed to draw. Quieter inside than a
+    // meal card, because it carries one number rather than a plate.
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 18.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(horizontal = 14.dp, vertical = 2.dp),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

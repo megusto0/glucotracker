@@ -361,7 +361,7 @@ private fun RhythmSection(
     var overrideValue by remember(rhythm?.anchorMinutes) {
         mutableStateOf(rhythm?.anchorMinutes?.minuteLabel().orEmpty())
     }
-    val basis = rhythm?.basis ?: stringResource(R.string.value_empty)
+    val basis = rhythmBasisLabel(rhythm?.basis)
 
     SettingsSection(
         title = stringResource(R.string.more_rhythm_title),
@@ -814,6 +814,23 @@ private fun SettingsSwitch(
             )
         }
     }
+}
+
+/**
+ * Where the day anchor came from, in words.
+ *
+ * The raw backend value was printed straight into the section note, so the
+ * screen read "weighted_7d". It matters which of these is in play — sleep is
+ * measured, the meal estimate is inferred — so it has to be legible.
+ */
+@Composable
+private fun rhythmBasisLabel(basis: String?): String = when (basis) {
+    "sleep_7d" -> stringResource(R.string.more_rhythm_basis_sleep)
+    "weighted_7d" -> stringResource(R.string.more_rhythm_basis_meals)
+    "shift_3d" -> stringResource(R.string.more_rhythm_basis_shift)
+    "user_override" -> stringResource(R.string.more_rhythm_basis_manual)
+    "absolute_fallback" -> stringResource(R.string.more_rhythm_basis_default)
+    else -> stringResource(R.string.value_empty)
 }
 
 @Composable

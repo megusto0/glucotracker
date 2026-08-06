@@ -235,6 +235,12 @@ class InsulinContextViewModel @Inject constructor(
     private val insulinRepository: InsulinRepository,
     private val outboxRepository: OutboxRepository,
 ) : ViewModel() {
+    private val lock = Any()
+    private val insulinSignatures = mutableMapOf<LocalDate, String>()
+    // Keyed by surface as well as date. Two surfaces on one screen see
+    // different slices of the same day, and if they overwrote each other they
+    // would each find the other's signature stale and refetch forever.
+    private val mealSignatures = mutableMapOf<LocalDate, MutableMap<String, String>>()
     private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
     fun context(date: LocalDate): Flow<InsulinDayContext> {
@@ -244,7 +250,10 @@ class InsulinContextViewModel @Inject constructor(
             // Any state transition of an insulin outbox item (incl. confirm)
             // re-pulls the server attribution, so the optimistic row is
             // replaced by the accepted one without reopening the screen.
-            .onEach { items -> refreshIfStale(date, items.insulinSignature()) }
+            .onEach { items ->
+                synchronized(lock) { insulinSignatures[date] = items.insulinSignature() }
+                refreshIfStale(date)
+            }
         return combine(
             mutationsForDate,
             // Room-backed: events the user has seen survive offline and
@@ -255,19 +264,66 @@ class InsulinContextViewModel @Inject constructor(
         }
     }
 
-    private fun refreshIfStale(date: LocalDate, signature: String) {
-        synchronized(loadedSignatures) {
-            if (loadedSignatures[date] == signature) return
-            loadedSignatures[date] = signature
+    /**
+     * Re-pull grouping when the day's food changes.
+     *
+     * Grouping and classification are decided by the backend and held only in
+     * memory, and the refresh used to be triggered by insulin mutations alone.
+     * Adding a photo touches nothing in the insulin outbox, so a dish entered
+     * beside an existing one stayed its own card until the process restarted
+     * and the first subscription happened to refetch. Callers pass
+     * [mealGroupingSignature] over the rows they are about to draw, which
+     * covers a new record, a shifted time, a landed estimate and a deletion
+     * alike — and does so whatever created them, including the web.
+     */
+    fun onMealsChanged(date: LocalDate, source: String, signature: String) {
+        synchronized(lock) {
+            mealSignatures.getOrPut(date) { mutableMapOf() }[source] = signature
+        }
+        refreshIfStale(date)
+    }
+
+    private fun refreshIfStale(date: LocalDate) {
+        val next = synchronized(lock) {
+            val meals = mealSignatures[date].orEmpty()
+                .entries
+                .sortedBy { it.key }
+                .joinToString(",") { "${it.key}=${it.value}" }
+            val combined = "${insulinSignatures[date].orEmpty()}/$meals"
+            if (loadedSignatures[date] == combined) return
+            loadedSignatures[date] = combined
+            combined
         }
         viewModelScope.launch {
             runCatching { insulinRepository.refreshDay(date) }
                 .onFailure {
-                    synchronized(loadedSignatures) { loadedSignatures.remove(date) }
+                    synchronized(lock) {
+                        if (loadedSignatures[date] == next) loadedSignatures.remove(date)
+                    }
                 }
         }
     }
 }
+
+/**
+ * Identity of a day's food as grouping depends on it.
+ *
+ * The backend clusters by record and by time and classifies by carbohydrate,
+ * so those three are what has to force a refetch. Titles and photos are left
+ * out: they change what a row reads like and nothing about which sitting it
+ * belongs to.
+ */
+internal fun mealGroupingSignature(meals: List<MealGroupingKey>): String =
+    meals.sortedBy { it.id }.joinToString("|") { meal ->
+        val carbs = meal.carbsG?.let { grams -> kotlin.math.round(grams).toInt().toString() }
+        "${meal.id}@${meal.eatenAt.epochSeconds}#${carbs ?: "?"}"
+    }
+
+internal data class MealGroupingKey(
+    val id: String,
+    val eatenAt: Instant,
+    val carbsG: Double? = null,
+)
 
 data class PendingInsulin(
     val outboxId: String,

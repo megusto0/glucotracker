@@ -655,10 +655,11 @@ private fun HistoryDaySection(
             LocalGlucoseSurfaces.current.HistoryRows(
                 date = day.date,
                 rows = day.rows,
-                rowContent = { row, tone, extraMetaContent ->
+                rowContent = { row, tone, showTime, extraMetaContent ->
                     HistoryMealRow(
                         row = row,
                         tone = tone,
+                        showTime = showTime,
                         onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
                         extraMetaContent = extraMetaContent,
                     )
@@ -676,6 +677,7 @@ private fun HistoryMealRow(
     row: HistoryMealRowUi,
     tone: HistoryEntryTone?,
     onOpenMealStack: (String) -> Unit,
+    showTime: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val clickId = row.recordId ?: row.outboxId
@@ -699,18 +701,21 @@ private fun HistoryMealRow(
     }
     Box(modifier = railModifier) {
         GTMealRow(
-            time = row.eatenAt.timeText(),
+            // Blank, not absent: the gutter keeps its width so the plates of
+            // one sitting stay aligned with each other.
+            time = if (showTime) row.eatenAt.timeText() else "",
             photo = row.photo,
             name = row.title ?: fallbackTitle(row),
             // The time already sits in the gutter and the thumbnail already
             // says there is a photo, so this line used to carry nothing new.
             // It now reports how the meal landed, and falls back to the source
-            // only when no glucose response was recorded.
+            // only when no glucose response was recorded and the source is not
+            // already visible as a picture.
             meta = row.pendingErrorText()
                 ?: listOfNotNull(tone?.label, outcomeText(row))
                     .takeIf { it.isNotEmpty() }
                     ?.joinToString(" · ")
-                ?: sourceLabel(row.source),
+                ?: sourceMeta(row.source),
             primaryRight = primaryRightText(row),
             secondaryRight = secondaryRightText(row),
             status = null,
@@ -770,6 +775,11 @@ private fun fallbackTitle(row: HistoryMealRowUi): String =
     } else {
         stringResource(R.string.today_meal_fallback)
     }
+
+/** The source, unless the thumbnail beside it has already said so. */
+@Composable
+private fun sourceMeta(source: HistoryMealSource): String =
+    if (source == HistoryMealSource.Photo) "" else sourceLabel(source)
 
 @Composable
 private fun sourceLabel(source: HistoryMealSource): String =

@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from glucotracker.application.body_states import BodyStateInterval, BodyStateService
 from glucotracker.application.time import local_now, local_wall_time
 from glucotracker.domain.entities import AnchorBasis, MealStatus
 from glucotracker.infra.db.models import DayAnchorHistory, Meal, NonTypicalPeriod, User
@@ -25,6 +26,15 @@ WEEKEND_SPLIT_MIN_WEEKS: int = 4
 MIN_QUALIFYING_DAYS: int = 7
 TYPICAL_MORNING_START_MINUTES: int = 4 * 60
 TYPICAL_MORNING_END_MINUTES: int = 11 * 60
+
+#: How far back to look for nights when anchoring the day on real sleep.
+SLEEP_LOOKBACK_DAYS: int = 10
+#: Nights needed before sleep is trusted over the first-meal estimate. Below
+#: this the anchor would flip between the two as watch data comes and goes.
+MIN_SLEEP_NIGHTS: int = 5
+#: A nap is not the end of a night. Naps end in the afternoon and would drag
+#: the anchor hours late, so only a real night counts as waking up.
+MIN_NIGHT_SLEEP = timedelta(hours=3)
 
 
 def anchor_is_typical_morning(anchor_minutes: int | None) -> bool:
@@ -151,6 +161,38 @@ def _minutes_from_midnight(dt: datetime) -> float:
     return local.hour * 60 + local.minute
 
 
+def _wake_minutes(session: Session, user_id: UUID) -> list[float]:
+    """When the user actually got up, one value per night, oldest first.
+
+    The first meal is only a proxy for the start of a day, and a poor one on
+    any day breakfast is skipped or late: waking at 06:00 and first eating at
+    11:00 moved the whole rhythm five hours. Sleep says it directly. Recorded
+    sessions are used where the watch has synced them and heart rate fills in
+    the rest, which is the same pair `BodyStateService` already reconciles.
+    """
+    now = local_now()
+    intervals = BodyStateService(session, user_id).intervals(
+        now - timedelta(days=SLEEP_LOOKBACK_DAYS),
+        now,
+    )
+    # One wake per calendar day, from the longest night ending that day. Taking
+    # the latest instead would pick an afternoon nap over the morning it began.
+    longest_by_date: dict[date, BodyStateInterval] = {}
+    for interval in intervals:
+        if interval.kind != "sleep":
+            continue
+        if timedelta(minutes=interval.total_minutes) < MIN_NIGHT_SLEEP:
+            continue
+        day = interval.end_at.date()
+        current = longest_by_date.get(day)
+        if current is None or interval.total_minutes > current.total_minutes:
+            longest_by_date[day] = interval
+    return [
+        _minutes_from_midnight(longest_by_date[day].end_at)
+        for day in sorted(longest_by_date)
+    ]
+
+
 def compute_user_anchors(
     session: Session,
     user_id: UUID,
@@ -167,6 +209,15 @@ def compute_user_anchors(
     )
     if override is not None:
         return (override, None, AnchorBasis.user_override)
+
+    # Real waking beats guessing it from the first plate. Falls through to the
+    # meal estimate whenever there are too few nights to be steady, so a user
+    # with no watch — and the food flavor, which has no sleep at all — keeps
+    # exactly the behaviour they had.
+    wake_minutes = _wake_minutes(session, user_id)
+    if len(wake_minutes) >= MIN_SLEEP_NIGHTS:
+        anchor = _weighted_median(wake_minutes[-7:], WEIGHTS_7D)
+        return (int(round(anchor)), None, AnchorBasis.sleep_7d)
 
     first_meals = _fetch_first_meals_of_day(session, user_id, lookback_days=28)
     first_meals = _exclude_non_typical_periods(session, user_id, first_meals)

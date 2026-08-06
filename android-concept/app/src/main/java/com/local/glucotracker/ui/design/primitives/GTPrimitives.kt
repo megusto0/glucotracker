@@ -574,6 +574,9 @@ fun GTMealRow(
             .padding(horizontal = 14.dp, vertical = verticalPadding),
         verticalAlignment = Alignment.Top,
     ) {
+        // Always reserved, blank or not: it is the column every row on the
+        // page lines up against, so dropping it for a row that repeats its
+        // sitting's minute would step that row out of the page's one grid.
         Text(
             text = time,
             modifier = Modifier.width(36.dp),
@@ -587,12 +590,14 @@ fun GTMealRow(
                 .weight(1f)
                 .padding(start = 10.dp, end = 10.dp),
         ) {
+            // Wraps rather than truncates. Photo-estimated names put what
+            // distinguishes them at the end — "Творожная масса Вкусный День с
+            // шоколадной крошкой" cut to "…с шоколадной кро…" is the half that
+            // says which one it was. A taller row costs less than that.
             Text(
                 text = name,
                 color = primaryTextColor,
                 style = GT.type.sansLabel,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
             Row(
                 modifier = Modifier.padding(top = 3.dp),

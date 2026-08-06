@@ -9,12 +9,13 @@ and never creates treatment records.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
 from glucotracker.application.episodes import EpisodeComponent
+from glucotracker.application.grouping import INSULIN_COVERAGE_WINDOW
 from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.on_board.classification import normalized_text
 
@@ -44,6 +45,10 @@ CATCH_UP_UNTIL = timedelta(hours=3)
 # +0.3 mmol/L per 15 min. Comfortably above the noise a flat trace shows, and
 # well under the +1.80/h these boluses were measured to sit on.
 CATCH_UP_RISING_PER_MINUTE = 0.02
+# How long "there is no bolus here" has to wait before it means anything.
+# Equal to the window in which a later bolus still attaches to the sitting, so
+# the classifier never draws a conclusion from insulin that may still arrive.
+SETTLING_WINDOW = INSULIN_COVERAGE_WINDOW
 
 
 @dataclass(frozen=True)
@@ -66,8 +71,14 @@ class EpisodeTherapy:
 def classify_episode_therapy(
     component: EpisodeComponent,
     points: list[GlucoseDashboardPoint],
+    now: datetime | None = None,
 ) -> EpisodeTherapy:
-    """Classify one component using both raw and normalized glucose context."""
+    """Classify one component from calibrated glucose, once it has settled.
+
+    [now] is app-local wall time, the same convention as `component.start_at`.
+    It defaults to the real clock, so every past episode is settled and only a
+    sitting still in progress is held back.
+    """
     start_at = component.start_at
     at_start = _nearest(points, start_at)
     plus_2h = _nearest(points, start_at + OUTCOME_HORIZON)
@@ -86,19 +97,31 @@ def classify_episode_therapy(
         (_normalized(point) for point in post_points),
         default=None,
     )
-    raw_trend = _trend(points, start_at, normalized=False)
     normalized_trend = _trend(points, start_at, normalized=True)
 
-    glucose_values = [
-        value for value in (raw_at, normalized_at) if value is not None
-    ]
-    safety_glucose = min(glucose_values) if glucose_values else None
+    # Classification reads the calibrated value alone. This used to take
+    # min(raw, normalized) as a safety floor, which is right for an alarm and
+    # wrong for a judgement: this owner's raw stream sits 1.0-2.8 mmol/L below
+    # true glucose, so an ordinary 5.5 arrived as a raw 3.5 and the plate that
+    # followed was filed as a rescue. `_normalized` already falls back to raw
+    # for a session with no calibration, which is the only place raw should
+    # still decide anything. Both raw figures are still reported.
+    safety_glucose = normalized_at
     low_at_start = (
         safety_glucose is not None and safety_glucose < LOW_GLUCOSE_MMOL_L
     )
-    falling = any(
-        trend is not None and trend <= -(1 / 18.0182)
-        for trend in (raw_trend, normalized_trend)
+    # Same reason. A constant offset would cancel out of a slope, but the
+    # calibration is affine, so the calibrated trend is the one to read.
+    falling = (
+        normalized_trend is not None and normalized_trend <= -(1 / 18.0182)
+    )
+    # "No bolus" is only evidence once a bolus would no longer be linked here.
+    # Inside the window the user may still be photographing the plate and has
+    # simply not dosed yet — and a half-entered lunch is exactly what "food, no
+    # insulin, small carbs, drifting down" looks like.
+    settled = (
+        start_at + SETTLING_WINDOW
+        <= (now if now is not None else _local_wall_time(datetime.now(UTC)))
     )
 
     total_carbs = sum(float(meal.total_carbs_g or 0) for meal in component.meals)
@@ -124,9 +147,13 @@ def classify_episode_therapy(
     suggested_carbs: float | None = None
     suggestion_source: Literal["ada_default"] | None = None
 
+    # Being below range before eating is its own evidence and stands whenever
+    # it happens. Drifting down is not: it only becomes a rescue because no
+    # bolus followed, so it has to wait until that is settled.
     small_falling_food_only = (
         bool(component.meals)
         and not component.insulin
+        and settled
         and falling
         and 0 < total_carbs <= SNACK_MAX_CARBS_G
     )

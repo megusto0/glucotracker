@@ -122,9 +122,12 @@ interface GlucoseSurfaces {
         rows: List<TodayMealRowUi>,
         // framed = false means the row is drawn inside a shared episode card
         // and must not draw its own card border.
+        // showTime = false means the sitting has already stated this minute —
+        // three plates photographed together printed it three times over.
         rowContent: @Composable (
             row: TodayMealRowUi,
             framed: Boolean,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     )
@@ -138,6 +141,7 @@ interface GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
@@ -203,11 +207,12 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         rowContent: @Composable (
             row: TodayMealRowUi,
             framed: Boolean,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, true, {})
+            rowContent(row, true, true, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }
@@ -219,12 +224,13 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, null, {})
+            rowContent(row, null, true, {})
             if (index < rows.lastIndex) divider()
         }
     }

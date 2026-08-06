@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from glucotracker.application.time import local_now
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
-from glucotracker.infra.db.models import Meal, MealItem, User
+from glucotracker.infra.db.models import HealthConnectRecord, Meal, MealItem, User
 from glucotracker.infra.security import hash_password, issue_access_token
 
 
@@ -145,6 +145,119 @@ def test_schedule_read_persists_learned_anchor_when_missing(
     assert body["anchor_weekday_minutes"] == 390
     assert body["effective_anchor_minutes"] == 390
     assert body["windows"][0]["start_minute"] == 390
+
+
+def _seed_nights(
+    session: Session,
+    owner_id: UUID,
+    *,
+    nights: int,
+    wake_hour: int,
+    hours: int = 7,
+) -> None:
+    """Recorded sleep sessions ending at the same hour every morning."""
+    today = local_now().date()
+    for offset in range(nights):
+        day = today - timedelta(days=nights - offset)
+        end = local_now().replace(
+            year=day.year,
+            month=day.month,
+            day=day.day,
+            hour=wake_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        session.add(
+            HealthConnectRecord(
+                owner_id=owner_id,
+                record_id=f"sleep-{day.isoformat()}",
+                record_type="SleepSessionRecord",
+                start_time=end - timedelta(hours=hours),
+                end_time=end,
+                payload={},
+            )
+        )
+    session.commit()
+
+
+def test_schedule_anchors_on_real_sleep_when_nights_are_known(
+    api_client: TestClient,
+) -> None:
+    """Waking at 06:00 anchors the day there even if the first plate is at 06:30.
+
+    The first meal is only a proxy for the start of a day, and a bad one on any
+    day breakfast is late or skipped.
+    """
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_anchor_meals(session, user_id)
+    _seed_nights(session, user_id, nights=7, wake_hour=6)
+    session.close()
+
+    body = api_client.get("/me/schedule").json()
+
+    assert body["basis"] == "sleep_7d"
+    assert body["effective_anchor_minutes"] == 360
+    assert body["windows"][0]["start_minute"] == 360
+
+
+def test_schedule_falls_back_to_meals_when_sleep_is_sparse(
+    api_client: TestClient,
+) -> None:
+    """Too few nights to be steady, so the anchor stays where it was."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_anchor_meals(session, user_id)
+    _seed_nights(session, user_id, nights=3, wake_hour=6)
+    session.close()
+
+    body = api_client.get("/me/schedule").json()
+
+    assert body["basis"] == "weighted_7d"
+    assert body["effective_anchor_minutes"] == 390
+
+
+def test_schedule_sleep_anchor_ignores_afternoon_naps(
+    api_client: TestClient,
+) -> None:
+    """A nap ends later in the day and would drag the anchor hours late."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_anchor_meals(session, user_id)
+    _seed_nights(session, user_id, nights=7, wake_hour=6)
+    today = local_now().date()
+    for offset in range(7):
+        day = today - timedelta(days=7 - offset)
+        nap_end = local_now().replace(
+            year=day.year,
+            month=day.month,
+            day=day.day,
+            hour=15,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        session.add(
+            HealthConnectRecord(
+                owner_id=user_id,
+                record_id=f"nap-{day.isoformat()}",
+                record_type="SleepSessionRecord",
+                start_time=nap_end - timedelta(minutes=50),
+                end_time=nap_end,
+                payload={},
+            )
+        )
+    session.commit()
+    session.close()
+
+    body = api_client.get("/me/schedule").json()
+
+    assert body["basis"] == "sleep_7d"
+    assert body["effective_anchor_minutes"] == 360
 
 
 def test_schedule_non_typical_period_crud(api_client: TestClient) -> None:

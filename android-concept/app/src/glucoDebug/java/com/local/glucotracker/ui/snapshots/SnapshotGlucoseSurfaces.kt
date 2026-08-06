@@ -88,11 +88,12 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         rowContent: @Composable (
             row: TodayMealRowUi,
             framed: Boolean,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, true, {})
+            rowContent(row, true, true, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }
@@ -104,6 +105,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
@@ -122,7 +124,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
                 )
                 else -> HistoryEntryTone(HistoryEntryTone.Kind.Meal, null)
             }
-            rowContent(row, tone, {})
+            rowContent(row, tone, true, {})
             if (index < rows.lastIndex) divider()
         }
     }

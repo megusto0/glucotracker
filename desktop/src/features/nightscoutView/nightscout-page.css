@@ -902,6 +902,26 @@
   font-size: 12px;
 }
 
+.ns-carb-show-dose {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #bbb;
+  background: transparent;
+  font:
+    600 12px/1.2 "JetBrains Mono",
+    Consolas,
+    monospace;
+  cursor: pointer;
+}
+
+.ns-carb-show-dose:hover {
+  border-color: #666;
+  color: #eee;
+}
+
 .ns-carb-context {
   display: grid;
   gap: 3px;

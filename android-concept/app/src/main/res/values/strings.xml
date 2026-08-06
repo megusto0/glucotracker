@@ -445,6 +445,11 @@
     <string name="more_import_title">Импорт и добавление</string>
     <string name="more_import_desc">Ручное добавление продуктов — в десктоп-версии.</string>
     <string name="more_desktop_pill">десктоп</string>
+    <string name="more_rhythm_basis_sleep">по реальному сну</string>
+    <string name="more_rhythm_basis_meals">по первым приёмам</string>
+    <string name="more_rhythm_basis_shift">сдвиг режима</string>
+    <string name="more_rhythm_basis_manual">задано вручную</string>
+    <string name="more_rhythm_basis_default">обычное расписание</string>
     <string name="more_rhythm_no_data">Ритм появится после синхронизации расписания.</string>
     <string name="more_rhythm_window">%1$s–%2$s</string>
     <string name="more_goals_summary_title">Цели дня</string>

@@ -112,6 +112,8 @@ class WeekdayType(StrEnum):
 class AnchorBasis(StrEnum):
     """Basis used to compute the user's day anchor."""
 
+    #: When the user actually woke, from recorded sleep or heart rate.
+    sleep_7d = "sleep_7d"
     weighted_7d = "weighted_7d"
     shift_3d = "shift_3d"
     absolute_fallback = "absolute_fallback"
