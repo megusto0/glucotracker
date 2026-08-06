@@ -260,6 +260,15 @@
     <string name="more_gluco_alarm_high_desc">Уведомление при выходе за верхнюю границу</string>
     <string name="more_gluco_alarm_signal_title">Потеря сигнала сенсора</string>
     <string name="more_gluco_alarm_signal_desc">Если данные не приходят больше 20 мин</string>
+    <!-- Insulin is told against the plate, not the clock: when a dose landed
+         relative to the food is what governs how the meal went, and «13:44»
+         made the reader subtract it from «14:10» to find out. -->
+    <string name="insulin_line_before">%1$s ЕД · за %2$d мин до еды</string>
+    <string name="insulin_line_after">%1$s ЕД · через %2$d мин после еды</string>
+    <string name="insulin_line_with">%1$s ЕД · вместе с едой</string>
+    <string name="insulin_line_at">%1$s ЕД · %2$s</string>
+    <string name="insulin_line_catch_up"> · догон %1$s</string>
+    <string name="insulin_line_shots">%1$d укола</string>
     <string name="body_state_sleep">Сон</string>
     <string name="body_state_activity">Активность</string>
     <!-- Half of these nights are read from heart rate rather than recorded by

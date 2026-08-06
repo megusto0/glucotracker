@@ -560,13 +560,19 @@ fun GTMealRow(
     muted: Boolean = false,
     primaryRightColor: Color? = null,
     compact: Boolean = false,
+    // The kind of record, as a bar down the edge of its own photo. It used to
+    // be a rail against the row's outer edge, which put the mark furthest from
+    // the thing it describes and cost a column of width to do it.
+    kindColor: Color? = null,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val primaryTextColor = if (muted) GT.colors.muted else GT.colors.ink
     val secondaryTextColor = if (muted) GT.colors.muted else GT.colors.ink2
-    val verticalPadding = if (compact) 9.dp else 12.dp
-    val photoSize = if (compact) 36.dp else 32.dp
-    val minHeight = if (compact) 54.dp else 56.dp
+    // Denser by two-thirds of a line per row. A journal is read by scanning
+    // many entries, and the space between them was doing none of that work.
+    val verticalPadding = if (compact) 9.dp else 8.dp
+    val photoSize = 36.dp
+    val minHeight = if (compact) 54.dp else 52.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -584,7 +590,17 @@ fun GTMealRow(
             style = GT.type.monoLabel,
             maxLines = 1,
         )
-        GTPhotoSlot(model = photo, modifier = Modifier.size(photoSize))
+        Box {
+            GTPhotoSlot(model = photo, modifier = Modifier.size(photoSize))
+            kindColor?.let { color ->
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(photoSize)
+                        .background(color),
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -624,13 +640,15 @@ fun GTMealRow(
                 style = GT.type.monoLabel,
                 maxLines = 1,
             )
-            Text(
-                text = secondaryRight,
-                modifier = Modifier.padding(top = 1.dp),
-                color = primaryTextColor,
-                style = GT.type.monoLabel,
-                maxLines = 1,
-            )
+            if (secondaryRight.isNotEmpty()) {
+                Text(
+                    text = secondaryRight,
+                    modifier = Modifier.padding(top = 1.dp),
+                    color = secondaryTextColor,
+                    style = GT.type.monoLabel,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

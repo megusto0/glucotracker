@@ -684,22 +684,12 @@ private fun HistoryMealRow(
     val clickModifier = clickId?.let { id ->
         Modifier.clickable { onOpenMealStack(id) }
     } ?: Modifier
-    val railColor = toneColor(tone)
-    val railModifier = if (railColor == null) {
-        clickModifier
-    } else {
-        // A hairline rail down the start edge. Every tone also says its name in
-        // the meta line, so colour is never the only thing carrying it.
-        clickModifier.drawBehind {
-            drawRoundRect(
-                color = railColor,
-                topLeft = Offset(0f, 6.dp.toPx()),
-                size = Size(2.dp.toPx(), size.height - 12.dp.toPx()),
-                cornerRadius = CornerRadius(1.dp.toPx()),
-            )
-        }
-    }
-    Box(modifier = railModifier) {
+    // The mark moved onto the photo, where the thing it describes is. Against
+    // the row's outer edge it sat furthest from the entry and spent a column of
+    // width doing it. Every tone still says its name in the meta line, so
+    // colour is never the only thing carrying the kind.
+    val kindColor = toneColor(tone)
+    Box(modifier = clickModifier) {
         GTMealRow(
             // Blank, not absent: the gutter keeps its width so the plates of
             // one sitting stay aligned with each other.
@@ -720,6 +710,7 @@ private fun HistoryMealRow(
             secondaryRight = secondaryRightText(row),
             status = null,
             muted = row.kind == HistoryMealRowKind.Pending,
+            kindColor = kindColor,
             extraMetaContent = extraMetaContent,
         )
     }

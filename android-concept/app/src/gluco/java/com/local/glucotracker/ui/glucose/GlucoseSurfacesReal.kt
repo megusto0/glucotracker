@@ -90,6 +90,7 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.minutes
 
@@ -550,7 +551,7 @@ private fun TodaySingleCard(
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
     ) {
         rowContent(entry.row, false, true) {
-            entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+            EpisodeInsulinLines(events = entry.paired, mealAt = entry.row.eatenAt)
         }
         entry.row.recordId
             ?.takeIf { entry.row.kind == TodayMealRowKind.Accepted }
@@ -631,7 +632,7 @@ private fun TodayEpisodeCard(
             val showTime = minute != statedMinute
             statedMinute = minute
             rowContent(entry.row, false, showTime) {
-                entry.paired.forEach { event -> InlineInsulinLine(event = event) }
+                EpisodeInsulinLines(events = entry.paired, mealAt = entry.row.eatenAt)
             }
             if (index < entries.lastIndex) {
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
@@ -795,9 +796,10 @@ private fun <T> InsulinAwareRows(
         when (item) {
             is InsulinTimelineItem.Meal -> {
                 rowContent(item.row, rowTone(item.row), true) {
-                    item.paired.forEach { event ->
-                        InlineInsulinLine(event = event)
-                    }
+                    EpisodeInsulinLines(
+                        events = item.paired,
+                        mealAt = rowTime(item.row),
+                    )
                     HistoryRecommendationButton(
                         mealIds = listOfNotNull(rowRecordId(item.row)),
                         givenUnits = item.paired.sumOf { it.doseUnits },
@@ -816,9 +818,10 @@ private fun <T> InsulinAwareRows(
                     statedMinute = minute
                     rowContent(row, rowTone(row), showTime) {
                         if (rowIndex == item.rows.lastIndex) {
-                            item.paired.forEach { event ->
-                                InlineInsulinLine(event = event)
-                            }
+                            EpisodeInsulinLines(
+                                events = item.paired,
+                                mealAt = item.rows.minOfOrNull(rowTime),
+                            )
                             // Only the calculation here. History's column is
                             // narrower than Today's and the second action was
                             // clipped to a single letter; the sitting's time is
@@ -1051,8 +1054,90 @@ private sealed interface InsulinTimelineItem<out T> {
     ) : InsulinTimelineItem<Nothing>
 }
 
+/**
+ * A sitting's insulin as one line, told against the food rather than the clock.
+ *
+ * Every dose used to get its own 44 dp row reading «+ 8,0 ЕД · 13:44», so a
+ * meal covered and then chased spent more height on its insulin than on its
+ * three dishes — and the reader still had to subtract 13:44 from 14:10 to learn
+ * the only thing that governs how it landed. The offset is the fact; the clock
+ * time is how it was stored.
+ *
+ * One dose keeps its own line, because that line is also how it gets edited and
+ * an extra tap to fix a typo is worse than a saved row. Two or more collapse to
+ * a total and expand on tap, which is the case that was costing the height.
+ */
 @Composable
-private fun InlineInsulinLine(event: InsulinEvent) {
+private fun EpisodeInsulinLines(events: List<InsulinEvent>, mealAt: Instant?) {
+    if (events.isEmpty()) return
+    if (events.size == 1) {
+        InlineInsulinLine(event = events.first(), mealAt = mealAt)
+        return
+    }
+    var expanded by remember(events.map { it.id }) { mutableStateOf(false) }
+    if (expanded) {
+        events.forEach { event -> InlineInsulinLine(event = event, mealAt = mealAt) }
+        return
+    }
+    val ordered = events.sortedBy { it.timestamp }
+    val total = events.sumOf { it.doseUnits }
+    val catchUp = events
+        .filter { it.eventType == InsulinEventType.CatchUp }
+        .sumOf { it.doseUnits }
+    Row(
+        modifier = Modifier
+            .heightIn(min = 44.dp)
+            .padding(top = 3.dp)
+            .clickable(role = Role.Button) { expanded = true },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = insulinAgainstMeal(total, ordered.first().timestamp, mealAt) +
+                if (catchUp > 0.0) {
+                    stringResource(R.string.insulin_line_catch_up, formatInsulinDose(catchUp))
+                } else {
+                    ""
+                },
+            color = GT.colors.ink2.copy(alpha = 0.72f),
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(R.string.insulin_line_shots, events.size),
+            color = GT.colors.ink2.copy(alpha = 0.46f),
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * «11,6 ЕД · за 26 мин до еды», or the clock time when there is no plate to
+ * measure against — a standalone correction has nothing to be early or late for.
+ */
+@Composable
+private fun insulinAgainstMeal(units: Double, at: Instant, mealAt: Instant?): String {
+    val dose = formatInsulinDose(units)
+    if (mealAt == null) {
+        return stringResource(R.string.insulin_line_at, dose, at.timeText())
+    }
+    val minutes = ((mealAt - at).inWholeSeconds / 60.0).roundToInt()
+    return when {
+        minutes > InsulinTogetherMinutes ->
+            stringResource(R.string.insulin_line_before, dose, minutes)
+        minutes < -InsulinTogetherMinutes ->
+            stringResource(R.string.insulin_line_after, dose, -minutes)
+        else -> stringResource(R.string.insulin_line_with, dose)
+    }
+}
+
+/** Inside this either way, the dose and the plate happened together. */
+private const val InsulinTogetherMinutes = 5
+
+@Composable
+private fun InlineInsulinLine(event: InsulinEvent, mealAt: Instant? = null) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
     var showManagement by remember(event.id) { mutableStateOf(false) }
     LaunchedEffect(showTooltip) {
@@ -1080,10 +1165,11 @@ private fun InlineInsulinLine(event: InsulinEvent) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "+ ${formatInsulinDose(event.doseUnits)} ${stringResource(R.string.insulin_units_short)} · ${event.timestamp.timeText()}",
+                text = insulinAgainstMeal(event.doseUnits, event.timestamp, mealAt),
                 color = GT.colors.ink2.copy(alpha = 0.72f),
                 style = GT.type.monoLabel.copy(fontSize = 10.sp),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             val suffix = event.sourceSuffix()
             if (suffix.isNotEmpty()) {
