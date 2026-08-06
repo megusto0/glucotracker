@@ -1232,20 +1232,19 @@ private fun sourceLabel(source: TodayMealSource): String =
     }
 
 @Composable
+/** One line, not two stacked: «449 · 5,4 г» in half the height. */
 private fun primaryRightText(row: TodayMealRowUi, isOnline: Boolean): String =
     if (row.kind == TodayMealRowKind.Pending) {
         pendingStatusText(row, isOnline)
     } else {
-        row.totalCarbsG?.let { stringResource(R.string.today_right_carbs, formatGrams(it)) } ?: "—"
+        listOfNotNull(
+            row.totalKcal?.let { formatKcal(it) },
+            row.totalCarbsG?.let { stringResource(R.string.today_right_carbs, formatGrams(it)) },
+        ).takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: "—"
     }
 
 @Composable
-private fun secondaryRightText(row: TodayMealRowUi): String =
-    if (row.kind == TodayMealRowKind.Pending) {
-        ""
-    } else {
-        row.totalKcal?.let { stringResource(R.string.today_right_kcal, formatKcal(it)) } ?: "—"
-    }
+private fun secondaryRightText(row: TodayMealRowUi): String = ""
 
 @Composable
 private fun TodayMealRowUi.pendingErrorText(): String? =

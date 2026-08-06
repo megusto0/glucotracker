@@ -754,7 +754,12 @@ private fun toneColor(tone: HistoryEntryTone?): Color? = when (tone?.kind) {
     HistoryEntryTone.Kind.Snack -> GT.colors.kindSnack
     HistoryEntryTone.Kind.CarbCorrection -> GT.colors.kindCarbRescue
     HistoryEntryTone.Kind.InsulinCorrection -> GT.colors.kindInsulinCorrection
-    HistoryEntryTone.Kind.Meal, null -> null
+    // A meal is marked too, in graphite. As a rail against the row's edge it
+    // was left blank, because a rail beside every row is a rail beside none —
+    // but on the photo the mark is the entry's own, and a plate with no bar
+    // beside a snack with one reads as "unclassified" rather than "ordinary".
+    HistoryEntryTone.Kind.Meal -> GT.colors.kindMeal
+    null -> null
 }
 
 /**
@@ -795,22 +800,24 @@ private fun sourceLabel(source: HistoryMealSource): String =
     }
 
 @Composable
+/**
+ * One line, not two stacked. «449 · 5,4 г» is the same two numbers in half the
+ * height, and height is the whole point of a list read by scanning it.
+ */
 private fun primaryRightText(row: HistoryMealRowUi): String =
     if (row.kind == HistoryMealRowKind.Pending) {
         pendingStatusText(row.status)
     } else {
-        row.totalCarbsG?.let { stringResource(R.string.today_right_carbs, formatGrams(it)) }
+        listOfNotNull(
+            row.totalKcal?.let { formatKcal(it) },
+            row.totalCarbsG?.let { stringResource(R.string.today_right_carbs, formatGrams(it)) },
+        ).takeIf { it.isNotEmpty() }
+            ?.joinToString(" · ")
             ?: stringResource(R.string.value_empty)
     }
 
 @Composable
-private fun secondaryRightText(row: HistoryMealRowUi): String =
-    if (row.kind == HistoryMealRowKind.Pending) {
-        ""
-    } else {
-        row.totalKcal?.let { stringResource(R.string.today_right_kcal, formatKcal(it)) }
-            ?: stringResource(R.string.value_empty)
-    }
+private fun secondaryRightText(row: HistoryMealRowUi): String = ""
 
 @Composable
 private fun pendingStatusText(status: HistoryMealStatus): String =

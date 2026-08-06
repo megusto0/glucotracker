@@ -599,41 +599,30 @@ private fun TodayEpisodeCard(
                 .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GTKicker(text = stringResource(R.string.today_episode_kicker, entries.size))
+            // The sitting's time lives here, so no row inside the card needs a
+            // gutter for it and every photo starts at the card's own edge.
+            GTKicker(
+                text = stringResource(
+                    R.string.today_episode_kicker_at,
+                    entries.minOf { it.row.eatenAt }.timeText(),
+                    entries.size,
+                ),
+            )
             Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel.copy(fontSize = 11.sp),
-                    maxLines = 1,
-                )
-                // The totals alone say nothing about whether the dose worked
-                // out: the same units can be right for the food and still land
-                // after it, which is what leaves insulin acting once the carbs
-                // are gone. Show the achieved ratio and the timing split.
-                todayEpisodeCoverage(entries, totalCarbs, totalInsulin)?.let { coverage ->
-                    Text(
-                        text = coverage,
-                        color = GT.colors.muted,
-                        style = GT.type.monoLabel.copy(fontSize = 10.sp),
-                        maxLines = 1,
-                    )
-                }
-            }
+            Text(
+                text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
-        // The time stays in the gutter, where the rest of the page keeps it.
-        // Only the repeats go: a plate that starts a new minute states it, the
-        // ones photographed alongside it leave the column blank.
-        var statedMinute: String? = null
+        // No gutter inside the card: the header above states the sitting's
+        // time, and a plate that broke away from it says so in its own meta.
+        val sittingMinute = entries.minOf { it.row.eatenAt }.timeText()
         entries.forEachIndexed { index, entry ->
-            val minute = entry.row.eatenAt.timeText()
-            val showTime = minute != statedMinute
-            statedMinute = minute
-            rowContent(entry.row, false, showTime) {
-                EpisodeInsulinLines(events = entry.paired, mealAt = entry.row.eatenAt)
-            }
+            rowContent(entry.row, false, entry.row.eatenAt.timeText() != sittingMinute) {}
             if (index < entries.lastIndex) {
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
             }
@@ -655,22 +644,33 @@ private fun TodayEpisodeCard(
                 ?.takeIf { it in sitting }
                 ?.let { SittingMeal(it, entry.row.eatenAt) }
         }
+        val sittingInsulin = entries
+            .filter { it.row.recordId in sitting }
+            .flatMap { it.paired }
+            .distinctBy { it.id }
         // No divider over an empty row.
-        if (recommendationEligible || sittingMeals.size >= 2) GlucoCardActionRow {
-            if (recommendationEligible) {
-                // Kept visible after a dose exists: that is exactly when the
-                // question changes from "how much" to "was it enough", and
-                // hiding it removed the only place the two numbers meet.
-                HistoricalInsulinButton(
-                    mealIds = sitting,
-                    alreadyGivenUnits = entries
-                        .filter { it.row.recordId in sitting }
-                        .sumOf { entry -> entry.paired.sumOf { it.doseUnits } },
-                )
+        if (recommendationEligible || sittingMeals.size >= 2 || sittingInsulin.isNotEmpty()) {
+            GlucoCardActionRow(
+                leading = {
+                    EpisodeInsulinLines(
+                        events = sittingInsulin,
+                        mealAt = entries.minOfOrNull { it.row.eatenAt },
+                    )
+                },
+            ) {
+                if (recommendationEligible) {
+                    // Kept visible after a dose exists: that is exactly when
+                    // the question changes from "how much" to "was it enough",
+                    // and hiding it removed the only place the two meet.
+                    HistoricalInsulinButton(
+                        mealIds = sitting,
+                        alreadyGivenUnits = sittingInsulin.sumOf { it.doseUnits },
+                    )
+                }
+                // Not gated on the day: a sitting logged at the wrong hour is
+                // exactly the thing you come back to History to fix.
+                SittingTimeButton(meals = sittingMeals)
             }
-            // Not gated on the day: a sitting logged at the wrong hour is
-            // exactly the thing you come back to History to fix.
-            SittingTimeButton(meals = sittingMeals)
         }
     }
 }

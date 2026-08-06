@@ -209,6 +209,9 @@
     <string name="insulin_manage_delete_action">Удалить</string>
     <string name="insulin_manage_nightscout_note">Изменения отправятся в Nightscout. Импортированные записи доступны только для просмотра.</string>
     <string name="today_episode_kicker">ПРИЁМ · %1$d×</string>
+    <!-- The sitting's time in its header, so no row inside the card carries a
+         time gutter and every photo starts at the card's own edge. -->
+    <string name="today_episode_kicker_at">%1$s · ПРИЁМ %2$d×</string>
     <string name="today_episode_carbs">%1$s г</string>
     <string name="today_episode_kcal">%1$s ккал</string>
     <!-- Coverage line under an episode header: what the dose actually worked out

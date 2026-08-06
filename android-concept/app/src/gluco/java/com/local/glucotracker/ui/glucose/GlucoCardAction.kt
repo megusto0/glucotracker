@@ -62,6 +62,10 @@ fun GlucoCardAction(
 fun GlucoCardActionRow(
     modifier: Modifier = Modifier,
     horizontalPadding: Dp = 14.dp,
+    // Stated to the left of the actions rather than on a line of its own. The
+    // mockup puts the dose and the action that questions it on one rule, and
+    // they are the same subject: what was given, and was it right.
+    leading: (@Composable () -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     GTHairlineDivider(modifier = Modifier.padding(horizontal = horizontalPadding))
@@ -69,8 +73,10 @@ fun GlucoCardActionRow(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.Center,
-        content = content,
-    )
+    ) {
+        leading?.invoke()
+        content()
+    }
 }
