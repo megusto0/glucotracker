@@ -19,6 +19,9 @@ data class HistoryTimelineMeal(
     val id: String,
     val minutesOfDay: Int,
     val kcal: Int?,
+    //: Carbohydrates are what move the curve, so the gluco timeline sizes by
+    //: these. The food timeline keeps sizing by [kcal], which is its subject.
+    val carbsG: Double?,
     val accepted: Boolean,
     val stuck: Boolean,
     val mainMeal: Boolean,

@@ -870,6 +870,7 @@ private fun List<HistoryMealRowUi>.toTimelineMeals(): List<HistoryTimelineMeal> 
             id = id,
             minutesOfDay = minutesOfDay,
             kcal = row.totalKcal?.roundToLong()?.toInt()?.coerceAtLeast(0),
+            carbsG = row.totalCarbsG,
             accepted = row.kind == HistoryMealRowKind.Accepted,
             stuck = row.status == HistoryMealStatus.Stuck,
             mainMeal = row.isMainMealForTimeline(),

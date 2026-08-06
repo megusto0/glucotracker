@@ -271,6 +271,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             meals = meals,
             readings = readings,
             classification = context.classificationByMealId,
+            insulin = context.allEvents,
             onMealTap = onMealTap,
             modifier = modifier,
         )
@@ -1107,6 +1108,7 @@ private fun DayTimelineGluco(
     meals: List<HistoryTimelineMeal>,
     readings: List<GlucoseReading>,
     classification: Map<String, EpisodeTherapyClass>,
+    insulin: List<InsulinEvent>,
     onMealTap: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1135,7 +1137,7 @@ private fun DayTimelineGluco(
                                 id = meal.id,
                                 x = x.coerceIn(0f, size.width.toFloat()),
                                 naturalY = y,
-                                radius = computeTimelineRadiusPx(meal.kcal),
+                                radius = computeCarbRadiusPx(meal.carbsG),
                             )
                         },
                         padding = 2.dp.toPx(),
@@ -1158,6 +1160,42 @@ private fun DayTimelineGluco(
             strokeWidth = 1.dp.toPx(),
             cap = StrokeCap.Round,
         )
+
+        // The band is the whole reference. With a fixed scale behind it, a
+        // wiggle at 5.5 reads as small and a climb to 13 reads as a climb,
+        // without an axis, labels or gridlines.
+        if (scale != null) {
+            val top = glucoseY(InRangeHigh, size.height, scale)
+            val bottom = glucoseY(InRangeLow, size.height, scale)
+            drawRect(
+                color = colors.accent.copy(alpha = 0.07f),
+                topLeft = Offset(0f, top),
+                size = Size(size.width, (bottom - top).coerceAtLeast(1f)),
+            )
+        }
+
+        // Doses lived only in the rows, so the chart could not show the one
+        // thing a day chart is for here: what a dose did to the curve above it.
+        // Ticks hang off the baseline, height by units, so they read as a
+        // second series without becoming a second chart.
+        insulin.forEach { event ->
+            val units = event.doseUnits
+            if (units <= 0.0) return@forEach
+            val minutes = event.timestamp
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .let { it.hour * 60 + it.minute }
+            val x = size.width * (minutes / TimelineMinutesPerDay)
+            val tick = (units / TimelineInsulinNormalization)
+                .coerceIn(0.0, 1.0)
+                .toFloat() * TimelineInsulinTickMax.toPx()
+            drawLine(
+                color = colors.info.copy(alpha = 0.55f),
+                start = Offset(x, size.height),
+                end = Offset(x, size.height - tick.coerceAtLeast(2.dp.toPx())),
+                strokeWidth = 1.5.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
 
         if (sortedReadings.size >= 2 && scale != null) {
             val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
@@ -1202,7 +1240,7 @@ private fun DayTimelineGluco(
                     id = meal.id,
                     x = x.coerceIn(0f, size.width),
                     naturalY = y,
-                    radius = computeTimelineRadiusPx(meal.kcal),
+                    radius = computeCarbRadiusPx(meal.carbsG),
                 )
             },
             padding = 2.dp.toPx(),
@@ -1852,17 +1890,22 @@ private fun Sparkline(
     }
 }
 
+/**
+ * One scale for every day, so two days can be compared by looking at them.
+ *
+ * This used to fit each day to its own min and max, which normalised the units
+ * away: a day that ran 5.0-7.0 and a day that ran 3.5-12.0 drew the same shape
+ * filling the same height. A calm day looked dramatic and a bad day looked
+ * ordinary, and scrolling the history compared nothing.
+ */
 private fun glucoseScale(readings: List<GlucoseReading>): Pair<Double, Double>? {
+    if (readings.isEmpty()) return null
+    // Widen only for a day that genuinely leaves the fixed frame, so those
+    // readings stay on the chart instead of being clipped flat against an edge.
     val values = readings.map { it.displayValueMmolL }
-    val min = values.minOrNull() ?: return null
-    val max = values.maxOrNull() ?: return null
-    val yMin = min.coerceIn(DisplayGlucoseMin, DisplayGlucoseMax)
-    val yMax = max.coerceIn(DisplayGlucoseMin, DisplayGlucoseMax)
-    return if (yMax - yMin >= 0.1) {
-        yMin to yMax
-    } else {
-        DisplayGlucoseMin to DisplayGlucoseMax
-    }
+    val yMin = minOf(DisplayGlucoseMin, values.min())
+    val yMax = maxOf(DisplayGlucoseMax, values.max())
+    return yMin to yMax
 }
 
 private fun splitContinuousReadings(readings: List<GlucoseReading>): List<List<GlucoseReading>> {
@@ -1935,6 +1978,14 @@ private fun GlucoseReading.minutesOfDay(): Int {
 private fun minutesBetween(a: Instant, b: Instant): Long =
     abs(b.toEpochMilliseconds() - a.toEpochMilliseconds()) / 60_000L
 
+/** Sized by carbohydrate, which is what actually moves the curve under it. */
+private fun Density.computeCarbRadiusPx(carbsG: Double?): Float {
+    val normalized = sqrt(
+        ((carbsG ?: 0.0).toFloat() / TimelineCarbNormalization).coerceIn(0f, 1f),
+    )
+    return TimelineMinRadius.toPx() + normalized * (TimelineMaxRadius.toPx() - TimelineMinRadius.toPx())
+}
+
 private fun Density.computeTimelineRadiusPx(kcal: Int?): Float {
     val normalized = sqrt(((kcal ?: 0) / TimelineKcalNormalization).coerceIn(0f, 1f))
     return TimelineMinRadius.toPx() + normalized * (TimelineMaxRadius.toPx() - TimelineMinRadius.toPx())
@@ -1999,5 +2050,15 @@ private const val TimelineKcalNormalization = 700f
 private const val TimelineMinutesPerDay = 1_440f
 private const val TimelineMinutesPerDayInt = 1_440
 private const val CgmGapMinutes = 10L
+// Fixed frame every day is drawn in. Wide enough that ordinary days sit calmly
+// inside it and a real excursion visibly leaves the band.
 private const val DisplayGlucoseMin = 3.0
-private const val DisplayGlucoseMax = 12.0
+private const val DisplayGlucoseMax = 14.0
+// The band drawn behind the curve. No labels: the reference is the band.
+private const val InRangeLow = 3.9
+private const val InRangeHigh = 10.0
+// A 60 g plate reaches full size; carbohydrate is what moves the curve.
+private const val TimelineCarbNormalization = 60f
+// A 12 U bolus reaches a full-height tick.
+private const val TimelineInsulinNormalization = 12.0
+private val TimelineInsulinTickMax = 10.dp
