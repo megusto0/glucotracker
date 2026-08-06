@@ -463,6 +463,10 @@ class InsulinRecommendationResponse(BaseModel):
     implied_icr_g_per_unit: float | None = None
     history_median_units: float | None = None
     history_weight: float | None = Field(default=None, ge=0, le=1)
+    # The food half is stored and reused; the correction is always computed at
+    # the moment of asking, because it reads glucose and insulin on board now.
+    meal_from_cache: bool = False
+    meal_computed_at: datetime | None = None
     correction_status: Literal[
         "ready",
         "not_needed",

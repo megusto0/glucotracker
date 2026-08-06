@@ -13,6 +13,7 @@ record.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from math import isfinite, log
@@ -36,6 +37,7 @@ from glucotracker.application.glucose_dashboard import (
 from glucotracker.application.glucose_trend_projection import (
     GlucoseTrendProjectionService,
 )
+from glucotracker.application.grouping import GROUPING_VERSION
 from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_AFTER,
     _local_wall_time,
@@ -50,6 +52,7 @@ from glucotracker.application.time import (
 from glucotracker.application.twin.kernels import PersonalizedInsulinKernel
 from glucotracker.infra.db.models import (
     HealthConnectRecord,
+    InsulinRecommendationCache,
     Meal,
     NightscoutInsulinEvent,
     TwinParams,
@@ -236,6 +239,9 @@ class InsulinCalculation:
     total_recommended_units: float | None
     total_range_low_units: float | None
     total_range_high_units: float | None
+    #: Whether the food half was served from store. The correction never is.
+    meal_from_cache: bool = False
+    meal_computed_at: datetime | None = None
 
 
 @dataclass
@@ -323,12 +329,16 @@ class HistoricalInsulinRecommendationService:
             if correction_target_mmol_l is not None
             else DEFAULT_CORRECTION_TARGET_MMOL_L
         )
+        # The correction is always live. It reads glucose and insulin on board
+        # at this moment, so a stored one is worse than none.
         correction = self._correction_estimate(
             meals,
             effective_target,
             twin_params=twin_params,
         )
-        meal_estimate = self._meal_estimate(
+        # The food half costs a 180-day pass over episode history and does not
+        # change minute to minute, so it is stored and reused.
+        meal_estimate, meal_cached = self._cached_meal_estimate(
             unique_ids,
             meals,
             twin_params=twin_params,
@@ -351,6 +361,8 @@ class HistoricalInsulinRecommendationService:
                 total_recommended_units=None,
                 total_range_low_units=None,
                 total_range_high_units=None,
+                meal_from_cache=meal_cached is not None,
+                meal_computed_at=meal_cached,
             )
 
         correction_is_usable = correction.status in {"ready", "not_needed"}
@@ -379,7 +391,65 @@ class HistoricalInsulinRecommendationService:
             total_recommended_units=total,
             total_range_low_units=total_low,
             total_range_high_units=total_high,
+            meal_from_cache=meal_cached is not None,
+            meal_computed_at=meal_cached,
         )
+
+    def _cached_meal_estimate(
+        self,
+        unique_ids: list[UUID],
+        meals: list[Meal],
+        *,
+        twin_params: TwinParams,
+    ) -> tuple[HistoricalDoseEstimate, datetime | None]:
+        """Serve the stored food estimate when nothing behind it has moved.
+
+        Scoped to the sitting and the therapy parameters. The matcher also
+        reads six months of prior episodes; folding that into the fingerprint
+        would invalidate every stored estimate the moment one meal is logged,
+        which is the opposite of a cache. A model-version bump is what pulls
+        new history in — the same trade-off the review cache documents.
+        """
+        session = self.repository.session
+        meal_key = "|".join(sorted(str(meal_id) for meal_id in unique_ids))
+        fingerprint = _meal_fingerprint(meals, twin_params)
+        row = session.scalar(
+            select(InsulinRecommendationCache).where(
+                InsulinRecommendationCache.owner_id == self.repository.user_id,
+                InsulinRecommendationCache.meal_key == meal_key,
+                InsulinRecommendationCache.method_version == METHOD_VERSION,
+            )
+        )
+        if row is not None and row.input_fingerprint == fingerprint:
+            stored = _estimate_from_json(row.result_json)
+            if stored is not None:
+                computed_at = row.computed_at
+                if computed_at.tzinfo is None:
+                    computed_at = computed_at.replace(tzinfo=UTC)
+                return stored, computed_at
+
+        estimate = self._meal_estimate(
+            unique_ids,
+            meals,
+            twin_params=twin_params,
+        )
+        payload = _estimate_to_json(estimate)
+        if row is None:
+            session.add(
+                InsulinRecommendationCache(
+                    owner_id=self.repository.user_id,
+                    meal_key=meal_key,
+                    method_version=METHOD_VERSION,
+                    input_fingerprint=fingerprint,
+                    result_json=payload,
+                )
+            )
+        else:
+            row.input_fingerprint = fingerprint
+            row.result_json = payload
+            row.computed_at = datetime.now(UTC)
+        session.commit()
+        return estimate, None
 
     def _meal_estimate(
         self,
@@ -1270,6 +1340,73 @@ def _hr_trough_ended_within_window(
             continue
         return True
     return False
+
+
+def _meal_fingerprint(meals: list[Meal], twin_params: TwinParams) -> str:
+    """Summarise the sitting and the parameters the food estimate came from."""
+    # The parameters themselves, not their updated_at: an unpersisted default
+    # row is rebuilt with a fresh timestamp on every request, and an unrelated
+    # twin edit should not throw away a still-valid estimate.
+    parts = [
+        METHOD_VERSION,
+        GROUPING_VERSION,
+        str(twin_params.icr_morning),
+        str(twin_params.icr_day),
+        str(twin_params.icr_evening),
+        str(twin_params.morning_start_minutes),
+        str(twin_params.day_start_minutes),
+        str(twin_params.evening_start_minutes),
+        str(_trusted_isf(twin_params)),
+        str(twin_params.last_fit_method),
+    ]
+    for meal in sorted(meals, key=lambda item: item.id):
+        parts.append(
+            f"{meal.id}:{meal.updated_at}:{meal.eaten_at}:"
+            f"{meal.total_carbs_g}:{meal.total_kcal}"
+        )
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
+
+
+def _estimate_to_json(estimate: HistoricalDoseEstimate) -> dict[str, Any]:
+    return {
+        **vars(estimate),
+        "meal_ids": [str(meal_id) for meal_id in estimate.meal_ids],
+        "matches": [
+            {
+                **vars(match),
+                "occurred_at": match.occurred_at.isoformat(),
+                "meal_ids": [str(meal_id) for meal_id in match.meal_ids],
+            }
+            for match in estimate.matches
+        ],
+    }
+
+
+def _estimate_from_json(payload: dict[str, Any]) -> HistoricalDoseEstimate | None:
+    """Rebuild a stored estimate, treating any shape surprise as a miss."""
+    try:
+        return HistoricalDoseEstimate(
+            **{
+                **payload,
+                "meal_ids": [UUID(str(item)) for item in payload["meal_ids"]],
+                "matches": [
+                    HistoricalDoseMatch(
+                        **{
+                            **match,
+                            "occurred_at": datetime.fromisoformat(
+                                str(match["occurred_at"])
+                            ),
+                            "meal_ids": [
+                                UUID(str(item)) for item in match["meal_ids"]
+                            ],
+                        }
+                    )
+                    for match in payload.get("matches", [])
+                ],
+            }
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _icr_fields(basis: IcrBasis | None) -> dict[str, Any]:

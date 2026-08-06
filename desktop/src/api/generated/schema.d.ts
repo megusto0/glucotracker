@@ -4369,6 +4369,13 @@ export interface components {
             matched_episode_count: number;
             /** Matches */
             matches: components["schemas"]["InsulinRecommendationMatchResponse"][];
+            /** Meal Computed At */
+            meal_computed_at?: string | null;
+            /**
+             * Meal From Cache
+             * @default false
+             */
+            meal_from_cache: boolean;
             /** Meal Ids */
             meal_ids: string[];
             /** Method Version */

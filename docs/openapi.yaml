@@ -3814,6 +3814,16 @@ components:
             $ref: '#/components/schemas/InsulinRecommendationMatchResponse'
           title: Matches
           type: array
+        meal_computed_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Meal Computed At
+        meal_from_cache:
+          default: false
+          title: Meal From Cache
+          type: boolean
         meal_ids:
           items:
             format: uuid

@@ -1505,6 +1505,57 @@ class TherapyReviewCache(Base):
     owner: Mapped[User] = relationship()
 
 
+class InsulinRecommendationCache(Base):
+    """Persisted meal half of a dose calculation.
+
+    Only the food component is stored. It costs a 180-day pass over episode
+    history and does not change minute to minute. The correction half is never
+    cached: it reads glucose and insulin on board right now, and a stale one is
+    worse than none.
+    """
+
+    __tablename__ = "insulin_recommendation_caches"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "meal_key",
+            "method_version",
+            name="uq_insulin_recommendation_cache_owner_meals_version",
+        ),
+        Index(
+            "ix_insulin_recommendation_cache_owner_computed",
+            "owner_id",
+            "computed_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    #: Sorted meal ids of the sitting the estimate was made for.
+    meal_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    method_version: Mapped[str] = mapped_column(String(120), nullable=False)
+    #: Digest of the meals and parameters behind the stored result.
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+    )
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    owner: Mapped[User] = relationship()
+
+
 class TwinParams(Base, TimestampMixin):
     """Per-user parameters for the informational digital twin model."""
 

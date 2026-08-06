@@ -70,6 +70,7 @@ import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatSignedKcal
 import com.local.glucotracker.ui.format.formatSignedMmol
 import com.local.glucotracker.ui.format.pluralizeDay
+import com.local.glucotracker.ui.format.pluralizeDish
 import com.local.glucotracker.ui.format.pluralizeMeal
 import com.local.glucotracker.ui.format.pluralizePhoto
 import com.local.glucotracker.ui.format.pluralizeRecord
@@ -728,7 +729,7 @@ private fun HistoryDayUi.summaryText(): String {
     val mealCount = totals?.mealCount ?: rows.count { it.kind == HistoryMealRowKind.Accepted }
     return stringResource(
         R.string.history_day_summary_compact,
-        pluralizeMeal(mealCount),
+        pluralizeDish(mealCount),
         formatGrams(totals?.carbsG ?: 0.0),
         formatKcal(totals?.kcal ?: 0.0),
         balance,

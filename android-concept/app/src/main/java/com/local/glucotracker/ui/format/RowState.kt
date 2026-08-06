@@ -136,6 +136,16 @@ fun pluralizeDay(count: Int): String =
 fun pluralizeMeal(count: Int): String =
     pluralizeRu(count, "приём", "приёма", "приёмов")
 
+/**
+ * Individual dishes, which is what a day's meal records actually are.
+ *
+ * "приём" means one sitting everywhere else — the Today screen groups by it and
+ * the backend episode engine defines it — so calling eleven photographed dishes
+ * "11 приёмов" contradicted the rest of the app.
+ */
+fun pluralizeDish(count: Int): String =
+    pluralizeRu(count, "блюдо", "блюда", "блюд")
+
 fun pluralizePhoto(count: Int): String =
     pluralizeRu(count, "фото", "фото", "фото")
 

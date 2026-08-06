@@ -193,9 +193,12 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         }
         val isCurrentDay =
             date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        // Not gated on today or on being undosed any more. After a dose the
+        // sheet becomes a comparison against what was actually given, which is
+        // the more useful reading and what the desktop has always done; the
+        // food half is stored server-side, so looking is cheap.
         if (
             recommendationEligible &&
-            isCurrentDay &&
             targetIds.isNotEmpty() &&
             targetIds.all { runCatching { java.util.UUID.fromString(it) }.isSuccess }
         ) {
@@ -250,6 +253,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             rowId = { row -> row.id },
             rowTime = { row -> row.eatenAt },
             rowTone = { row -> context.classificationByMealId[row.id].toTone() },
+            rowRecordId = { row -> row.recordId },
             rowContent = rowContent,
             separator = divider,
         )
@@ -357,15 +361,15 @@ private fun TodayEpisodeRows(
             is TodayTimelineItem.Single -> rowContent(item.entry.row, true) {
                 item.entry.paired.forEach { event -> InlineInsulinLine(event = event) }
                 item.entry.row.recordId
-                    ?.takeIf {
-                        isCurrentDay &&
-                            item.entry.paired.isEmpty() &&
-                            item.entry.row.kind == TodayMealRowKind.Accepted
-                    }
+                    ?.takeIf { item.entry.row.kind == TodayMealRowKind.Accepted }
                     ?.let { mealId ->
+                        // Kept after a dose: it stops being a suggestion and
+                        // becomes a comparison against what was given.
                         HistoricalInsulinButton(
                             mealIds = listOf(mealId),
                             modifier = Modifier.padding(top = 4.dp),
+                            alreadyGivenUnits = item.entry.paired
+                                .sumOf { event -> event.doseUnits },
                         )
                     }
             }
@@ -594,6 +598,7 @@ private fun <T> InsulinAwareRows(
     rowId: (T) -> String,
     rowTime: (T) -> Instant,
     rowTone: @Composable (T) -> HistoryEntryTone?,
+    rowRecordId: (T) -> String?,
     rowContent: @Composable (
         row: T,
         tone: HistoryEntryTone?,
@@ -648,6 +653,10 @@ private fun <T> InsulinAwareRows(
                     item.paired.forEach { event ->
                         InlineInsulinLine(event = event)
                     }
+                    HistoryRecommendationButton(
+                        mealIds = listOfNotNull(rowRecordId(item.row)),
+                        givenUnits = item.paired.sumOf { it.doseUnits },
+                    )
                 }
             }
             is InsulinTimelineItem.Episode -> {
@@ -659,6 +668,10 @@ private fun <T> InsulinAwareRows(
                             item.paired.forEach { event ->
                                 InlineInsulinLine(event = event)
                             }
+                            HistoryRecommendationButton(
+                                mealIds = item.rows.mapNotNull(rowRecordId),
+                                givenUnits = item.paired.sumOf { it.doseUnits },
+                            )
                         }
                     }
                 }
@@ -700,6 +713,25 @@ private fun EpisodeTherapyClass?.toTone(): HistoryEntryTone? = when (this) {
     EpisodeTherapyClass.Unresolved,
     null,
     -> null
+}
+
+/**
+ * The calculation for a past sitting, which History never offered at all.
+ *
+ * Only for sittings that carry real meal records. Once insulin exists the sheet
+ * reads as a comparison rather than a suggestion.
+ */
+@Composable
+private fun HistoryRecommendationButton(mealIds: List<String>, givenUnits: Double) {
+    val valid = mealIds.filter { id ->
+        runCatching { java.util.UUID.fromString(id) }.isSuccess
+    }
+    if (valid.isEmpty()) return
+    HistoricalInsulinButton(
+        mealIds = valid,
+        modifier = Modifier.padding(top = 4.dp),
+        alreadyGivenUnits = givenUnits,
+    )
 }
 
 private sealed interface InsulinTimelineItem<out T> {

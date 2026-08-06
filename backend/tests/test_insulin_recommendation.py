@@ -547,6 +547,53 @@ def test_recommendation_falls_back_to_icr_without_history(
     assert body["implied_icr_g_per_unit"] == 10.0
 
 
+def test_the_food_half_is_stored_and_the_correction_is_not(
+    api_client: TestClient,
+) -> None:
+    """The expensive half is the stable one. Rebuilding 180 days of history on
+    every request is waste; reusing a correction would be dangerous."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 7, 20, 12, 0)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40)
+        for days_ago in (7, 14, 21):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40)
+            _insulin(session, owner_id, occurred_at, 4.0)
+        session.commit()
+
+    payload = {"meal_ids": [str(target.id)]}
+    first = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    second = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+
+    assert first["meal_from_cache"] is False
+    assert second["meal_from_cache"] is True
+    assert second["meal_computed_at"] is not None
+    # The food half is identical; nothing about it depends on the moment.
+    assert second["recommended_units"] == first["recommended_units"]
+    assert second["matched_episode_count"] == first["matched_episode_count"]
+
+    # Editing the meal must not serve the estimate made for the old one.
+    with session_factory() as session:
+        meal = session.get(Meal, target.id)
+        meal.total_carbs_g = 80.0
+        session.commit()
+
+    after_edit = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    assert after_edit["meal_from_cache"] is False
+    assert after_edit["target_carbs_g"] == 80.0
+
+
 def test_recommendation_reports_how_history_and_the_ratio_were_blended(
     api_client: TestClient,
 ) -> None:

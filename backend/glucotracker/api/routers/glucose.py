@@ -445,6 +445,8 @@ def get_insulin_recommendation(
         implied_icr_g_per_unit=estimate.implied_icr_g_per_unit,
         history_median_units=estimate.history_median_units,
         history_weight=estimate.history_weight,
+        meal_from_cache=calculation.meal_from_cache,
+        meal_computed_at=calculation.meal_computed_at,
         correction_status=correction.status,
         correction_units=correction.units,
         correction_target_mmol_l=correction.target_mmol_l,
