@@ -17,6 +17,24 @@ data class GTColors(
     val warn: Color,
     val bad: Color,
     val info: Color,
+    /**
+     * What a record was, and what the body was doing under it.
+     *
+     * Six carriers of meaning that lightness alone could not separate: four
+     * kinds of entry a day is made of, plus sleep and effort. They live only in
+     * a marker — a dot, a rail, a strip over a photo, the outline of a circle
+     * on the chart. Never a row background, never text, never a number: six
+     * kinds tinting whole rows turns a journal into a traffic light.
+     *
+     * A meal is graphite on purpose. It is the commonest kind and must not
+     * shout; the ones worth finding by eye are the two corrections.
+     */
+    val kindMeal: Color,
+    val kindSnack: Color,
+    val kindCarbRescue: Color,
+    val kindInsulinCorrection: Color,
+    val stateSleep: Color,
+    val stateActivity: Color,
 )
 
 val GTLightColors = GTColors(
@@ -33,6 +51,12 @@ val GTLightColors = GTColors(
     warn = Color(0xFFC98A55),
     bad = Color(0xFF2D3340),
     info = Color(0xFF6B7A92),
+    kindMeal = Color(0xFF56534C),
+    kindSnack = Color(0xFF9A7B33),
+    kindCarbRescue = Color(0xFFA8624E),
+    kindInsulinCorrection = Color(0xFF4F6274),
+    stateSleep = Color(0xFF6B6A80),
+    stateActivity = Color(0xFF5E6B4A),
 )
 
 val LocalGTColors = staticCompositionLocalOf { GTLightColors }

@@ -748,10 +748,21 @@ private fun HistoryDayUi.summaryText(): String {
  * the uncommon ones to stand out against.
  */
 @Composable
+/**
+ * Kind tokens, not repurposed status colours.
+ *
+ * A rescue was drawn in `warn` and a correction in `info`, which say "warning"
+ * and "information" — the wrong words for two kinds of treatment, and both
+ * already carry those meanings elsewhere on the screen. The kind palette exists
+ * to be read as kind and nothing else.
+ *
+ * A meal stays untinted: it is the commonest kind, and a rail beside every row
+ * is a rail beside none.
+ */
 private fun toneColor(tone: HistoryEntryTone?): Color? = when (tone?.kind) {
-    HistoryEntryTone.Kind.Snack -> GT.colors.accent.copy(alpha = 0.45f)
-    HistoryEntryTone.Kind.CarbCorrection -> GT.colors.warn
-    HistoryEntryTone.Kind.InsulinCorrection -> GT.colors.info
+    HistoryEntryTone.Kind.Snack -> GT.colors.kindSnack
+    HistoryEntryTone.Kind.CarbCorrection -> GT.colors.kindCarbRescue
+    HistoryEntryTone.Kind.InsulinCorrection -> GT.colors.kindInsulinCorrection
     HistoryEntryTone.Kind.Meal, null -> null
 }
 

@@ -16,6 +16,16 @@
   --bad:  #2d3340;          /* graphite-navy — deficit / dominant CTA */
   --info: #6b7a92;          /* slate — fingerstick */
 
+  /* kind of record, and what the body was doing under it. Marker only —
+     a dot, a rail, a strip over a photo, a circle outline on the chart.
+     Never a row background, never text, never a number. */
+  --kind-meal: #56534c;              /* graphite — the commonest, must not shout */
+  --kind-snack: #9a7b33;             /* ochre — warm, quieter than a meal */
+  --kind-carb-rescue: #a8624e;       /* brick — a low; has to be findable by eye */
+  --kind-insulin-correction: #4f6274;/* blue-grey — the only cold tone */
+  --state-sleep: #6b6a80;            /* lilac — always translucent */
+  --state-activity: #5e6b4a;         /* sage — solid */
+
   --serif: 'PT Serif', 'Source Serif Pro', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'SF Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;

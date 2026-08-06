@@ -281,14 +281,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             rowRecordId = { row -> row.recordId },
             rowContent = rowContent,
             separator = divider,
-        )
-        // After the records, not among them. Sleep and effort are the day's
-        // background: they explain what the records did rather than being
-        // things that were done, and interleaving them by time would put a
-        // seven-hour night between two plates.
-        BodyStateRows(
-            states = bodyStates[date].orEmpty(),
-            divider = divider,
+            bodyStates = bodyStates[date].orEmpty(),
         )
     }
 
@@ -699,6 +692,7 @@ private fun <T> InsulinAwareRows(
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
     separator: @Composable () -> Unit = { Spacer(Modifier.height(14.dp)) },
+    bodyStates: List<BodyState> = emptyList(),
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
     val timeline = remember(context, rows) {
@@ -736,6 +730,12 @@ private fun <T> InsulinAwareRows(
                 } +
                 (context.orphans + unanchored).map { event ->
                     InsulinTimelineItem.Orphan(event = event, timestamp = event.timestamp)
+                } +
+                // Placed by when the state began, not when it ended: a night is
+                // an event of the evening it started, and anchoring on the wake
+                // time would file it among the following morning's plates.
+                bodyStates.map { state ->
+                    InsulinTimelineItem.Body(state = state, timestamp = state.startAt)
                 }
             ).sortedByDescending { item -> item.timestamp }
     }
@@ -786,6 +786,7 @@ private fun <T> InsulinAwareRows(
                     .takeIf { !item.event.isPending },
                 framed = false,
             )
+            is InsulinTimelineItem.Body -> BodyStateRow(state = item.state)
         }
         if (index < timeline.lastIndex) separator()
     }
@@ -808,65 +809,64 @@ private fun <T> InsulinAwareRows(
  * medical screen must not present the two as equally certain.
  */
 @Composable
-private fun BodyStateRows(states: List<BodyState>, divider: @Composable () -> Unit) {
-    if (states.isEmpty()) return
-    val ordered = remember(states) { states.sortedBy { it.startAt } }
-    divider()
-    ordered.forEachIndexed { index, state ->
-        if (index > 0) divider()
-        Row(
+private fun BodyStateRow(state: BodyState) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 40.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 40.dp)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .background(
-                        when (state.kind) {
-                            BodyState.Kind.Sleep -> GT.colors.ink2.copy(alpha = 0.45f)
-                            BodyState.Kind.Activity -> GT.colors.good
-                        },
-                        GT.shapes.tag,
-                    ),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = state.label ?: stringResource(
+                .size(7.dp)
+                .background(
                     when (state.kind) {
-                        BodyState.Kind.Sleep -> R.string.body_state_sleep
-                        BodyState.Kind.Activity -> R.string.body_state_activity
+                        BodyState.Kind.Sleep -> GT.colors.stateSleep.copy(alpha = 0.55f)
+                        BodyState.Kind.Activity -> GT.colors.stateActivity
                     },
+                    GT.shapes.tag,
                 ),
-                modifier = Modifier.weight(1f),
-                color = GT.colors.ink2,
-                style = GT.type.sansLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (state.inferred) {
-                Text(
-                    text = stringResource(R.string.body_state_inferred),
-                    modifier = Modifier.padding(end = 8.dp),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel.copy(fontSize = 9.sp),
-                    maxLines = 1,
-                )
-            }
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = state.label ?: stringResource(
+                when (state.kind) {
+                    BodyState.Kind.Sleep -> R.string.body_state_sleep
+                    BodyState.Kind.Activity -> R.string.body_state_activity
+                },
+            ),
+            modifier = Modifier.weight(1f),
+            color = GT.colors.ink2,
+            style = GT.type.sansLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (state.inferred) {
+            // With the rate that produced it. A 28-minute "effort" on an
+            // evening spent sitting is either a real 105 bpm worth knowing
+            // about or a bad read, and the number is what tells them apart.
             Text(
-                text = stringResource(
-                    R.string.body_state_span,
-                    formatBodyStateDuration(state.totalMinutes),
-                    state.startAt.timeText(),
-                    state.endAt.timeText(),
-                ),
+                text = state.meanBpm
+                    ?.let { stringResource(R.string.body_state_inferred_bpm, it) }
+                    ?: stringResource(R.string.body_state_inferred),
+                modifier = Modifier.padding(end = 8.dp),
                 color = GT.colors.muted,
-                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                style = GT.type.monoLabel.copy(fontSize = 9.sp),
                 maxLines = 1,
             )
         }
+        Text(
+            text = stringResource(
+                R.string.body_state_span,
+                formatBodyStateDuration(state.totalMinutes),
+                state.startAt.timeText(),
+                state.endAt.timeText(),
+            ),
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 11.sp),
+            maxLines = 1,
+        )
     }
 }
 
@@ -929,6 +929,12 @@ private sealed interface InsulinTimelineItem<out T> {
 
     data class Orphan(
         val event: InsulinEvent,
+        override val timestamp: Instant,
+    ) : InsulinTimelineItem<Nothing>
+
+    /** Sleep or hard effort, sitting in the day at the hour it happened. */
+    data class Body(
+        val state: BodyState,
         override val timestamp: Instant,
     ) : InsulinTimelineItem<Nothing>
 }
@@ -1413,8 +1419,10 @@ private fun DayTimelineGluco(
             val right = size.width * (to / TimelineMinutesPerDay)
             drawRect(
                 color = when (state.kind) {
-                    BodyState.Kind.Sleep -> colors.ink2.copy(alpha = 0.22f)
-                    BodyState.Kind.Activity -> colors.good.copy(alpha = 0.55f)
+                    // Sleep is always translucent — it is the ground state of a
+                    // day, not an event in one. Effort is solid.
+                    BodyState.Kind.Sleep -> colors.stateSleep.copy(alpha = 0.35f)
+                    BodyState.Kind.Activity -> colors.stateActivity
                 },
                 topLeft = Offset(left, 0f),
                 size = Size((right - left).coerceAtLeast(1f), BodyStateBandHeight.toPx()),
@@ -2264,10 +2272,11 @@ private fun entryKindColor(
     classification: EpisodeTherapyClass?,
     colors: GTColors,
 ): Color = when (classification) {
-    EpisodeTherapyClass.Snack -> colors.accent.copy(alpha = 0.45f)
-    EpisodeTherapyClass.CarbCorrection -> colors.warn
-    EpisodeTherapyClass.InsulinCorrection -> colors.info
-    EpisodeTherapyClass.Meal,
+    EpisodeTherapyClass.Snack -> colors.kindSnack
+    EpisodeTherapyClass.CarbCorrection -> colors.kindCarbRescue
+    EpisodeTherapyClass.InsulinCorrection -> colors.kindInsulinCorrection
+    EpisodeTherapyClass.Meal -> colors.kindMeal
+    // A guess is not worth a colour, and mixed is a guess by definition.
     EpisodeTherapyClass.Mixed,
     EpisodeTherapyClass.Unresolved,
     null,

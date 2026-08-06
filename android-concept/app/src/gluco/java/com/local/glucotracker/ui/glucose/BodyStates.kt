@@ -26,6 +26,8 @@ data class BodyState(
     /** Inferred states are the app's reading of heart rate, not the watch's. */
     val inferred: Boolean,
     val label: String?,
+    /** Mean heart rate over the span — the evidence an inferred state rests on. */
+    val meanBpm: Int?,
 ) {
     enum class Kind { Sleep, Activity }
 }
@@ -73,4 +75,5 @@ private fun BodyStateIntervalResponse.toDomain(): BodyState = BodyState(
     totalMinutes = totalMinutes,
     inferred = source == BodyStateIntervalResponse.Source.HEART_RATE,
     label = label,
+    meanBpm = meanBpm?.toInt(),
 )

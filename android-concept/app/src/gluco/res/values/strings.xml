@@ -265,6 +265,7 @@
     <!-- Half of these nights are read from heart rate rather than recorded by
          the watch, and the two must not look equally certain. -->
     <string name="body_state_inferred">по пульсу</string>
+    <string name="body_state_inferred_bpm">по пульсу %1$d</string>
     <string name="body_state_span">%1$s · %2$s—%3$s</string>
     <string name="sitting_time_action">Время приёма</string>
     <string name="sitting_time_title">Сдвинуть весь приём</string>

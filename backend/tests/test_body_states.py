@@ -160,6 +160,59 @@ def test_a_sustained_climb_above_resting_reads_as_hard_effort(
     assert activity[0]["total_minutes"] == 30
 
 
+def test_scattered_high_readings_are_not_half_an_hour_of_effort(
+    api_client: TestClient,
+) -> None:
+    """A quiet evening with a few spikes is not a workout.
+
+    Runs bridge gaps of up to six minutes, and the old density test counted
+    every reading inside the span — including the calm ones between the spikes.
+    So four scattered readings could carry half an hour of "hard effort" on an
+    evening spent sitting. A span now has to be held up by its own qualifying
+    samples, one per five minutes it claims.
+    """
+    owner_id, session_factory = _owner(api_client)
+    evening = DAY + timedelta(hours=20)
+    spikes = {evening + timedelta(minutes=offset) for offset in (0, 6, 12, 18, 24)}
+    with session_factory() as session:
+        _heart_rate(
+            session,
+            owner_id,
+            start=DAY - timedelta(hours=6),
+            end=DAY + timedelta(hours=23),
+            bpm_at=lambda at: 108 if at in spikes else 62,
+            step=timedelta(minutes=2),
+        )
+        session.commit()
+
+    assert _states(api_client, hours=23) == []
+
+
+def test_a_sustained_climb_is_still_reported_as_effort(
+    api_client: TestClient,
+) -> None:
+    """The density rule must not cost a real workout."""
+    owner_id, session_factory = _owner(api_client)
+    start = DAY + timedelta(hours=18)
+    end = start + timedelta(minutes=40)
+    with session_factory() as session:
+        _heart_rate(
+            session,
+            owner_id,
+            start=DAY - timedelta(hours=6),
+            end=DAY + timedelta(hours=23),
+            bpm_at=lambda at: 132 if start <= at <= end else 62,
+            step=timedelta(minutes=2),
+        )
+        session.commit()
+
+    states = _states(api_client, hours=23)
+    activity = [state for state in states if state["kind"] == "activity"]
+    assert len(activity) == 1
+    assert activity[0]["source"] == "heart_rate"
+    assert activity[0]["total_minutes"] == 40
+
+
 def test_a_recorded_session_replaces_the_inferred_one_it_covers(
     api_client: TestClient,
 ) -> None:

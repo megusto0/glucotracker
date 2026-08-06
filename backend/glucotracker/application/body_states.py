@@ -71,6 +71,12 @@ ACTIVITY_RUN_GAP = timedelta(minutes=6)
 MIN_ACTIVITY = timedelta(minutes=10)
 MIN_RECORDED_ACTIVITY = timedelta(minutes=5)
 MIN_ACTIVITY_SAMPLES = 3
+# Effort is sustained; a startle, a flight of stairs or a bad dream is not.
+# Runs bridge gaps of up to six minutes, and the old test counted every reading
+# inside the span including the calm ones, so five scattered spikes carried half
+# an hour of "hard effort" through an evening spent sitting. What separates the
+# two is not how many readings were high but what share of them were.
+MIN_ACTIVITY_ABOVE_SHARE = 0.6
 # Above this an inferred effort is as good as a recorded one for reading a day.
 CONFIDENT_ACTIVITY = timedelta(minutes=20)
 
@@ -246,8 +252,23 @@ class BodyStateService:
         return [
             (start, end)
             for start, end in runs
-            if sum(start <= at <= end for at, _ in samples) >= MIN_ACTIVITY_SAMPLES
+            if _is_sustained(samples, start, end, threshold)
         ]
+
+
+def _is_sustained(
+    samples: list[tuple[datetime, float]],
+    start: datetime,
+    end: datetime,
+    threshold: float,
+) -> bool:
+    """Was the span mostly above the threshold, or merely bracketed by it?"""
+    inside = [bpm for at, bpm in samples if start <= at <= end]
+    above = sum(1 for bpm in inside if bpm >= threshold)
+    return (
+        above >= MIN_ACTIVITY_SAMPLES
+        and above >= len(inside) * MIN_ACTIVITY_ABOVE_SHARE
+    )
 
 
 def _runs(
