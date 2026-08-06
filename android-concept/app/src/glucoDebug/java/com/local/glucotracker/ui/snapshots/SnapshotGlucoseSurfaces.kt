@@ -82,6 +82,12 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
     ) = Unit
 
     @Composable
+    override fun TodayGlucoseStat(modifier: Modifier): Boolean = false
+
+    @Composable
+    override fun TodayBodyStates(date: LocalDate, modifier: Modifier) = Unit
+
+    @Composable
     override fun TodayRows(
         date: LocalDate,
         rows: List<TodayMealRowUi>,

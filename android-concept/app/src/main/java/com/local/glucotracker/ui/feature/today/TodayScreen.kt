@@ -35,6 +35,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -346,11 +349,13 @@ private fun DayState(
             }
             item {
                 if (brandAccentColor == null) {
+                    // Full bleed: the band is ruled edge to edge, so it must
+                    // not sit inside the page's card margin.
                     TodayKpiGrid(
+                        date = state.date,
                         totals = state.totals,
                         goals = state.goals,
                         pendingQueueCount = state.pendingQueueCount,
-                        modifier = Modifier.padding(horizontal = 18.dp),
                     )
                 } else {
                     TarelkaTodaySummary(
@@ -583,68 +588,148 @@ private fun TodaySkeletonKpis(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The day's totals as one band instead of four cards.
+ *
+ * Two rows of KPI cards spent most of a phone screen on four numbers and their
+ * borders, so the day's records — the thing the screen is for — started below
+ * the fold. The same four numbers now read in one band: the headline against
+ * its goal, one progress line, and the rest as a row of columns.
+ *
+ * Ruled top and bottom rather than boxed. Inside a screen already made of
+ * cards, a band is what says "this is the day, the cards below are its parts".
+ */
 @Composable
 private fun TodayKpiGrid(
+    date: LocalDate,
     totals: DayTotals,
     goals: UserGoals,
     pendingQueueCount: Int,
     modifier: Modifier = Modifier,
 ) {
     val kcalGoal = goals.dailyKcal
-    val proteinGoal = goals.dailyProteinG
-    val carbsGoal = goals.dailyCarbsG
     val remaining = kcalGoal?.let { it - totals.kcal }
-    Column(modifier = modifier) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GTKpiCard(
-                label = stringResource(R.string.today_kpi_kcal),
-                value = formatKcal(totals.kcal),
-                sub = kcalGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it)) }
-                    ?: stringResource(R.string.today_kpi_day_sub),
-                progress = progressOf(totals.kcal, kcalGoal),
-                progressColor = GT.colors.good.copy(alpha = 0.65f),
-                extra = pendingQueueCount.takeIf { it > 0 }
-                    ?.let { stringResource(R.string.today_kpi_queue_kicker, it) },
-                modifier = Modifier.weight(1f),
+    val hairlineColor = GT.colors.hairline
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                drawRect(
+                    color = hairlineColor,
+                    topLeft = Offset(0f, 0f),
+                    size = Size(size.width, stroke),
+                )
+                drawRect(
+                    color = hairlineColor,
+                    topLeft = Offset(0f, size.height - stroke),
+                    size = Size(size.width, stroke),
+                )
+            }
+            .padding(horizontal = 18.dp)
+            .padding(top = 12.dp, bottom = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = formatKcal(totals.kcal),
+                color = GT.colors.ink,
+                style = GT.type.monoNumber.copy(fontSize = 28.sp),
+                maxLines = 1,
             )
-            GTKpiCard(
-                label = stringResource(R.string.today_kpi_protein),
-                value = formatGrams(totals.proteinG),
-                sub = proteinGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatGrams(it.toDouble())) }
-                    ?: stringResource(R.string.today_kpi_day_sub),
-                progress = progressOf(totals.proteinG, proteinGoal),
-                progressColor = GT.colors.info.copy(alpha = 0.65f),
-                modifier = Modifier.weight(1f),
+            kcalGoal?.let { goal ->
+                Text(
+                    text = stringResource(R.string.today_kpi_of_goal, formatKcal(goal)),
+                    modifier = Modifier.padding(start = 7.dp, bottom = 3.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 12.sp),
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            remaining?.let {
+                Text(
+                    text = formatSignedKcal(it.roundToLong()),
+                    modifier = Modifier.padding(bottom = 3.dp),
+                    color = GT.colors.accent,
+                    style = GT.type.monoLabel.copy(fontSize = 12.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .padding(top = 9.dp)
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(GT.colors.hairline, GT.shapes.tag),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progressOf(totals.kcal, kcalGoal))
+                    .height(3.dp)
+                    .background(GT.colors.accent, GT.shapes.tag),
             )
         }
-        Row(
-            modifier = Modifier.padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            GTKpiCard(
+        Row(modifier = Modifier.padding(top = 11.dp)) {
+            TodayStat(
+                label = stringResource(R.string.today_kpi_protein),
+                value = formatGrams(totals.proteinG),
+                modifier = Modifier.weight(1f),
+            )
+            TodayStat(
                 label = stringResource(R.string.today_kpi_carbs),
                 value = formatGrams(totals.carbsG),
-                sub = carbsGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatGrams(it.toDouble())) }
-                    ?: stringResource(R.string.today_kpi_day_sub),
-                progress = progressOf(totals.carbsG, carbsGoal),
-                progressColor = GT.colors.accent.copy(alpha = 0.68f),
                 modifier = Modifier.weight(1f),
             )
-            val drewGlucoseKpi = LocalGlucoseSurfaces.current.TodayGlucoseKpiCard(
+            val drewGlucoseStat = LocalGlucoseSurfaces.current.TodayGlucoseStat(
                 modifier = Modifier.weight(1f),
             )
-            if (!drewGlucoseKpi) {
-                GTKpiCard(
+            if (!drewGlucoseStat) {
+                TodayStat(
                     label = stringResource(R.string.today_kpi_remaining),
                     value = remaining?.let { formatSignedKcal(it.roundToLong()) } ?: "—",
-                    sub = kcalGoal?.let { stringResource(R.string.today_kpi_goal_sub, formatKcal(it)) }
-                        ?: stringResource(R.string.today_kpi_no_goal_sub),
-                    progress = remaining?.let { progressOf(it.coerceAtLeast(0.0), kcalGoal) } ?: 0f,
-                    progressColor = GT.colors.good.copy(alpha = 0.5f),
                     modifier = Modifier.weight(1f),
                 )
             }
         }
+        pendingQueueCount.takeIf { it > 0 }?.let { queued ->
+            Text(
+                text = stringResource(R.string.today_kpi_queue_kicker, queued),
+                modifier = Modifier.padding(top = 8.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                maxLines = 1,
+            )
+        }
+        LocalGlucoseSurfaces.current.TodayBodyStates(
+            date = date,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+    }
+}
+
+/** One column of the day band: a kicker over a number. */
+@Composable
+private fun TodayStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            color = GT.colors.muted,
+            style = GT.type.kicker,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.padding(top = 3.dp),
+            color = GT.colors.ink,
+            style = GT.type.monoNumber.copy(fontSize = 16.sp),
+            maxLines = 1,
+        )
     }
 }
 

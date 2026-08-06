@@ -88,6 +88,7 @@
     <string name="today_no_goals_cta_hint">Их можно поставить в «Ещё → Цели»</string>
     <string name="today_no_goals_cta_action">поставить →</string>
     <string name="today_kpi_queue_kicker">+ %1$d в очереди</string>
+    <string name="today_kpi_of_goal">/ %1$s ккал</string>
     <string name="today_ring_goal">из %1$s</string>
     <string name="today_ring_goal_label">цель %1$s</string>
     <string name="today_ring_goal_unset">цель не задана</string>

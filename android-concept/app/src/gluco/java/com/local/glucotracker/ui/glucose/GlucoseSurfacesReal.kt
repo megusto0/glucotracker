@@ -106,6 +106,39 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     }
 
     @Composable
+    override fun TodayGlucoseStat(modifier: Modifier): Boolean {
+        val viewModel: TodayGlucoseKpiViewModel = hiltViewModel()
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        val percent = state.belowRangePercent
+        Column(modifier = modifier) {
+            Text(
+                text = stringResource(R.string.today_kpi_below_range),
+                color = GT.colors.muted,
+                style = GT.type.kicker,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = percent?.let { formatPercent(it.toDouble()) }
+                    ?: stringResource(R.string.glucose_value_empty),
+                modifier = Modifier.padding(top = 3.dp),
+                color = GT.colors.ink,
+                style = GT.type.monoNumber.copy(fontSize = 16.sp),
+                maxLines = 1,
+            )
+        }
+        return true
+    }
+
+    @Composable
+    override fun TodayBodyStates(date: LocalDate, modifier: Modifier) {
+        val viewModel: BodyStatesViewModel = hiltViewModel()
+        LaunchedEffect(date) { viewModel.load(date) }
+        val states by viewModel.state.collectAsStateWithLifecycle()
+        TodayBodyStateTotals(states = states[date].orEmpty(), modifier = modifier)
+    }
+
+    @Composable
     override fun StatsTirSection(periodApiValue: String) {
         val viewModel: StatsTirViewModel = hiltViewModel()
         LaunchedEffect(periodApiValue) { viewModel.load(periodApiValue) }
@@ -238,11 +271,15 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "today", signature) }
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
+        val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
+        LaunchedEffect(date) { bodyStatesViewModel.load(date) }
+        val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
         TodayEpisodeRows(
             date = date,
             context = context,
             rows = rows,
             rowContent = rowContent,
+            bodyStates = bodyStates[date].orEmpty(),
         )
     }
 
@@ -382,9 +419,12 @@ private fun TodayEpisodeRows(
         showTime: Boolean,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
+    bodyStates: List<BodyState> = emptyList(),
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
-    val items = remember(context, rows) { buildTodayTimeline(context, rows) }
+    val items = remember(context, rows, bodyStates) {
+        buildTodayTimeline(context, rows, bodyStates)
+    }
     val isCurrentDay =
         date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
@@ -403,6 +443,10 @@ private fun TodayEpisodeRows(
                 event = item.event,
                 onOpenResponse = { responseCardEvent = item.event }
                     .takeIf { !item.event.isPending },
+            )
+            is TodayTimelineItem.Body -> BodyStateRow(
+                state = item.state,
+                modifier = Modifier.padding(horizontal = 18.dp),
             )
         }
         if (index < items.lastIndex) Spacer(Modifier.height(14.dp))
@@ -431,6 +475,9 @@ private sealed interface TodayTimelineItem {
         override val timestamp: Instant,
     ) : TodayTimelineItem
     data class Orphan(val event: InsulinEvent, override val timestamp: Instant) : TodayTimelineItem
+
+    /** Sleep or hard effort, sitting in the day at the hour it happened. */
+    data class Body(val state: BodyState, override val timestamp: Instant) : TodayTimelineItem
 }
 
 /**
@@ -440,6 +487,7 @@ private sealed interface TodayTimelineItem {
 private fun buildTodayTimeline(
     context: InsulinDayContext,
     rows: List<TodayMealRowUi>,
+    bodyStates: List<BodyState> = emptyList(),
 ): List<TodayTimelineItem> {
     val rowById = rows.associateBy { it.id }
     val entryOf = { row: TodayMealRowUi ->
@@ -467,8 +515,11 @@ private fun buildTodayTimeline(
     val orphanEvents = context.orphans +
         context.byMealId.filterKeys { it !in anchoredIds }.values.flatten()
     val orphans = orphanEvents.map { TodayTimelineItem.Orphan(it, it.timestamp) }
+    // Anchored on when the state began: a night belongs to the evening it
+    // started, not to the morning it ended in.
+    val body = bodyStates.map { TodayTimelineItem.Body(it, it.startAt) }
 
-    return (episodes + singles + orphans).sortedByDescending { it.timestamp }
+    return (episodes + singles + orphans + body).sortedByDescending { it.timestamp }
 }
 
 /**
@@ -809,9 +860,9 @@ private fun <T> InsulinAwareRows(
  * medical screen must not present the two as equally certain.
  */
 @Composable
-private fun BodyStateRow(state: BodyState) {
+private fun BodyStateRow(state: BodyState, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
             .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -865,6 +916,67 @@ private fun BodyStateRow(state: BodyState) {
             ),
             color = GT.colors.muted,
             style = GT.type.monoLabel.copy(fontSize = 11.sp),
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * Two totals under the day's numbers: how long slept, how long worked hard.
+ *
+ * Sums rather than intervals — the spans themselves sit in the list at the hour
+ * they happened, and repeating them here would say twice what the day was. A
+ * kind with nothing recorded is omitted rather than shown as a zero: no data
+ * and none of it are different facts, and a diabetes screen must not blur them.
+ */
+@Composable
+private fun TodayBodyStateTotals(states: List<BodyState>, modifier: Modifier = Modifier) {
+    val slept = states.filter { it.kind == BodyState.Kind.Sleep }.sumOf { it.totalMinutes }
+    val worked = states.filter { it.kind == BodyState.Kind.Activity }.sumOf { it.totalMinutes }
+    if (slept == 0 && worked == 0) return
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (slept > 0) {
+            BodyStateTotal(
+                color = GT.colors.stateSleep.copy(alpha = 0.55f),
+                value = formatBodyStateDuration(slept),
+                label = stringResource(R.string.body_state_sleep),
+            )
+        }
+        if (slept > 0 && worked > 0) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 14.dp)
+                    .width(GT.space.hairline)
+                    .height(18.dp)
+                    .background(GT.colors.hairline),
+            )
+        }
+        if (worked > 0) {
+            BodyStateTotal(
+                color = GT.colors.stateActivity,
+                value = formatBodyStateDuration(worked),
+                label = stringResource(R.string.body_state_activity),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BodyStateTotal(color: Color, value: String, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(7.dp).background(color, GT.shapes.tag))
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text = value,
+            color = GT.colors.ink,
+            style = GT.type.monoNumber.copy(fontSize = 14.sp),
+            maxLines = 1,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label.uppercase(),
+            color = GT.colors.muted,
+            style = GT.type.kicker,
             maxLines = 1,
         )
     }

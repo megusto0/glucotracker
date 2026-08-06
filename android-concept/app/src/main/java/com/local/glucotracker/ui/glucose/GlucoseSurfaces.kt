@@ -116,6 +116,24 @@ interface GlucoseSurfaces {
         recommendationEligible: Boolean = false,
     )
 
+    /**
+     * The day's glucose as one column of the summary band, not a card.
+     *
+     * Returns false when the flavor has nothing to put there, so the caller can
+     * fall back to a food statistic rather than leaving a hole in the row.
+     */
+    @Composable
+    fun TodayGlucoseStat(modifier: Modifier = Modifier): Boolean
+
+    /**
+     * Sleep and hard effort as two numbers under the day's totals.
+     *
+     * Background, not records: the intervals themselves belong in the list at
+     * the hour they happened. Renders nothing for a flavor with no watch.
+     */
+    @Composable
+    fun TodayBodyStates(date: LocalDate, modifier: Modifier = Modifier)
+
     @Composable
     fun TodayRows(
         date: LocalDate,
@@ -199,6 +217,12 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         meals: List<MealContextAnchor>,
         recommendationEligible: Boolean,
     ) = Unit
+
+    @Composable
+    override fun TodayGlucoseStat(modifier: Modifier): Boolean = false
+
+    @Composable
+    override fun TodayBodyStates(date: LocalDate, modifier: Modifier) = Unit
 
     @Composable
     override fun TodayRows(
