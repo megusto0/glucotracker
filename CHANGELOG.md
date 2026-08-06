@@ -5,26 +5,35 @@ All notable changes to Glucotracker are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Note on versions 0.1.0 – 0.9.0.** These were reconstructed from git history on
-> 2026-08-06. The repository carried no tags and every project manifest sat at
-> `0.1.0` for its whole life, so version numbers were assigned retroactively to the
-> natural milestone clusters in the log. No git tags were created for them — the
-> commit ranges below are the authoritative boundary. Versioning from
-> `[Unreleased]` onward is real: tag it when you cut it.
+> **Note on version numbers.** Nothing here is a release — there is one user,
+> one server, and no distribution. The numbers are milestone markers
+> reconstructed from git history on 2026-08-06, and the commit ranges are the
+> authoritative boundary. Every manifest sat at `0.1.0` for the project's whole
+> life until `0.10.0`, which is now written once in
+> [`android-concept/app/build.gradle.kts`](android-concept/app/build.gradle.kts)
+> and mirrored in the backend and desktop manifests. Bump it and this file
+> together when a cluster of work is done.
 
 Scope covers all three projects in the monorepo — `backend/` (FastAPI),
 `desktop/` (Tauri 2 + React), `android-concept/` (Jetpack Compose) — with the
 affected surface named in each entry.
 
-External sources consulted while building a release are recorded in
+External sources consulted while building are recorded in
 [`docs/research-log.md`](docs/research-log.md), not here.
 
 ---
 
-## [Unreleased]
+## [0.10.0] — 2026-08-06 — Measured signals over proxies
 
 ### Added
 
+- **Android, Backend, Desktop** — the version is a real number again, written
+  once in `android-concept/app/build.gradle.kts` and mirrored in the backend and
+  desktop manifests. Every build ever produced declared `0.1.0`, so nothing on a
+  device or a server could say what it was (`aec4911`).
+- **Backend, Android** — «Мой ритм» shows the nights it read: the typical sleep
+  window, how many nights are behind it, and a strip under the rhythm bar on the
+  same scale, so a wrong anchor is visible rather than merely wrong (`aec4911`).
 - **Backend, Android** — the day anchor behind «Мой ритм» comes from real sleep,
   recorded or heart-rate-inferred, taking one wake per day from the longest night
   ending that day. It was a weighted median of each day's first meal, a proxy for
@@ -100,6 +109,28 @@ External sources consulted while building a release are recorded in
 
 ### Fixed
 
+- **Android** — Health Connect steps have never synced. The androidx converter
+  rejects a zero-duration `StepsRecord` the provider is happy to store, and the
+  read threw before returning a row; the changes token is only saved once that
+  read succeeds, so every run retried the same page and reported partial data
+  forever. The range is now halved around the failure, so everything either side
+  of an unreadable record goes up and only the hour around it is given up
+  (`aec4911`).
+- **Backend** — `client_record_version` accepts Health Connect's `-1`, which it
+  writes when a record's author set no version. The schema required `>= 0` and
+  rejected the whole batch of 500 over it (`aec4911`).
+- **Android** — a 4xx from the server no longer abandons the rest of the sync;
+  it will never succeed on retry, and it was taking the other forty record types
+  with it. The rejected body is logged instead of being thrown away, which had
+  left `HTTP 422` as the only evidence (`aec4911`).
+- **Android** — the Health Connect sync button reports what is actually
+  happening. The running flag was raised inside the coroutine, after a suspend,
+  so a caller polling in that gap saw "not running", redrew the previous run's
+  numbers, and the button appeared to do nothing. A long sync now shows its
+  running total instead of one frozen line (`aec4911`).
+- **Android** — settings rows can put a wide control on its own line, so
+  «Health Connect» stopped rendering as "Health ..." above "Часть данных н..."
+  (`aec4911`).
 - **Backend** — episode classification reads calibrated glucose instead of
   `min(raw, normalized)`, a safety floor borrowed from alarms. Raw sits 1.0–2.8
   mmol/L low for this sensor, so an ordinary 5.5 arrived as a raw 3.5 and the
@@ -409,7 +440,7 @@ Range: `ad4599e..2ae1318`
 
 ---
 
-[Unreleased]: https://github.com/megusto0/glucotracker/compare/51726a5...HEAD
+[0.10.0]: https://github.com/megusto0/glucotracker/compare/51726a5...HEAD
 [0.9.0]: https://github.com/megusto0/glucotracker/compare/87a32ec...51726a5
 [0.8.0]: https://github.com/megusto0/glucotracker/compare/99c7161...87a32ec
 [0.7.0]: https://github.com/megusto0/glucotracker/compare/2c12a9c...99c7161

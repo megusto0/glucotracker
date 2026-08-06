@@ -12,7 +12,7 @@ Read before non-trivial work:
 - `glucotacker mobile.html` + `screens.jsx` + `design-canvas.jsx` — visual mockups
 - `docs/openapi.json` — backend API contract (the only legitimate API surface)
 - `docs/architecture.md` — repo layout, backend/desktop layers, data ownership
-- `CHANGELOG.md` — version history; add user-visible changes under `[Unreleased]`
+- `CHANGELOG.md` — version history; add user-visible changes under the newest version
 - `docs/research-log.md` — external sources consulted; append before citing one
 
 Quote relevant sections by number for non-trivial decisions
@@ -189,7 +189,7 @@ Min touch target 44dp. Color never sole information carrier. Dynamic font: KPI n
 - Every commit message: `feat(today): KPI 2x2 grid` / `fix(...)` format.
 - When unsure between two approaches, write the trade-off in PR description and pick the simpler one.
 - **Log every external source you consult.** If a web page, spec, vendor doc, forum answer, or paper influenced code, a constant, a schema, or a documented decision, append an entry to `docs/research-log.md` in the same change that uses it — URL, what you consulted it for, where it landed, the takeaway, and whether you applied or rejected it. Rejected sources get logged too, with the reason. This is mandatory for anything touching clinical or pharmacokinetic values (IOB/COB curves, ICR, ISF, CGM normalization) and for Nightscout, Health Connect, and Gemini behavior. Routine syntax lookups that left no trace in a decision are not logged.
-- **Record user-visible changes in `CHANGELOG.md`** under `## [Unreleased]`, in the Keep a Changelog categories, naming the affected surface (Backend / Desktop / Android) and the commit hash. Internal refactors with no behavioral effect are not changelog material.
+- **Record user-visible changes in `CHANGELOG.md`** under the newest version heading, in the Keep a Changelog categories, naming the affected surface (Backend / Desktop / Android) and the commit hash. Internal refactors with no behavioral effect are not changelog material.
 
 ## Data Safety
 
