@@ -50,6 +50,14 @@ data class RhythmUi(
     val basis: String?,
     val hasOverride: Boolean,
     val windows: List<RhythmWindowUi>,
+    /** The nights the anchor was read from, absent when there are too few. */
+    val sleep: SleepWindowUi? = null,
+)
+
+data class SleepWindowUi(
+    val startMinute: Int,
+    val endMinute: Int,
+    val nights: Int,
 )
 
 data class RhythmWindowUi(
@@ -294,6 +302,11 @@ private fun com.local.glucotracker.generated.model.ScheduleResponse.toRhythmUi()
         anchorMinutes = effectiveAnchorMinutes,
         basis = basis,
         hasOverride = userOverrideMinutes != null,
+        sleep = sleepStartMinutes?.let { start ->
+            sleepEndMinutes?.let { end ->
+                SleepWindowUi(start, end, sleepNights ?: 0)
+            }
+        },
         windows = windows.map { window ->
             RhythmWindowUi(
                 label = window.label,

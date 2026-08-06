@@ -24,10 +24,18 @@ val debugApiBaseUrl = providers.gradleProperty("glucotracker.debugApiBaseUrl")
     .orElse(providers.environmentVariable("GLUCOTRACKER_DEBUG_API_BASE_URL"))
     .orElse("https://megusto.duckdns.org:1338")
 
-// versionName has sat at 0.1.0 for the project's whole life, so the About
-// screen could not tell one build from another on a device. The commit and
-// build time identify the actual binary; they do not change the declared
-// version, which package managers care about.
+// The one place the monorepo's version is written. Backend, desktop and this
+// module all sat at 0.1.0 for the project's whole life while CHANGELOG.md
+// tracked real milestones, so a build could not say what it was. Bump this and
+// CHANGELOG.md together; the commit and build time below identify the exact
+// binary, which a version number never can.
+val appVersionName = "0.10.0"
+
+// Monotonic and derived, so it cannot drift from the name: 0.10.0 -> 1000.
+val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->
+    major.toInt() * 10_000 + minor.toInt() * 100 + patch.toInt()
+}
+
 val buildCommit: String = providers.exec {
     commandLine("git", "rev-parse", "--short=7", "HEAD")
 }.standardOutput.asText.map { it.trim() }.orElse("nogit").get().ifEmpty { "nogit" }
@@ -43,8 +51,8 @@ android {
         applicationId = "com.glucotracker.mobile"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
         buildConfigField("String", "BUILD_STAMP", "\"$buildStamp\"")

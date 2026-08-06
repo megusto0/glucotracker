@@ -201,6 +201,7 @@ private fun DebugHealthConnectSection() {
 
     var isRunning by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf(HcSyncStatus()) }
+    var sent by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         status = HealthConnectSyncBridge.lastSyncStatus()
@@ -210,19 +211,32 @@ private fun DebugHealthConnectSection() {
     }
     LaunchedEffect(isRunning) {
         if (!isRunning) return@LaunchedEffect
+        // Polls every half second and reads the running total, so a sync that
+        // takes minutes shows movement instead of one frozen line.
         while (HealthConnectSyncBridge.isRunning()) {
-            delay(1000)
+            sent = HealthConnectSyncBridge.progressRecords()
+            delay(500)
         }
         status = HealthConnectSyncBridge.lastSyncStatus()
+        sent = 0
         isRunning = false
     }
 
     val description = when {
+        isRunning && sent > 0 -> stringResource(R.string.more_hc_sync_run_progress, sent)
         isRunning -> stringResource(R.string.more_hc_sync_run_desc)
         status.error != null -> stringResource(R.string.more_hc_status_error)
         status.lastSyncAt <= 0L -> stringResource(R.string.more_health_connect_hint)
         status.skipped > 0 -> stringResource(
             R.string.more_hc_status_partial,
+            status.lastSyncAt.timeLabel(),
+        )
+        // Records Health Connect itself cannot hand over are not a sync
+        // failure, and saying "часть данных не синхронизирована" about them
+        // reported a permanent, unfixable fault on every single run.
+        status.unreadable > 0 -> stringResource(
+            R.string.more_hc_status_unreadable,
+            status.records,
             status.lastSyncAt.timeLabel(),
         )
         status.records > 0 -> stringResource(
@@ -242,6 +256,7 @@ private fun DebugHealthConnectSection() {
                 title = stringResource(R.string.more_health_connect_title),
                 description = description,
                 glyph = SettingsGlyphKind.Signal,
+                actionBelow = true,
                 action = {
                     GTOutlineButton(
                         text = stringResource(
@@ -268,6 +283,7 @@ private data class HcSyncStatus(
     val records: Int = 0,
     val deleted: Int = 0,
     val skipped: Int = 0,
+    val unreadable: Int = 0,
     val error: String? = null,
 )
 
@@ -289,6 +305,12 @@ private object HealthConnectSyncBridge {
             Class.forName(ClassName).getMethod("isSyncRunning").invoke(null) as? Boolean
         }.getOrNull() ?: false
 
+    fun progressRecords(): Int =
+        runCatching {
+            (Class.forName(ClassName).getMethod("getSyncProgressRecords")
+                .invoke(null) as? Number)?.toInt()
+        }.getOrNull() ?: 0
+
     fun lastSyncStatus(): HcSyncStatus =
         if (!available) {
             HcSyncStatus()
@@ -303,6 +325,8 @@ private object HealthConnectSyncBridge {
                     deleted = (cls.getMethod("getLastSyncDeleted")
                         .invoke(null) as? Number)?.toInt() ?: 0,
                     skipped = (cls.getMethod("getLastSyncSkipped")
+                        .invoke(null) as? Number)?.toInt() ?: 0,
+                    unreadable = (cls.getMethod("getLastSyncUnreadable")
                         .invoke(null) as? Number)?.toInt() ?: 0,
                     error = cls.getMethod("getLastSyncError").invoke(null) as? String,
                 )
@@ -387,10 +411,38 @@ private fun RhythmSection(
                     )
                 }
 
+                // The sleep the anchor was read from, stated next to it. The
+                // screen showed only the conclusion, so there was no way to see
+                // whether "начало дня" matched a night that actually happened.
+                rhythm?.sleep?.let { sleep ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.more_rhythm_sleep_label),
+                            color = GT.colors.muted,
+                            style = GT.type.sansLabel,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = stringResource(
+                                R.string.more_rhythm_sleep_value,
+                                sleep.startMinute.minuteLabel(),
+                                sleep.endMinute.minuteLabel(),
+                                sleep.nights,
+                            ),
+                            color = GT.colors.ink2,
+                            style = GT.type.monoLabel.copy(fontSize = 12.sp),
+                        )
+                    }
+                }
+
                 if (rhythm?.windows.isNullOrEmpty()) {
                     GTHintBox(text = stringResource(R.string.more_rhythm_no_data))
                 } else {
-                    RhythmBar(windows = rhythm.windows, accent = accent)
+                    RhythmBar(
+                        windows = rhythm.windows,
+                        accent = accent,
+                        sleep = rhythm.sleep,
+                    )
                     RhythmLegend(windows = rhythm.windows, accent = accent)
                 }
 
@@ -682,6 +734,10 @@ private fun SettingsRow(
     description: String? = null,
     glyph: SettingsGlyphKind? = null,
     locked: Boolean = false,
+    // A wide control beside the text leaves it nothing: «Health Connect» came
+    // out as "Health ..." and its status line as "Часть данных н...". Put the
+    // control on its own line and the text gets the row's full width.
+    actionBelow: Boolean = false,
     action: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -691,18 +747,10 @@ private fun SettingsRow(
     } else {
         Modifier.clickable(role = Role.Button, onClick = onClick)
     }
-    Row(
-        modifier = rowModifier
-            .fillMaxWidth()
-            .heightIn(min = 58.dp)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (glyph != null) {
-            SettingsGlyph(kind = glyph, muted = locked)
-            Spacer(Modifier.width(12.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
+
+    @Composable
+    fun Texts(modifier: Modifier) {
+        Column(modifier = modifier) {
             Text(
                 text = title,
                 color = titleColor,
@@ -721,6 +769,42 @@ private fun SettingsRow(
                 )
             }
         }
+    }
+
+    if (actionBelow) {
+        Column(
+            modifier = rowModifier
+                .fillMaxWidth()
+                .heightIn(min = 58.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (glyph != null) {
+                    SettingsGlyph(kind = glyph, muted = locked)
+                    Spacer(Modifier.width(12.dp))
+                }
+                Texts(Modifier.weight(1f))
+            }
+            if (action != null) {
+                Spacer(Modifier.height(10.dp))
+                action()
+            }
+        }
+        return
+    }
+
+    Row(
+        modifier = rowModifier
+            .fillMaxWidth()
+            .heightIn(min = 58.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (glyph != null) {
+            SettingsGlyph(kind = glyph, muted = locked)
+            Spacer(Modifier.width(12.dp))
+        }
+        Texts(Modifier.weight(1f))
         if (action != null) {
             Spacer(Modifier.width(10.dp))
             action()
@@ -837,32 +921,77 @@ private fun rhythmBasisLabel(basis: String?): String = when (basis) {
 private fun RhythmBar(
     windows: List<RhythmWindowUi>,
     accent: Color,
+    sleep: SleepWindowUi? = null,
 ) {
     val colors = listOf(accent, GT.colors.accent, GT.colors.warn, GT.colors.info)
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .clip(GT.shapes.tag),
+        ) {
+            windows.forEachIndexed { index, window ->
+                val duration = windowDuration(window.startMinute, window.endMinute)
+                Box(
+                    modifier = Modifier
+                        .weight(duration.toFloat())
+                        .fillMaxHeight()
+                        .background(colors[index % colors.size]),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = window.label,
+                        modifier = Modifier.padding(horizontal = 7.dp),
+                        color = GT.colors.surface2,
+                        style = GT.type.sansLabel.copy(fontSize = 9.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if (sleep != null && windows.isNotEmpty()) {
+            SleepTrack(originMinute = windows.first().startMinute, sleep = sleep)
+        }
+    }
+}
+
+/**
+ * The night drawn under the day it defines.
+ *
+ * The bar above runs one full day from the anchor, so the same scale places
+ * sleep on it directly: if the anchor is right, the strip ends exactly where
+ * the first window begins. A night that runs past midnight wraps to the front
+ * of the track rather than being clipped off the end.
+ */
+@Composable
+private fun SleepTrack(originMinute: Int, sleep: SleepWindowUi) {
+    val day = 24 * 60
+    val start = ((sleep.startMinute - originMinute) % day + day) % day
+    val length = windowDuration(sleep.startMinute, sleep.endMinute)
+    val wrapped = max(0, start + length - day)
+    val segments = listOf(
+        wrapped to true,
+        (start - wrapped) to false,
+        (length - wrapped) to true,
+        (day - start - (length - wrapped)) to false,
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .padding(top = 4.dp)
+            .height(5.dp)
             .clip(GT.shapes.tag),
     ) {
-        windows.forEachIndexed { index, window ->
-            val duration = windowDuration(window.startMinute, window.endMinute)
+        segments.forEach { (minutes, isSleep) ->
+            if (minutes <= 0) return@forEach
             Box(
                 modifier = Modifier
-                    .weight(duration.toFloat())
+                    .weight(minutes.toFloat())
                     .fillMaxHeight()
-                    .background(colors[index % colors.size]),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Text(
-                    text = window.label,
-                    modifier = Modifier.padding(horizontal = 7.dp),
-                    color = GT.colors.surface2,
-                    style = GT.type.sansLabel.copy(fontSize = 9.sp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+                    .background(if (isSleep) GT.colors.ink2 else GT.colors.hairline),
+            )
         }
     }
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from statistics import median
 from uuid import UUID
@@ -161,22 +162,42 @@ def _minutes_from_midnight(dt: datetime) -> float:
     return local.hour * 60 + local.minute
 
 
-def _wake_minutes(session: Session, user_id: UUID) -> list[float]:
-    """When the user actually got up, one value per night, oldest first.
+@dataclass(frozen=True)
+class SleepRhythm:
+    """The nights behind the anchor, so a screen can show what it read."""
 
-    The first meal is only a proxy for the start of a day, and a poor one on
-    any day breakfast is skipped or late: waking at 06:00 and first eating at
-    11:00 moved the whole rhythm five hours. Sleep says it directly. Recorded
-    sessions are used where the watch has synced them and heart rate fills in
-    the rest, which is the same pair `BodyStateService` already reconciles.
-    """
+    start_minutes: int
+    end_minutes: int
+    nights: int
+
+
+def sleep_rhythm(session: Session, user_id: UUID) -> SleepRhythm | None:
+    """Typical sleep window over the recent nights, or None if too few."""
+    nights = _nights(session, user_id)
+    if len(nights) < MIN_SLEEP_NIGHTS:
+        return None
+    starts = [_minutes_from_midnight(night.start_at) for night in nights]
+    ends = [_minutes_from_midnight(night.end_at) for night in nights]
+    # Bedtime straddles midnight, so it is averaged on the far side of the
+    # clock and brought back. Waking does not, and is taken as it comes.
+    shifted = [start + 24 * 60 if start < 12 * 60 else start for start in starts]
+    start = int(round(_weighted_median(shifted[-7:], WEIGHTS_7D))) % (24 * 60)
+    return SleepRhythm(
+        start_minutes=start,
+        end_minutes=int(round(_weighted_median(ends[-7:], WEIGHTS_7D))),
+        nights=len(nights),
+    )
+
+
+def _nights(session: Session, user_id: UUID) -> list[BodyStateInterval]:
+    """One sleep per calendar day: the longest night ending that day."""
     now = local_now()
     intervals = BodyStateService(session, user_id).intervals(
         now - timedelta(days=SLEEP_LOOKBACK_DAYS),
         now,
     )
-    # One wake per calendar day, from the longest night ending that day. Taking
-    # the latest instead would pick an afternoon nap over the morning it began.
+    # Taking the latest instead would pick an afternoon nap over the morning it
+    # began, dragging the day's start hours late.
     longest_by_date: dict[date, BodyStateInterval] = {}
     for interval in intervals:
         if interval.kind != "sleep":
@@ -187,10 +208,19 @@ def _wake_minutes(session: Session, user_id: UUID) -> list[float]:
         current = longest_by_date.get(day)
         if current is None or interval.total_minutes > current.total_minutes:
             longest_by_date[day] = interval
-    return [
-        _minutes_from_midnight(longest_by_date[day].end_at)
-        for day in sorted(longest_by_date)
-    ]
+    return [longest_by_date[day] for day in sorted(longest_by_date)]
+
+
+def _wake_minutes(session: Session, user_id: UUID) -> list[float]:
+    """When the user actually got up, one value per night, oldest first.
+
+    The first meal is only a proxy for the start of a day, and a poor one on
+    any day breakfast is skipped or late: waking at 06:00 and first eating at
+    11:00 moved the whole rhythm five hours. Sleep says it directly. Recorded
+    sessions are used where the watch has synced them and heart rate fills in
+    the rest, which is the same pair `BodyStateService` already reconciles.
+    """
+    return [_minutes_from_midnight(night.end_at) for night in _nights(session, user_id)]
 
 
 def compute_user_anchors(

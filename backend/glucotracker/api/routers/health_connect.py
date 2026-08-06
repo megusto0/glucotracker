@@ -33,9 +33,13 @@ class HealthConnectRecordUpload(BaseModel):
     record_id: str = Field(min_length=1, max_length=255)
     record_type: str = Field(min_length=1, max_length=100)
     client_record_id: str | None = Field(default=None, max_length=255)
+    # Opaque provider metadata, mirrored rather than interpreted. Health Connect
+    # hands out -1 for records whose writer set no client version, and `ge=0`
+    # rejected the whole batch over it — every StepsRecord upload failed 422 and
+    # steps never reached the server at all. The column is a BigInteger with no
+    # such constraint; the schema was stricter than anything downstream needed.
     client_record_version: int = Field(
         default=0,
-        ge=0,
         json_schema_extra={"format": "int64"},
     )
     data_origin: str | None = Field(default=None, max_length=255)

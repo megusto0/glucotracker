@@ -381,8 +381,10 @@
     <string name="more_hc_sync_now">Синхронизировать сейчас</string>
     <string name="more_hc_sync_running">Синхронизация…</string>
     <string name="more_hc_sync_run_desc">Отправляем последние данные на сервер…</string>
+    <string name="more_hc_sync_run_progress">Отправлено %1$d записей…</string>
     <string name="more_hc_status_records">Отправлено %1$d записей · %2$s</string>
     <string name="more_hc_status_partial">Часть данных не синхронизирована · %1$s</string>
+    <string name="more_hc_status_unreadable">Отправлено %1$d записей · часть Health Connect не отдаёт · %2$s</string>
     <string name="more_hc_status_uptodate">Данные актуальны · %1$s</string>
     <string name="more_hc_status_error">Не удалось синхронизировать · проверьте сеть и повторите</string>
     <string name="more_rhythm_title">Мой ритм</string>
@@ -445,6 +447,8 @@
     <string name="more_import_title">Импорт и добавление</string>
     <string name="more_import_desc">Ручное добавление продуктов — в десктоп-версии.</string>
     <string name="more_desktop_pill">десктоп</string>
+    <string name="more_rhythm_sleep_label">Сон</string>
+    <string name="more_rhythm_sleep_value">%1$s–%2$s · ночей: %3$d</string>
     <string name="more_rhythm_basis_sleep">по реальному сну</string>
     <string name="more_rhythm_basis_meals">по первым приёмам</string>
     <string name="more_rhythm_basis_shift">сдвиг режима</string>

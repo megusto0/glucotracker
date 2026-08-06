@@ -21,6 +21,7 @@ from glucotracker.application.categorization.window import (
     anchor_is_typical_morning,
     compute_user_anchors,
     recompute_and_persist_anchors,
+    sleep_rhythm,
     write_anchors_to_user,
 )
 from glucotracker.application.time import local_now
@@ -185,11 +186,15 @@ def _schedule_response(session: SessionDep, user: User) -> ScheduleResponse:
             .order_by(NonTypicalPeriod.start_date.desc())
         )
     )
+    sleep = sleep_rhythm(session, user.id)
     return ScheduleResponse(
         anchor_weekday_minutes=user.day_anchor_weekday_minutes,
         anchor_weekend_minutes=user.day_anchor_weekend_minutes,
         effective_anchor_minutes=effective,
         basis=user.day_anchor_basis,
+        sleep_start_minutes=sleep.start_minutes if sleep else None,
+        sleep_end_minutes=sleep.end_minutes if sleep else None,
+        sleep_nights=sleep.nights if sleep else None,
         user_override_minutes=user.day_anchor_user_override_minutes,
         last_shift_at=user.day_anchor_last_shift_at,
         windows=_windows(effective),

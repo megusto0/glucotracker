@@ -585,6 +585,11 @@ class ScheduleResponse(BaseModel):
     anchor_weekend_minutes: int | None = None
     effective_anchor_minutes: int | None = None
     basis: str | None = None
+    #: The nights the anchor was read from, so a screen can show its evidence
+    #: rather than only the conclusion. Absent when there are too few.
+    sleep_start_minutes: int | None = None
+    sleep_end_minutes: int | None = None
+    sleep_nights: int | None = None
     user_override_minutes: int | None = None
     last_shift_at: datetime | None = None
     windows: list[ScheduleWindowResponse]

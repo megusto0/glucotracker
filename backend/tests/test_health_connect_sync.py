@@ -114,6 +114,42 @@ def test_api_upserts_and_deletes_idempotently(api_client: TestClient) -> None:
         assert HealthConnectRepository(session, owner_id).list_records() == []
 
 
+def test_api_accepts_unset_client_record_version(api_client: TestClient) -> None:
+    """Health Connect writes -1 when the record's writer set no version.
+
+    The schema required `>= 0`, so one such record rejected the whole batch of
+    500 with a 422 and steps never reached the server. The value is opaque
+    metadata mirrored as-is, and the column is a BigInteger.
+    """
+    response = api_client.post(
+        "/health-connect/records:sync",
+        json={
+            "records": [
+                {
+                    "record_id": "health-connect-steps-1",
+                    "record_type": "StepsRecord",
+                    "client_record_version": -1,
+                    "data_origin": "com.google.android.apps.fitness",
+                    "start_time": "2026-07-15T08:30:00Z",
+                    "end_time": "2026-07-15T08:40:00Z",
+                    "last_modified_time": "2026-07-15T08:41:00Z",
+                    "payload": {"count": 420},
+                }
+            ],
+            "deleted_record_ids": [],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"received": 1, "upserted": 1, "deleted": 0}
+
+    session_factory = api_client.app_state["session_factory"]
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    with session_factory() as session:
+        rows = HealthConnectRepository(session, owner_id).list_records()
+        assert rows[0].client_record_version == -1
+
+
 def test_api_returns_ten_minute_heart_rate_medians_from_sample_time(
     api_client: TestClient,
 ) -> None:

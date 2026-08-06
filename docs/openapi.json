@@ -4812,7 +4812,6 @@
           "client_record_version": {
             "default": 0,
             "format": "int64",
-            "minimum": 0.0,
             "title": "Client Record Version",
             "type": "integer"
           },
@@ -11787,6 +11786,39 @@
             },
             "title": "Non Typical Periods",
             "type": "array"
+          },
+          "sleep_end_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep End Minutes"
+          },
+          "sleep_nights": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Nights"
+          },
+          "sleep_start_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Start Minutes"
           },
           "user_override_minutes": {
             "anyOf": [

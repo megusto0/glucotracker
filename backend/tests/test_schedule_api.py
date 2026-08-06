@@ -201,6 +201,11 @@ def test_schedule_anchors_on_real_sleep_when_nights_are_known(
     assert body["basis"] == "sleep_7d"
     assert body["effective_anchor_minutes"] == 360
     assert body["windows"][0]["start_minute"] == 360
+    # The nights behind the anchor travel with it, so the screen can show what
+    # was read rather than only the conclusion drawn from it.
+    assert body["sleep_start_minutes"] == 23 * 60
+    assert body["sleep_end_minutes"] == 360
+    assert body["sleep_nights"] == 7
 
 
 def test_schedule_falls_back_to_meals_when_sleep_is_sparse(
