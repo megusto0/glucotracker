@@ -269,6 +269,9 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "history", signature) }
         val context by viewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
+        val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
+        LaunchedEffect(date) { bodyStatesViewModel.load(date) }
+        val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
         InsulinAwareRows(
             context = context,
             rows = rows,
@@ -278,6 +281,14 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             rowRecordId = { row -> row.recordId },
             rowContent = rowContent,
             separator = divider,
+        )
+        // After the records, not among them. Sleep and effort are the day's
+        // background: they explain what the records did rather than being
+        // things that were done, and interleaving them by time would put a
+        // seven-hour night between two plates.
+        BodyStateRows(
+            states = bodyStates[date].orEmpty(),
+            divider = divider,
         )
     }
 
@@ -293,11 +304,16 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val contextViewModel: InsulinContextViewModel = hiltViewModel()
         val context by contextViewModel.context(date)
             .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
+        val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
+        LaunchedEffect(date) { bodyStatesViewModel.load(date) }
+        val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
         DayTimelineGluco(
+            date = date,
             meals = meals,
             readings = readings,
             classification = context.classificationByMealId,
             insulin = context.allEvents,
+            bodyStates = bodyStates[date].orEmpty(),
             onMealTap = onMealTap,
             modifier = modifier,
         )
@@ -768,6 +784,7 @@ private fun <T> InsulinAwareRows(
                 event = item.event,
                 onOpenResponse = { responseCardEvent = item.event }
                     .takeIf { !item.event.isPending },
+                framed = false,
             )
         }
         if (index < timeline.lastIndex) separator()
@@ -780,6 +797,82 @@ private fun <T> InsulinAwareRows(
         )
     }
 }
+
+/**
+ * The night and the hard hours of a day, stated once at the end of it.
+ *
+ * Read as reference, not as something to act on, so they carry no photo, no
+ * action and no tap target — the weight of a plate would claim they are the
+ * same kind of thing. An inferred state says so: half of these nights come
+ * from reading heart rate, not from the watch recording a session, and a
+ * medical screen must not present the two as equally certain.
+ */
+@Composable
+private fun BodyStateRows(states: List<BodyState>, divider: @Composable () -> Unit) {
+    if (states.isEmpty()) return
+    val ordered = remember(states) { states.sortedBy { it.startAt } }
+    divider()
+    ordered.forEachIndexed { index, state ->
+        if (index > 0) divider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 40.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(
+                        when (state.kind) {
+                            BodyState.Kind.Sleep -> GT.colors.ink2.copy(alpha = 0.45f)
+                            BodyState.Kind.Activity -> GT.colors.good
+                        },
+                        GT.shapes.tag,
+                    ),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = state.label ?: stringResource(
+                    when (state.kind) {
+                        BodyState.Kind.Sleep -> R.string.body_state_sleep
+                        BodyState.Kind.Activity -> R.string.body_state_activity
+                    },
+                ),
+                modifier = Modifier.weight(1f),
+                color = GT.colors.ink2,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (state.inferred) {
+                Text(
+                    text = stringResource(R.string.body_state_inferred),
+                    modifier = Modifier.padding(end = 8.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 9.sp),
+                    maxLines = 1,
+                )
+            }
+            Text(
+                text = stringResource(
+                    R.string.body_state_span,
+                    formatBodyStateDuration(state.totalMinutes),
+                    state.startAt.timeText(),
+                    state.endAt.timeText(),
+                ),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** «6:02», the way a night is spoken about, not «362 мин». */
+private fun formatBodyStateDuration(totalMinutes: Int): String =
+    "%d:%02d".format(totalMinutes / 60, totalMinutes % 60)
 
 /** Mixed and unresolved stay untinted: a guess is not worth a colour. */
 @Composable
@@ -901,6 +994,10 @@ private fun InlineInsulinLine(event: InsulinEvent) {
 private fun OrphanInsulinRow(
     event: InsulinEvent,
     onOpenResponse: (() -> Unit)? = null,
+    // Today lays these out between cards, so the row needs a surface of its own
+    // or it reads as something that failed to draw. History has them inside the
+    // day's card, where the same surface became a card within a card.
+    framed: Boolean = true,
 ) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
     var showManagement by remember(event.id) { mutableStateOf(false) }
@@ -910,16 +1007,16 @@ private fun OrphanInsulinRow(
             showTooltip = false
         }
     }
-    // On its own surface like everything else on the page. A correction with
-    // no meal is still a record, and rendering it as a bare line between two
-    // cards read as something that had failed to draw. Quieter inside than a
-    // meal card, because it carries one number rather than a plate.
     Column(
-        modifier = Modifier
-            .padding(horizontal = 18.dp)
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(horizontal = 14.dp, vertical = 2.dp),
+        modifier = if (framed) {
+            Modifier
+                .padding(horizontal = 18.dp)
+                .background(GT.colors.surface, GT.shapes.card)
+                .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+                .padding(horizontal = 14.dp, vertical = 2.dp)
+        } else {
+            Modifier.padding(horizontal = 14.dp)
+        },
     ) {
         Row(
             modifier = Modifier
@@ -1231,10 +1328,12 @@ private val InsulinDoseFormat = DecimalFormat(
 
 @Composable
 private fun DayTimelineGluco(
+    date: LocalDate,
     meals: List<HistoryTimelineMeal>,
     readings: List<GlucoseReading>,
     classification: Map<String, EpisodeTherapyClass>,
     insulin: List<InsulinEvent>,
+    bodyStates: List<BodyState>,
     onMealTap: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1297,6 +1396,28 @@ private fun DayTimelineGluco(
                 color = colors.accent.copy(alpha = 0.07f),
                 topLeft = Offset(0f, top),
                 size = Size(size.width, (bottom - top).coerceAtLeast(1f)),
+            )
+        }
+
+        // Sleep and hard effort along the top edge, on the chart's own time
+        // scale rather than in a card of their own. They are not metrics beside
+        // the curve, they are the explanation of its shape: a night's dip reads
+        // with the sleep it happened in, an evening climb with the workout that
+        // preceded it. Sleep stays translucent because it is the ground state
+        // of a day; effort is solid because it is an event in one.
+        bodyStates.forEach { state ->
+            val from = state.startAt.minutesOfDay(date)
+            val to = state.endAt.minutesOfDay(date)
+            if (to <= from) return@forEach
+            val left = size.width * (from / TimelineMinutesPerDay)
+            val right = size.width * (to / TimelineMinutesPerDay)
+            drawRect(
+                color = when (state.kind) {
+                    BodyState.Kind.Sleep -> colors.ink2.copy(alpha = 0.22f)
+                    BodyState.Kind.Activity -> colors.good.copy(alpha = 0.55f)
+                },
+                topLeft = Offset(left, 0f),
+                size = Size((right - left).coerceAtLeast(1f), BodyStateBandHeight.toPx()),
             )
         }
 
@@ -2096,6 +2217,22 @@ private fun glucoseY(value: Double, height: Float, scale: Pair<Double, Double>):
     return height - (normalized.toFloat() * height)
 }
 
+/**
+ * Where this instant falls on [date]'s 24-hour scale, clamped to its edges.
+ *
+ * A night starts the evening before and a state can run past midnight, so
+ * either end may sit outside the day being drawn. Clamping keeps the visible
+ * part on the chart instead of dropping the whole span for crossing a boundary.
+ */
+private fun Instant.minutesOfDay(date: LocalDate): Float {
+    val local = toLocalDateTime(TimeZone.currentSystemDefault())
+    return when {
+        local.date < date -> 0f
+        local.date > date -> TimelineMinutesPerDay
+        else -> (local.hour * 60 + local.minute).toFloat()
+    }
+}
+
 private fun GlucoseReading.minutesOfDay(): Int {
     val time = readingAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
     return (time.hour * 60 + time.minute).coerceIn(0, TimelineMinutesPerDayInt - 1)
@@ -2184,6 +2321,9 @@ private const val DisplayGlucoseMax = 14.0
 private const val InRangeLow = 3.9
 private const val InRangeHigh = 10.0
 // A 60 g plate reaches full size; carbohydrate is what moves the curve.
+/** Four pixels along the top edge — a margin note on the curve, not a series. */
+private val BodyStateBandHeight = 4.dp
+
 private const val TimelineCarbNormalization = 60f
 // A 12 U bolus reaches a full-height tick.
 private const val TimelineInsulinNormalization = 12.0

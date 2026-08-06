@@ -260,6 +260,12 @@
     <string name="more_gluco_alarm_high_desc">Уведомление при выходе за верхнюю границу</string>
     <string name="more_gluco_alarm_signal_title">Потеря сигнала сенсора</string>
     <string name="more_gluco_alarm_signal_desc">Если данные не приходят больше 20 мин</string>
+    <string name="body_state_sleep">Сон</string>
+    <string name="body_state_activity">Активность</string>
+    <!-- Half of these nights are read from heart rate rather than recorded by
+         the watch, and the two must not look equally certain. -->
+    <string name="body_state_inferred">по пульсу</string>
+    <string name="body_state_span">%1$s · %2$s—%3$s</string>
     <string name="sitting_time_action">Время приёма</string>
     <string name="sitting_time_title">Сдвинуть весь приём</string>
     <string name="sitting_time_hint">Все блюда приёма (%1$d) сдвинутся на одну и ту же величину — промежутки между ними сохранятся.</string>
