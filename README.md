@@ -14,6 +14,8 @@ It supports two roles over one backend:
 Start with the maintained documentation map:
 
 - [docs/README.md](docs/README.md)
+- [CHANGELOG.md](CHANGELOG.md) - version history
+- [docs/research-log.md](docs/research-log.md) - external sources consulted
 
 ## Important Boundaries
 
