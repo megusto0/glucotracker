@@ -578,7 +578,7 @@ def _anchors(
         return anchors
 
     if classification == "insulin_correction":
-        add("start", "Перед уколом", _nearest(points, start_at))
+        add("start", "Перед болюсом", _nearest(points, start_at))
         add(
             "trough",
             "Минимум",

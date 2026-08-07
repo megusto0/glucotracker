@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -1117,7 +1118,11 @@ private fun EpisodeInsulinFooter(
             } else {
                 insulinAgainstMeal(total, events.minOf { it.timestamp }, mealAt) +
                     if (events.size > 1) {
-                        stringResource(R.string.insulin_footer_shots, events.size)
+                        pluralStringResource(
+                            R.plurals.insulin_footer_shots,
+                            events.size,
+                            events.size,
+                        )
                     } else {
                         ""
                     }
@@ -1173,41 +1178,60 @@ private fun EpisodeInsulinLines(events: List<InsulinEvent>, mealAt: Instant?) {
         return
     }
     var expanded by remember(events.map { it.id }) { mutableStateOf(false) }
-    if (expanded) {
-        events.forEach { event -> InlineInsulinLine(event = event, mealAt = mealAt) }
-        return
-    }
     val ordered = events.sortedBy { it.timestamp }
     val total = events.sumOf { it.doseUnits }
     val catchUp = events
         .filter { it.eventType == InsulinEventType.CatchUp }
         .sumOf { it.doseUnits }
-    Row(
-        modifier = Modifier
-            .heightIn(min = 44.dp)
-            .padding(top = 3.dp)
-            .clickable(role = Role.Button) { expanded = true },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = insulinAgainstMeal(total, ordered.first().timestamp, mealAt) +
-                if (catchUp > 0.0) {
-                    stringResource(R.string.insulin_line_catch_up, formatInsulinDose(catchUp))
-                } else {
-                    ""
-                },
-            color = GT.colors.ink2.copy(alpha = 0.72f),
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = stringResource(R.string.insulin_line_shots, events.size),
-            color = GT.colors.ink2.copy(alpha = 0.46f),
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-        )
+    // The total stays on screen while the doses are open, and it is the control
+    // both ways. Expanding used to replace it and offer no way back, so the sum
+    // — the thing the line exists to state — was the price of looking at what
+    // it was made of.
+    Column {
+        Row(
+            modifier = Modifier
+                .heightIn(min = 44.dp)
+                .padding(top = 3.dp)
+                .clickable(role = Role.Button) { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = insulinAgainstMeal(total, ordered.first().timestamp, mealAt) +
+                    if (catchUp > 0.0) {
+                        stringResource(R.string.insulin_line_catch_up, formatInsulinDose(catchUp))
+                    } else {
+                        ""
+                    },
+                color = GT.colors.ink2.copy(alpha = 0.72f),
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = pluralStringResource(
+                    R.plurals.insulin_line_shots,
+                    events.size,
+                    events.size,
+                ),
+                color = GT.colors.ink2.copy(alpha = 0.46f),
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                maxLines = 1,
+            )
+            Spacer(Modifier.width(4.dp))
+            // Without a mark nothing said the line could be opened at all.
+            Text(
+                text = if (expanded) "⌄" else "›",
+                color = GT.colors.ink2.copy(alpha = 0.46f),
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                maxLines = 1,
+            )
+        }
+        if (expanded) {
+            ordered.forEach { event ->
+                InlineInsulinLine(event = event, mealAt = mealAt)
+            }
+        }
     }
 }
 

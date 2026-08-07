@@ -280,7 +280,7 @@ def test_a_spike_that_lands_on_target_is_not_reported_as_a_clean_episode(
     assert item["minutes_above_high"] >= 40
     # The endpoint is on target, so the total dose is not what went wrong.
     assert item["glucose_after_normalized"] == 5.3
-    assert any("вопрос ко времени укола" in note for note in item["notes"])
+    assert any("вопрос ко времени болюса" in note for note in item["notes"])
     assert len(item["trajectory"]) == 13
 
 

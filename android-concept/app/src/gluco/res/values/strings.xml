@@ -274,9 +274,7 @@
     <string name="insulin_line_with">%1$s ЕД · вместе с едой</string>
     <string name="insulin_line_at">%1$s ЕД · %2$s</string>
     <string name="insulin_line_catch_up"> · догон %1$s</string>
-    <string name="insulin_line_shots">%1$d укола</string>
     <string name="insulin_footer_none">инсулин не внесён</string>
-    <string name="insulin_footer_shots"> · %1$d укола</string>
     <string name="insulin_footer_review">РАСЧЁТ ›</string>
     <string name="insulin_footer_suggest">ПО ИСТОРИИ ›</string>
     <string name="body_state_sleep">Сон</string>
@@ -327,4 +325,16 @@
     <string name="episode_breakdown_kind_unresolved">без разбора</string>
     <string name="episode_breakdown_per_unit">%1$s %2$s</string>
     <string name="episode_breakdown_unavailable">Разбор недоступен — нет связи с сервером.</string>
+    <plurals name="insulin_line_shots">
+        <item quantity="one">%1$d болюс</item>
+        <item quantity="few">%1$d болюса</item>
+        <item quantity="many">%1$d болюсов</item>
+        <item quantity="other">%1$d болюса</item>
+    </plurals>
+    <plurals name="insulin_footer_shots">
+        <item quantity="one"> · %1$d болюс</item>
+        <item quantity="few"> · %1$d болюса</item>
+        <item quantity="many"> · %1$d болюсов</item>
+        <item quantity="other"> · %1$d болюса</item>
+    </plurals>
 </resources>

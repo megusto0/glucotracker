@@ -481,7 +481,7 @@ class TherapyReviewService:
                 ):
                     notes.append(
                         f"пик {path.peak:.1f} ммоль/л при исходе в диапазоне: "
-                        "вопрос ко времени укола, а не к дозе"
+                        "вопрос ко времени болюса, а не к дозе"
                     )
 
         adjustment_status: AdjustmentStatus = (
