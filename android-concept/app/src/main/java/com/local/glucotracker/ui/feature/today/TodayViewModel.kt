@@ -266,7 +266,15 @@ class TodayViewModel @Inject constructor(
                         ?.any { row ->
                             row.kind == TodayMealRowKind.Pending &&
                                 row.source == TodayMealSource.Photo &&
-                                row.status == TodayMealStatus.Estimating
+                                // The server's own field first, the UI enum only
+                                // as a fallback. Keying the loop on the enum
+                                // alone tied it to whichever row builder happened
+                                // to win, and when that changed the loop simply
+                                // stopped running with nothing to show for it.
+                                (
+                                    row.estimateStatus.equals("estimating", true) ||
+                                        row.status == TodayMealStatus.Estimating
+                                    )
                         } == true
                 }
                 .distinctUntilChanged()
@@ -466,7 +474,9 @@ private val HealthConnectGoalSources = setOf(
     "health_connect_steps",
 )
 
-private fun buildRows(
+// internal so the handover between the optimistic row and the server draft
+// can be pinned by a test; it has now regressed twice.
+internal fun buildRows(
     date: LocalDate,
     acceptedMeals: List<Meal>,
     backendDrafts: List<Meal>,
@@ -481,7 +491,21 @@ private fun buildRows(
     val itemPatchItemsByMealId = outbox
         .mapNotNull { item -> (item.kind as? OutboxKind.PatchMealItem)?.mealId?.let { it to item } }
         .toMap()
-    val localDraftMealIds = outbox.mapNotNull { item -> item.referencedDraftMealId() }.toSet()
+    // Which row owns a photographed meal changes the moment the upload lands.
+    //
+    // Before that the optimistic outbox row is the better one: it has the local
+    // file and can say "отправляем". After it, the server's own draft is, because
+    // only that row carries `estimate_status` — the one field that says whether
+    // the estimate is still running. Hiding the server draft for the whole life
+    // of the outbox item left a confirmed upload rendering from a record that
+    // knows nothing about the estimate, which is why it sat unchanged.
+    val localDraftMealIds = outbox
+        .filter { item -> item.state != OutboxState.Confirmed }
+        .mapNotNull { item -> item.referencedDraftMealId() }
+        .toSet()
+    // The other half of the handover: once the day cache holds the meal, the
+    // optimistic row has done its job. Without this the two would both render.
+    val cachedMealIds = (acceptedMeals + backendDrafts).map { meal -> meal.id }.toSet()
     val photoQueueItems = outbox
         .filter { item -> item.kind is OutboxKind.CapturedMeal }
         .filter { item -> item.affectsDay(date, acceptedMeals) }
@@ -510,13 +534,19 @@ private fun buildRows(
             meal.toBackendDraftRow(activeItem)
         }
 
-    val pendingRows = outbox.mapNotNull { item ->
-        item.toPendingRow(
-            date = date,
-            queuePosition = photoQueuePositions[item.id],
-            queueSize = photoQueueSize.takeIf { it > 0 },
-        )
-    }
+    val pendingRows = outbox
+        .filterNot { item ->
+            item.kind is OutboxKind.CapturedMeal &&
+                item.state == OutboxState.Confirmed &&
+                item.referencedDraftMealId()?.let { it in cachedMealIds } == true
+        }
+        .mapNotNull { item ->
+            item.toPendingRow(
+                date = date,
+                queuePosition = photoQueuePositions[item.id],
+                queueSize = photoQueueSize.takeIf { it > 0 },
+            )
+        }
 
     return (acceptedRows + backendDraftRows + pendingRows).sortedByDescending { row -> row.eatenAt }
 }
@@ -691,12 +721,17 @@ private fun OutboxState?.toMealStatus(): TodayMealStatus =
         else -> TodayMealStatus.Accepted
     }
 
+/**
+ * A capture that reached the server is being estimated, not finished.
+ *
+ * `Confirmed` used to fall through to "accepted" here, on the reading that a
+ * confirmed upload is a completed record. It is the opposite: the upload
+ * finishing is the moment the estimate *starts*. This row now only survives
+ * until the meal appears in the day cache, so there is no state in which
+ * "estimating" can stick.
+ */
 private fun OutboxItem.toPhotoCaptureMealStatus(): TodayMealStatus =
-    if (
-        linkedMealId != null &&
-        state != OutboxState.Confirmed &&
-        state != OutboxState.Stuck
-    ) {
+    if (linkedMealId != null && state != OutboxState.Stuck) {
         TodayMealStatus.Estimating
     } else {
         state.toMealStatus()

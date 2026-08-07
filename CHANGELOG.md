@@ -62,6 +62,15 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Android** — a photographed meal's status updates while you sit on Today.
+  The server draft row was hidden for the whole life of its outbox item, so once
+  the upload confirmed the entry rendered from a record that carries no
+  `estimate_status` — and the refresh loop, which only runs while some row says
+  an estimate is in progress, never started. Measured on the device: twenty-two
+  minutes in the foreground with an estimate pending and not one refetch; the
+  estimate had in fact been ready on the server almost the whole time. The row
+  now changes hands when the upload lands, and the loop keys off the server's
+  own field rather than a UI enum that two row builders computed differently.
 - **Backend** — a dose given between two sittings goes to the one that caused
   the rise, not to the one that happens to be nearer on the clock. A unit given
   at 19:38 to chase an 18:44 dinner landed on a croissant eaten at 20:03,
