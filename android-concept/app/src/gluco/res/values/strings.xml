@@ -212,6 +212,9 @@
     <!-- The sitting's time in its header, so no row inside the card carries a
          time gutter and every photo starts at the card's own edge. -->
     <string name="today_episode_kicker_at">%1$s · ПРИЁМ %2$d×</string>
+    <!-- The header a sitting of one plate carries; the count would be noise. -->
+    <string name="today_episode_single_kicker">· ПРИЁМ</string>
+    <string name="today_episode_group_kicker">· ПРИЁМ %1$d×</string>
     <string name="today_episode_carbs">%1$s г</string>
     <string name="today_episode_kcal">%1$s ккал</string>
     <!-- Coverage line under an episode header: what the dose actually worked out
@@ -272,6 +275,10 @@
     <string name="insulin_line_at">%1$s ЕД · %2$s</string>
     <string name="insulin_line_catch_up"> · догон %1$s</string>
     <string name="insulin_line_shots">%1$d укола</string>
+    <string name="insulin_footer_none">инсулин не внесён</string>
+    <string name="insulin_footer_shots"> · %1$d укола</string>
+    <string name="insulin_footer_review">РАСЧЁТ ›</string>
+    <string name="insulin_footer_suggest">ПО ИСТОРИИ ›</string>
     <string name="body_state_sleep">Сон</string>
     <string name="body_state_activity">Активность</string>
     <!-- Half of these nights are read from heart rate rather than recorded by
@@ -280,6 +287,8 @@
     <string name="body_state_inferred_bpm">по пульсу %1$d</string>
     <string name="body_state_span">%1$s · %2$s—%3$s</string>
     <string name="sitting_time_action">Время приёма</string>
+    <!-- The pencil marks the time as the control that moves the sitting. -->
+    <string name="sitting_header_time_editable">%1$s ✎</string>
     <string name="sitting_time_title">Сдвинуть весь приём</string>
     <string name="sitting_time_hint">Все блюда приёма (%1$d) сдвинутся на одну и ту же величину — промежутки между ними сохранятся.</string>
     <string name="sitting_time_hint_single">В приёме одно блюдо — сдвинется только оно.</string>

@@ -280,6 +280,21 @@ private fun InsulinRecommendationResponse.correctionGap(): CorrectionGap? =
         else -> null
     }
 
+/** The sheet without its button, for callers that own their own affordance. */
+@Composable
+fun HistoricalInsulinSheetHost(
+    mealIds: List<String>,
+    alreadyGivenUnits: Double,
+    onDismiss: () -> Unit,
+) {
+    if (mealIds.isEmpty()) return
+    HistoricalInsulinSheet(
+        mealIds = mealIds,
+        alreadyGivenUnits = alreadyGivenUnits,
+        onDismiss = onDismiss,
+    )
+}
+
 @Composable
 fun HistoricalInsulinButton(
     mealIds: List<String>,

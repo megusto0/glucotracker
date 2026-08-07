@@ -1094,9 +1094,12 @@ private fun MealRowSurface(
             .background(bg, GT.shapes.card)
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
     } else {
+        // Opaque, not transparent. A row inside a card sits on top of the
+        // swipe-to-delete background, and a transparent one let «Удалить»
+        // show through the entry that had not been swiped at all.
         Modifier
             .fillMaxWidth()
-            .background(if (highlighted) bg else Color.Transparent)
+            .background(if (highlighted) bg else GT.colors.surface)
     }
 
     Box(

@@ -69,6 +69,7 @@ import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryEntryTone
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinButton
+import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinSheetHost
 import com.local.glucotracker.ui.feature.insulin.InsulinManagementSheet
 import com.local.glucotracker.ui.feature.today.TodayMealRowKind
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
@@ -550,25 +551,30 @@ private fun TodaySingleCard(
             .background(GT.colors.surface, GT.shapes.card)
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
     ) {
-        rowContent(entry.row, false, true) {
-            EpisodeInsulinLines(events = entry.paired, mealAt = entry.row.eatenAt)
-        }
-        entry.row.recordId
+        val mealId = entry.row.recordId
             ?.takeIf { entry.row.kind == TodayMealRowKind.Accepted }
-            ?.let { mealId ->
-                GlucoCardActionRow {
-                    // Kept after a dose: it stops being a suggestion and
-                    // becomes a comparison against what was given.
-                    HistoricalInsulinButton(
-                        mealIds = listOf(mealId),
-                        alreadyGivenUnits = entry.paired
-                            .sumOf { event -> event.doseUnits },
-                    )
-                    SittingTimeButton(
-                        meals = listOf(SittingMeal(mealId, entry.row.eatenAt)),
-                    )
-                }
-            }
+        // A sitting of one plate is still a sitting. Without a header it was
+        // the odd entry out on the page and had nowhere to put its time.
+        SittingHeader(
+            time = entry.row.eatenAt.timeText(),
+            kindLabel = stringResource(R.string.today_episode_single_kicker),
+            kindColor = GT.colors.kindMeal,
+            totals = todayEpisodeSummary(
+                entry.row.totalCarbsG ?: 0.0,
+                entry.row.totalKcal ?: 0.0,
+                entry.paired.sumOf { it.doseUnits },
+            ),
+            meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
+        )
+        GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+        rowContent(entry.row, false, false) {}
+        if (mealId != null) {
+            EpisodeInsulinFooter(
+                events = entry.paired,
+                mealAt = entry.row.eatenAt,
+                mealIds = listOf(mealId),
+            )
+        }
     }
 }
 
@@ -593,30 +599,18 @@ private fun TodayEpisodeCard(
             .background(GT.colors.surface, GT.shapes.card)
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // The sitting's time lives here, so no row inside the card needs a
-            // gutter for it and every photo starts at the card's own edge.
-            GTKicker(
-                text = stringResource(
-                    R.string.today_episode_kicker_at,
-                    entries.minOf { it.row.eatenAt }.timeText(),
-                    entries.size,
-                ),
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel.copy(fontSize = 11.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        SittingHeader(
+            time = entries.minOf { it.row.eatenAt }.timeText(),
+            kindLabel = stringResource(
+                R.string.today_episode_group_kicker,
+                entries.size,
+            ),
+            kindColor = GT.colors.kindMeal,
+            totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+            meals = entries.mapNotNull { entry ->
+                entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
+            },
+        )
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
         // No gutter inside the card: the header above states the sitting's
         // time, and a plate that broke away from it says so in its own meta.
@@ -648,30 +642,11 @@ private fun TodayEpisodeCard(
             .filter { it.row.recordId in sitting }
             .flatMap { it.paired }
             .distinctBy { it.id }
-        // No divider over an empty row.
-        if (recommendationEligible || sittingMeals.size >= 2 || sittingInsulin.isNotEmpty()) {
-            GlucoCardActionRow(
-                leading = {
-                    EpisodeInsulinLines(
-                        events = sittingInsulin,
-                        mealAt = entries.minOfOrNull { it.row.eatenAt },
-                    )
-                },
-            ) {
-                if (recommendationEligible) {
-                    // Kept visible after a dose exists: that is exactly when
-                    // the question changes from "how much" to "was it enough",
-                    // and hiding it removed the only place the two meet.
-                    HistoricalInsulinButton(
-                        mealIds = sitting,
-                        alreadyGivenUnits = sittingInsulin.sumOf { it.doseUnits },
-                    )
-                }
-                // Not gated on the day: a sitting logged at the wrong hour is
-                // exactly the thing you come back to History to fix.
-                SittingTimeButton(meals = sittingMeals)
-            }
-        }
+        EpisodeInsulinFooter(
+            events = sittingInsulin,
+            mealAt = entries.minOfOrNull { it.row.eatenAt },
+            mealIds = sitting,
+        )
     }
 }
 
@@ -1052,6 +1027,83 @@ private sealed interface InsulinTimelineItem<out T> {
         val state: BodyState,
         override val timestamp: Instant,
     ) : InsulinTimelineItem<Nothing>
+}
+
+/**
+ * The sitting's insulin as one quiet rule under it: the fact, then the way in.
+ *
+ * The footer used to carry two links side by side — a dose line above, and a
+ * row of «СРАВНИТЬ С РАСЧЁТОМ» and «ВРЕМЯ ПРИЁМА» below. Two rules for one
+ * subject, and the time has since moved to the header where the thing it
+ * changes lives. What is left is a single line: what was given on the left,
+ * and one way in on the right.
+ *
+ * With no insulin recorded the line does not say nothing — it offers what the
+ * history would have suggested, which is the moment that question is live.
+ */
+@Composable
+private fun EpisodeInsulinFooter(
+    events: List<InsulinEvent>,
+    mealAt: Instant?,
+    mealIds: List<String>,
+) {
+    var showSheet by remember(mealIds) { mutableStateOf(false) }
+    val valid = mealIds.filter { runCatching { java.util.UUID.fromString(it) }.isSuccess }
+    val total = events.sumOf { it.doseUnits }
+    GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 40.dp)
+            .then(
+                if (valid.isEmpty()) {
+                    Modifier
+                } else {
+                    Modifier.clickable(role = Role.Button) { showSheet = true }
+                },
+            )
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (events.isEmpty()) {
+                stringResource(R.string.insulin_footer_none)
+            } else {
+                insulinAgainstMeal(total, events.minOf { it.timestamp }, mealAt) +
+                    if (events.size > 1) {
+                        stringResource(R.string.insulin_footer_shots, events.size)
+                    } else {
+                        ""
+                    }
+            },
+            modifier = Modifier.weight(1f),
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (valid.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    if (events.isEmpty()) {
+                        R.string.insulin_footer_suggest
+                    } else {
+                        R.string.insulin_footer_review
+                    },
+                ),
+                color = GT.colors.accent,
+                style = GT.type.kicker,
+                maxLines = 1,
+            )
+        }
+    }
+    if (showSheet) {
+        HistoricalInsulinSheetHost(
+            mealIds = valid,
+            alreadyGivenUnits = total,
+            onDismiss = { showSheet = false },
+        )
+    }
 }
 
 /**

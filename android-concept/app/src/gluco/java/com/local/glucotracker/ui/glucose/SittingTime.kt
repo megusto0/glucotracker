@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.glucose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,14 +28,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -284,4 +293,87 @@ internal fun sittingStart(
     if (hour !in 0..23 || minute !in 0..59) return null
     val day = start.toLocalDateTime(zone).date
     return LocalDateTime(day, LocalTime(hour, minute)).toInstant(zone)
+}
+
+/**
+ * The sitting's own line: a dot for its kind, its time, what it was, its totals.
+ *
+ * Every group carries one, including a sitting of a single dish. A card that
+ * announced itself only when it held two or more made the commonest entry —
+ * one plate — the odd one out, and left it with nowhere to put the time.
+ *
+ * The time is the control. It reads as editable (dashed, with a pencil) and
+ * opens the shift sheet on tap, which retires a whole «ВРЕМЯ ПРИЁМА» button
+ * from the footer: the thing being changed is right there to be pressed.
+ */
+@Composable
+fun SittingHeader(
+    time: String,
+    kindLabel: String,
+    kindColor: Color,
+    totals: String,
+    meals: List<SittingMeal>,
+    modifier: Modifier = Modifier,
+) {
+    var sheetOpen by remember { mutableStateOf(false) }
+    val editable = meals.isNotEmpty()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .padding(top = 9.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(7.dp).background(kindColor, GT.shapes.tag))
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text = if (editable) {
+                stringResource(R.string.sitting_header_time_editable, time)
+            } else {
+                time
+            },
+            modifier = Modifier
+                .then(
+                    if (editable) {
+                        Modifier.clickable(role = Role.Button) { sheetOpen = true }
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(if (editable) Modifier.dashedUnderline(GT.colors.muted) else Modifier),
+            color = GT.colors.ink2,
+            style = GT.type.kicker,
+            maxLines = 1,
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text = kindLabel,
+            modifier = Modifier.weight(1f),
+            color = GT.colors.ink2,
+            style = GT.type.kicker,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = totals,
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+        )
+    }
+    if (sheetOpen) {
+        SittingTimeSheet(meals = meals, onDismiss = { sheetOpen = false })
+    }
+}
+
+/** A dashed rule under a value that can be changed by pressing it. */
+private fun Modifier.dashedUnderline(color: Color): Modifier = drawBehind {
+    val y = size.height + 2.dp.toPx()
+    drawLine(
+        color = color,
+        start = Offset(0f, y),
+        end = Offset(size.width, y),
+        strokeWidth = 1.dp.toPx(),
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx())),
+    )
 }

@@ -570,9 +570,9 @@ fun GTMealRow(
     val secondaryTextColor = if (muted) GT.colors.muted else GT.colors.ink2
     // Denser by two-thirds of a line per row. A journal is read by scanning
     // many entries, and the space between them was doing none of that work.
-    val verticalPadding = if (compact) 9.dp else 8.dp
+    val verticalPadding = if (compact) 9.dp else 5.dp
     val photoSize = 36.dp
-    val minHeight = if (compact) 54.dp else 52.dp
+    val minHeight = if (compact) 54.dp else 46.dp
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -590,15 +590,13 @@ fun GTMealRow(
             style = GT.type.monoLabel,
             maxLines = 1,
         )
-        Box {
+        // Clipped to the photo's own corners, so the bar reads as part of the
+        // picture rather than a stripe laid over it — a half-frame down its
+        // leading edge, which is the mockup's `inset 3px 0 0`.
+        Box(modifier = Modifier.size(photoSize).clip(GT.shapes.tag)) {
             GTPhotoSlot(model = photo, modifier = Modifier.size(photoSize))
             kindColor?.let { color ->
-                Box(
-                    modifier = Modifier
-                        .width(3.dp)
-                        .height(photoSize)
-                        .background(color),
-                )
+                Box(modifier = Modifier.width(3.dp).height(photoSize).background(color))
             }
         }
         Column(
