@@ -950,10 +950,13 @@ private fun GTBottomBarButton(
     }
 }
 
+/** The mark that stands for a picture that is not on screen yet. */
 @Composable
-private fun GTPhotoGlyph() {
+fun GTPhotoGlyph(glyphSize: Dp = 15.dp) {
+    // Not named `size`: inside the Canvas lambda that shadows DrawScope.size,
+    // which every shape below measures against.
     val color = GT.colors.muted
-    Canvas(modifier = Modifier.size(15.dp)) {
+    Canvas(modifier = Modifier.size(glyphSize)) {
         val stroke = Stroke(width = 1.dp.toPx())
         drawRoundRect(
             color = color,

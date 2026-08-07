@@ -685,7 +685,13 @@ private fun historyRow(
         title = title,
         source = HistoryMealSource.Photo,
         status = status,
-        photo = null,
+        // Every fixture used to have no photo at all, so the goldens exercised
+        // only the "no picture" branch — a showcase tile of numbers and a row
+        // of empty frames — and could never have caught a photo failing to
+        // render. Paparazzi cannot fetch one, but it can tell an entry that
+        // has a picture from one that does not, which is the branch that
+        // mattered and was untested.
+        photo = "/api/meals/$id/photo",
         totalKcal = kcal,
         totalCarbsG = kcal?.div(10.0),
         totalProteinG = kcal?.div(20.0),

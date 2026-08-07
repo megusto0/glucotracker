@@ -67,6 +67,7 @@ import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTMealRow
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.design.primitives.GTPhotoGlyph
 import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import coil3.compose.AsyncImage
@@ -565,26 +566,36 @@ private fun ShowcaseTile(
         modifier = modifier.clickable(onClick = onOpen),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
+        // Branch on the resolved model, not on the URL. `apiImageModel`
+        // returns null for an API-hosted picture until the access token is in
+        // hand — and never has one under Paparazzi — so testing the URL drew
+        // an empty square for every photo that had not loaded yet.
+        val model = rememberApiImageModel(row.photo)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(GT.shapes.card)
                 .background(GT.colors.bg),
-            contentAlignment = Alignment.BottomStart,
+            contentAlignment = if (model == null && row.photo == null) {
+                Alignment.BottomStart
+            } else {
+                Alignment.Center
+            },
         ) {
-            if (row.photo != null) {
-                AsyncImage(
-                    model = rememberApiImageModel(row.photo),
+            when {
+                model != null -> AsyncImage(
+                    model = model,
                     contentDescription = null,
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop,
                 )
-            } else {
-                // An entry with no picture gives its square to the number
-                // instead. An empty frame would break the shelf's rhythm to
-                // say nothing.
-                Text(
+                // There is a picture, it just is not here yet. Say so, rather
+                // than showing a number that will be replaced by an image.
+                row.photo != null -> GTPhotoGlyph(glyphSize = 26.dp)
+                // Genuinely no picture: the square goes to the number. An empty
+                // frame would break the shelf's rhythm to say nothing.
+                else -> Text(
                     text = row.totalKcal?.let { formatKcal(it) }
                         ?: stringResource(R.string.value_empty),
                     modifier = Modifier.padding(10.dp),
