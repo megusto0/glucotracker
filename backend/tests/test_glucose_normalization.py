@@ -12,10 +12,21 @@ from glucotracker.application.glucose_dashboard import _local_wall_from_utc
 from glucotracker.application.glucose_normalization import (
     GlucoseNormalizationService,
 )
+from glucotracker.application.postprandial.analyzer import (
+    compute_pre_meal_state,
+    detect_hypo_recovery,
+)
 from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
+from glucotracker.domain.entities import (
+    MealSource,
+    MealStatus,
+    PreMealState,
+    TasteProfile,
+)
 from glucotracker.infra.db.models import (
     FingerstickReading,
+    Meal,
     NightscoutGlucoseEntry,
     SensorSession,
     User,
@@ -315,3 +326,66 @@ def test_series_never_reads_another_users_glucose(api_client: TestClient) -> Non
         )
 
     assert [sample.raw_mmol_l for sample in samples] == [6.0] * 3
+
+
+def test_postprandial_hypo_recovery_reads_the_calibrated_value(
+    api_client: TestClient,
+) -> None:
+    """A sweet drink at a calibrated 5.5 is a snack, not hypo treatment.
+
+    The postprandial analyzer used to compare the stored sensor number against
+    4.0. On this owner's stream that number runs well under true glucose, so an
+    ordinary drink arrived as a raw 3.2, was recorded as `is_hypo_recovery`, and
+    was then dropped from the IOB/COB fits as a hypo outlier — a mislabel that
+    removed real training data. It now reads the same calibrated series the
+    dashboard and the episode classifier read.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    eaten_at = _local_wall_from_utc(SENSOR_START + timedelta(hours=52))
+
+    with session_factory() as session:
+        session.add(SensorSession(owner_id=owner_id, started_at=SENSOR_START))
+        session.add_all(
+            _entries(
+                owner_id,
+                SENSOR_START + timedelta(hours=49),
+                [3.2] * 60,
+                "flat-low-raw",
+            )
+        )
+        # Every fingerstick lands 2.3 above the flat raw 3.2, so the calibrated
+        # series sits at 5.5 — comfortably in range.
+        session.add_all(
+            [
+                FingerstickReading(
+                    owner_id=owner_id,
+                    measured_at=SENSOR_START + timedelta(hours=50 + 6 * index),
+                    glucose_mmol_l=5.5,
+                )
+                for index in range(4)
+            ]
+        )
+        drink = Meal(
+            owner_id=owner_id,
+            title="Сок яблочный",
+            eaten_at=eaten_at,
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_kcal=90,
+            total_carbs_g=20,
+            total_protein_g=0,
+            total_fat_g=0,
+            ai_categories={"taste_profile": TasteProfile.drink_sweet.value},
+            derived_categories={"meal_role": "drink"},
+        )
+        session.add(drink)
+        session.commit()
+        meal_id = drink.id
+
+    with session_factory() as session:
+        meal = session.get(Meal, meal_id)
+        assert meal is not None
+        state, _ = compute_pre_meal_state(session, meal)
+        assert state == PreMealState.in_range
+        assert detect_hypo_recovery(meal, state) is False

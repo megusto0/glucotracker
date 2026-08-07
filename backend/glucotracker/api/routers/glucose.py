@@ -19,6 +19,7 @@ from glucotracker.api.schemas import (
     DayEpisodeResponse,
     DayEpisodesResponse,
     DayEpisodeTherapyResponse,
+    EpisodeBreakdownResponse,
     FingerstickReadingCreate,
     FingerstickReadingPatch,
     FingerstickReadingResponse,
@@ -48,6 +49,7 @@ from glucotracker.api.schemas import (
     TopUpDoseResponse,
 )
 from glucotracker.application.body_states import BodyStateService
+from glucotracker.application.episode_breakdown import EpisodeBreakdownService
 from glucotracker.application.episode_therapy import (
     catch_up_event_ids,
     classify_episode_therapy,
@@ -55,6 +57,7 @@ from glucotracker.application.episode_therapy import (
 from glucotracker.application.episodes import (
     EpisodeQueryService,
     anchor_meal_id,
+    component_key,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
 from glucotracker.application.glucose_prediction import GlucosePredictionService
@@ -184,12 +187,7 @@ def get_glucose_episodes(
         )
         episodes.append(
             DayEpisodeResponse(
-                key="|".join(
-                    sorted(
-                        [f"m:{meal.id}" for meal in component.meals]
-                        + [f"i:{event.id}" for event in component.insulin]
-                    )
-                ),
+                key=component_key(component),
                 kind=kind,
                 start_at=component.start_at,
                 end_at=component.end_at,
@@ -210,6 +208,36 @@ def get_glucose_episodes(
         to_datetime=to_datetime,
         episodes=episodes,
     )
+
+
+@router.get(
+    "/glucose/episodes/breakdown",
+    response_model=EpisodeBreakdownResponse,
+    operation_id="getGlucoseEpisodeBreakdown",
+)
+def get_glucose_episode_breakdown(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    key: Annotated[str, Query()],
+    from_datetime: Annotated[datetime, Query(alias="from")],
+    to_datetime: Annotated[datetime, Query(alias="to")],
+) -> EpisodeBreakdownResponse:
+    """Return one episode taken apart: window, anchors, crossings, cause.
+
+    The range is the one the list was drawn with, not a range derived here, so
+    the grouping that produced [key] is reproduced exactly.
+    """
+    breakdown = EpisodeBreakdownService(session, current_user.id).breakdown(
+        key,
+        from_datetime,
+        to_datetime,
+    )
+    if breakdown is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="episode not found in range",
+        )
+    return EpisodeBreakdownResponse.model_validate(breakdown)
 
 
 @router.get(

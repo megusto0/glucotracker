@@ -247,6 +247,21 @@ def group_components(
     return components
 
 
+def component_key(component: EpisodeComponent) -> str:
+    """Stable identity of one episode, from the records it contains.
+
+    The diary publishes this and the breakdown endpoint looks episodes up by
+    it, so the two must derive it identically — hence one function rather than
+    the same join written twice.
+    """
+    return "|".join(
+        sorted(
+            [f"m:{meal.id}" for meal in component.meals]
+            + [f"i:{event.id}" for event in component.insulin]
+        )
+    )
+
+
 def anchor_meal_id(
     event: NightscoutInsulinEvent,
     component: EpisodeComponent,

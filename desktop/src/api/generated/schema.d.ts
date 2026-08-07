@@ -443,6 +443,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/episodes/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glucose Episode Breakdown
+         * @description Return one episode taken apart: window, anchors, crossings, cause.
+         *
+         *     The range is the one the list was drawn with, not a range derived here, so
+         *     the grouping that produced [key] is reproduced exactly.
+         */
+        get: operations["getGlucoseEpisodeBreakdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/insulin-recommendation": {
         parameters: {
             query?: never;
@@ -2947,6 +2970,8 @@ export interface components {
              * @enum {string}
              */
             confidence: "low" | "medium" | "high";
+            /** Evidence */
+            evidence?: components["schemas"]["TherapyEvidenceResponse"][];
             /** Glucose At Start Normalized */
             glucose_at_start_normalized?: number | null;
             /** Glucose At Start Raw */
@@ -2961,10 +2986,19 @@ export interface components {
             peak_post_event_raw?: number | null;
             /** Reasons */
             reasons?: string[];
+            /**
+             * Score
+             * @default 0
+             */
+            score: number;
             /** Suggested Carbs G */
             suggested_carbs_g?: number | null;
             /** Suggestion Source */
             suggestion_source?: "ada_default" | null;
+            /** Trough At */
+            trough_at?: string | null;
+            /** Trough Normalized */
+            trough_normalized?: number | null;
         };
         /**
          * DayEpisodesResponse
@@ -3157,6 +3191,171 @@ export interface components {
             start_label: string;
             /** Start Minute */
             start_minute: number;
+        };
+        /**
+         * EpisodeBreakdownAnchorResponse
+         * @description A reading the episode is read from, and what it means.
+         */
+        EpisodeBreakdownAnchorResponse: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Caption */
+            caption?: string | null;
+            /** Label */
+            label: string;
+            /** Minutes From Start */
+            minutes_from_start: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "start" | "trough" | "peak" | "settle";
+            /** Value */
+            value: number;
+        };
+        /**
+         * EpisodeBreakdownCauseResponse
+         * @description The strongest explanation the data supports, in words.
+         */
+        EpisodeBreakdownCauseResponse: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * EpisodeBreakdownCrossingResponse
+         * @description Something else inside the window, offset from the episode start.
+         */
+        EpisodeBreakdownCrossingResponse: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Detail */
+            detail?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "insulin" | "episode" | "sleep" | "activity";
+            /** Label */
+            label: string;
+            /** Offset Minutes */
+            offset_minutes: number;
+            /** Therapy Class */
+            therapy_class?: string | null;
+        };
+        /**
+         * EpisodeBreakdownDerivedResponse
+         * @description The figure this episode contributes to the owner's own settings.
+         */
+        EpisodeBreakdownDerivedResponse: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /** Per Label */
+            per_label?: string | null;
+            /** Per Unit */
+            per_unit?: string | null;
+            /** Per Value */
+            per_value?: number | null;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: number;
+        };
+        /**
+         * EpisodeBreakdownFrequencyResponse
+         * @description How often the defining event of this class has happened lately.
+         */
+        EpisodeBreakdownFrequencyResponse: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Days */
+            days: number;
+            /** Index */
+            index: number;
+            /** Label */
+            label: string;
+        };
+        /**
+         * EpisodeBreakdownPointResponse
+         * @description One CGM reading in the breakdown window, calibrated.
+         */
+        EpisodeBreakdownPointResponse: {
+            /**
+             * Is Low
+             * @default false
+             */
+            is_low: boolean;
+            /** Raw Value */
+            raw_value?: number | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Value */
+            value: number;
+        };
+        /**
+         * EpisodeBreakdownResponse
+         * @description One episode taken apart: window, anchors, crossings, cause.
+         */
+        EpisodeBreakdownResponse: {
+            /** Anchors */
+            anchors?: components["schemas"]["EpisodeBreakdownAnchorResponse"][];
+            cause?: components["schemas"]["EpisodeBreakdownCauseResponse"] | null;
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "meal" | "snack" | "carb_correction" | "insulin_correction" | "mixed" | "unresolved";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Crossings */
+            crossings?: components["schemas"]["EpisodeBreakdownCrossingResponse"][];
+            /** Derived */
+            derived?: components["schemas"]["EpisodeBreakdownDerivedResponse"][];
+            /** Evidence */
+            evidence?: string[];
+            frequency?: components["schemas"]["EpisodeBreakdownFrequencyResponse"] | null;
+            /** Key */
+            key: string;
+            /** Low Threshold */
+            low_threshold: number;
+            /** Points */
+            points?: components["schemas"]["EpisodeBreakdownPointResponse"][];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Window From
+             * Format: date-time
+             */
+            window_from: string;
+            /**
+             * Window To
+             * Format: date-time
+             */
+            window_to: string;
         };
         /**
          * EstimateCalculationBreakdown
@@ -6683,6 +6882,12 @@ export interface components {
             last_shift_at?: string | null;
             /** Non Typical Periods */
             non_typical_periods?: components["schemas"]["NonTypicalPeriodResponse"][];
+            /** Sleep End Minutes */
+            sleep_end_minutes?: number | null;
+            /** Sleep Nights */
+            sleep_nights?: number | null;
+            /** Sleep Start Minutes */
+            sleep_start_minutes?: number | null;
             /** User Override Minutes */
             user_override_minutes?: number | null;
             /** Windows */
@@ -7331,6 +7536,21 @@ export interface components {
              */
             signal: "insufficient" | "stable" | "rising" | "falling";
             unknown_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
+        };
+        /**
+         * TherapyEvidenceResponse
+         * @description One named observation behind an episode's label.
+         */
+        TherapyEvidenceResponse: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /**
+             * Weight
+             * @default 0
+             */
+            weight: number;
         };
         /**
          * TherapyReviewDayResponse
@@ -8806,6 +9026,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DayEpisodesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGlucoseEpisodeBreakdown: {
+        parameters: {
+            query: {
+                key: string;
+                from: string;
+                to: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeBreakdownResponse"];
                 };
             };
             /** @description Validation Error */

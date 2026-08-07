@@ -36,6 +36,8 @@ changes.
 | [ADR-016 - Durable photo and product image storage](ADR-016-durable-photo-storage.md) | proposed | Storage adapter and Supabase Storage path; not implemented. |
 | [ADR-017 - Render runtime and background workers](ADR-017-render-runtime-and-workers.md) | proposed | Render process roles and worker guardrails; not implemented. |
 | [ADR-018 - Client API environments and hosted cutover](ADR-018-client-environments-and-cutover.md) | proposed | Client endpoint/cutover plan; not implemented. |
+| [ADR-019 - Episode grouping](ADR-019-episode-grouping.md) | accepted | One engine for what belongs together: sitting span, insulin coverage, outcome horizons. |
+| [ADR-020 - Episode breakdown](ADR-020-episode-breakdown.md) | accepted | Six blocks per episode for every class, and a carbohydrate correction read from its trough rather than its slope. |
 
 ## Known Numbering Notes
 

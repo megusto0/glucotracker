@@ -7,6 +7,7 @@ No LLM calls. No external services. Deterministic.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from statistics import mean, stdev
 from typing import Any
@@ -15,7 +16,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.glucose_normalization import (
+    GlucoseNormalizationService,
+)
 from glucotracker.application.postprandial import thresholds as T
 from glucotracker.application.time import local_wall_time, utc_instant_from_local_wall
 from glucotracker.domain.entities import (
@@ -24,7 +27,7 @@ from glucotracker.domain.entities import (
     PreMealState,
     TasteProfile,
 )
-from glucotracker.infra.db.models import Meal, NightscoutGlucoseEntry, User
+from glucotracker.infra.db.models import Meal, User
 
 logger = logging.getLogger(__name__)
 
@@ -37,43 +40,62 @@ HYP_RECOVERY_MIN_CARB_G = T.HYPO_RECOVERY_MIN_CARB_G
 HYP_RECOVERY_PRE_LOW_MINUTES = 30
 
 
+@dataclass(frozen=True)
+class CalibratedReading:
+    """One CGM reading in the space every threshold here is written in.
+
+    ``value_mmol_l`` is the *calibrated* value, not the stored sensor number.
+    This module compares against absolute levels — below 4.0 is a low, above
+    10.0 is a high, a sustained 10.0 is a spike — and this owner's raw stream
+    runs 1.0-2.8 mmol/L under true glucose, so those thresholds were being
+    evaluated on a scale that matches neither the dashboard nor the user. The
+    visible consequence was `detect_hypo_recovery`: an ordinary dessert eaten at
+    a calibrated 5.5 arrived as a raw 3.2, was recorded as hypo treatment, and
+    was then excluded from the IOB/COB fits as an outlier.
+    """
+
+    timestamp: datetime
+    value_mmol_l: float
+    raw_mmol_l: float
+
+
 def _cgm_readings(
     session: Session,
     user_id: UUID,
     start: datetime,
     end: datetime,
-) -> list[NightscoutGlucoseEntry]:
+) -> list[CalibratedReading]:
     utc_start = utc_instant_from_local_wall(local_wall_time(start))
     utc_end = utc_instant_from_local_wall(local_wall_time(end))
-    return list(
-        session.scalars(
-            select(NightscoutGlucoseEntry)
-            .where(
-                NightscoutGlucoseEntry.owner_id == user_id,
-                NightscoutGlucoseEntry.timestamp >= utc_start,
-                NightscoutGlucoseEntry.timestamp <= utc_end,
-                visible_glucose_filter(user_id),
-            )
-            .order_by(NightscoutGlucoseEntry.timestamp)
-        )
+    samples = GlucoseNormalizationService(session, user_id).series(
+        utc_start,
+        utc_end,
     )
+    return [
+        CalibratedReading(
+            timestamp=sample.timestamp,
+            value_mmol_l=sample.normalized_mmol_l,
+            raw_mmol_l=sample.raw_mmol_l,
+        )
+        for sample in samples
+    ]
 
 
-def _reading_time(reading: NightscoutGlucoseEntry) -> datetime:
+def _reading_time(reading: CalibratedReading) -> datetime:
     """Return a CGM reading timestamp as app-local naive wall-clock time."""
     return local_wall_time(reading.timestamp)
 
 
 def _interpolate(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     target: datetime,
 ) -> dict[str, Any] | None:
     """Linearly interpolate glucose at `target` from surrounding readings."""
     if not readings:
         return None
 
-    before: NightscoutGlucoseEntry | None = None
-    after: NightscoutGlucoseEntry | None = None
+    before: CalibratedReading | None = None
+    after: CalibratedReading | None = None
     for r in readings:
         reading_at = _reading_time(r)
         if reading_at <= target:
@@ -103,7 +125,7 @@ def _interpolate(
 
 
 def _nearest_reading(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     target: datetime,
 ) -> dict[str, Any] | None:
     """Return the reading nearest to `target`, ±5 min tolerance."""
@@ -195,7 +217,7 @@ def compute_pre_meal_state(
 
 
 def _find_peak(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     t0_value: float,
 ) -> dict[str, Any]:
     """Find the peak glucose value and time in the 180-min window."""
@@ -213,7 +235,7 @@ def _find_peak(
 
 
 def _coverage_fraction(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     start: datetime,
     end: datetime,
 ) -> float:
@@ -249,7 +271,7 @@ def _coverage_fraction(
 
 
 def _count_peaks(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     prominence: float,
 ) -> int:
     """Count distinct peaks with given minimum prominence."""
@@ -271,7 +293,7 @@ def _count_peaks(
 
 
 def _sustained_above_threshold(
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     threshold: float,
     min_minutes: int,
 ) -> bool:
@@ -305,7 +327,7 @@ def _sustained_above_threshold(
 
 def classify_response(
     anchors: dict[int, dict[str, Any] | None],
-    readings: list[NightscoutGlucoseEntry],
+    readings: list[CalibratedReading],
     coverage: float,
 ) -> GlycemicResponse:
     """Classify glycemic response from anchors and raw CGM stream."""
@@ -394,8 +416,8 @@ def _compute_fat_share(meal: Meal) -> float | None:
 
 
 def _peak_at_or_after_t180(
-    readings_0_180: list[NightscoutGlucoseEntry],
-    readings_180_300: list[NightscoutGlucoseEntry],
+    readings_0_180: list[CalibratedReading],
+    readings_180_300: list[CalibratedReading],
 ) -> bool:
     """Check if the highest glucose value lies in the extended window."""
     peak_180 = max(

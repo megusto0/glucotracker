@@ -1433,6 +1433,11 @@ components:
           - high
           title: Confidence
           type: string
+        evidence:
+          items:
+            $ref: '#/components/schemas/TherapyEvidenceResponse'
+          title: Evidence
+          type: array
         glucose_at_start_normalized:
           anyOf:
           - type: number
@@ -1468,6 +1473,10 @@ components:
             type: string
           title: Reasons
           type: array
+        score:
+          default: 0.0
+          title: Score
+          type: number
         suggested_carbs_g:
           anyOf:
           - type: number
@@ -1479,6 +1488,17 @@ components:
             type: string
           - type: 'null'
           title: Suggestion Source
+        trough_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Trough At
+        trough_normalized:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Trough Normalized
       required:
       - classification
       - confidence
@@ -1812,6 +1832,272 @@ components:
       - start_label
       - end_label
       title: EndocrinologistScheduleWindowResponse
+      type: object
+    EpisodeBreakdownAnchorResponse:
+      description: A reading the episode is read from, and what it means.
+      properties:
+        at:
+          format: date-time
+          title: At
+          type: string
+        caption:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Caption
+        label:
+          title: Label
+          type: string
+        minutes_from_start:
+          title: Minutes From Start
+          type: integer
+        role:
+          enum:
+          - start
+          - trough
+          - peak
+          - settle
+          title: Role
+          type: string
+        value:
+          title: Value
+          type: number
+      required:
+      - role
+      - label
+      - at
+      - value
+      - minutes_from_start
+      title: EpisodeBreakdownAnchorResponse
+      type: object
+    EpisodeBreakdownCauseResponse:
+      description: The strongest explanation the data supports, in words.
+      properties:
+        code:
+          title: Code
+          type: string
+        text:
+          title: Text
+          type: string
+      required:
+      - code
+      - text
+      title: EpisodeBreakdownCauseResponse
+      type: object
+    EpisodeBreakdownCrossingResponse:
+      description: Something else inside the window, offset from the episode start.
+      properties:
+        at:
+          format: date-time
+          title: At
+          type: string
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+        kind:
+          enum:
+          - insulin
+          - episode
+          - sleep
+          - activity
+          title: Kind
+          type: string
+        label:
+          title: Label
+          type: string
+        offset_minutes:
+          title: Offset Minutes
+          type: integer
+        therapy_class:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Therapy Class
+      required:
+      - kind
+      - label
+      - at
+      - offset_minutes
+      title: EpisodeBreakdownCrossingResponse
+      type: object
+    EpisodeBreakdownDerivedResponse:
+      description: The figure this episode contributes to the owner's own settings.
+      properties:
+        code:
+          title: Code
+          type: string
+        label:
+          title: Label
+          type: string
+        per_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Per Label
+        per_unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Per Unit
+        per_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Per Value
+        unit:
+          title: Unit
+          type: string
+        value:
+          title: Value
+          type: number
+      required:
+      - code
+      - label
+      - value
+      - unit
+      title: EpisodeBreakdownDerivedResponse
+      type: object
+    EpisodeBreakdownFrequencyResponse:
+      description: How often the defining event of this class has happened lately.
+      properties:
+        code:
+          title: Code
+          type: string
+        count:
+          title: Count
+          type: integer
+        days:
+          title: Days
+          type: integer
+        index:
+          title: Index
+          type: integer
+        label:
+          title: Label
+          type: string
+      required:
+      - code
+      - index
+      - count
+      - days
+      - label
+      title: EpisodeBreakdownFrequencyResponse
+      type: object
+    EpisodeBreakdownPointResponse:
+      description: One CGM reading in the breakdown window, calibrated.
+      properties:
+        is_low:
+          default: false
+          title: Is Low
+          type: boolean
+        raw_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Raw Value
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+        value:
+          title: Value
+          type: number
+      required:
+      - timestamp
+      - value
+      title: EpisodeBreakdownPointResponse
+      type: object
+    EpisodeBreakdownResponse:
+      description: 'One episode taken apart: window, anchors, crossings, cause.'
+      properties:
+        anchors:
+          items:
+            $ref: '#/components/schemas/EpisodeBreakdownAnchorResponse'
+          title: Anchors
+          type: array
+        cause:
+          anyOf:
+          - $ref: '#/components/schemas/EpisodeBreakdownCauseResponse'
+          - type: 'null'
+        classification:
+          enum:
+          - meal
+          - snack
+          - carb_correction
+          - insulin_correction
+          - mixed
+          - unresolved
+          title: Classification
+          type: string
+        confidence:
+          enum:
+          - low
+          - medium
+          - high
+          title: Confidence
+          type: string
+        crossings:
+          items:
+            $ref: '#/components/schemas/EpisodeBreakdownCrossingResponse'
+          title: Crossings
+          type: array
+        derived:
+          items:
+            $ref: '#/components/schemas/EpisodeBreakdownDerivedResponse'
+          title: Derived
+          type: array
+        evidence:
+          items:
+            type: string
+          title: Evidence
+          type: array
+        frequency:
+          anyOf:
+          - $ref: '#/components/schemas/EpisodeBreakdownFrequencyResponse'
+          - type: 'null'
+        key:
+          title: Key
+          type: string
+        low_threshold:
+          title: Low Threshold
+          type: number
+        points:
+          items:
+            $ref: '#/components/schemas/EpisodeBreakdownPointResponse'
+          title: Points
+          type: array
+        start_at:
+          format: date-time
+          title: Start At
+          type: string
+        subtitle:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtitle
+        title:
+          title: Title
+          type: string
+        window_from:
+          format: date-time
+          title: Window From
+          type: string
+        window_to:
+          format: date-time
+          title: Window To
+          type: string
+      required:
+      - key
+      - classification
+      - confidence
+      - title
+      - start_at
+      - window_from
+      - window_to
+      - low_threshold
+      title: EpisodeBreakdownResponse
       type: object
     EstimateCalculationBreakdown:
       description: Readable backend-prepared calculation evidence for one suggested
@@ -8468,6 +8754,24 @@ components:
       - signal
       title: TherapyBasalSlotResponse
       type: object
+    TherapyEvidenceResponse:
+      description: One named observation behind an episode's label.
+      properties:
+        code:
+          title: Code
+          type: string
+        text:
+          title: Text
+          type: string
+        weight:
+          default: 0.0
+          title: Weight
+          type: number
+      required:
+      - code
+      - text
+      title: TherapyEvidenceResponse
+      type: object
     TherapyReviewDayResponse:
       description: Retrospective therapy review for one local day.
       properties:
@@ -10737,6 +11041,65 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Glucose Episodes
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/episodes/breakdown:
+    get:
+      description: 'Return one episode taken apart: window, anchors, crossings, cause.
+
+
+        The range is the one the list was drawn with, not a range derived here, so
+
+        the grouping that produced [key] is reproduced exactly.'
+      operationId: getGlucoseEpisodeBreakdown
+      parameters:
+      - in: query
+        name: key
+        required: true
+        schema:
+          title: Key
+          type: string
+      - in: query
+        name: from
+        required: true
+        schema:
+          format: date-time
+          title: From
+          type: string
+      - in: query
+        name: to
+        required: true
+        schema:
+          format: date-time
+          title: To
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeBreakdownResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Glucose Episode Breakdown
       tags:
       - glucose
       x-glucotracker-required-feature: glucose

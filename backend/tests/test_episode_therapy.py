@@ -124,16 +124,18 @@ def test_low_calibrated_glucose_before_food_is_a_rescue() -> None:
 
 
 def test_sitting_in_progress_is_not_called_a_rescue() -> None:
-    """Food, no bolus yet, drifting down — the shape of a half-entered lunch.
+    """Food at a genuine low, no bolus yet — a lunch that has not been dosed.
 
     The user photographs dish by dish and doses at the end, so "no insulin" is
     not evidence until a bolus would no longer be attributed to the sitting.
+    Only the timing differs between the two calls below; the trace is low
+    enough either way, which is what leaves the settling rule visible.
     """
     at = datetime(2026, 7, 25, 13, 0)
     plate = _meal(at, carbs=25, role="main")
     points = [
-        _point(at - timedelta(minutes=20), raw=6.4, normalized=8.6),
-        _point(at, raw=5.0, normalized=7.2),
+        _point(at - timedelta(minutes=20), raw=1.6, normalized=4.2),
+        _point(at, raw=1.2, normalized=3.7),
     ]
     component = EpisodeComponent(meals=[plate], insulin=[], pairs=[])
 
@@ -165,8 +167,17 @@ def test_dessert_at_in_range_glucose_is_snack() -> None:
     assert result.suggested_carbs_g is None
 
 
-def test_small_main_meal_during_fast_fall_is_carb_correction() -> None:
-    """Food-role metadata must not override an obvious rescue pattern."""
+def test_small_meal_during_a_fall_toward_range_is_not_a_rescue() -> None:
+    """A steep slope is not a low, and this one lands nowhere near one.
+
+    This case used to classify as a rescue on the reasoning that food-role
+    metadata must not override an obvious rescue pattern — but the pattern was
+    only a slope. Coming down from 8.7 to 6.7 is what every meal does after its
+    peak, so an omelette eaten during the descent was filed as hypo treatment,
+    which is where the diary's spurious orange rows came from. The rule now
+    reads the trough instead of extrapolating the slope: nothing here went below
+    6.7, so nothing was rescued.
+    """
     at = datetime(2026, 7, 25, 12, 30)
     small_meal = _meal(
         at,
@@ -185,11 +196,106 @@ def test_small_main_meal_during_fast_fall_is_carb_correction() -> None:
         points,
     )
 
+    assert result.classification == "meal"
+    assert result.suggested_carbs_g is None
+
+
+def test_the_same_fall_reaching_a_low_is_a_rescue() -> None:
+    """Identical food and slope, carried three mmol/L lower.
+
+    The pair with the test above is the point: what separates the two is where
+    glucose ended up, not how fast it was moving or what the plate was called.
+    """
+    at = datetime(2026, 7, 25, 12, 30)
+    small_meal = _meal(
+        at,
+        carbs=7,
+        role="main_meal",
+        title="Омлет с грибами и соусом",
+    )
+    points = [
+        _point(at - timedelta(minutes=20), raw=3.4, normalized=5.7),
+        _point(at - timedelta(minutes=10), raw=2.4, normalized=4.7),
+        _point(at, raw=1.4, normalized=3.7),
+    ]
+
+    result = classify_episode_therapy(
+        EpisodeComponent(meals=[small_meal], insulin=[], pairs=[]),
+        points,
+    )
+
     assert result.classification == "carb_correction"
-    assert result.confidence == "high"
     assert result.suggested_carbs_g == 15.0
     assert "глюкоза быстро снижалась перед едой" in result.reasons
     assert "небольшой приём: 7 г" in result.reasons
+
+
+def test_a_rescue_without_cgm_cover_is_not_guessed() -> None:
+    """No calibrated glucose around the plate means no hypo label.
+
+    A gap in the trace is the one case where the old rule and the new one would
+    both like to say something, and the honest answer is that whether a low
+    happened is unknown. Unknown must not render as an orange row.
+    """
+    at = datetime(2026, 7, 25, 3, 40)
+    juice = _meal(at, carbs=12, role="drink", title="Сок яблочный")
+
+    result = classify_episode_therapy(
+        EpisodeComponent(meals=[juice], insulin=[], pairs=[]),
+        [_point(at - timedelta(hours=2), raw=1.1, normalized=3.4)],
+    )
+
+    assert result.classification == "snack"
+
+
+def test_juice_at_a_night_low_that_turned_around_is_a_confident_rescue() -> None:
+    """The mockup's own episode: 12 g of juice against a 3.6 at 01:05."""
+    at = datetime(2026, 8, 6, 1, 5)
+    juice = _meal(at, carbs=12, role="drink", title="Сок яблочный")
+    juice.total_protein_g = 0
+    juice.total_fat_g = 0
+    juice.ai_categories = {"taste_profile": "drink_sweet"}
+    points = [
+        _point(at - timedelta(minutes=5), raw=1.3, normalized=3.7),
+        _point(at, raw=1.2, normalized=3.6),
+        _point(at + timedelta(minutes=20), raw=2.0, normalized=4.4),
+        _point(at + timedelta(minutes=55), raw=5.5, normalized=7.9),
+    ]
+
+    result = classify_episode_therapy(
+        EpisodeComponent(meals=[juice], insulin=[], pairs=[]),
+        points,
+    )
+
+    assert result.classification == "carb_correction"
+    assert result.confidence == "high"
+    assert result.trough_normalized == 3.6
+    assert {item.code for item in result.evidence} >= {
+        "low_before_food",
+        "small_portion",
+        "no_bolus",
+        "fast_carbs",
+        "lean_portion",
+        "reversed",
+    }
+
+
+def test_food_dosed_with_a_bolus_at_a_low_is_not_a_rescue() -> None:
+    """Eating at 3.7 and dosing for it is a meal begun low, not treatment."""
+    at = datetime(2026, 7, 25, 13, 0)
+    plate = _meal(at, carbs=28, role="main_meal")
+    bolus = _insulin(at + timedelta(minutes=5), event_type="Meal Bolus")
+    points = [
+        _point(at - timedelta(minutes=10), raw=1.5, normalized=4.0),
+        _point(at, raw=1.2, normalized=3.7),
+    ]
+
+    result = classify_episode_therapy(
+        EpisodeComponent(meals=[plate], insulin=[bolus], pairs=[]),
+        points,
+    )
+
+    assert result.classification == "meal"
 
 
 def test_main_meal_with_bolus_is_meal() -> None:

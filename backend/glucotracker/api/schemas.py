@@ -166,6 +166,16 @@ class DayEpisodeInsulinResponse(BaseModel):
     editable: bool = False
 
 
+class TherapyEvidenceResponse(BaseModel):
+    """One named observation behind an episode's label."""
+
+    code: str
+    text: str
+    weight: float = 0.0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DayEpisodeTherapyResponse(BaseModel):
     """Automatic, read-only interpretation of an episode's treatment intent."""
 
@@ -179,6 +189,15 @@ class DayEpisodeTherapyResponse(BaseModel):
     ]
     confidence: Literal["low", "medium", "high"]
     reasons: list[str] = Field(default_factory=list)
+    # The same reasons, keyed and weighted. `reasons` stays as the plain
+    # sentences older clients render; anything that needs to branch on why a
+    # label was chosen reads the codes.
+    evidence: list[TherapyEvidenceResponse] = Field(default_factory=list)
+    score: float = 0.0
+    # Lowest calibrated value around the plate — the reading a carbohydrate
+    # rescue is judged on, and null when no CGM covered the moment.
+    trough_normalized: float | None = None
+    trough_at: datetime | None = None
     suggested_carbs_g: float | None = None
     suggestion_source: Literal["ada_default"] | None = None
     glucose_at_start_raw: float | None = None
@@ -210,6 +229,109 @@ class DayEpisodesResponse(BaseModel):
     from_datetime: datetime
     to_datetime: datetime
     episodes: list[DayEpisodeResponse]
+
+
+class EpisodeBreakdownPointResponse(BaseModel):
+    """One CGM reading in the breakdown window, calibrated."""
+
+    timestamp: datetime
+    value: float
+    raw_value: float | None = None
+    is_low: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownAnchorResponse(BaseModel):
+    """A reading the episode is read from, and what it means."""
+
+    role: Literal["start", "trough", "peak", "settle"]
+    label: str
+    at: datetime
+    value: float
+    minutes_from_start: int
+    caption: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownDerivedResponse(BaseModel):
+    """The figure this episode contributes to the owner's own settings."""
+
+    code: str
+    label: str
+    value: float
+    unit: str
+    per_label: str | None = None
+    per_value: float | None = None
+    per_unit: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownCrossingResponse(BaseModel):
+    """Something else inside the window, offset from the episode start."""
+
+    kind: Literal["insulin", "episode", "sleep", "activity"]
+    label: str
+    at: datetime
+    #: Signed: negative before the episode, positive after it.
+    offset_minutes: int
+    detail: str | None = None
+    therapy_class: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownCauseResponse(BaseModel):
+    """The strongest explanation the data supports, in words."""
+
+    code: str
+    text: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownFrequencyResponse(BaseModel):
+    """How often the defining event of this class has happened lately."""
+
+    code: str
+    index: int
+    count: int
+    days: int
+    label: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EpisodeBreakdownResponse(BaseModel):
+    """One episode taken apart: window, anchors, crossings, cause."""
+
+    key: str
+    classification: Literal[
+        "meal",
+        "snack",
+        "carb_correction",
+        "insulin_correction",
+        "mixed",
+        "unresolved",
+    ]
+    confidence: Literal["low", "medium", "high"]
+    title: str
+    subtitle: str | None = None
+    start_at: datetime
+    window_from: datetime
+    window_to: datetime
+    low_threshold: float
+    points: list[EpisodeBreakdownPointResponse] = Field(default_factory=list)
+    anchors: list[EpisodeBreakdownAnchorResponse] = Field(default_factory=list)
+    derived: list[EpisodeBreakdownDerivedResponse] = Field(default_factory=list)
+    crossings: list[EpisodeBreakdownCrossingResponse] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    cause: EpisodeBreakdownCauseResponse | None = None
+    frequency: EpisodeBreakdownFrequencyResponse | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BodyStateIntervalResponse(BaseModel):

@@ -29,7 +29,7 @@ val debugApiBaseUrl = providers.gradleProperty("glucotracker.debugApiBaseUrl")
 // tracked real milestones, so a build could not say what it was. Bump this and
 // CHANGELOG.md together; the commit and build time below identify the exact
 // binary, which a version number never can.
-val appVersionName = "0.10.0"
+val appVersionName = "0.11.0"
 
 // Monotonic and derived, so it cannot drift from the name: 0.10.0 -> 1000.
 val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->

@@ -819,6 +819,56 @@ class TestGETIsolation:
         assert bob_response.json()["states"] == []
 
     @pytest.mark.parametrize(
+        ("owner_headers_key", "other_headers_key"),
+        [
+            ("alice_headers", "bob_headers"),
+            ("bob_headers", "alice_headers"),
+        ],
+    )
+    def test_episode_breakdown_isolation(
+        self,
+        owner_headers_key: str,
+        other_headers_key: str,
+    ) -> None:
+        """An episode key is one owner's record ids, and only resolves for them.
+
+        The breakdown is looked up by a key made of meal and insulin ids, so the
+        interesting leak is not a stray row in a list but another user holding a
+        key and asking for it. Grouping runs inside the caller's own scope, so
+        the key simply does not exist there.
+        """
+        day = self.ids["alice_day"]
+        params = {
+            "from": f"{day.isoformat()}T00:00:00",
+            "to": f"{day.isoformat()}T23:59:00",
+        }
+        owner_headers = self.env[owner_headers_key]
+        listed = self.client.get(
+            "/glucose/episodes",
+            params=params,
+            headers=owner_headers,
+        )
+        assert listed.status_code == 200
+        episodes = listed.json()["episodes"]
+        if not episodes:
+            pytest.skip("no episode for this owner on the seeded day")
+        key = episodes[0]["key"]
+
+        mine = self.client.get(
+            "/glucose/episodes/breakdown",
+            params={**params, "key": key},
+            headers=owner_headers,
+        )
+        theirs = self.client.get(
+            "/glucose/episodes/breakdown",
+            params={**params, "key": key},
+            headers=self.env[other_headers_key],
+        )
+
+        assert mine.status_code == 200
+        assert theirs.status_code == 404
+
+    @pytest.mark.parametrize(
         ("owner_meal_key", "owner_headers_key", "other_headers_key"),
         [
             ("alice_meal", "alice_headers", "bob_headers"),

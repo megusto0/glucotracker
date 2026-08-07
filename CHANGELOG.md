@@ -23,6 +23,46 @@ External sources consulted while building are recorded in
 
 ---
 
+## [0.11.0] — 2026-08-07 — What actually happened, not what was projected
+
+### Added
+
+- **Backend** — `GET /glucose/episodes/breakdown` takes one episode apart into
+  six blocks that are the same for every class: a −2 h/+4 h window of calibrated
+  CGM sent point by point, the two or three readings the episode is read from,
+  one derived figure (rise per gram, or fall per unit), everything else in the
+  window with a signed offset, a probable cause, and how often this has happened
+  in 30 days. What differs by class is only which readings are anchors and which
+  figure is worth deriving. See
+  [ADR-020](docs/adr/ADR-020-episode-breakdown.md).
+- **Backend** — an episode's label now carries the named evidence behind it —
+  a stable code, the sentence, and its weight — alongside the plain `reasons`
+  older clients render, plus the trough the judgement was made on.
+
+### Changed
+
+- **Backend** — a carbohydrate correction is decided from the lowest calibrated
+  reading around the plate, not from the slope at it. Food eaten while glucose
+  fell steeply *toward a perfectly ordinary number* was filed as hypoglycaemia
+  treatment — a descent from a meal peak satisfies "falling fast" exactly — which
+  is where the diary's spurious orange rows came from. The label now requires a
+  reading at or below 4.5 mmol/L in the window around the food; a steep slope,
+  fast carbohydrate and a reversal only move confidence. With no CGM covering the
+  moment the label is withheld rather than guessed.
+
+### Fixed
+
+- **Backend** — the postprandial analyzer read raw sensor values against
+  absolute thresholds. A drink at a calibrated 5.5 arrived as a raw 3.2, was
+  recorded as hypo treatment, and was then dropped from the IOB/COB fits as an
+  outlier — the mislabel was deleting real training data. It now reads the same
+  calibrated series as the dashboard and the classifier.
+- **Backend** — anchor searches inside a breakdown stop at the next episode. A
+  53 g biscuit 75 minutes after a 12 g rescue drove glucose higher than the
+  rescue did, and an uncapped search billed that rise to twelve grams of juice.
+
+---
+
 ## [0.10.0] — 2026-08-06 — Measured signals over proxies
 
 ### Added
