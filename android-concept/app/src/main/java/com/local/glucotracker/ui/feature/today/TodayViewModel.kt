@@ -556,7 +556,18 @@ private fun Meal.toBackendDraftRow(outboxItem: OutboxItem?): TodayMealRowUi {
         eatenAt = editPatch?.eatenAt ?: eatenAt,
         title = editPatch?.title ?: title,
         source = toMealSource(),
-        status = outboxItem?.state.toMealStatus() ?: estimateStatus.toBackendDraftStatus(),
+        // The upload's own state only while it is still in flight. It used to
+        // be `outboxItem?.state.toMealStatus() ?: estimateStatus…`, but
+        // `toMealStatus()` is an extension on a nullable and never returns
+        // null, so the elvis never fired and the server's estimate status was
+        // unreachable code. A confirmed upload therefore reported "accepted"
+        // for a meal the server was still estimating — which also stopped the
+        // poller that watches for an estimate in progress, so the row sat at
+        // «оценка» until something else happened to refetch the day.
+        status = outboxItem?.state
+            ?.toMealStatus()
+            ?.takeIf { it != TodayMealStatus.Accepted }
+            ?: estimateStatus.toBackendDraftStatus(),
         photo = thumbnailUrl,
         totalKcal = totalKcal,
         totalCarbsG = totalCarbsG,

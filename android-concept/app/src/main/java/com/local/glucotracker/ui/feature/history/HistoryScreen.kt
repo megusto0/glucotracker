@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -39,12 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -65,6 +68,8 @@ import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTMealRow
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTTag
+import com.local.glucotracker.ui.image.rememberApiImageModel
+import coil3.compose.AsyncImage
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatSignedKcal
@@ -482,6 +487,11 @@ private fun HistoryDayCard(
                 .padding(top = 12.dp)
                 .fillMaxWidth()
         )
+        HistoryShowcase(
+            rows = day.rows,
+            onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
+            modifier = Modifier.padding(top = 12.dp),
+        )
         Text(
             text = stringResource(
                 R.string.history_macro_summary,
@@ -497,6 +507,113 @@ private fun HistoryDayCard(
         GTHairlineDivider(modifier = Modifier.padding(top = 14.dp))
     }
 }
+
+/**
+ * The day's food as a shelf of pictures rather than a column of lines.
+ *
+ * History answers two different questions and a list only answers one. «What
+ * happened that day» is sequence and numbers, which is what the gluco list is
+ * for. «Show me the thing I ate» is recognition, and a 36 dp thumbnail is not a
+ * picture — it is an icon meaning "there was a photo". Three to a row, each a
+ * third of the screen, is the size at which food is actually identifiable.
+ *
+ * Food only, deliberately. The grid drops what it cannot carry — insulin
+ * belongs to a sitting rather than a dish, and the gaps between entries are the
+ * content of a diabetes record — and the food flavor has none of that to lose.
+ * Its day card showed no entries at all until now.
+ *
+ * Built from plain rows, not a lazy grid: this sits inside a LazyColumn item,
+ * where a nested lazy container has no bounded height to measure against.
+ */
+@Composable
+private fun HistoryShowcase(
+    rows: List<HistoryMealRowUi>,
+    onOpenMealStack: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val entries = remember(rows) { rows.filter { it.kind == HistoryMealRowKind.Accepted } }
+    if (entries.isEmpty()) return
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        entries.chunked(ShowcaseColumns).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                row.forEach { entry ->
+                    ShowcaseTile(
+                        row = entry,
+                        onOpen = { (entry.recordId ?: entry.outboxId)?.let(onOpenMealStack) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Keeps the last row's tiles the width of every other row's.
+                repeat(ShowcaseColumns - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShowcaseTile(
+    row: HistoryMealRowUi,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.clickable(onClick = onOpen),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(GT.shapes.card)
+                .background(GT.colors.bg),
+            contentAlignment = Alignment.BottomStart,
+        ) {
+            if (row.photo != null) {
+                AsyncImage(
+                    model = rememberApiImageModel(row.photo),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                // An entry with no picture gives its square to the number
+                // instead. An empty frame would break the shelf's rhythm to
+                // say nothing.
+                Text(
+                    text = row.totalKcal?.let { formatKcal(it) }
+                        ?: stringResource(R.string.value_empty),
+                    modifier = Modifier.padding(10.dp),
+                    color = GT.colors.ink2,
+                    style = GT.type.monoNumber.copy(fontSize = 17.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+        Text(
+            text = row.title ?: fallbackTitle(row),
+            color = GT.colors.ink,
+            style = GT.type.sansLabel.copy(fontSize = 11.5.sp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = listOfNotNull(
+                row.totalKcal?.let { formatKcal(it) },
+                row.eatenAt.timeText(),
+            ).joinToString(" · "),
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+        )
+    }
+}
+
+private const val ShowcaseColumns = 3
 
 @Composable
 private fun HourScaleHeader(modifier: Modifier = Modifier) {

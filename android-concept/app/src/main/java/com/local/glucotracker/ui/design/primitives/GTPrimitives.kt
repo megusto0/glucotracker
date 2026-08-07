@@ -506,6 +506,10 @@ fun GTPhotoSlot(
     model: Any?,
     modifier: Modifier = Modifier,
     placeholderTone: GTPhotoPlaceholderTone = GTPhotoPlaceholderTone.Background,
+    // The slot hardcoded 32.dp after the caller's own size, so a row asking
+    // for 36 got 32 and the kind bar beside it stood a few pixels proud of the
+    // picture it belonged to. Callers that set their own size say so.
+    size: Dp = 32.dp,
 ) {
     val imageModel = rememberApiImageModel(model)
     val placeholderColor = when (placeholderTone) {
@@ -515,7 +519,7 @@ fun GTPhotoSlot(
     }
     Box(
         modifier = modifier
-            .size(32.dp)
+            .size(size)
             .clip(GT.shapes.iconButton)
             .background(placeholderColor)
             .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.iconButton),
@@ -600,7 +604,7 @@ fun GTMealRow(
         // picture rather than a stripe laid over it — a half-frame down its
         // leading edge, which is the mockup's `inset 3px 0 0`.
         Box(modifier = Modifier.size(photoSize).clip(GT.shapes.tag)) {
-            GTPhotoSlot(model = photo, modifier = Modifier.size(photoSize))
+            GTPhotoSlot(model = photo, size = photoSize)
             kindColor?.let { color ->
                 Box(modifier = Modifier.width(3.dp).height(photoSize).background(color))
             }
