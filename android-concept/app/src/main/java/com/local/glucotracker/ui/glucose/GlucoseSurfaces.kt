@@ -190,6 +190,14 @@ interface GlucoseSurfaces {
 
     @Composable
     fun MoreNightscoutSection()
+
+    /**
+     * Health Connect settings. Lives in the flavor that has Health Connect, so
+     * the shared screen needs neither its classes nor a reflective bridge to
+     * them; the food binary carries none of it.
+     */
+    @Composable
+    fun MoreHealthConnectSection()
 }
 
 val LocalGlucoseSurfaces: ProvidableCompositionLocal<GlucoseSurfaces> =
@@ -279,4 +287,7 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
 
     @Composable
     override fun MoreNightscoutSection() = Unit
+
+    @Composable
+    override fun MoreHealthConnectSection() = Unit
 }

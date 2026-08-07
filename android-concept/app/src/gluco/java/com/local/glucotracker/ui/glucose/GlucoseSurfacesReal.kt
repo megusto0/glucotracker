@@ -381,6 +381,11 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     }
 
     @Composable
+    override fun MoreHealthConnectSection() {
+        MoreHealthConnectSurface()
+    }
+
+    @Composable
     override fun MoreNightscoutSection() {
         MoreGlucoseSettingsSurface()
     }

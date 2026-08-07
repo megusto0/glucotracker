@@ -260,6 +260,10 @@ object DebugHealthConnectSync {
         requestSync()
     }
 
+    /** False until `install` has run, i.e. the provider is not on this device. */
+    @JvmStatic
+    fun isAvailable(): Boolean = appContext != null
+
     @JvmStatic
     fun isSyncRunning(): Boolean = syncRequested || syncInProgress
 

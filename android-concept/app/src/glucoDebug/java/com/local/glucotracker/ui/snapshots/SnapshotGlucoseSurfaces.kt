@@ -28,7 +28,9 @@ import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
 import com.local.glucotracker.ui.glucose.GlucoseSurfaces
 import com.local.glucotracker.ui.glucose.HistoryTimelineCircleInput
+import com.local.glucotracker.ui.glucose.HcSyncStatus
 import com.local.glucotracker.ui.glucose.HistoryTimelineMeal
+import com.local.glucotracker.ui.glucose.MoreHealthConnectContent
 import com.local.glucotracker.ui.glucose.MealContextAnchor
 import com.local.glucotracker.ui.glucose.layoutHistoryTimelineCircles
 import kotlinx.datetime.Instant
@@ -242,6 +244,22 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
             color = GT.colors.muted,
             style = GT.type.monoLabel,
             maxLines = 1,
+        )
+    }
+
+    @Composable
+    override fun MoreHealthConnectSection() {
+        // Real layout, fixed state. Returning Unit would have dropped a whole
+        // section out of the "Ещё" golden without a test noticing.
+        MoreHealthConnectContent(
+            status = HcSyncStatus(
+                lastSyncAt = 1_786_100_000_000L,
+                records = 1_284,
+                unreadable = 1,
+            ),
+            isRunning = false,
+            sent = 0,
+            onSync = {},
         )
     }
 

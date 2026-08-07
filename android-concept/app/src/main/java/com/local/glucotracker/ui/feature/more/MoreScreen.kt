@@ -153,7 +153,7 @@ fun MoreScreen(
     ) {
         LocalGlucoseSurfaces.current.MoreNightscoutSection()
 
-        DebugHealthConnectSection()
+        LocalGlucoseSurfaces.current.MoreHealthConnectSection()
 
         BaseSection(
             productCount = state.productCount,
@@ -194,150 +194,6 @@ fun MoreScreen(
         Spacer(Modifier.height(10.dp))
     }
 }
-
-@Composable
-private fun DebugHealthConnectSection() {
-    if (!HealthConnectSyncBridge.available) return
-
-    var isRunning by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf(HcSyncStatus()) }
-    var sent by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        status = HealthConnectSyncBridge.lastSyncStatus()
-        if (HealthConnectSyncBridge.isRunning()) {
-            isRunning = true
-        }
-    }
-    LaunchedEffect(isRunning) {
-        if (!isRunning) return@LaunchedEffect
-        // Polls every half second and reads the running total, so a sync that
-        // takes minutes shows movement instead of one frozen line.
-        while (HealthConnectSyncBridge.isRunning()) {
-            sent = HealthConnectSyncBridge.progressRecords()
-            delay(500)
-        }
-        status = HealthConnectSyncBridge.lastSyncStatus()
-        sent = 0
-        isRunning = false
-    }
-
-    val description = when {
-        isRunning && sent > 0 -> stringResource(R.string.more_hc_sync_run_progress, sent)
-        isRunning -> stringResource(R.string.more_hc_sync_run_desc)
-        status.error != null -> stringResource(R.string.more_hc_status_error)
-        status.lastSyncAt <= 0L -> stringResource(R.string.more_health_connect_hint)
-        status.skipped > 0 -> stringResource(
-            R.string.more_hc_status_partial,
-            status.lastSyncAt.timeLabel(),
-        )
-        // Records Health Connect itself cannot hand over are not a sync
-        // failure, and saying "часть данных не синхронизирована" about them
-        // reported a permanent, unfixable fault on every single run.
-        status.unreadable > 0 -> stringResource(
-            R.string.more_hc_status_unreadable,
-            status.records,
-            status.lastSyncAt.timeLabel(),
-        )
-        status.records > 0 -> stringResource(
-            R.string.more_hc_status_records,
-            status.records,
-            status.lastSyncAt.timeLabel(),
-        )
-        else -> stringResource(
-            R.string.more_hc_status_uptodate,
-            status.lastSyncAt.timeLabel(),
-        )
-    }
-
-    SettingsSection(title = stringResource(R.string.more_health_connect_title)) {
-        SettingsGroup {
-            SettingsRow(
-                title = stringResource(R.string.more_health_connect_title),
-                description = description,
-                glyph = SettingsGlyphKind.Signal,
-                actionBelow = true,
-                action = {
-                    GTOutlineButton(
-                        text = stringResource(
-                            when {
-                                isRunning -> R.string.more_hc_sync_running
-                                status.lastSyncAt <= 0L -> R.string.more_health_connect_connect
-                                else -> R.string.more_hc_sync_now
-                            },
-                        ),
-                        enabled = !isRunning,
-                        onClick = {
-                            HealthConnectSyncBridge.forceSyncNow()
-                            isRunning = true
-                        },
-                    )
-                },
-            )
-        }
-    }
-}
-
-private data class HcSyncStatus(
-    val lastSyncAt: Long = -1L,
-    val records: Int = 0,
-    val deleted: Int = 0,
-    val skipped: Int = 0,
-    val unreadable: Int = 0,
-    val error: String? = null,
-)
-
-private object HealthConnectSyncBridge {
-    private const val ClassName = "com.local.glucotracker.healthconnect.DebugHealthConnectSync"
-
-    val available: Boolean by lazy {
-        runCatching { Class.forName(ClassName) }.isSuccess
-    }
-
-    fun forceSyncNow() {
-        runCatching {
-            Class.forName(ClassName).getMethod("forceSyncNow").invoke(null)
-        }
-    }
-
-    fun isRunning(): Boolean =
-        runCatching {
-            Class.forName(ClassName).getMethod("isSyncRunning").invoke(null) as? Boolean
-        }.getOrNull() ?: false
-
-    fun progressRecords(): Int =
-        runCatching {
-            (Class.forName(ClassName).getMethod("getSyncProgressRecords")
-                .invoke(null) as? Number)?.toInt()
-        }.getOrNull() ?: 0
-
-    fun lastSyncStatus(): HcSyncStatus =
-        if (!available) {
-            HcSyncStatus()
-        } else {
-            runCatching {
-                val cls = Class.forName(ClassName)
-                HcSyncStatus(
-                    lastSyncAt = (cls.getMethod("getLastSyncAtMillis")
-                        .invoke(null) as? Number)?.toLong() ?: -1L,
-                    records = (cls.getMethod("getLastSyncRecords")
-                        .invoke(null) as? Number)?.toInt() ?: 0,
-                    deleted = (cls.getMethod("getLastSyncDeleted")
-                        .invoke(null) as? Number)?.toInt() ?: 0,
-                    skipped = (cls.getMethod("getLastSyncSkipped")
-                        .invoke(null) as? Number)?.toInt() ?: 0,
-                    unreadable = (cls.getMethod("getLastSyncUnreadable")
-                        .invoke(null) as? Number)?.toInt() ?: 0,
-                    error = cls.getMethod("getLastSyncError").invoke(null) as? String,
-                )
-            }.getOrNull() ?: HcSyncStatus()
-        }
-}
-
-private fun Long.timeLabel(): String =
-    Instant.ofEpochMilli(this)
-        .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern("HH:mm"))
 
 @Composable
 private fun BaseSection(
@@ -680,7 +536,7 @@ private fun LogoutSection(onLogout: () -> Unit) {
 }
 
 @Composable
-private fun SettingsSection(
+internal fun SettingsSection(
     title: String,
     modifier: Modifier = Modifier,
     note: String? = null,
@@ -713,7 +569,7 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun SettingsGroup(
+internal fun SettingsGroup(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -729,7 +585,7 @@ private fun SettingsGroup(
 }
 
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     title: String,
     description: String? = null,
     glyph: SettingsGlyphKind? = null,
@@ -1109,7 +965,7 @@ private fun SettingsGlyph(
     }
 }
 
-private enum class SettingsGlyphKind {
+internal enum class SettingsGlyphKind {
     Products,
     Download,
     Goal,
