@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.navigation.OfflineBannerUiState
 import org.junit.Rule
@@ -128,6 +129,23 @@ class GlucoFeatureSnapshotTest {
 
     @Test fun login() = glucoSnapshot("gluco_login") {
         LoginSnapshot()
+    }
+
+    /**
+     * The breakdown sheet, drawn from the real composable rather than the fake.
+     *
+     * Every other gluco golden here renders [SnapshotGlucoseSurfaces], which
+     * returns Unit for each gluco section — so those images prove the shared
+     * screens survive without glucose, not that the glucose surfaces look like
+     * anything. This one calls the sheet's own content directly, which is the
+     * only way a change to it can show up in a diff.
+     */
+    @Test fun episodeBreakdownRescue() = glucoSnapshot("gluco_episode_breakdown_rescue") {
+        EpisodeBreakdownContent(nightRescueBreakdown())
+    }
+
+    @Test fun episodeBreakdownMeal() = glucoSnapshot("gluco_episode_breakdown_meal") {
+        EpisodeBreakdownContent(coveredMealBreakdown())
     }
 
     private fun glucoSnapshot(name: String, content: @Composable () -> Unit) {

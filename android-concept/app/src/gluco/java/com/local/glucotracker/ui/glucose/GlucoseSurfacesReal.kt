@@ -442,6 +442,8 @@ private fun TodayEpisodeRows(
             is TodayTimelineItem.Single -> TodaySingleCard(
                 entry = item.entry,
                 kindColor = context.classificationByMealId[item.entry.row.id].kindColor(),
+                date = date,
+                episodeKey = context.episodeKeyByMealId[item.entry.row.id],
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
@@ -449,6 +451,10 @@ private fun TodayEpisodeRows(
                 recommendationEligible = isCurrentDay,
                 kindColor = @Composable { id ->
                     context.classificationByMealId[id].kindColor()
+                },
+                date = date,
+                episodeKey = item.entries.firstNotNullOfOrNull { entry ->
+                    context.episodeKeyByMealId[entry.row.id]
                 },
                 rowContent = rowContent,
             )
@@ -549,6 +555,8 @@ private fun buildTodayTimeline(
 private fun TodaySingleCard(
     entry: TodayMealEntry,
     kindColor: Color,
+    date: LocalDate,
+    episodeKey: String?,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
@@ -578,6 +586,8 @@ private fun TodaySingleCard(
                 entry.paired.sumOf { it.doseUnits },
             ),
             meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
+            episodeKey = episodeKey,
+            date = date,
         )
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
         rowContent(entry.row, false, false, kindColor) {}
@@ -596,6 +606,8 @@ private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
     recommendationEligible: Boolean,
     kindColor: @Composable (String) -> Color,
+    date: LocalDate,
+    episodeKey: String?,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
@@ -625,6 +637,8 @@ private fun TodayEpisodeCard(
             meals = entries.mapNotNull { entry ->
                 entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
             },
+            episodeKey = episodeKey,
+            date = date,
         )
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
         // No gutter inside the card: the header above states the sitting's

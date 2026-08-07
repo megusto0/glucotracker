@@ -227,7 +227,14 @@ class EpisodeBreakdownService:
             points,
             _next_start(target, components),
         )
-        crossings = _crossings(target, components, body_states, window_from, window_to)
+        crossings = _crossings(
+            target,
+            components,
+            body_states,
+            points,
+            window_from,
+            window_to,
+        )
         return EpisodeBreakdown(
             key=key,
             classification=therapy.classification,
@@ -655,6 +662,7 @@ def _crossings(
     component: EpisodeComponent,
     components: list[EpisodeComponent],
     body_states: list[BodyStateInterval],
+    points: list[GlucoseDashboardPoint],
     window_from: datetime,
     window_to: datetime,
 ) -> list[BreakdownCrossing]:
@@ -680,6 +688,9 @@ def _crossings(
                 label=_episode_label(other),
                 at=at,
                 offset_minutes=int((at - start_at).total_seconds() / 60),
+                # Its own label, so a neighbouring rescue reads as a rescue in
+                # this sheet too rather than as an anonymous nearby plate.
+                therapy_class=classify_episode_therapy(other, points).classification,
             )
         )
 

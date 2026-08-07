@@ -58,6 +58,10 @@ data class InsulinDayContext(
     // Backend classification per meal id. A rescue eaten to climb out of a low
     // and an ordinary plate are different acts and should not read alike.
     val classificationByMealId: Map<String, EpisodeTherapyClass> = emptyMap(),
+    // The episode key each meal belongs to, which is what the breakdown is
+    // fetched by. Server-assigned, never rebuilt here: it is derived from the
+    // grouping and a key assembled on the client would resolve to nothing.
+    val episodeKeyByMealId: Map<String, String> = emptyMap(),
 ) {
     val allEvents: List<InsulinEvent>
         get() = byMealId.values.flatten() + orphans

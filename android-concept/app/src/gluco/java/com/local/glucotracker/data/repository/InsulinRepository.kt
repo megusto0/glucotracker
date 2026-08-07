@@ -36,6 +36,7 @@ class InsulinRepository @Inject constructor(
     private val episodeGroups = MutableStateFlow<Map<LocalDate, List<List<String>>>>(emptyMap())
     private val episodeClasses =
         MutableStateFlow<Map<LocalDate, Map<String, EpisodeTherapyClass>>>(emptyMap())
+    private val episodeKeys = MutableStateFlow<Map<LocalDate, Map<String, String>>>(emptyMap())
 
     /**
      * Local-first day attribution: emits the Room cache immediately (so
@@ -47,7 +48,8 @@ class InsulinRepository @Inject constructor(
             insulinEventDao.observeDay(date),
             episodeGroups,
             episodeClasses,
-        ) { entities, groups, classes ->
+            episodeKeys,
+        ) { entities, groups, classes, keys ->
             val byMealId = mutableMapOf<String, MutableList<InsulinEvent>>()
             val orphans = mutableListOf<InsulinEvent>()
             entities.forEach { entity ->
@@ -64,6 +66,7 @@ class InsulinRepository @Inject constructor(
                 orphans = orphans,
                 mealEpisodeGroups = groups[date].orEmpty(),
                 classificationByMealId = classes[date].orEmpty(),
+                episodeKeyByMealId = keys[date].orEmpty(),
             )
         }
 
@@ -103,6 +106,10 @@ class InsulinRepository @Inject constructor(
             episode.mealIds.map { it.toString() to classification }
         }.toMap()
         episodeClasses.update { it + (date to classes) }
+        val keys = episodes.flatMap { episode ->
+            episode.mealIds.map { it.toString() to episode.key }
+        }.toMap()
+        episodeKeys.update { it + (date to keys) }
     }
 }
 

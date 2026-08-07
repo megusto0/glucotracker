@@ -4,6 +4,7 @@ import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.model.BodyStatesResponse
 import com.local.glucotracker.generated.model.DayEpisodesResponse
+import com.local.glucotracker.generated.model.EpisodeBreakdownResponse
 import com.local.glucotracker.generated.model.FingerstickReadingResponse
 import com.local.glucotracker.generated.model.GlucoseDashboardResponse
 import com.local.glucotracker.generated.model.GlucoseTirDailyResponse
@@ -33,6 +34,20 @@ class GlucoseApi @Inject constructor(
 
     suspend fun episodes(from: Instant, to: Instant): DayEpisodesResponse =
         glucoseApi.getGlucoseEpisodes(from = from, to = to).body()
+
+    /**
+     * One episode taken apart.
+     *
+     * The range is the one the day was listed with, not a range derived here:
+     * the key is resolved by re-running the same grouping, and a different span
+     * can split a sitting differently and resolve to another episode or none.
+     */
+    suspend fun episodeBreakdown(
+        key: String,
+        from: Instant,
+        to: Instant,
+    ): EpisodeBreakdownResponse =
+        glucoseApi.getGlucoseEpisodeBreakdown(key = key, from = from, to = to).body()
 
     suspend fun bodyStates(from: Instant, to: Instant): BodyStatesResponse =
         glucoseApi.getGlucoseBodyStates(from = from, to = to).body()

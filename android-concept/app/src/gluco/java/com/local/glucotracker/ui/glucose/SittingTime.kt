@@ -56,6 +56,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
@@ -314,9 +315,16 @@ fun SittingHeader(
     totals: String,
     meals: List<SittingMeal>,
     modifier: Modifier = Modifier,
+    // What this sitting is, on the server's terms, and the day it was listed
+    // on. Both are needed to fetch its breakdown; null leaves the kind label
+    // as plain text, which is what a queued record gets.
+    episodeKey: String? = null,
+    date: LocalDate? = null,
 ) {
     var sheetOpen by remember { mutableStateOf(false) }
+    var breakdownOpen by remember(episodeKey) { mutableStateOf(false) }
     val editable = meals.isNotEmpty()
+    val explainable = episodeKey != null && date != null
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -346,10 +354,21 @@ fun SittingHeader(
             maxLines = 1,
         )
         Spacer(Modifier.width(7.dp))
+        // The kind is the other control on this line. The time answers "when
+        // was this", the kind answers "what was this" — and the second question
+        // is the one with a whole sheet behind it.
         Text(
             text = kindLabel,
-            modifier = Modifier.weight(1f),
-            color = GT.colors.ink2,
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (explainable) {
+                        Modifier.clickable(role = Role.Button) { breakdownOpen = true }
+                    } else {
+                        Modifier
+                    },
+                ),
+            color = if (explainable) kindColor else GT.colors.ink2,
             style = GT.type.kicker,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -363,6 +382,13 @@ fun SittingHeader(
     }
     if (sheetOpen) {
         SittingTimeSheet(meals = meals, onDismiss = { sheetOpen = false })
+    }
+    if (breakdownOpen && episodeKey != null && date != null) {
+        EpisodeBreakdownSheet(
+            episodeKey = episodeKey,
+            date = date,
+            onDismiss = { breakdownOpen = false },
+        )
     }
 }
 

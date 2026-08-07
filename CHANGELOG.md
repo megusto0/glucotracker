@@ -38,6 +38,16 @@ External sources consulted while building are recorded in
 - **Backend** — an episode's label now carries the named evidence behind it —
   a stable code, the sentence, and its weight — alongside the plain `reasons`
   older clients render, plus the trough the judgement was made on.
+- **Android** — «разбор эпизода» opens from a sitting's kind on Today: the CGM
+  window as points rather than a line, the anchor readings with their times, the
+  per-gram or per-unit figure, what else happened nearby with signed offsets,
+  the probable cause, and how often it has happened in 30 days. Same sheet for a
+  rescue, a meal, a snack and a correction — only the anchors and the derived
+  figure change.
+- **Android** — the two breakdown goldens render the real composable instead of
+  the snapshot suite's fake surface, so a change to a glucose surface finally
+  shows up in a diff. Every other gluco golden renders a stub that returns
+  nothing for each glucose section.
 
 ### Changed
 
