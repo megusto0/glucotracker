@@ -211,3 +211,78 @@ def test_moderate_high_still_defers_to_the_balance(
 
     assert response.status_code == 200
     assert response.json()["status"] == "not_needed"
+
+
+
+def test_top_up_can_be_asked_about_a_past_moment(api_client: TestClient) -> None:
+    """The same arithmetic, as of when a chasing bolus was actually given.
+
+    A catch-up raises exactly one question — how much did the moment call for —
+    and the diary cannot answer it afterwards unless every term can be recomputed
+    at that timestamp. They can: each was already keyed to a supplied moment, and
+    only the endpoint was pinned to the present.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    then = NOW - timedelta(days=3)
+    with api_client.app_state["session_factory"]() as session:
+        for minutes, value in {15: 8.6, 10: 9.0, 0: 9.4}.items():
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"past-topup-{minutes}",
+                    timestamp=then - timedelta(minutes=minutes),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        session.add(
+            Meal(
+                owner_id=owner_id,
+                eaten_at=(then - timedelta(minutes=54)).replace(tzinfo=None),
+                title="Ужин",
+                source=MealSource.photo,
+                status=MealStatus.accepted,
+                total_carbs_g=78,
+                total_protein_g=10,
+                total_fat_g=8,
+                total_kcal=470,
+            )
+        )
+        key = "past-topup-insulin"
+        session.add(
+            NightscoutInsulinEvent(
+                owner_id=owner_id,
+                source_key=key,
+                nightscout_id=key,
+                timestamp=then - timedelta(minutes=45),
+                insulin_units=6.0,
+                event_type="Meal Bolus",
+                entered_by="Nightscout",
+            )
+        )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 10.0
+        params.isf = 2.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    dated = api_client.get(
+        "/glucose/top-up-dose",
+        params={"at": then.replace(tzinfo=None).isoformat(), "target_mmol_l": 6.0},
+    )
+    undated = api_client.get("/glucose/top-up-dose", params={"target_mmol_l": 6.0})
+
+    assert dated.status_code == 200
+    body = dated.json()
+    # Every term of the mockup's arithmetic block, as of that minute.
+    assert body["glucose_mmol_l"] == 9.4
+    assert body["cob_g"] is not None
+    assert body["iob_units"] is not None
+    assert body["icr_g_per_unit"] == 10.0
+    assert body["isf_mmol_l_per_unit"] == 2.0
+    # A moment three days old has no live forecast left to lean on, and the
+    # response says so rather than quietly reusing a stale one.
+    assert body["projection_source"] == "none"
+    # The undated call still means "now", where this owner has no CGM at all.
+    assert undated.json()["status"] == "glucose_unavailable"

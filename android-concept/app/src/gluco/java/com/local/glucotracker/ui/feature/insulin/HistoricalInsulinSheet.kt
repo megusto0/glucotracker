@@ -51,6 +51,7 @@ import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.generated.model.InsulinRecommendationResponse
 import com.local.glucotracker.ui.design.GT
+import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.glucose.GlucoCardAction
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -516,30 +517,6 @@ private fun HistoricalEstimateBlock(
                     style = GT.type.monoLabel,
                 )
                 ReasoningBlock(state)
-                doseComparison(alreadyGivenUnits, state.headlineUnits)?.let { verdict ->
-                    Text(
-                        text = "${stringResource(
-                            R.string.insulin_history_given,
-                            formatDose(alreadyGivenUnits),
-                        )} · ${
-                            when (verdict) {
-                                DoseComparison.Match ->
-                                    stringResource(R.string.insulin_history_delta_match)
-                                is DoseComparison.CalculationHigher -> stringResource(
-                                    R.string.insulin_history_delta_more,
-                                    formatDose(verdict.byUnits),
-                                )
-                                is DoseComparison.CalculationLower -> stringResource(
-                                    R.string.insulin_history_delta_less,
-                                    formatDose(verdict.byUnits),
-                                )
-                            }
-                        }",
-                        modifier = Modifier.padding(top = 6.dp),
-                        color = GT.colors.ink2,
-                        style = GT.type.monoLabel,
-                    )
-                }
             }
             is HistoricalInsulinUiState.Unavailable -> Text(
                 text = when (state.reason) {
@@ -573,7 +550,14 @@ private fun HistoricalEstimateBlock(
     }
 }
 
-/** «еда 5,2 + коррекция −1,1 = 4,1 ЕД», or the reason the second half is absent. */
+/**
+ * One term per line, each next to its own number.
+ *
+ * This was a single line reading «еда 5,8 +0 коррекция −1,3 активный инсулин =
+ * 4,5 ЕД», where the signs belong to the values and the labels sit between
+ * them, so nothing could be told apart or checked. The same terms stacked read
+ * as arithmetic, which is what they are.
+ */
 @Composable
 private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
     val correction = state.correction
@@ -585,35 +569,37 @@ private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
     val surplus = correction
         ?.excessIobUnits
         ?.takeIf { it > 0.0 && correction.units <= 0.0 }
-    val text = if (correction != null && surplus != null) {
-        stringResource(
-            R.string.insulin_history_breakdown_with_iob,
-            formatDose(state.mealUnits),
-            formatSignedDose(correction.units),
-            formatDose(surplus),
-            formatDose(state.headlineUnits),
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .testTag("historical-insulin-breakdown"),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        DoseTermRow(
+            label = stringResource(R.string.insulin_term_meal),
+            value = formatDose(state.mealUnits),
         )
-    } else if (correction != null) {
-        stringResource(
-            R.string.insulin_history_breakdown,
-            formatDose(state.mealUnits),
-            formatSignedDose(correction.units),
-            formatDose(state.headlineUnits),
-        )
-    } else {
-        stringResource(
-            R.string.insulin_history_breakdown_meal_only,
-            formatDose(state.mealUnits),
+        correction?.let {
+            DoseTermRow(
+                label = stringResource(R.string.bolus_term_correction),
+                value = formatSignedDose(it.units),
+            )
+        }
+        surplus?.let {
+            DoseTermRow(
+                label = stringResource(R.string.bolus_term_iob),
+                value = "−" + formatDose(it),
+            )
+        }
+        GTHairlineDivider()
+        DoseTermRow(
+            label = stringResource(R.string.insulin_term_total),
+            value = formatDose(state.headlineUnits) + " " +
+                stringResource(R.string.insulin_units_short),
+            emphasised = true,
         )
     }
-    Text(
-        text = text,
-        modifier = Modifier
-            .padding(top = 6.dp)
-            .testTag("historical-insulin-breakdown"),
-        color = GT.colors.ink2,
-        style = GT.type.monoLabel,
-    )
     state.correctionGap?.let { gap ->
         Text(
             text = stringResource(
@@ -627,6 +613,28 @@ private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
             modifier = Modifier.padding(top = 4.dp),
             color = GT.colors.warn,
             style = GT.type.sansLabel,
+        )
+    }
+}
+
+@Composable
+private fun DoseTermRow(label: String, value: String, emphasised: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            color = if (emphasised) GT.colors.ink else GT.colors.ink2,
+            style = GT.type.sansLabel,
+            maxLines = 1,
+        )
+        Text(
+            text = value,
+            color = if (emphasised) GT.colors.ink else GT.colors.ink2,
+            style = if (emphasised) GT.type.monoNumber else GT.type.monoLabel,
+            maxLines = 1,
         )
     }
 }

@@ -620,6 +620,18 @@ export interface paths {
         /**
          * Get Top Up Dose
          * @description Return the follow-up bolus implied by carbs left, IOB and the target.
+         *
+         *     [at] is app-local wall time and defaults to now. Passing a past moment
+         *     answers "what did this arithmetic say when that dose was given", which is
+         *     the question a chasing bolus raises and the one the diary cannot otherwise
+         *     reconstruct. The service already computed every term as of a supplied
+         *     moment; only the endpoint was pinned to the present.
+         *
+         *     Two terms do not travel backwards and the response says so through its own
+         *     fields: `projection_source` degrades to "none" once the stored forecast for
+         *     that moment has aged out, and ICR/ISF are read from the owner's *current*
+         *     parameters, so a figure recomputed after a refit will not reproduce what was
+         *     displayed at the time.
          */
         get: operations["getTopUpDose"];
         put?: never;
@@ -9355,6 +9367,7 @@ export interface operations {
         parameters: {
             query?: {
                 target_mmol_l?: number | null;
+                at?: string | null;
             };
             header?: {
                 authorization?: string | null;

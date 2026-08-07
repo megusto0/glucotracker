@@ -48,6 +48,16 @@ External sources consulted while building are recorded in
   the snapshot suite's fake surface, so a change to a glucose surface finally
   shows up in a diff. Every other gluco golden renders a stub that returns
   nothing for each glucose section.
+- **Android** — «разбор болюса» opens from a sitting's «РАСЧЁТ ›»: every dose of
+  the sitting with what it was for in words, the state at the moment of the one
+  you pick — glucose, IOB, COB, ICR, ISF, target — the arithmetic one term to a
+  line beside its own formula, and how far your dose sat from it. Mockup screen
+  G. The follow-up endpoint already computed every term as of a supplied moment;
+  only the endpoint was pinned to the present.
+- **Backend** — `GET /glucose/top-up-dose` takes `at`, so the follow-up
+  arithmetic can be asked about a past moment. Two terms do not travel backwards
+  and the response says so: `projection_source` degrades to `none` once the
+  stored forecast has aged out, and ICR/ISF come from current parameters.
 
 ### Changed
 
@@ -59,6 +69,17 @@ External sources consulted while building are recorded in
   reading at or below 4.5 mmol/L in the window around the food; a steep slope,
   fast carbohydrate and a reversal only move confidence. With no CGM covering the
   moment the label is withheld rather than guessed.
+
+
+- **Android** — the pre-meal calculator states its terms one to a line instead of
+  «еда 5,8 +0 коррекция −1,3 активный инсулин = 4,5 ЕД», where the signs belong
+  to the values and the labels sit between them. The verdict on a dose already
+  given has left this card for the bolus breakdown: one was a prospective
+  calculator and the other a retrospective audit, sharing a widget.
+- **Android** — a bolus is called a bolus. Both dose counters were also a bare
+  «%d укола», right only for two through four, and are plurals now.
+- **Android** — the collapsed insulin line closes again, keeps the total on
+  screen while the doses are open, and carries a mark saying it opens at all.
 
 ### Fixed
 

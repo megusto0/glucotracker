@@ -19,6 +19,7 @@ import com.local.glucotracker.generated.model.SensorQualityResponse
 import com.local.glucotracker.generated.model.SensorCodeResponse
 import com.local.glucotracker.generated.model.SensorSessionResponse
 import com.local.glucotracker.generated.model.TimelineResponse
+import com.local.glucotracker.generated.model.TopUpDoseResponse
 import javax.inject.Inject
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -51,6 +52,22 @@ class GlucoseApi @Inject constructor(
 
     suspend fun bodyStates(from: Instant, to: Instant): BodyStatesResponse =
         glucoseApi.getGlucoseBodyStates(from = from, to = to).body()
+
+    /**
+     * The follow-up arithmetic, optionally as of a past moment.
+     *
+     * With [at] it answers "what did this say when that bolus was given" — the
+     * question a chasing dose raises and the only one the diary cannot
+     * reconstruct on its own.
+     */
+    suspend fun topUpDose(
+        at: Instant? = null,
+        targetMmolL: Double? = null,
+    ): TopUpDoseResponse =
+        glucoseApi.getTopUpDose(
+            targetMmolL = targetMmolL?.let { java.math.BigDecimal.valueOf(it) },
+            at = at,
+        ).body()
 
     suspend fun insulinRecommendation(
         mealIds: List<java.util.UUID>,

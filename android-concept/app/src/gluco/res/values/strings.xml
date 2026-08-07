@@ -337,4 +337,33 @@
         <item quantity="many"> · %1$d болюсов</item>
         <item quantity="other"> · %1$d болюса</item>
     </plurals>
+    <string name="bolus_breakdown_title">Разбор болюса</string>
+    <string name="bolus_breakdown_of">Болюс %1$d из %2$d</string>
+    <string name="bolus_breakdown_doses">БОЛЮСЫ · %1$s ЕД</string>
+    <string name="bolus_reason_with_meal">Вместе с едой</string>
+    <string name="bolus_reason_before">За %1$d мин до еды</string>
+    <string name="bolus_reason_after">Через %1$d мин после еды</string>
+    <string name="bolus_reason_catch_up">Выше ожидаемого</string>
+    <string name="bolus_reason_correction">Коррекция</string>
+    <string name="bolus_reason_alone">Отдельный болюс</string>
+    <string name="bolus_state_at">СОСТОЯНИЕ НА %1$s</string>
+    <string name="bolus_state_glucose">ГЛЮКОЗА</string>
+    <string name="bolus_state_iob">IOB</string>
+    <string name="bolus_state_cob">COB</string>
+    <string name="bolus_state_icr">ICR</string>
+    <string name="bolus_state_isf">ISF</string>
+    <string name="bolus_state_target">ЦЕЛЬ</string>
+    <string name="bolus_term_correction">на отклонение</string>
+    <string name="bolus_term_carbs">на остаток углеводов</string>
+    <string name="bolus_term_iob">минус активный инсулин</string>
+    <string name="bolus_term_total">итого расчётно</string>
+    <string name="bolus_entered">%1$s ЕД введено</string>
+    <string name="bolus_calc_was">расчёт был %1$s</string>
+    <string name="bolus_delta_over">вы ввели +%1$s к расчёту</string>
+    <string name="bolus_delta_under">вы ввели −%1$s к расчёту</string>
+    <string name="bolus_delta_equal">ровно по расчёту</string>
+    <string name="bolus_calc_unavailable">Расчёт на этот момент не восстановить: %1$s</string>
+    <string name="bolus_caveats">Прогноз на тот момент не сохранился, поэтому расчёт идёт от факта. ICR и ISF взяты текущие.</string>
+    <string name="insulin_term_meal">на еду</string>
+    <string name="insulin_term_total">итого</string>
 </resources>

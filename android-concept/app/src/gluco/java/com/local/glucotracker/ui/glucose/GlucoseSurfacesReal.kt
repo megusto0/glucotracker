@@ -1095,8 +1095,14 @@ private fun EpisodeInsulinFooter(
     mealIds: List<String>,
 ) {
     var showSheet by remember(mealIds) { mutableStateOf(false) }
+    var showBreakdown by remember(mealIds) { mutableStateOf(false) }
     val valid = mealIds.filter { runCatching { java.util.UUID.fromString(it) }.isSuccess }
     val total = events.sumOf { it.doseUnits }
+    // The line already asked two different questions under one label. With no
+    // insulin recorded «ПО ИСТОРИИ» is prospective — how much would this need.
+    // With insulin recorded «РАСЧЁТ» is retrospective — why was it that much —
+    // and that is a different sheet, not a differently-worded one.
+    val retrospective = events.isNotEmpty()
     GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
     Row(
         modifier = Modifier
@@ -1106,7 +1112,9 @@ private fun EpisodeInsulinFooter(
                 if (valid.isEmpty()) {
                     Modifier
                 } else {
-                    Modifier.clickable(role = Role.Button) { showSheet = true }
+                    Modifier.clickable(role = Role.Button) {
+                        if (retrospective) showBreakdown = true else showSheet = true
+                    }
                 },
             )
             .padding(horizontal = 14.dp, vertical = 7.dp),
@@ -1153,6 +1161,13 @@ private fun EpisodeInsulinFooter(
             mealIds = valid,
             alreadyGivenUnits = total,
             onDismiss = { showSheet = false },
+        )
+    }
+    if (showBreakdown) {
+        BolusBreakdownSheet(
+            events = events,
+            mealAt = mealAt,
+            onDismiss = { showBreakdown = false },
         )
     }
 }

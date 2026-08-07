@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import com.local.glucotracker.ui.glucose.BolusBreakdownContent
 import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.navigation.OfflineBannerUiState
@@ -146,6 +147,17 @@ class GlucoFeatureSnapshotTest {
 
     @Test fun episodeBreakdownMeal() = glucoSnapshot("gluco_episode_breakdown_meal") {
         EpisodeBreakdownContent(coveredMealBreakdown())
+    }
+
+    /** Screen G: the chasing bolus of a four-dose sitting, and why it was 2,2. */
+    @Test fun bolusBreakdown() = glucoSnapshot("gluco_bolus_breakdown") {
+        BolusBreakdownContent(
+            doses = sittingBoluses(),
+            mealAt = sittingMealAt(),
+            selectedIndex = 3,
+            calc = chasingBolusCalc(),
+            onSelect = {},
+        )
     }
 
     private fun glucoSnapshot(name: String, content: @Composable () -> Unit) {
