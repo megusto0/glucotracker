@@ -16,7 +16,8 @@ See ADR-019. Two rules hold here:
 
 from __future__ import annotations
 
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import datetime, timedelta
 from enum import Enum
 
 # Meals within this of the sitting's *first* meal belong to it. Adopted from
@@ -29,10 +30,47 @@ SITTING_SPAN = timedelta(minutes=30)
 # than to each meal, which is a separate question from clustering the food.
 INSULIN_COVERAGE_WINDOW = timedelta(minutes=90)
 
+# A dose given while glucose is climbing is answering a rise that has already
+# started, so it belongs to whatever caused the rise rather than to whatever is
+# about to be eaten. Measured over 75 days for this owner: boluses at the plate
+# sit on a −0.40 mmol/L per hour trend, later ones on +1.80 with 86% rising.
+# +0.3 mmol/L per 15 min — above the noise of a flat trace, well under +1.80/h.
+RISING_PER_MINUTE = 0.02
+TREND_LOOKBACK = timedelta(minutes=20)
+MIN_TREND_MINUTES = 5
+
+#: "Was glucose climbing at this moment", in app-local wall time.
+RisingAt = Callable[[datetime], bool]
+
 # Bumped whenever a rule above changes what an episode contains. Anything that
 # stores a derived number records this next to its own model version, so two
 # groupings never end up mixed in one chart.
-GROUPING_VERSION = "sitting-anchored-v1"
+GROUPING_VERSION = "sitting-anchored-v2"
+
+
+def rising_test(series: list[tuple[datetime, float]]) -> RisingAt:
+    """Build the "climbing right now" test from a local-wall glucose series.
+
+    Passed into grouping as a plain predicate rather than as a glucose series,
+    so the graph engine keeps knowing nothing about sensors, calibration or
+    which value is the display one. It only needs the answer.
+    """
+    ordered = sorted(series)
+
+    def rising(at: datetime) -> bool:
+        window = [
+            (timestamp, value)
+            for timestamp, value in ordered
+            if at - TREND_LOOKBACK <= timestamp <= at
+        ]
+        if len(window) < 2:
+            return False
+        minutes = (window[-1][0] - window[0][0]).total_seconds() / 60
+        if minutes < MIN_TREND_MINUTES:
+            return False
+        return (window[-1][1] - window[0][1]) / minutes >= RISING_PER_MINUTE
+
+    return rising
 
 
 class Horizon(Enum):

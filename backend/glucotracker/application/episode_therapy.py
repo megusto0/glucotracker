@@ -27,7 +27,11 @@ from uuid import UUID
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
 from glucotracker.application.episodes import EpisodeComponent
-from glucotracker.application.grouping import INSULIN_COVERAGE_WINDOW
+from glucotracker.application.grouping import (
+    INSULIN_COVERAGE_WINDOW,
+    RISING_PER_MINUTE,
+    SITTING_SPAN,
+)
 from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.on_board.classification import normalized_text
 
@@ -72,9 +76,9 @@ CATCH_UP_UNTIL = timedelta(hours=3)
 # Same boundary read the other way: insulin given inside it was dosed *for* the
 # food, which is the one thing a rescue never is.
 DOSED_WITH_PLATE = CATCH_UP_AFTER
-# +0.3 mmol/L per 15 min. Comfortably above the noise a flat trace shows, and
-# well under the +1.80/h these boluses were measured to sit on.
-CATCH_UP_RISING_PER_MINUTE = 0.02
+# One threshold for "glucose is climbing", shared with the grouping tiebreak
+# that decides which sitting a dose between two of them belongs to.
+CATCH_UP_RISING_PER_MINUTE = RISING_PER_MINUTE
 # -1 mg/dL per minute, the conventional "falling fast" arrow.
 FALLING_PER_MINUTE = -(1 / 18.0182)
 # How long "there is no bolus here" has to wait before it means anything.
@@ -530,8 +534,16 @@ def catch_up_event_ids(
         at = _local_wall_time(event.timestamp)
         if not (sitting_at + CATCH_UP_AFTER <= at <= sitting_at + CATCH_UP_UNTIL):
             continue
-        # A later plate makes the rise ambiguous; that insulin belongs to it.
-        if any(sitting_at < meal.eaten_at <= at for meal in component.meals):
+        # A plate from a *later sitting* makes the rise ambiguous; that insulin
+        # belongs to it. A second dish of this sitting does not: the owner
+        # photographs a meal dish by dish, so "any meal after the first one"
+        # matched their own second photograph and disqualified every catch-up in
+        # any sitting of more than one plate — which is most of them. The label
+        # existed and could not fire where it was needed.
+        if any(
+            sitting_at + SITTING_SPAN < meal.eaten_at <= at
+            for meal in component.meals
+        ):
             continue
         rising = [
             trend

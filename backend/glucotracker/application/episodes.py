@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from glucotracker.application.grouping import (
     INSULIN_COVERAGE_WINDOW,
     SITTING_SPAN,
+    RisingAt,
 )
 from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_AFTER,
@@ -123,8 +124,14 @@ def group_components(
     meals: list[Meal],
     insulin: list[NightscoutInsulinEvent],
     pairs: list[EpisodePair],
+    rising: RisingAt | None = None,
 ) -> list[EpisodeComponent]:
-    """Connected components over link edges plus food-only clustering."""
+    """Connected components over link edges plus food-only clustering.
+
+    [rising] answers "was glucose climbing at this moment" and is used only to
+    break the tie for a dose that sits between two sittings. Without it the tie
+    falls back to the clock, which is what every caller did before.
+    """
     graph: dict[str, set[str]] = {}
     meal_by_id = {meal.id: meal for meal in meals}
     insulin_by_id = {event.id: event for event in insulin}
@@ -184,8 +191,35 @@ def group_components(
             auto_by_event.setdefault(pair.insulin_event_id, []).append(pair)
     for event_id, candidates in auto_by_event.items():
         event_at = _local_wall_time(insulin_by_id[event_id].timestamp)
+        before = [
+            pair
+            for pair in candidates
+            if meal_by_id[pair.meal_id].eaten_at <= event_at
+        ]
+        after = [
+            pair
+            for pair in candidates
+            if meal_by_id[pair.meal_id].eaten_at > event_at
+        ]
+        # A dose between two sittings is ambiguous on the clock and only on the
+        # clock. Insulin can be *for* a plate only if the plate had already been
+        # decided on, and a dose given while glucose climbs is answering a rise
+        # that has already started — so it belongs to what caused the rise, not
+        # to the snack that has not happened yet.
+        #
+        # Nearest-by-clock alone handed exactly that dose to the later plate:
+        # one unit chasing a dinner at 18:44, given at 19:38, landed on a
+        # croissant eaten at 20:03 because 25 minutes beats 54. The croissant
+        # then read as 29 g on 3.0 U — a carbohydrate ratio of 9.7 g/U where the
+        # same evening with the same doses gives 14.5 if the snack happens an
+        # hour later.
+        pool = (
+            before
+            if before and after and rising is not None and rising(event_at)
+            else candidates
+        )
         nearest = min(
-            candidates,
+            pool,
             key=lambda pair: abs(
                 (meal_by_id[pair.meal_id].eaten_at - event_at).total_seconds()
             ),
@@ -293,6 +327,7 @@ class EpisodeQueryService:
         self,
         from_datetime: datetime,
         to_datetime: datetime,
+        rising: RisingAt | None = None,
     ) -> list[EpisodeComponent]:
         """Group accepted meals and insulin in the range into episodes.
 
@@ -371,7 +406,7 @@ class EpisodeQueryService:
             for link in auto_links(meals, visible_insulin)
             if link.insulin_event_id not in manual_by_insulin
         )
-        return group_components(meals, visible_insulin, pairs)
+        return group_components(meals, visible_insulin, pairs, rising)
 
 
 def _dedupe_insulin_events(

@@ -469,3 +469,88 @@ def test_materialize_day_persists_snapshots_without_manual_review(
     assert snapshot.total_insulin_units == 3.0
     assert len(snapshot.meal_ids_json) == 1
     assert len(snapshot.insulin_event_ids_json) == 1
+
+
+def _seed_evening(session: Session, owner_id: UUID) -> dict[str, UUID]:
+    """The owner's 2026-08-07 evening: dinner, a chase, then a croissant.
+
+    6 U with dinner at 18:44; glucose climbed faster than wanted, so 1 U more at
+    19:38; then a croissant at 20:03 with its own 2 U.
+    """
+    day = datetime(2026, 8, 7)
+
+    def at(hour: int, minute: int) -> datetime:
+        return day.replace(hour=hour, minute=minute)
+
+    plate = _seed_meal(session, owner_id, "Ужин", at(18, 44), carbs=51)
+    second = _seed_meal(session, owner_id, "Ужин, второе", at(18, 53), carbs=27)
+    croissant = _seed_meal(session, owner_id, "Круассан", at(20, 3), carbs=29)
+    _seed_insulin(
+        session, owner_id, "ns-dinner", at(18, 53), units=6, event_type="Bolus"
+    )
+    chase = _seed_insulin(
+        session, owner_id, "ns-chase", at(19, 38), units=1, event_type="Bolus"
+    )
+    _seed_insulin(
+        session, owner_id, "ns-snack", at(20, 3), units=2, event_type="Bolus"
+    )
+
+    # Climbing hard through the chase, which is why it was given.
+    curve = [
+        (17, 30, 5.4), (18, 44, 6.0), (19, 0, 7.2), (19, 20, 8.6),
+        (19, 38, 9.4), (20, 0, 9.6), (20, 40, 8.8), (21, 30, 7.3),
+    ]
+    for index in range(len(curve) - 1):
+        (h0, m0, v0), (h1, m1, v1) = curve[index], curve[index + 1]
+        start, end = at(h0, m0), at(h1, m1)
+        step = start
+        while step < end:
+            share = (step - start) / (end - start)
+            _seed_glucose(session, owner_id, step, v0 + (v1 - v0) * share)
+            step += timedelta(minutes=5)
+    return {
+        "plate": plate.id,
+        "second": second.id,
+        "croissant": croissant.id,
+        "chase": chase.id,
+    }
+
+
+def test_a_chasing_dose_stays_with_the_meal_it_chases(
+    api_client: TestClient,
+) -> None:
+    """A dose given on a rise belongs to what caused the rise.
+
+    Nearest-by-clock handed this one to the croissant — 25 minutes ahead of it
+    beat 54 minutes behind the dinner — even though at 19:38 the croissant did
+    not exist as a decision yet. The croissant then read as 29 g on 3 U, a
+    carbohydrate ratio of 9.7 g/U where the same evening with the same doses
+    gives 14.5 if the snack happens an hour later. The tie now breaks on what
+    glucose was doing, which is the test the catch-up label already used.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    with api_client.app_state["session_factory"]() as session:
+        ids = _seed_evening(session, owner_id)
+        session.commit()
+
+    response = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-07T00:00:00", "to": "2026-08-08T00:00:00"},
+    )
+
+    assert response.status_code == 200
+    episodes = response.json()["episodes"]
+    by_meal = {
+        meal_id: episode for episode in episodes for meal_id in episode["meal_ids"]
+    }
+    dinner = by_meal[str(ids["plate"])]
+    croissant = by_meal[str(ids["croissant"])]
+
+    assert dinner["total_insulin_units"] == 7.0
+    assert croissant["total_insulin_units"] == 2.0
+    assert croissant["total_carbs_g"] == 29.0
+    # And the chase is named as one rather than passing for meal insulin.
+    chased = next(
+        event for event in dinner["insulin"] if event["id"] == str(ids["chase"])
+    )
+    assert chased["kind"] == "catch_up"

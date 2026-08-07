@@ -6,7 +6,10 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
-from glucotracker.application.episode_therapy import classify_episode_therapy
+from glucotracker.application.episode_therapy import (
+    catch_up_event_ids,
+    classify_episode_therapy,
+)
 from glucotracker.application.episodes import EpisodeComponent
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import Meal, NightscoutInsulinEvent
@@ -357,3 +360,52 @@ def test_food_with_explicit_insulin_correction_is_mixed() -> None:
     )
 
     assert result.classification == "mixed"
+
+
+def test_catch_up_survives_a_sitting_photographed_dish_by_dish() -> None:
+    """A second dish of the same sitting is not "a later plate".
+
+    The exclusion exists so a dose given after a *new* plate is attributed to
+    that plate rather than to the previous meal's rise. It matched the owner's
+    own second photograph instead: they log a meal dish by dish, so every
+    sitting of more than one plate disqualified its own catch-up, and the label
+    could not fire in the case it was written for.
+    """
+    first = datetime(2026, 8, 7, 18, 44)
+    plate = _meal(first, carbs=51, role="main_meal")
+    second = _meal(first + timedelta(minutes=9), carbs=27, role="main_meal")
+    chase = _insulin(first + timedelta(minutes=54), event_type="Bolus")
+    points = [
+        _point(first + timedelta(minutes=m), raw=v - 1.8, normalized=v)
+        for m, v in [(34, 8.2), (39, 8.6), (44, 9.0), (49, 9.2), (54, 9.4)]
+    ]
+
+    one_dish = catch_up_event_ids(
+        EpisodeComponent(meals=[plate], insulin=[chase], pairs=[]),
+        points,
+    )
+    two_dishes = catch_up_event_ids(
+        EpisodeComponent(meals=[plate, second], insulin=[chase], pairs=[]),
+        points,
+    )
+
+    assert chase.id in one_dish
+    assert chase.id in two_dishes
+
+
+def test_a_plate_from_the_next_sitting_still_claims_the_dose() -> None:
+    """The exclusion still does its job for a genuinely later meal."""
+    first = datetime(2026, 8, 7, 18, 44)
+    plate = _meal(first, carbs=51, role="main_meal")
+    # Past SITTING_SPAN, so this is a new sitting rather than another dish.
+    later = _meal(first + timedelta(minutes=40), carbs=29, role="snack")
+    chase = _insulin(first + timedelta(minutes=54), event_type="Bolus")
+    points = [
+        _point(first + timedelta(minutes=m), raw=v - 1.8, normalized=v)
+        for m, v in [(34, 8.2), (39, 8.6), (44, 9.0), (49, 9.2), (54, 9.4)]
+    ]
+
+    assert chase.id not in catch_up_event_ids(
+        EpisodeComponent(meals=[plate, later], insulin=[chase], pairs=[]),
+        points,
+    )

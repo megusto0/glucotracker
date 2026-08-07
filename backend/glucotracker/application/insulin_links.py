@@ -27,6 +27,7 @@ from glucotracker.application.episodes import (
 from glucotracker.application.episodes import (
     auto_links as _shared_auto_links,
 )
+from glucotracker.application.grouping import rising_test
 from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.domain.entities import MealStatus
@@ -621,6 +622,12 @@ def _episode_snapshots(
             )
             for link in links
         ],
+        rising_test(
+            [
+                (_reading_local_timestamp(reading), float(reading.value_mmol_l))
+                for reading in glucose
+            ]
+        ),
     )
 
     snapshots: list[EpisodeSnapshotData] = []

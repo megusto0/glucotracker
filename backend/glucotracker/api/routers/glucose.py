@@ -64,6 +64,7 @@ from glucotracker.application.glucose_prediction import GlucosePredictionService
 from glucotracker.application.glucose_prediction_audit import (
     GlucosePredictionAuditService,
 )
+from glucotracker.application.grouping import rising_test
 from glucotracker.application.insulin_recommendation import (
     HistoricalInsulinRecommendationService,
 )
@@ -140,10 +141,6 @@ def get_glucose_episodes(
     to_datetime: Annotated[datetime, Query(alias="to")],
 ) -> DayEpisodesResponse:
     """Return grouped meal/insulin episodes for the range (attribution only)."""
-    components = EpisodeQueryService(session, current_user.id).components(
-        from_datetime,
-        to_datetime,
-    )
     therapy_points = GlucoseDashboardService(
         session,
         current_user.id,
@@ -152,6 +149,17 @@ def get_glucose_episodes(
         to_datetime + timedelta(minutes=150),
         "normalized",
     ).points
+    components = EpisodeQueryService(session, current_user.id).components(
+        from_datetime,
+        to_datetime,
+        rising_test(
+            [
+                (point.timestamp, float(point.display_value))
+                for point in therapy_points
+                if point.display_value is not None
+            ]
+        ),
+    )
     episodes: list[DayEpisodeResponse] = []
     for component in components:
         therapy = classify_episode_therapy(component, therapy_points)

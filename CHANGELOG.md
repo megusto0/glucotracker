@@ -62,6 +62,18 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Backend** — a dose given between two sittings goes to the one that caused
+  the rise, not to the one that happens to be nearer on the clock. A unit given
+  at 19:38 to chase an 18:44 dinner landed on a croissant eaten at 20:03,
+  because 25 minutes ahead beats 54 behind — and the croissant then read as 29 g
+  on 3 U, a carbohydrate ratio of 9.7 g/U where the same evening with the same
+  doses gives 14.5 if the snack falls an hour later. The tie now breaks on
+  whether glucose was climbing, the same measured test the catch-up label
+  already used. See [ADR-019 §7](docs/adr/ADR-019-episode-grouping.md).
+- **Backend** — the catch-up label could not fire in a sitting of more than one
+  dish. Its "a later plate makes this ambiguous" test matched any meal after the
+  first, and this owner photographs a meal dish by dish, so a sitting
+  disqualified its own catch-up. It now means a plate from a later sitting.
 - **Backend** — the postprandial analyzer read raw sensor values against
   absolute thresholds. A drink at a calibrated 5.5 arrived as a raw 3.2, was
   recorded as hypo treatment, and was then dropped from the IOB/COB fits as an

@@ -46,7 +46,7 @@ from glucotracker.application.episodes import (
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
 from glucotracker.application.glucose_normalization import GlucoseNormalizationService
-from glucotracker.application.grouping import Horizon
+from glucotracker.application.grouping import Horizon, rising_test
 from glucotracker.application.nightscout_context import _local_wall_time
 from glucotracker.application.on_board.classification import normalized_text
 from glucotracker.application.time import utc_instant_from_local_wall
@@ -203,7 +203,23 @@ class EpisodeBreakdownService:
         different episode, or to none.
         """
         episodes = EpisodeQueryService(self.session, self.user_id)
-        components = episodes.components(from_datetime, to_datetime)
+        # Same predicate the list endpoint groups with, or the key it published
+        # resolves to a different episode here.
+        day_points = self._points(
+            from_datetime - timedelta(minutes=20),
+            to_datetime + timedelta(minutes=150),
+        )
+        components = episodes.components(
+            from_datetime,
+            to_datetime,
+            rising_test(
+                [
+                    (point.timestamp, float(point.display_value))
+                    for point in day_points
+                    if point.display_value is not None
+                ]
+            ),
+        )
         target = next(
             (component for component in components if component_key(component) == key),
             None,

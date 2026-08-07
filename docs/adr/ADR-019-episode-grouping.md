@@ -239,3 +239,52 @@ Not done, deliberately:
   estimator, but `episode_therapy` and `postprandial` still read a single value.
 - §2.6 episodes still have no stable id; `meal_insulin_episode_snapshots` exists
   and is the obvious place, but nothing was changed to use it.
+
+---
+
+## 7 · Addendum, 2026-08-07 — a dose between two sittings
+
+The nearest-meal rule from §2.2 breaks a tie by clock distance. On the owner's
+2026-08-07 evening it broke the tie wrongly, and the error is structural rather
+than a bad constant.
+
+Dinner at 18:44 with 6 U. Glucose climbed faster than intended, so 1 U more at
+19:38. A croissant at 20:03 with its own 2 U. The chase is 54 minutes after the
+dinner and 25 minutes before the croissant, so nearest-by-clock gave it to the
+croissant — which then read as 29 g on 3 U. Carbohydrate ratio 9.7 g/U, against
+14.5 for the same evening with the same doses had the snack fallen an hour later.
+A parameter swinging by half on the timing of an unrelated snack is not a
+display nuance.
+
+Two things were wrong.
+
+**The tie was decided by the one quantity that carries no meaning.** Insulin can
+be *for* a plate only if the plate had already been decided on; at 19:38 the
+croissant did not exist. Intent is not observable, but the project already
+measured its proxy — boluses at the plate sit on a −0.40 mmol/L per hour trend,
+later ones on +1.80 with 86% rising — and already uses it for the `catch_up`
+label. Grouping now uses the same test, passed in as a plain
+`RisingAt = Callable[[datetime], bool]` predicate so the graph engine still
+knows nothing about sensors or calibration. When a dose has candidate meals on
+both sides and glucose was climbing, only the preceding ones are considered.
+Callers that pass no predicate keep the old clock behaviour.
+
+**The `catch_up` label could not fire in most sittings.** Its exclusion — "a
+later plate makes the rise ambiguous" — matched *any* meal after the first, and
+the owner photographs a meal dish by dish, so a sitting's own second dish
+disqualified it. Verified: identical trace and dose, one plate → catch-up, two
+plates → not. The test now means a plate from a later *sitting*, per
+`SITTING_SPAN`.
+
+`GROUPING_VERSION` moves to `sitting-anchored-v2`; stored derived numbers
+recompute rather than mixing two definitions.
+
+### Replay
+
+§4 asks for a replay diff before a grouping change. The 75-day export lives on
+the server; the only local corpus is a six-day April snapshot that predates the
+multi-user migration. Replayed over it: 23 doses inside episodes, **0
+reattached**, catch-up count unchanged at 2. That bounds the blast radius on
+real records but does not measure the fix — the pattern does not occur in those
+six days. The replay over the full export is still owed, and until it is run the
+frequency of the case is unknown.
