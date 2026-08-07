@@ -332,10 +332,10 @@
         <item quantity="other">%1$d болюса</item>
     </plurals>
     <plurals name="insulin_footer_shots">
-        <item quantity="one"> · %1$d болюс</item>
-        <item quantity="few"> · %1$d болюса</item>
-        <item quantity="many"> · %1$d болюсов</item>
-        <item quantity="other"> · %1$d болюса</item>
+        <item quantity="one">" · %1$d болюс"</item>
+        <item quantity="few">" · %1$d болюса"</item>
+        <item quantity="many">" · %1$d болюсов"</item>
+        <item quantity="other">" · %1$d болюса"</item>
     </plurals>
     <string name="bolus_breakdown_title">Разбор болюса</string>
     <string name="bolus_breakdown_of">Болюс %1$d из %2$d</string>
