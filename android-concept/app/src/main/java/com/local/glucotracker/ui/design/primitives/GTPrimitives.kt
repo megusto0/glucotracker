@@ -564,6 +564,10 @@ fun GTMealRow(
     // be a rail against the row's outer edge, which put the mark furthest from
     // the thing it describes and cost a column of width to do it.
     kindColor: Color? = null,
+    // Inside a sitting card no row carries a time — the header states it — so
+    // the column must go, not merely blank out. Reserved and empty it pushed
+    // every photo a column in from the card's own edge.
+    reserveTimeGutter: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val primaryTextColor = if (muted) GT.colors.muted else GT.colors.ink
@@ -580,16 +584,18 @@ fun GTMealRow(
             .padding(horizontal = 14.dp, vertical = verticalPadding),
         verticalAlignment = Alignment.Top,
     ) {
-        // Always reserved, blank or not: it is the column every row on the
-        // page lines up against, so dropping it for a row that repeats its
-        // sitting's minute would step that row out of the page's one grid.
-        Text(
-            text = time,
-            modifier = Modifier.width(36.dp),
-            color = secondaryTextColor,
-            style = GT.type.monoLabel,
-            maxLines = 1,
-        )
+        // Blank but reserved where its neighbours show a time, dropped where
+        // none of them do: a lone blank steps its row out of the page's grid,
+        // but a column nothing uses is just an indent.
+        if (reserveTimeGutter) {
+            Text(
+                text = time,
+                modifier = Modifier.width(36.dp),
+                color = secondaryTextColor,
+                style = GT.type.monoLabel,
+                maxLines = 1,
+            )
+        }
         // Clipped to the photo's own corners, so the bar reads as part of the
         // picture rather than a stripe laid over it — a half-frame down its
         // leading edge, which is the mockup's `inset 3px 0 0`.

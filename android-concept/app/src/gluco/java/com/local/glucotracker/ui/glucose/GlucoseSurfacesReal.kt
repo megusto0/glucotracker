@@ -259,6 +259,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             row: TodayMealRowUi,
             framed: Boolean,
             showTime: Boolean,
+            kindColor: Color?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
@@ -419,6 +420,7 @@ private fun TodayEpisodeRows(
         row: TodayMealRowUi,
         framed: Boolean,
         showTime: Boolean,
+        kindColor: Color?,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
     bodyStates: List<BodyState> = emptyList(),
@@ -434,11 +436,15 @@ private fun TodayEpisodeRows(
         when (item) {
             is TodayTimelineItem.Single -> TodaySingleCard(
                 entry = item.entry,
+                kindColor = context.classificationByMealId[item.entry.row.id].kindColor(),
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
                 entries = item.entries,
                 recommendationEligible = isCurrentDay,
+                kindColor = @Composable { id ->
+                    context.classificationByMealId[id].kindColor()
+                },
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Orphan -> OrphanInsulinRow(
@@ -537,10 +543,12 @@ private fun buildTodayTimeline(
 @Composable
 private fun TodaySingleCard(
     entry: TodayMealEntry,
+    kindColor: Color,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
         showTime: Boolean,
+        kindColor: Color?,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
 ) {
@@ -558,7 +566,7 @@ private fun TodaySingleCard(
         SittingHeader(
             time = entry.row.eatenAt.timeText(),
             kindLabel = stringResource(R.string.today_episode_single_kicker),
-            kindColor = GT.colors.kindMeal,
+            kindColor = kindColor,
             totals = todayEpisodeSummary(
                 entry.row.totalCarbsG ?: 0.0,
                 entry.row.totalKcal ?: 0.0,
@@ -567,7 +575,7 @@ private fun TodaySingleCard(
             meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
         )
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
-        rowContent(entry.row, false, false) {}
+        rowContent(entry.row, false, false, kindColor) {}
         if (mealId != null) {
             EpisodeInsulinFooter(
                 events = entry.paired,
@@ -582,10 +590,12 @@ private fun TodaySingleCard(
 private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
     recommendationEligible: Boolean,
+    kindColor: @Composable (String) -> Color,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
         showTime: Boolean,
+        kindColor: Color?,
         extraMetaContent: @Composable ColumnScope.() -> Unit,
     ) -> Unit,
 ) {
@@ -605,7 +615,7 @@ private fun TodayEpisodeCard(
                 R.string.today_episode_group_kicker,
                 entries.size,
             ),
-            kindColor = GT.colors.kindMeal,
+            kindColor = kindColor(entries.first().row.id),
             totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
             meals = entries.mapNotNull { entry ->
                 entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
@@ -616,7 +626,12 @@ private fun TodayEpisodeCard(
         // time, and a plate that broke away from it says so in its own meta.
         val sittingMinute = entries.minOf { it.row.eatenAt }.timeText()
         entries.forEachIndexed { index, entry ->
-            rowContent(entry.row, false, entry.row.eatenAt.timeText() != sittingMinute) {}
+            rowContent(
+                entry.row,
+                false,
+                entry.row.eatenAt.timeText() != sittingMinute,
+                kindColor(entry.row.id),
+            ) {}
             if (index < entries.lastIndex) {
                 GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
             }
@@ -963,6 +978,18 @@ private fun BodyStateTotal(color: Color, value: String, label: String) {
 /** «6:02», the way a night is spoken about, not «362 мин». */
 private fun formatBodyStateDuration(totalMinutes: Int): String =
     "%d:%02d".format(totalMinutes / 60, totalMinutes % 60)
+
+/**
+ * The bar down a photo's leading edge. Mixed and unresolved go unmarked: a
+ * guess is not worth a colour, and graphite would claim it is an ordinary meal.
+ */
+@Composable
+private fun EpisodeTherapyClass?.kindColor(): Color = when (this) {
+    EpisodeTherapyClass.Snack -> GT.colors.kindSnack
+    EpisodeTherapyClass.CarbCorrection -> GT.colors.kindCarbRescue
+    EpisodeTherapyClass.InsulinCorrection -> GT.colors.kindInsulinCorrection
+    else -> GT.colors.kindMeal
+}
 
 /** Mixed and unresolved stay untinted: a guess is not worth a colour. */
 @Composable

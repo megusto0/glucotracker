@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -146,6 +147,9 @@ interface GlucoseSurfaces {
             row: TodayMealRowUi,
             framed: Boolean,
             showTime: Boolean,
+            // The kind of record, drawn as a bar down its photo. Null where the
+            // flavor has no kinds, which leaves the photo unmarked.
+            kindColor: Color?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     )
@@ -232,11 +236,14 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
             row: TodayMealRowUi,
             framed: Boolean,
             showTime: Boolean,
+            // The kind of record, drawn as a bar down its photo. Null where the
+            // flavor has no kinds, which leaves the photo unmarked.
+            kindColor: Color?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, true, true, {})
+            rowContent(row, true, true, null, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }

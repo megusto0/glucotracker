@@ -95,11 +95,12 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
             row: TodayMealRowUi,
             framed: Boolean,
             showTime: Boolean,
+            kindColor: androidx.compose.ui.graphics.Color?,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
     ) {
         rows.forEachIndexed { index, row ->
-            rowContent(row, true, true, {})
+            rowContent(row, true, true, null, {})
             if (index < rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }

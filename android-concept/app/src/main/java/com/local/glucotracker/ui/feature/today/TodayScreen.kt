@@ -387,7 +387,7 @@ private fun DayState(
                 LocalGlucoseSurfaces.current.TodayRows(
                     date = state.date,
                     rows = state.rows,
-                ) { row, framed, showTime, extraMetaContent ->
+                ) { row, framed, showTime, kindColor, extraMetaContent ->
                     SwipeMealRow(
                         row = row,
                         lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
@@ -397,6 +397,7 @@ private fun DayState(
                         compact = brandAccentColor != null,
                         framed = framed,
                         showTime = showTime,
+                        kindColor = kindColor,
                         extraMetaContent = extraMetaContent,
                     )
                 }
@@ -939,6 +940,7 @@ private fun SwipeMealRow(
     compact: Boolean = false,
     framed: Boolean = true,
     showTime: Boolean = true,
+    kindColor: Color? = null,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val canDeleteLocally = row.recordId == null && row.outboxId != null
@@ -951,6 +953,7 @@ private fun SwipeMealRow(
             compact = compact,
             framed = framed,
             showTime = showTime,
+            kindColor = kindColor,
             extraMetaContent = extraMetaContent,
         )
         return
@@ -979,6 +982,7 @@ private fun SwipeMealRow(
             compact = compact,
             framed = framed,
             showTime = showTime,
+            kindColor = kindColor,
             extraMetaContent = extraMetaContent,
         )
     }
@@ -1064,6 +1068,7 @@ private fun MealRowSurface(
     compact: Boolean = false,
     framed: Boolean = true,
     showTime: Boolean = true,
+    kindColor: Color? = null,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     var highlighted by remember(row.id, lastAddedId) { mutableStateOf(row.id == lastAddedId) }
@@ -1117,6 +1122,10 @@ private fun MealRowSurface(
             GTMealRow(
                 // Blank where the row above it already stated this minute.
                 time = if (showTime) row.eatenAt.timeText() else "",
+                // framed = false means the row sits in a sitting card whose
+                // header states the time, so no row in it wants a gutter.
+                reserveTimeGutter = framed,
+                kindColor = kindColor,
                 photo = row.photo,
                 name = row.title ?: fallbackTitle(row),
                 // The time used to be repeated here under the title, beside a
