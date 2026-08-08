@@ -7543,14 +7543,60 @@ export interface components {
             start_hour: number;
         };
         /**
+         * TherapyBasalCompressedSlotResponse
+         * @description One interval in an evidence-aware compressed basal profile.
+         */
+        TherapyBasalCompressedSlotResponse: {
+            /** Autotuned Basal U Per Hour */
+            autotuned_basal_u_per_hour: number;
+            /** Autotuned Hour Count */
+            autotuned_hour_count: number;
+            /** Basal Adjustment U Per Hour */
+            basal_adjustment_u_per_hour: number;
+            /** Configured Basal U Per Hour */
+            configured_basal_u_per_hour: number;
+            /** End Hour */
+            end_hour: number;
+            /** Equivalent Drift Mmol L Per Hour */
+            equivalent_drift_mmol_l_per_hour: number;
+            /** Evidence Window Count */
+            evidence_window_count: number;
+            /** Label */
+            label: string;
+            /** Start Hour */
+            start_hour: number;
+        };
+        /**
+         * TherapyBasalCompressionResponse
+         * @description One selectable compression of the hourly basal profile.
+         */
+        TherapyBasalCompressionResponse: {
+            /** Projected Daily Basal Units */
+            projected_daily_basal_units: number;
+            /** Slots */
+            slots: components["schemas"]["TherapyBasalCompressedSlotResponse"][];
+            /** Window Count */
+            window_count: number;
+        };
+        /**
          * TherapyBasalProfileResponse
          * @description Twenty-four-hour clean background glucose drift profile.
          */
         TherapyBasalProfileResponse: {
+            /** Autotune Isf Mmol L Per Unit */
+            autotune_isf_mmol_l_per_unit: number;
+            /** Autotuned Hour Count */
+            autotuned_hour_count: number;
+            /** Compressions */
+            compressions?: components["schemas"]["TherapyBasalCompressionResponse"][];
+            /** Configured Daily Basal Units */
+            configured_daily_basal_units: number;
             /** Elevated Hr Threshold Bpm */
             elevated_hr_threshold_bpm?: number | null;
             /** Elevated Hr Window Count */
             elevated_hr_window_count: number;
+            /** Projected Daily Basal Units */
+            projected_daily_basal_units: number;
             /** Quiet Window Count */
             quiet_window_count: number;
             /** Resting Reference Bpm */
@@ -7569,6 +7615,12 @@ export interface components {
          * @description Background glucose drift evidence for one local clock hour.
          */
         TherapyBasalSlotResponse: {
+            /** Autotuned Basal U Per Hour */
+            autotuned_basal_u_per_hour?: number | null;
+            /** Basal Adjustment U Per Hour */
+            basal_adjustment_u_per_hour?: number | null;
+            /** Configured Basal U Per Hour */
+            configured_basal_u_per_hour: number;
             elevated_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
             /** Hour */
             hour: number;

@@ -21,6 +21,52 @@ const emptyMetric = {
 
 const analysis: TherapyAnalysisResponse = {
   basal_profile: {
+    autotune_isf_mmol_l_per_unit: 3.6,
+    autotuned_hour_count: 1,
+    configured_daily_basal_units: 19.9,
+    compressions: [
+      {
+        projected_daily_basal_units: 19.93,
+        slots: Array.from({ length: 24 }, (_, hour) => {
+          const configured =
+            hour < 3 ? 0.8 : hour < 12 ? 0.7 : hour < 16 ? 0.8 : 1;
+          return {
+            autotuned_basal_u_per_hour: hour === 2 ? 0.83 : configured,
+            autotuned_hour_count: hour === 2 ? 1 : 0,
+            basal_adjustment_u_per_hour: hour === 2 ? 0.03 : 0,
+            configured_basal_u_per_hour: configured,
+            end_hour: hour + 1,
+            equivalent_drift_mmol_l_per_hour: hour === 2 ? 0.1 : 0,
+            evidence_window_count: hour === 2 ? 5 : 0,
+            label: `${hour.toString().padStart(2, "0")}:00–${(hour + 1).toString().padStart(2, "0")}:00`,
+            start_hour: hour,
+          };
+        }),
+        window_count: 24,
+      },
+      {
+        projected_daily_basal_units: 19.93,
+        slots: [
+          [0, 6, 0.75, 0.755, 0.005, 0.02, 5, 1],
+          [6, 12, 0.7, 0.7, 0, 0, 0, 0],
+          [12, 18, 0.867, 0.867, 0, 0, 0, 0],
+          [18, 24, 1, 1, 0, 0, 0, 0],
+        ].map(
+          ([start, end, configured, autotuned, adjustment, drift, evidence, tuned]) => ({
+            autotuned_basal_u_per_hour: autotuned,
+            autotuned_hour_count: tuned,
+            basal_adjustment_u_per_hour: adjustment,
+            configured_basal_u_per_hour: configured,
+            end_hour: end,
+            equivalent_drift_mmol_l_per_hour: drift,
+            evidence_window_count: evidence,
+            label: `${start.toString().padStart(2, "0")}:00–${end.toString().padStart(2, "0")}:00`,
+            start_hour: start,
+          }),
+        ),
+        window_count: 4,
+      },
+    ],
     elevated_hr_threshold_bpm: 82,
     elevated_hr_window_count: 4,
     quiet_window_count: 18,
@@ -38,6 +84,10 @@ const analysis: TherapyAnalysisResponse = {
           : emptyMetric,
       hour,
       label: `${hour.toString().padStart(2, "0")}:00`,
+      configured_basal_u_per_hour:
+        hour < 3 ? 0.8 : hour < 12 ? 0.7 : hour < 16 ? 0.8 : 1,
+      basal_adjustment_u_per_hour: hour === 2 ? 0.03 : null,
+      autotuned_basal_u_per_hour: hour === 2 ? 0.83 : null,
       quiet_drift_mmol_l_per_hour:
         hour === 2
           ? {
@@ -52,6 +102,7 @@ const analysis: TherapyAnalysisResponse = {
       unknown_hr_drift_mmol_l_per_hour: emptyMetric,
     })),
     unknown_hr_window_count: 7,
+    projected_daily_basal_units: 19.93,
     washout_minutes: 240,
     window_minutes: 60,
   },
@@ -122,7 +173,7 @@ const analysis: TherapyAnalysisResponse = {
       start_hour: 18,
     },
   ],
-  model_version: "retrospective-therapy-analysis-v3",
+  model_version: "retrospective-therapy-analysis-v7",
   notes: ["Использованы только чистые случаи."],
   overall_icr_g_per_unit: {
     confidence: "medium",
@@ -206,6 +257,12 @@ describe("TherapyAnalysisPage", () => {
         name: "Фоновое изменение глюкозы по часам суток",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Basal autotune для плоского фона"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("19.90 Ед/сут")).toBeInTheDocument();
+    expect(screen.getByText("0.83 Ед/ч")).toBeInTheDocument();
+    expect(screen.getByText(/Quiet-drift normalized/i)).toBeInTheDocument();
   });
 
   test("puts the configured ratio next to what the data implies", () => {
@@ -229,6 +286,30 @@ describe("TherapyAnalysisPage", () => {
     expect(
       screen.getByText(/Рядом с нагрузкой исключено приёмов: 2/),
     ).toBeInTheDocument();
+  });
+
+  test("compresses the hourly basal profile to four evidence-aware windows", () => {
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+
+    const heading = screen.getByText("Basal autotune для плоского фона");
+    const section = heading.closest("section");
+    expect(section).not.toBeNull();
+    expect(section?.querySelectorAll("tbody tr")).toHaveLength(24);
+
+    const slider = screen.getByRole("slider", {
+      name: "Количество временных окон",
+    });
+    fireEvent.change(slider, { target: { value: "4" } });
+
+    expect(slider).toHaveValue("4");
+    expect(section?.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(screen.getByText("00:00–06:00")).toBeInTheDocument();
+    expect(screen.getByText("18:00–24:00")).toBeInTheDocument();
+    expect(screen.getByText(/Суточная доза сохраняется/)).toBeInTheDocument();
   });
 
   test("says out loud that the ISF number rests on thin evidence", () => {

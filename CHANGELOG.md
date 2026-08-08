@@ -27,6 +27,14 @@ External sources consulted while building are recorded in
 
 ### Added
 
+- **Desktop + Backend** — `/nightscout/review/analysis` now shows a 24-hour
+  retrospective basal autotune table for the tested `0.8 / 0.7 / 0.8 / 1.0`
+  U/h profile and ISF 3.6. Each hourly equivalent flat-background rate is
+  derived only from at least three quiet normalized-CGM windows; raw CGM is
+  never used as fallback, and no setting is applied automatically. A slider
+  compresses the 24 hourly rates down to 4–23 contiguous windows: boundaries
+  follow evidence-weighted rate similarity while the projected daily dose is
+  preserved.
 - **Backend** — `GET /glucose/episodes/breakdown` takes one episode apart into
   six blocks that are the same for every class: a −2 h/+4 h window of calibrated
   CGM sent point by point, the two or three readings the episode is read from,

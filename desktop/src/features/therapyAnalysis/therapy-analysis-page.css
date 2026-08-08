@@ -511,6 +511,164 @@
     monospace;
 }
 
+.therapy-basal-autotune {
+  margin: 10px 14px 14px;
+  overflow: hidden;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  background: #1b1b1b;
+}
+
+.therapy-basal-autotune > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid #343434;
+}
+
+.therapy-basal-autotune > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.therapy-basal-autotune > header strong {
+  color: #eee;
+  font-size: 13px;
+}
+
+.therapy-basal-autotune > header span,
+.therapy-basal-autotune > header small {
+  color: #888;
+  font:
+    500 9px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-basal-compression-control {
+  display: grid;
+  gap: 7px;
+  padding: 11px 12px;
+  border-bottom: 1px solid #343434;
+}
+
+.therapy-basal-compression-control > label,
+.therapy-basal-compression-control > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.therapy-basal-compression-control > label span {
+  color: #aaa;
+  font-size: 10px;
+}
+
+.therapy-basal-compression-control > label strong {
+  color: var(--ns-cyan);
+  font:
+    600 13px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-basal-compression-control > input {
+  width: 100%;
+  accent-color: var(--ns-cyan);
+  cursor: pointer;
+}
+
+.therapy-basal-compression-control > div span,
+.therapy-basal-compression-control > small {
+  color: #696969;
+  font:
+    500 8px/1.4 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-basal-autotune-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid #343434;
+}
+
+.therapy-basal-autotune-totals > span {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  color: #777;
+  font-size: 9px;
+}
+
+.therapy-basal-autotune-totals > span + span {
+  border-left: 1px solid #343434;
+}
+
+.therapy-basal-autotune-totals strong {
+  color: var(--ns-cyan);
+  font:
+    600 13px/1 "JetBrains Mono",
+    Consolas,
+    monospace;
+}
+
+.therapy-basal-autotune-scroll {
+  overflow-x: auto;
+}
+
+.therapy-basal-autotune table {
+  width: 100%;
+  min-width: 710px;
+  border-collapse: collapse;
+}
+
+.therapy-basal-autotune th,
+.therapy-basal-autotune td {
+  padding: 8px 11px;
+  border-bottom: 1px solid #303030;
+  color: #aaa;
+  font:
+    500 10px/1.35 "JetBrains Mono",
+    Consolas,
+    monospace;
+  text-align: left;
+}
+
+.therapy-basal-autotune thead th {
+  background: #1b1b1b;
+  color: #777;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.therapy-basal-autotune tbody th {
+  color: #ddd;
+}
+
+.therapy-basal-autotune td strong {
+  color: var(--ns-cyan);
+}
+
+.therapy-basal-autotune td small {
+  display: block;
+  margin-top: 2px;
+  color: #696969;
+  font-size: 8px;
+}
+
+.therapy-basal-autotune > p {
+  margin: 0;
+  padding: 10px 12px;
+  color: #858585;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .therapy-basal-dot {
   width: 7px;
   height: 7px;
@@ -647,5 +805,18 @@
   .therapy-basal-stats > small {
     width: 100%;
     margin-left: 0;
+  }
+
+  .therapy-basal-autotune > header {
+    display: grid;
+  }
+
+  .therapy-basal-autotune-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .therapy-basal-autotune-totals > span + span {
+    border-top: 1px solid #343434;
+    border-left: 0;
   }
 }

@@ -12,10 +12,12 @@ from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
+    FingerstickReading,
     HealthConnectRecord,
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
+    SensorSession,
     User,
 )
 from glucotracker.infra.db.repositories.twin import TwinRepository
@@ -119,10 +121,23 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     correction_at = day + timedelta(hours=18)
 
     with session_factory() as session:
+        session.add(
+            SensorSession(
+                owner_id=owner_id,
+                started_at=utc_instant_from_local_wall(datetime(2026, 7, 1)),
+            )
+        )
         _meal(session, owner_id, meal_at, 40, "Чистый завтрак")
         _insulin(session, owner_id, meal_at, 4, correction=False)
         _glucose(session, owner_id, meal_at, 6.0)
         _glucose(session, owner_id, meal_at + timedelta(hours=2), 6.0)
+        session.add(
+            FingerstickReading(
+                owner_id=owner_id,
+                measured_at=utc_instant_from_local_wall(meal_at),
+                glucose_mmol_l=6.0,
+            )
+        )
 
         _insulin(session, owner_id, correction_at, 1)
         _glucose(session, owner_id, correction_at, 9.0)
@@ -211,7 +226,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     # cut the correction evidence short (ADR-019 §2.4).
     assert body["isf_horizon_minutes"] == 270
     assert body["bin_hours"] == 4
-    assert body["model_version"].startswith("retrospective-therapy-analysis-v5")
+    assert body["model_version"].startswith("retrospective-therapy-analysis-v7")
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,
@@ -230,12 +245,10 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     slots = {slot["label"]: slot for slot in body["slots"]}
     assert slots["08:00–12:00"]["icr_g_per_unit"]["value"] == 10.0
     assert slots["16:00–20:00"]["isf_mmol_l_per_unit"]["value"] == 2.5
-    assert sum(
-        slot["icr_g_per_unit"]["sample_count"] for slot in body["slots"]
-    ) == 1
-    assert sum(
-        slot["isf_mmol_l_per_unit"]["sample_count"] for slot in body["slots"]
-    ) == 1
+    assert sum(slot["icr_g_per_unit"]["sample_count"] for slot in body["slots"]) == 1
+    assert (
+        sum(slot["isf_mmol_l_per_unit"]["sample_count"] for slot in body["slots"]) == 1
+    )
     basal = body["basal_profile"]
     assert basal["window_minutes"] == 60
     assert basal["washout_minutes"] == 240
@@ -244,6 +257,26 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     assert basal["quiet_window_count"] == 3
     assert basal["elevated_hr_window_count"] == 1
     assert basal["unknown_hr_window_count"] == 0
+    assert basal["autotune_isf_mmol_l_per_unit"] == 3.6
+    assert basal["configured_daily_basal_units"] == 19.9
+    assert basal["projected_daily_basal_units"] == 19.96
+    assert basal["autotuned_hour_count"] == 1
+    compressions = {
+        compression["window_count"]: compression
+        for compression in basal["compressions"]
+    }
+    assert set(compressions) == set(range(4, 25))
+    four_windows = compressions[4]
+    assert len(four_windows["slots"]) == 4
+    assert four_windows["slots"][0]["start_hour"] == 0
+    assert four_windows["slots"][-1]["end_hour"] == 24
+    assert four_windows["projected_daily_basal_units"] == 19.96
+    compressed_total = sum(
+        (slot["end_hour"] - slot["start_hour"]) * slot["autotuned_basal_u_per_hour"]
+        for slot in four_windows["slots"]
+    )
+    assert compressed_total == pytest.approx(19.96, abs=0.01)
+    assert len(compressions[24]["slots"]) == 24
     basal_slots = {slot["label"]: slot for slot in basal["slots"]}
     assert basal_slots["02:00"]["quiet_drift_mmol_l_per_hour"] == {
         "value": 0.2,
@@ -253,12 +286,49 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
         "confidence": "low",
     }
     assert basal_slots["02:00"]["signal"] == "stable"
-    assert basal_slots["14:00"]["elevated_hr_drift_mmol_l_per_hour"][
-        "value"
-    ] == -1.0
-    assert basal_slots["14:00"]["quiet_drift_mmol_l_per_hour"][
-        "sample_count"
-    ] == 0
+    assert basal_slots["02:00"]["configured_basal_u_per_hour"] == 0.8
+    assert basal_slots["02:00"]["basal_adjustment_u_per_hour"] == 0.06
+    assert basal_slots["02:00"]["autotuned_basal_u_per_hour"] == 0.86
+    assert basal_slots["14:00"]["elevated_hr_drift_mmol_l_per_hour"]["value"] == -1.0
+    assert basal_slots["14:00"]["quiet_drift_mmol_l_per_hour"]["sample_count"] == 0
+
+
+def test_basal_autotune_never_falls_back_to_raw_cgm(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raw values may exist, but without normalization they are not evidence."""
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_analysis.local_now",
+        lambda: datetime(2026, 7, 31, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        for offset in range(3):
+            background_at = datetime(2026, 7, 10 + offset, 2)
+            _glucose(session, owner_id, background_at, 6.0)
+            _glucose(session, owner_id, background_at + timedelta(hours=1), 7.0)
+            _heart_rate(
+                session,
+                owner_id,
+                background_at,
+                [55, 58, 60],
+                record_id=f"raw-only-{offset}",
+            )
+        session.commit()
+
+    body = api_client.get(
+        "/glucose/therapy-analysis",
+        params={"period_days": 30, "target_mmol_l": 6},
+    ).json()
+
+    basal = body["basal_profile"]
+    assert basal["quiet_window_count"] == 0
+    assert basal["autotuned_hour_count"] == 0
+    slot = next(item for item in basal["slots"] if item["hour"] == 2)
+    assert slot["quiet_drift_mmol_l_per_hour"]["value"] is None
+    assert slot["autotuned_basal_u_per_hour"] is None
 
 
 def test_isf_says_how_thin_its_evidence_is_next_to_a_solid_icr(

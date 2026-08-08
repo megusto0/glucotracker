@@ -43,6 +43,8 @@ from glucotracker.api.schemas import (
     TherapyAnalysisMetricResponse,
     TherapyAnalysisResponse,
     TherapyAnalysisSlotResponse,
+    TherapyBasalCompressedSlotResponse,
+    TherapyBasalCompressionResponse,
     TherapyBasalProfileResponse,
     TherapyBasalSlotResponse,
     TherapyReviewDayResponse,
@@ -412,6 +414,16 @@ def get_glucose_therapy_analysis(
                 unknown_hr_window_count=(
                     analysis.basal_profile.unknown_hr_window_count
                 ),
+                autotune_isf_mmol_l_per_unit=(
+                    analysis.basal_profile.autotune_isf_mmol_l_per_unit
+                ),
+                configured_daily_basal_units=(
+                    analysis.basal_profile.configured_daily_basal_units
+                ),
+                projected_daily_basal_units=(
+                    analysis.basal_profile.projected_daily_basal_units
+                ),
+                autotuned_hour_count=(analysis.basal_profile.autotuned_hour_count),
                 slots=[
                     TherapyBasalSlotResponse(
                         hour=slot.hour,
@@ -432,8 +444,24 @@ def get_glucose_therapy_analysis(
                             )
                         ),
                         signal=slot.signal,
+                        configured_basal_u_per_hour=(slot.configured_basal_u_per_hour),
+                        autotuned_basal_u_per_hour=(slot.autotuned_basal_u_per_hour),
+                        basal_adjustment_u_per_hour=(slot.basal_adjustment_u_per_hour),
                     )
                     for slot in analysis.basal_profile.slots
+                ],
+                compressions=[
+                    TherapyBasalCompressionResponse(
+                        window_count=compression.window_count,
+                        projected_daily_basal_units=(
+                            compression.projected_daily_basal_units
+                        ),
+                        slots=[
+                            TherapyBasalCompressedSlotResponse(**vars(slot))
+                            for slot in compression.slots
+                        ],
+                    )
+                    for compression in analysis.basal_profile.compressions
                 ],
             ),
         }
