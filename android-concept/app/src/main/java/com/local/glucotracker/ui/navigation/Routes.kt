@@ -7,6 +7,7 @@ sealed class Route(val route: String) {
         fun forDate(date: kotlinx.datetime.LocalDate): String = "today/$date"
     }
     data object History : Route("history")
+    data object Norm : Route("norm")
     data object Base : Route("base")
     data object More : Route("more")
     data object OutboxInspector : Route("outbox") {

@@ -20,6 +20,7 @@
     <string name="auth_logout_confirm">Выйти</string>
     <string name="nav_today">Сегодня</string>
     <string name="nav_history">История</string>
+    <string name="nav_norm">Норма</string>
     <string name="nav_base">База</string>
     <string name="nav_more">Ещё</string>
     <string name="nav_capture_content_description">Захват</string>
@@ -115,6 +116,19 @@
     <string name="today_sync_queue">Синхр. · %1$d в очереди</string>
     <string name="today_sync_running">Синхронизация</string>
     <string name="today_stats_action">Статистика →</string>
+    <string name="food_today_remaining">осталось %1$s</string>
+    <string name="food_today_over">выше на %1$s</string>
+    <string name="food_meal_role_meal">Приём</string>
+    <string name="food_meal_role_breakfast">Завтрак</string>
+    <string name="food_meal_role_lunch">Обед</string>
+    <string name="food_meal_role_dinner">Ужин</string>
+    <string name="food_meal_role_snack">Перекус</string>
+    <string name="food_meal_footer_share">%1$s нормы</string>
+    <string name="food_meal_analysis">Разбор ›</string>
+    <string name="food_curve_title">Набрано за сутки</string>
+    <string name="food_curve_share">%1$s нормы</string>
+    <string name="food_curve_content_description">Накоплено %1$s ккал за сутки</string>
+    <string name="food_history_day_summary">%1$s · %2$s ккал · %3$s нормы · окно %4$s</string>
     <string name="today_meal_fallback">Запись</string>
     <string name="today_pending_photo_title">Фото</string>
     <string name="today_source_photo">фото</string>
@@ -148,6 +162,7 @@
     <string name="history_filter_low_confidence">Низкая увер.</string>
     <string name="history_filter_photo">Только фото</string>
     <string name="history_filter_all">Все</string>
+    <string name="food_history_filter_all">Все типы ▾</string>
     <string name="history_filter_sweet">Сладкое</string>
     <string name="history_filter_breakfast">Завтраки</string>
     <string name="history_header_meta">%1$d дня · %2$d записей</string>

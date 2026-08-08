@@ -190,7 +190,7 @@ fun MainScaffold(
                 state = offlineBannerState,
                 onTap = { navController.navigate(Route.OutboxInspector.route) },
             )
-            if (!fullScreenDetail) navConfig.brand?.let { brand ->
+            if (!fullScreenDetail) navConfig.brand?.takeIf { it.showHeader }?.let { brand ->
                 GTBrandLockup(
                     name = stringResource(brand.name),
                     mark = {
@@ -330,53 +330,80 @@ fun GTNavHost(
         popExitTransition = { ExitTransition.None },
     ) {
         composable(Route.Today.route) {
-            TodayStatsPager(
-                onOpenMealStack = openMealStack,
-                onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
-                onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
-                lastQueuedOutboxId = lastQueuedOutboxId,
-                onQueuedOutboxConsumed = onQueuedOutboxConsumed,
-                showPagerKicker = navConfig.brand == null,
-                brandAccentColor = navConfig.brand?.activeIndicatorColor,
-                onOpenMore = {
-                    navController.navigate(Route.More.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+            if (navConfig.tabs.any { it.route == Route.Norm.route }) {
+                TodayRoute(
+                    onOpenMealStack = openMealStack,
+                    onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
+                    onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
+                    lastQueuedOutboxId = lastQueuedOutboxId,
+                    onQueuedOutboxConsumed = onQueuedOutboxConsumed,
+                    brandAccentColor = navConfig.brand?.activeIndicatorColor,
+                    showPagerDots = false,
+                    onOpenStats = { navController.navigate(Route.Norm.route) },
+                )
+            } else {
+                TodayStatsPager(
+                    onOpenMealStack = openMealStack,
+                    onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
+                    onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
+                    lastQueuedOutboxId = lastQueuedOutboxId,
+                    onQueuedOutboxConsumed = onQueuedOutboxConsumed,
+                    showPagerKicker = navConfig.brand == null,
+                    brandAccentColor = navConfig.brand?.activeIndicatorColor,
+                    onOpenMore = {
+                        navController.navigate(Route.More.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                todayStatsRequestCounter = todayStatsRequestCounter,
-                onPageChanged = onTodayPagerPageChange,
-            )
+                    },
+                    todayStatsRequestCounter = todayStatsRequestCounter,
+                    onPageChanged = onTodayPagerPageChange,
+                )
+            }
         }
         composable(
             route = Route.Today.PatternWithDate,
             arguments = listOf(navArgument(Route.Today.ArgDate) { type = NavType.StringType }),
         ) { entry ->
             val initialDate = entry.arguments?.getString(Route.Today.ArgDate)?.let(LocalDate::parse)
-            TodayStatsPager(
-                onOpenMealStack = openMealStack,
-                onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
-                onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
-                lastQueuedOutboxId = lastQueuedOutboxId,
-                onQueuedOutboxConsumed = onQueuedOutboxConsumed,
-                showPagerKicker = navConfig.brand == null,
-                brandAccentColor = navConfig.brand?.activeIndicatorColor,
-                initialDate = initialDate,
-                onOpenMore = {
-                    navController.navigate(Route.More.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+            if (navConfig.tabs.any { it.route == Route.Norm.route }) {
+                TodayRoute(
+                    onOpenMealStack = openMealStack,
+                    onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
+                    onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
+                    lastQueuedOutboxId = lastQueuedOutboxId,
+                    onQueuedOutboxConsumed = onQueuedOutboxConsumed,
+                    brandAccentColor = navConfig.brand?.activeIndicatorColor,
+                    initialDate = initialDate,
+                    showPagerDots = false,
+                    onOpenStats = { navController.navigate(Route.Norm.route) },
+                )
+            } else {
+                TodayStatsPager(
+                    onOpenMealStack = openMealStack,
+                    onOpenOutbox = { id -> navController.navigate(Route.OutboxInspector.focus(id)) },
+                    onOpenOutboxSummary = { navController.navigate(Route.OutboxInspector.route) },
+                    lastQueuedOutboxId = lastQueuedOutboxId,
+                    onQueuedOutboxConsumed = onQueuedOutboxConsumed,
+                    showPagerKicker = navConfig.brand == null,
+                    brandAccentColor = navConfig.brand?.activeIndicatorColor,
+                    initialDate = initialDate,
+                    onOpenMore = {
+                        navController.navigate(Route.More.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                todayStatsRequestCounter = todayStatsRequestCounter,
-                onPageChanged = onTodayPagerPageChange,
-            )
+                    },
+                    todayStatsRequestCounter = todayStatsRequestCounter,
+                    onPageChanged = onTodayPagerPageChange,
+                )
+            }
         }
         with(flavorNavGraph) {
             registerFlavorRoutes(navController)
@@ -432,6 +459,9 @@ fun GTNavHost(
                 onOpenOutbox = { navController.navigate(Route.OutboxInspector.route) },
                 brandAccentColor = navConfig.brand?.activeIndicatorColor,
             )
+        }
+        composable(Route.Norm.route) {
+            StatsRoute(brandAccentColor = navConfig.brand?.activeIndicatorColor)
         }
         composable(
             route = Route.OutboxInspector.Pattern,
@@ -691,6 +721,7 @@ private fun BrandRightSlot(
         selectedRoute == Route.Today.route && hasBrand -> null
         selectedRoute == Route.Today.route -> stringResource(R.string.today_stats_action)
         selectedRoute == Route.History.route -> stringResource(R.string.history_search_hint)
+        selectedRoute == Route.Norm.route -> stringResource(R.string.nav_norm)
         selectedRoute == Route.Base.route -> stringResource(R.string.nav_base)
         selectedRoute == Route.More.route -> stringResource(R.string.nav_more)
         else -> null
@@ -739,6 +770,7 @@ private fun String?.toBottomRoute(navConfig: NavConfig): String? =
         Route.Today.route -> Route.Today.route
         Route.Today.PatternWithDate -> Route.Today.route
         Route.History.route -> Route.History.route
+        Route.Norm.route -> if (navConfig.tabs.any { it.route == Route.Norm.route }) Route.Norm.route else Route.Today.route
         Route.Base.route -> if (navConfig.tabs.any { it.route == Route.Base.route }) Route.Base.route else Route.More.route
         Route.More.route -> Route.More.route
         else -> navConfig.tabs.firstOrNull { it.route == this }?.route

@@ -59,6 +59,8 @@ import com.local.glucotracker.domain.model.UserGoals
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.GTTheme
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
+import com.local.glucotracker.ui.design.primitives.FoodCurveMeal
+import com.local.glucotracker.ui.design.primitives.FoodDayCurve
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTKcalRing
 import com.local.glucotracker.ui.design.primitives.GTIconButton
@@ -75,6 +77,7 @@ import com.local.glucotracker.ui.format.PhotoProcessingStage
 import com.local.glucotracker.ui.format.PhotoProcessingUiState
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.format.formatSignedKcal
 import com.local.glucotracker.ui.format.RowState
 import com.local.glucotracker.ui.format.computeRowState
@@ -331,7 +334,7 @@ private fun DayState(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(if (brandAccentColor != null) 6.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(if (brandAccentColor != null) 0.dp else 14.dp),
         ) {
             item {
                 TodayHeader(
@@ -343,7 +346,11 @@ private fun DayState(
                     onOpenStats = onOpenStats,
                     showPagerDots = showPagerDots,
                     pagerPage = pagerPage,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    modifier = if (brandAccentColor != null) {
+                        Modifier.padding(start = 18.dp, top = 10.dp, end = 18.dp, bottom = 6.dp)
+                    } else {
+                        Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                    },
                     foodBrand = brandAccentColor != null,
                 )
             }
@@ -358,10 +365,8 @@ private fun DayState(
                         pendingQueueCount = state.pendingQueueCount,
                     )
                 } else {
-                    TarelkaTodaySummary(
+                    FoodTodaySummary(
                         state = state,
-                        accentColor = brandAccentColor,
-                        now = now,
                         modifier = Modifier.padding(horizontal = 18.dp),
                     )
                 }
@@ -377,37 +382,49 @@ private fun DayState(
             }
             if (brandAccentColor != null) {
                 item {
-                    MealListHeader(
+                    FoodMealJournal(
                         rows = state.rows,
-                        modifier = Modifier.padding(horizontal = 18.dp),
-                    )
-                }
-            }
-            item {
-                LocalGlucoseSurfaces.current.TodayRows(
-                    date = state.date,
-                    rows = state.rows,
-                ) { row, framed, showTime, kindColor, extraMetaContent ->
-                    SwipeMealRow(
-                        row = row,
+                        dailyKcalGoal = state.goals.dailyKcal,
                         lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
+                        isOnline = state.isOnline,
                         onOpenRow = onOpenRow,
                         onDeleteRow = { candidate -> deleteCandidate = candidate },
-                        isOnline = state.isOnline,
-                        compact = brandAccentColor != null,
-                        framed = framed,
-                        showTime = showTime,
-                        kindColor = kindColor,
-                        extraMetaContent = extraMetaContent,
                     )
                 }
-            }
-            item {
-                Column {
-                    LocalGlucoseSurfaces.current.MiniGlucoseCard(
+                item {
+                    FoodDayCurveSection(
+                        rows = state.rows,
+                        totals = state.totals,
+                        dailyKcalGoal = state.goals.dailyKcal,
                         modifier = Modifier.padding(horizontal = 18.dp),
                     )
-                    Spacer(Modifier.height(10.dp))
+                }
+            } else {
+                item {
+                    LocalGlucoseSurfaces.current.TodayRows(
+                        date = state.date,
+                        rows = state.rows,
+                    ) { row, framed, showTime, kindColor, extraMetaContent ->
+                        SwipeMealRow(
+                            row = row,
+                            lastAddedId = lastQueuedOutboxId ?: state.lastAddedId,
+                            onOpenRow = onOpenRow,
+                            onDeleteRow = { candidate -> deleteCandidate = candidate },
+                            isOnline = state.isOnline,
+                            framed = framed,
+                            showTime = showTime,
+                            kindColor = kindColor,
+                            extraMetaContent = extraMetaContent,
+                        )
+                    }
+                }
+                item {
+                    Column {
+                        LocalGlucoseSurfaces.current.MiniGlucoseCard(
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
                 }
             }
         }
@@ -438,6 +455,17 @@ private fun TodayHeader(
     modifier: Modifier = Modifier,
     foodBrand: Boolean = false,
 ) {
+    if (foodBrand) {
+        FoodTodayHeader(
+            date = date,
+            canGoNext = canGoNext,
+            onPreviousDay = onPreviousDay,
+            onNextDay = onNextDay,
+            onOpenStats = onOpenStats,
+            modifier = modifier,
+        )
+        return
+    }
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -739,91 +767,92 @@ private fun TodayStat(
 }
 
 @Composable
-private fun TarelkaTodaySummary(
+private fun FoodTodaySummary(
     state: TodayState.Day,
-    accentColor: Color,
-    now: LocalTime,
     modifier: Modifier = Modifier,
 ) {
     val totals = state.totals
-    val kcalGoal = state.goals.dailyKcal
-    val currentKcal = formatKcal(totals.kcal)
-    val goalKcal = kcalGoal?.let(::formatKcal)
+    val goals = state.goals
+    val kcalGoal = goals.dailyKcal
     val remaining = kcalGoal?.let { it - totals.kcal }
-    val remainingDescription = remaining?.let { formatSignedKcal(it.roundToLong()) }
-    val dayKcal = totals.kcal.roundToLong().toInt()
-    val dayCharacter = characterizeDay(dayKcal, state.typicalKcal14d, now)
-    val observation = tarelkaObservation(
-        consumed = dayKcal,
-        typical = state.typicalKcal14d,
-        goal = kcalGoal,
-        date = state.date,
-        accentColor = accentColor,
-    )
-    val overflowProgress = overflowProgress(totals.kcal, kcalGoal)
-    val ringContentDescription = if (goalKcal == null) {
-        stringResource(R.string.today_ring_no_goal_content_description, currentKcal)
-    } else {
-        stringResource(
-            R.string.today_ring_content_description,
-            currentKcal,
-            goalKcal,
-            remainingDescription.orEmpty(),
-        )
-    }
+    val hairline = GT.colors.hairline
+    val hairlineWidth = GT.space.hairline
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val stroke = hairlineWidth.toPx()
+                drawLine(hairline, Offset(0f, 0f), Offset(size.width, 0f), stroke)
+                drawLine(hairline, Offset(0f, size.height), Offset(size.width, size.height), stroke)
+            }
+            .padding(vertical = 12.dp),
     ) {
-        GTKcalRing(
-            value = currentKcal,
-            goalText = goalKcal?.let { stringResource(R.string.today_ring_goal_label, it) }
-                ?: stringResource(R.string.today_ring_goal_unset),
-            progress = kcalGoal?.let { progressOf(totals.kcal, it) },
-            ringColor = accentColor,
-            remainingValue = "",
-            remainingLabel = "",
-            observation = observation,
-            contentDescription = ringContentDescription,
-            headline = dayCharacter?.label(),
-            overflowProgress = overflowProgress,
-            overflowNote = overflowProgress
-                ?.takeIf { it > 0f }
-                ?.let { stringResource(R.string.tarelka_overflow_note) },
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            GTMacroBar(
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = formatKcal(totals.kcal),
+                color = GT.colors.ink,
+                style = GT.type.monoNumber.copy(fontSize = 30.sp),
+                maxLines = 1,
+            )
+            kcalGoal?.let { goal ->
+                Text(
+                    text = stringResource(R.string.today_kpi_of_goal, formatKcal(goal)),
+                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 12.sp),
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            remaining?.let { value ->
+                Text(
+                    text = if (value >= 0) {
+                        stringResource(R.string.food_today_remaining, formatKcal(value))
+                    } else {
+                        stringResource(R.string.food_today_over, formatKcal(-value))
+                    },
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    color = if (value >= 0) GT.colors.accent else GT.colors.warn,
+                    style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .padding(top = 9.dp)
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(GT.colors.hairline, GT.shapes.tag),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progressOf(totals.kcal, kcalGoal))
+                    .height(3.dp)
+                    .background(GT.colors.accent, GT.shapes.tag),
+            )
+        }
+        Row(
+            modifier = Modifier.padding(top = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            FoodMacroStat(
                 label = stringResource(R.string.today_kpi_protein),
-                value = stringResource(R.string.today_macro_value, formatGrams(totals.proteinG)),
-                percentOfDay = macroProgress(totals.proteinG, kcalGoal, caloriesPerGram = 4.0),
-                color = GT.colors.info,
-                contentDescription = stringResource(
-                    R.string.today_macro_content_description,
-                    stringResource(R.string.today_kpi_protein),
-                    formatGrams(totals.proteinG),
-                ),
+                value = totals.proteinG,
+                goal = goals.dailyProteinG,
+                modifier = Modifier.weight(1f),
             )
-            GTMacroBar(
+            FoodMacroStat(
                 label = stringResource(R.string.today_kpi_fat),
-                value = stringResource(R.string.today_macro_value, formatGrams(totals.fatG)),
-                percentOfDay = macroProgress(totals.fatG, kcalGoal, caloriesPerGram = 9.0),
-                color = GT.colors.warn,
-                contentDescription = stringResource(
-                    R.string.today_macro_content_description,
-                    stringResource(R.string.today_kpi_fat),
-                    formatGrams(totals.fatG),
-                ),
+                value = totals.fatG,
+                goal = goals.dailyFatG,
+                modifier = Modifier.weight(1f),
             )
-            GTMacroBar(
+            FoodMacroStat(
                 label = stringResource(R.string.today_kpi_carbs),
-                value = stringResource(R.string.today_macro_value, formatGrams(totals.carbsG)),
-                percentOfDay = macroProgress(totals.carbsG, kcalGoal, caloriesPerGram = 4.0),
-                color = GT.colors.accent,
-                contentDescription = stringResource(
-                    R.string.today_macro_content_description,
-                    stringResource(R.string.today_kpi_carbs),
-                    formatGrams(totals.carbsG),
-                ),
+                value = totals.carbsG,
+                goal = goals.dailyCarbsG,
+                modifier = Modifier.weight(1f),
             )
         }
         if (state.pendingQueueCount > 0) {
@@ -836,6 +865,350 @@ private fun TarelkaTodaySummary(
         }
     }
 }
+
+@Composable
+private fun FoodTodayHeader(
+    date: LocalDate,
+    canGoNext: Boolean,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onOpenStats: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dateText = date.toJavaLocalDate()
+        .format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru")))
+    val dateContentDescription = stringResource(
+        R.string.today_date_content_description,
+        dateText,
+        weekdaySpoken(date),
+    )
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                GTKicker(text = weekday(date))
+                Text(
+                    text = dateText,
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .semantics { contentDescription = dateContentDescription },
+                    color = GT.colors.ink,
+                    style = GT.type.serifTitle.copy(fontSize = 27.sp),
+                    maxLines = 1,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FoodDayNavButton(
+                    text = "‹",
+                    contentDescription = stringResource(R.string.today_previous_day_content_description),
+                    onClick = onPreviousDay,
+                )
+                FoodDayNavButton(
+                    text = "›",
+                    contentDescription = stringResource(R.string.today_next_day_content_description),
+                    onClick = onNextDay,
+                    enabled = canGoNext,
+                )
+                Text(
+                    text = stringResource(R.string.today_stats_action).uppercase(Locale("ru")),
+                    modifier = Modifier
+                        .heightIn(min = GT.space.touch)
+                        .clickable(onClick = onOpenStats)
+                        .padding(start = 8.dp, top = 14.dp),
+                    color = GT.colors.accent,
+                    style = GT.type.monoLabel.copy(fontSize = 9.5.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FoodDayNavButton(
+    text: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = Modifier
+            .size(GT.space.touch)
+            .semantics { this.contentDescription = contentDescription }
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = if (enabled) GT.colors.ink2 else GT.colors.muted.copy(alpha = 0.45f),
+            style = GT.type.sansLabel.copy(fontSize = 14.sp),
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun FoodMacroStat(
+    label: String,
+    value: Double,
+    goal: Int?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label.uppercase(Locale("ru")),
+            color = GT.colors.muted,
+            style = GT.type.kicker.copy(fontSize = 9.5.sp),
+            maxLines = 1,
+        )
+        Text(
+            text = stringResource(R.string.today_macro_value, formatGrams(value)),
+            modifier = Modifier.padding(top = 3.dp),
+            color = GT.colors.ink,
+            style = GT.type.monoNumber.copy(fontSize = 16.sp),
+            maxLines = 1,
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(GT.colors.hairline),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progressOf(value, goal))
+                    .height(2.dp)
+                    .background(GT.colors.muted),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FoodMealJournal(
+    rows: List<TodayMealRowUi>,
+    dailyKcalGoal: Int?,
+    lastAddedId: String?,
+    isOnline: Boolean,
+    onOpenRow: (TodayMealRowUi) -> Unit,
+    onDeleteRow: (TodayMealRowUi) -> Unit,
+) {
+    val groups = remember(rows) { foodMealGroups(rows) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        groups.forEach { group ->
+            val groupColor = if (group.isSnack) GT.colors.kindSnack else GT.colors.kindMeal
+            val kcal = group.rows.sumOf { it.totalKcal ?: 0.0 }
+            val protein = group.rows.sumOf { it.totalProteinG ?: 0.0 }
+            val fat = group.rows.sumOf { it.totalFatG ?: 0.0 }
+            val carbs = group.rows.sumOf { it.totalCarbsG ?: 0.0 }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(GT.colors.surface),
+            ) {
+                GTHairlineDivider()
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(groupColor, GT.shapes.tag),
+                    )
+                    Text(
+                        text = group.timeText,
+                        modifier = Modifier.padding(start = 11.dp),
+                        color = GT.colors.ink2,
+                        style = GT.type.monoLabel.copy(fontSize = 10.5.sp),
+                    )
+                    Text(
+                        text = " · ${group.roleLabel()}${if (group.rows.size > 1) " ${group.rows.size}×" else ""}",
+                        modifier = Modifier.weight(1f),
+                        color = GT.colors.ink2,
+                        style = GT.type.monoLabel.copy(fontSize = 10.5.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(R.string.today_right_kcal, formatKcal(kcal)),
+                        color = GT.colors.muted,
+                        style = GT.type.monoLabel.copy(fontSize = 10.5.sp),
+                        maxLines = 1,
+                    )
+                }
+                group.rows.forEach { row ->
+                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                    SwipeMealRow(
+                        row = row,
+                        lastAddedId = lastAddedId,
+                        onOpenRow = onOpenRow,
+                        onDeleteRow = onDeleteRow,
+                        isOnline = isOnline,
+                        compact = true,
+                        framed = false,
+                        showTime = false,
+                        kindColor = groupColor,
+                    )
+                }
+                if (group.rows.all { it.kind == TodayMealRowKind.Accepted }) {
+                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { group.rows.firstOrNull()?.let(onOpenRow) }
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.today_macros_line,
+                                formatGrams(protein),
+                                formatGrams(fat),
+                                formatGrams(carbs),
+                            ),
+                            modifier = Modifier.weight(1f),
+                            color = GT.colors.muted,
+                            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        dailyKcalGoal?.takeIf { it > 0 }?.let { goal ->
+                            Text(
+                                text = stringResource(
+                                    R.string.food_meal_footer_share,
+                                    formatPercent(kcal / goal * 100.0),
+                                ),
+                                color = GT.colors.muted,
+                                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                                maxLines = 1,
+                            )
+                            Spacer(Modifier.width(7.dp))
+                        }
+                        Text(
+                            text = stringResource(R.string.food_meal_analysis).uppercase(Locale("ru")),
+                            color = GT.colors.ink2,
+                            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal data class FoodMealGroup(val rows: List<TodayMealRowUi>) {
+    val isSnack: Boolean
+        get() = rows.all { row -> row.mealRole?.lowercase() in FoodSnackRoles } ||
+            (rows.size == 1 && (rows.first().totalKcal ?: 0.0) < 200.0)
+
+    val timeText: String
+        get() = rows.minByOrNull { it.eatenAt }?.eatenAt?.timeText().orEmpty()
+}
+
+internal fun foodMealGroups(rows: List<TodayMealRowUi>): List<FoodMealGroup> {
+    val groups = mutableListOf<MutableList<TodayMealRowUi>>()
+    rows.sortedByDescending { it.eatenAt }.forEach { row ->
+        val current = groups.lastOrNull()
+        val closest = current?.lastOrNull()
+        val gapSeconds = closest?.let { kotlin.math.abs(it.eatenAt.epochSeconds - row.eatenAt.epochSeconds) }
+        if (current != null && gapSeconds != null && gapSeconds <= FoodSittingWindowSeconds) {
+            current += row
+        } else {
+            groups += mutableListOf(row)
+        }
+    }
+    return groups.map { FoodMealGroup(it) }
+}
+
+@Composable
+private fun FoodMealGroup.roleLabel(): String {
+    val roles = rows.mapNotNull { it.mealRole?.lowercase() }.toSet()
+    val label = when {
+        "breakfast" in roles -> stringResource(R.string.food_meal_role_breakfast)
+        "lunch" in roles -> stringResource(R.string.food_meal_role_lunch)
+        "dinner" in roles -> stringResource(R.string.food_meal_role_dinner)
+        isSnack -> stringResource(R.string.food_meal_role_snack)
+        else -> stringResource(R.string.food_meal_role_meal)
+    }
+    return label.uppercase(Locale("ru"))
+}
+
+@Composable
+private fun FoodDayCurveSection(
+    rows: List<TodayMealRowUi>,
+    totals: DayTotals,
+    dailyKcalGoal: Int?,
+    modifier: Modifier = Modifier,
+) {
+    val acceptedRows = rows.filter { it.kind == TodayMealRowKind.Accepted }
+    val meals = acceptedRows.map { row ->
+        val localTime = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
+        FoodCurveMeal(
+            minutesOfDay = localTime.hour * 60 + localTime.minute,
+            kcal = row.totalKcal ?: 0.0,
+            kind = if (row.mealRole?.lowercase() in FoodSnackRoles) {
+                FoodCurveMeal.Kind.Snack
+            } else {
+                FoodCurveMeal.Kind.Meal
+            },
+        )
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.food_curve_title).uppercase(Locale("ru")),
+                modifier = Modifier.weight(1f),
+                color = GT.colors.muted,
+                style = GT.type.kicker,
+            )
+            dailyKcalGoal?.takeIf { it > 0 }?.let { goal ->
+                Text(
+                    text = stringResource(
+                        R.string.food_curve_share,
+                        formatPercent(totals.kcal / goal * 100.0),
+                    ),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                )
+            }
+        }
+        FoodDayCurve(
+            meals = meals,
+            totalKcal = totals.kcal,
+            goalKcal = dailyKcalGoal,
+            contentDescription = stringResource(
+                R.string.food_curve_content_description,
+                formatKcal(totals.kcal),
+            ),
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .fillMaxWidth()
+                .height(64.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            FoodCurveHourLabels.forEach { hour ->
+                Text(
+                    text = hour,
+                    color = GT.colors.hairline2,
+                    style = GT.type.monoLabel.copy(fontSize = 9.sp),
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
+}
+
+private val FoodSnackRoles = setOf("snack", "drink", "dessert")
+private val FoodCurveHourLabels = listOf("00", "06", "12", "18", "24")
+private const val FoodSittingWindowSeconds = 10 * 60L
 
 @Composable
 private fun MealListHeader(

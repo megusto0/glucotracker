@@ -67,6 +67,8 @@ import com.local.glucotracker.domain.model.HistoryFilter
 import com.local.glucotracker.domain.model.HistoryStatusFilter
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
+import com.local.glucotracker.ui.design.primitives.FoodCurveMeal
+import com.local.glucotracker.ui.design.primitives.FoodDayCurve
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTMealRow
@@ -77,6 +79,7 @@ import com.local.glucotracker.ui.image.rememberApiImageModel
 import coil3.compose.AsyncImage
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.format.formatSignedKcal
 import com.local.glucotracker.ui.format.formatSignedMmol
 import com.local.glucotracker.ui.format.pluralizeDay
@@ -91,6 +94,7 @@ import com.local.glucotracker.ui.glucose.layoutHistoryTimelineCircles
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToLong
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -172,7 +176,6 @@ fun HistoryScreen(
             if (brandAccentColor != null) {
                 FoodHistoryHeader(
                     state = state,
-                    searchVisible = searchVisible,
                     onToggleFilter = onToggleFilter,
                     onClearFilters = onClearFilters,
                     onSearchChange = onSearchChange,
@@ -211,8 +214,8 @@ fun HistoryScreen(
             if (brandAccentColor != null && state.viewMode == HistoryViewMode.Showcase) {
                 HistoryDayCard(
                     day = day,
-                    markerColor = brandAccentColor,
                     showcaseColumns = state.showcaseColumns,
+                    dailyKcalGoal = state.dailyKcalGoal,
                     onOpenMealStack = onOpenMealStack,
                     onOpenDay = onOpenDay,
                     modifier = Modifier.padding(horizontal = 18.dp),
@@ -266,7 +269,6 @@ fun HistoryScreen(
 @Composable
 private fun FoodHistoryHeader(
     state: HistoryScreenState,
-    searchVisible: Boolean,
     onToggleFilter: (HistoryFilter) -> Unit,
     onClearFilters: () -> Unit,
     onSearchChange: (String) -> Unit,
@@ -282,35 +284,24 @@ private fun FoodHistoryHeader(
                 style = GT.type.serifTitle,
                 maxLines = 1,
             )
-            Spacer(Modifier.weight(1f))
-            HistoryViewButton(viewMode = viewMode, onClick = onViewClick)
-        }
-        Text(
-            text = stringResource(
-                R.string.history_header_meta_compact,
-                pluralizeDay(state.totalDays),
-                pluralizeRecord(state.totalRecords),
-            ),
-            modifier = Modifier.padding(top = 4.dp),
-            color = GT.colors.muted,
-            style = GT.type.monoLabel,
-            maxLines = 1,
-        )
-        if (searchVisible) {
-            SearchField(
+            CompactHistorySearchField(
                 value = state.search,
                 onValueChange = onSearchChange,
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
             )
+            Spacer(Modifier.width(8.dp))
+            HistoryViewButton(viewMode = viewMode, onClick = onViewClick)
         }
         Row(
             modifier = Modifier
-                .padding(top = 12.dp)
+                .padding(top = 8.dp)
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             FilterChip(
-                label = stringResource(R.string.history_filter_all),
+                label = stringResource(R.string.food_history_filter_all),
                 active = state.filters.isEmpty(),
                 onClick = onClearFilters,
             )
@@ -334,6 +325,44 @@ private fun FoodHistoryHeader(
                 active = HistoryFilter.LowConfidence in state.filters,
                 onClick = { onToggleFilter(HistoryFilter.LowConfidence) },
             )
+        }
+        GTHairlineDivider(modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun CompactHistorySearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .height(34.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SearchGlyph(modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(7.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                if (value.isBlank()) {
+                    Text(
+                        text = stringResource(R.string.history_search_hint),
+                        color = GT.colors.muted,
+                        style = GT.type.sansLabel,
+                    )
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = GT.type.sansLabel.copy(color = GT.colors.ink),
+                    singleLine = true,
+                )
+            }
         }
     }
 }
@@ -464,22 +493,33 @@ private fun FilterChip(
 @Composable
 private fun HistoryDayCard(
     day: HistoryDayUi,
-    markerColor: Color,
     showcaseColumns: Int,
+    dailyKcalGoal: Int?,
     onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val totals = day.totals
     val kcal = totals?.kcal ?: day.rows.sumOf { it.totalKcal ?: 0.0 }
-    val average = day.dailyAverageKcalForPeriod
-    val delta = average?.let { (kcal - it).roundToLong() }
     val mealCount = totals?.mealCount ?: day.rows.count { it.kind == HistoryMealRowKind.Accepted }
+    val dayKcalGoal = totals?.tdeeKcal
+        ?.takeIf { it > 0.0 }
+        ?.roundToInt()
+        ?: dailyKcalGoal
+    val goalShare = dayKcalGoal
+        ?.takeIf { it > 0 }
+        ?.let { goal -> formatPercent(kcal / goal * 100.0) }
+        ?: stringResource(R.string.value_empty)
+    val eatingWindow = day.rows.foodEatingWindow()
     val description = stringResource(
-        R.string.history_day_sub_compact,
-        pluralizeMeal(mealCount),
-        pluralizePhoto(day.photoCount),
+        R.string.food_history_day_summary,
+        pluralizeDish(mealCount),
+        formatKcal(kcal),
+        goalShare,
+        eatingWindow,
     )
+    val balance = dayKcalGoal?.let { goal -> kcal - goal }
+    val curveMeals = day.rows.toFoodCurveMeals()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -506,53 +546,75 @@ private fun HistoryDayCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Column(horizontalAlignment = Alignment.End) {
+            balance?.let { value ->
                 Text(
-                    text = formatKcal(kcal),
-                    color = GT.colors.ink,
-                    style = GT.type.monoNumber,
+                    text = formatSignedKcal(value.roundToLong()),
+                    color = if (value <= 0.0) GT.colors.accent else GT.colors.warn,
+                    style = GT.type.monoLabel.copy(fontSize = 11.5.sp),
                     maxLines = 1,
                 )
-                if (delta != null) {
-                    Text(
-                        text = formatCompactDelta(delta),
-                        modifier = Modifier.padding(top = 2.dp),
-                        color = deltaColor(delta, markerColor),
-                        style = GT.type.monoLabel,
-                        maxLines = 1,
-                    )
-                }
             }
         }
-        DayTimeline(
-            meals = day.rows.toTimelineMeals(),
-            accentColor = markerColor,
-            onMealTap = { id -> onOpenMealStack(day.date, id) },
+        FoodDayCurve(
+            meals = curveMeals,
+            totalKcal = kcal,
+            goalKcal = dayKcalGoal,
+            contentDescription = stringResource(
+                R.string.food_curve_content_description,
+                formatKcal(kcal),
+            ),
             modifier = Modifier
-                .padding(top = 12.dp)
+                .padding(top = 8.dp)
                 .fillMaxWidth()
+                .height(56.dp),
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            FoodHistoryHourLabels.forEach { hour ->
+                Text(
+                    text = hour,
+                    color = GT.colors.hairline2,
+                    style = GT.type.monoLabel.copy(fontSize = 9.sp),
+                )
+            }
+        }
         HistoryShowcase(
             rows = day.rows,
             columns = showcaseColumns,
             onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
+            showKindRail = true,
             modifier = Modifier.padding(top = 12.dp),
-        )
-        Text(
-            text = stringResource(
-                R.string.history_macro_summary,
-                formatGrams(totals?.proteinG ?: day.rows.sumOf { it.totalProteinG ?: 0.0 }),
-                formatGrams(totals?.fatG ?: day.rows.sumOf { it.totalFatG ?: 0.0 }),
-                formatGrams(totals?.carbsG ?: day.rows.sumOf { it.totalCarbsG ?: 0.0 }),
-            ),
-            modifier = Modifier.padding(top = 10.dp),
-            color = GT.colors.muted,
-            style = GT.type.monoLabel,
-            maxLines = 1,
         )
         GTHairlineDivider(modifier = Modifier.padding(top = 14.dp))
     }
 }
+
+private fun List<HistoryMealRowUi>.toFoodCurveMeals(): List<FoodCurveMeal> =
+    filter { it.kind == HistoryMealRowKind.Accepted }.map { row ->
+        val time = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
+        FoodCurveMeal(
+            minutesOfDay = time.hour * 60 + time.minute,
+            kcal = row.totalKcal ?: 0.0,
+            kind = if (row.mealRole?.lowercase() in FoodHistorySnackRoles) {
+                FoodCurveMeal.Kind.Snack
+            } else {
+                FoodCurveMeal.Kind.Meal
+            },
+        )
+    }
+
+private fun List<HistoryMealRowUi>.foodEatingWindow(): String {
+    val accepted = filter { it.kind == HistoryMealRowKind.Accepted }
+    val first = accepted.minOfOrNull { it.eatenAt } ?: return "—"
+    val last = accepted.maxOfOrNull { it.eatenAt } ?: return "—"
+    val minutes = ((last.epochSeconds - first.epochSeconds) / 60).coerceAtLeast(0)
+    return "${minutes / 60}:${(minutes % 60).toString().padStart(2, '0')}"
+}
+
+private val FoodHistorySnackRoles = setOf("snack", "drink", "dessert")
+private val FoodHistoryHourLabels = listOf("00", "06", "12", "18", "24")
 
 /**
  * The day's food as a shelf of pictures rather than a column of lines.
@@ -575,6 +637,7 @@ private fun HistoryShowcase(
     rows: List<HistoryMealRowUi>,
     columns: Int,
     onOpenMealStack: (String) -> Unit,
+    showKindRail: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val entries = remember(rows) { rows.filter { it.kind == HistoryMealRowKind.Accepted } }
@@ -590,6 +653,7 @@ private fun HistoryShowcase(
                     ShowcaseTile(
                         row = entry,
                         onOpen = { (entry.recordId ?: entry.outboxId)?.let(onOpenMealStack) },
+                        showKindRail = showKindRail,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -606,6 +670,7 @@ private fun HistoryShowcase(
 private fun ShowcaseTile(
     row: HistoryMealRowUi,
     onOpen: () -> Unit,
+    showKindRail: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -648,6 +713,20 @@ private fun ShowcaseTile(
                     color = GT.colors.ink2,
                     style = GT.type.monoNumber.copy(fontSize = 17.sp),
                     maxLines = 1,
+                )
+            }
+            if (showKindRail) {
+                val railColor = if (row.mealRole?.lowercase() in FoodHistorySnackRoles) {
+                    GT.colors.kindSnack
+                } else {
+                    GT.colors.kindMeal
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(railColor),
                 )
             }
         }

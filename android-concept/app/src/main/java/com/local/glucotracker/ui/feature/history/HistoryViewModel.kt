@@ -48,6 +48,7 @@ data class HistoryScreenState(
     val totalRecords: Int = 0,
     val viewMode: HistoryViewMode = HistoryViewMode.List,
     val showcaseColumns: Int = DefaultShowcaseColumns,
+    val dailyKcalGoal: Int? = null,
 )
 
 enum class HistoryViewMode {
@@ -70,6 +71,7 @@ internal fun storedHistoryTileColumns(value: Int?): Int =
 private data class HistoryDisplayPreferences(
     val viewMode: HistoryViewMode,
     val showcaseColumns: Int,
+    val dailyKcalGoal: Int?,
 )
 
 data class HistoryDayUi(
@@ -180,10 +182,12 @@ class HistoryViewModel @Inject constructor(
     private val displayPreferences = combine(
         settingsStore.historyViewMode,
         settingsStore.historyTileColumns,
-    ) { storedViewMode, storedTileColumns ->
+        settingsStore.userGoals,
+    ) { storedViewMode, storedTileColumns, goals ->
         HistoryDisplayPreferences(
             viewMode = storedHistoryViewMode(storedViewMode, defaultViewMode),
             showcaseColumns = storedHistoryTileColumns(storedTileColumns),
+            dailyKcalGoal = goals.dailyKcal,
         )
     }
 
@@ -201,6 +205,7 @@ class HistoryViewModel @Inject constructor(
         ).copy(
             viewMode = displayPreferences.viewMode,
             showcaseColumns = displayPreferences.showcaseColumns,
+            dailyKcalGoal = displayPreferences.dailyKcalGoal,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -216,6 +221,7 @@ class HistoryViewModel @Inject constructor(
             totalRecords = 0,
             viewMode = defaultViewMode,
             showcaseColumns = DefaultShowcaseColumns,
+            dailyKcalGoal = null,
         ),
     )
 

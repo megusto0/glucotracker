@@ -39,11 +39,17 @@ object FoodFlavorModule {
 }
 
 private object FoodNavConfig : NavConfig {
-    override val tabs = DefaultNavConfig.tabs
+    override val tabs = listOf(
+        TabSpec(Route.Today.route, R.string.nav_today, NavIcon.Today),
+        TabSpec(Route.Norm.route, R.string.nav_norm, NavIcon.Trend),
+        TabSpec(Route.History.route, R.string.nav_history, NavIcon.History),
+        TabSpec(Route.More.route, R.string.nav_more, NavIcon.More),
+    )
     override val captureSheetEntries = DefaultCaptureSheetEntries
     override val brand = BrandSpec(
         mark = R.drawable.ic_brand_mark,
         name = R.string.app_name,
         activeIndicatorColor = FoodBrandTokens.Tangerine,
+        showHeader = false,
     )
 }

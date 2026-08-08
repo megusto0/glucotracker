@@ -19,6 +19,7 @@ data class BrandSpec(
     @DrawableRes val mark: Int,
     @StringRes val name: Int,
     val activeIndicatorColor: Color,
+    val showHeader: Boolean = true,
 )
 
 data class TabSpec(
