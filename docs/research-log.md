@@ -59,6 +59,22 @@ Multiple sources for one question get one entry each, sharing the same
 
 ## Log
 
+### 2026-08-08 — Current Zepp authentication-key extractor
+
+- **URL:** https://codeberg.org/argrento/huami-token
+- **Consulted for:** retrieving the already-issued Amazfit Helio Strap Bluetooth authentication key without root access or reading Zepp's private Android database.
+- **Used in:** the one-time local Helio Strap migration to Glucotracker Bridge; no extractor code or credentials were added to this repository.
+- **Takeaway:** current `huami-token` encrypts the credential exchange expected by Zepp's v2 token endpoint and retrieves the bound device's 128-bit `auth_key` from the account device list.
+- **Verdict:** applied — the key was stored outside the repository in the user's protected local application-data directory and was never printed to the task output.
+
+### 2026-08-08 — Legacy Huafetcher Zepp login
+
+- **URL:** https://codeberg.org/vanous/huafetcher
+- **Consulted for:** a non-root Android/desktop fallback for retrieving the Helio Strap key.
+- **Used in:** evaluation only; no code or credentials were retained.
+- **Takeaway:** its embedded legacy Amazfit login posts directly to the old registration endpoint and the live server rejected the attempt with HTTP 429.
+- **Verdict:** rejected — no retry was made; the maintained encrypted `huami-token` flow was used instead.
+
 ### 2026-08-08 — Helio Strap support in Gadgetbridge
 
 - **URL:** https://gadgetbridge.org/basics/topics/zeppos/
