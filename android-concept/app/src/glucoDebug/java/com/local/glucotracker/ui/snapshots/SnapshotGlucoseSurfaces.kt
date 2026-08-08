@@ -114,11 +114,15 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            framed: Boolean,
             showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
+        // Framed, because this fake has no episode cards to sit inside. The
+        // real gluco History groups rows into sitting cards, which no golden
+        // here can show — same blind spot as every other gluco surface.
         rows.forEachIndexed { index, row ->
             // Deterministic spread so a snapshot covers every tinted kind.
             val tone = when (index % 4) {
@@ -133,7 +137,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
                 )
                 else -> HistoryEntryTone(HistoryEntryTone.Kind.Meal, null)
             }
-            rowContent(row, tone, true, {})
+            rowContent(row, tone, true, true, {})
             if (index < rows.lastIndex) divider()
         }
     }

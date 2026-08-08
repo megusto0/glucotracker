@@ -366,4 +366,9 @@
     <string name="bolus_caveats">Прогноз на тот момент не сохранился, поэтому расчёт идёт от факта. ICR и ISF взяты текущие.</string>
     <string name="insulin_term_meal">на еду</string>
     <string name="insulin_term_total">итого</string>
+    <string name="episode_kind_snack">· ПЕРЕКУС</string>
+    <string name="episode_kind_snack_group">· ПЕРЕКУС %1$d×</string>
+    <string name="episode_kind_carb_correction">· УГЛЕВОДНАЯ КОРРЕКЦИЯ</string>
+    <string name="episode_kind_insulin_correction">· КОРРЕКЦИЯ ИНСУЛИНОМ</string>
+    <string name="episode_kind_mixed">· ЕДА И КОРРЕКЦИЯ</string>
 </resources>

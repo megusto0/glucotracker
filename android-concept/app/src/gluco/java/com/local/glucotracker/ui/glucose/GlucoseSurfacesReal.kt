@@ -294,6 +294,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            framed: Boolean,
             showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
@@ -320,9 +321,14 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             rowTime = { row -> row.eatenAt },
             rowTone = { row -> context.classificationByMealId[row.id].toTone() },
             rowRecordId = { row -> row.recordId },
-            rowContent = rowContent,
+            rowContent = { row, tone, showTime, extra ->
+                rowContent(row, tone, false, showTime, extra)
+            },
             separator = divider,
             bodyStates = bodyStates[date].orEmpty(),
+            date = date,
+            rowCarbs = { row -> row.totalCarbsG },
+            rowKcal = { row -> row.totalKcal },
         )
     }
 
@@ -443,6 +449,7 @@ private fun TodayEpisodeRows(
             is TodayTimelineItem.Single -> TodaySingleCard(
                 entry = item.entry,
                 kindColor = context.classificationByMealId[item.entry.row.id].kindColor(),
+                classification = context.classificationByMealId[item.entry.row.id],
                 date = date,
                 episodeKey = context.episodeKeyByMealId[item.entry.row.id],
                 rowContent = rowContent,
@@ -453,6 +460,7 @@ private fun TodayEpisodeRows(
                 kindColor = @Composable { id ->
                     context.classificationByMealId[id].kindColor()
                 },
+                classification = context.classificationByMealId[item.entries.first().row.id],
                 date = date,
                 episodeKey = item.entries.firstNotNullOfOrNull { entry ->
                     context.episodeKeyByMealId[entry.row.id]
@@ -556,6 +564,7 @@ private fun buildTodayTimeline(
 private fun TodaySingleCard(
     entry: TodayMealEntry,
     kindColor: Color,
+    classification: EpisodeTherapyClass?,
     date: LocalDate,
     episodeKey: String?,
     rowContent: @Composable (
@@ -579,7 +588,7 @@ private fun TodaySingleCard(
         // the odd entry out on the page and had nowhere to put its time.
         SittingHeader(
             time = entry.row.eatenAt.timeText(),
-            kindLabel = stringResource(R.string.today_episode_single_kicker),
+            kindLabel = episodeKindLabel(classification, 1),
             kindColor = kindColor,
             totals = todayEpisodeSummary(
                 entry.row.totalCarbsG ?: 0.0,
@@ -607,6 +616,7 @@ private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
     recommendationEligible: Boolean,
     kindColor: @Composable (String) -> Color,
+    classification: EpisodeTherapyClass?,
     date: LocalDate,
     episodeKey: String?,
     rowContent: @Composable (
@@ -629,10 +639,7 @@ private fun TodayEpisodeCard(
     ) {
         SittingHeader(
             time = entries.minOf { it.row.eatenAt }.timeText(),
-            kindLabel = stringResource(
-                R.string.today_episode_group_kicker,
-                entries.size,
-            ),
+            kindLabel = episodeKindLabel(classification, entries.size),
             kindColor = kindColor(entries.first().row.id),
             totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
             meals = entries.mapNotNull { entry ->
@@ -755,6 +762,9 @@ private fun <T> InsulinAwareRows(
     ) -> Unit,
     separator: @Composable () -> Unit = { Spacer(Modifier.height(14.dp)) },
     bodyStates: List<BodyState> = emptyList(),
+    date: LocalDate? = null,
+    rowCarbs: (T) -> Double? = { null },
+    rowKcal: (T) -> Double? = { null },
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
     val timeline = remember(context, rows) {
@@ -805,40 +815,44 @@ private fun <T> InsulinAwareRows(
     timeline.forEachIndexed { index, item ->
         when (item) {
             is InsulinTimelineItem.Meal -> {
-                rowContent(item.row, rowTone(item.row), true) {
-                    EpisodeInsulinLines(
-                        events = item.paired,
-                        mealAt = rowTime(item.row),
-                    )
-                    HistoryRecommendationButton(
-                        mealIds = listOfNotNull(rowRecordId(item.row)),
-                        givenUnits = item.paired.sumOf { it.doseUnits },
-                    )
+                EpisodeCard(
+                    date = date,
+                    context = context,
+                    rows = listOf(item.row),
+                    rowId = rowId,
+                    rowTime = rowTime,
+                    rowRecordId = rowRecordId,
+                    rowCarbs = rowCarbs,
+                    rowKcal = rowKcal,
+                    paired = item.paired,
+                ) {
+                    rowContent(item.row, rowTone(item.row), false) {}
                 }
             }
             is InsulinTimelineItem.Episode -> {
-                // The insulin belongs to the sitting, so it is stated once
-                // under the last item rather than beside an arbitrary one.
-                // Same for the time: a plate that starts a new minute states
-                // it, the ones photographed alongside it leave it blank.
-                var statedMinute: String? = null
-                item.rows.forEachIndexed { rowIndex, row ->
-                    val minute = rowTime(row).timeText()
-                    val showTime = minute != statedMinute
-                    statedMinute = minute
-                    rowContent(row, rowTone(row), showTime) {
-                        if (rowIndex == item.rows.lastIndex) {
-                            EpisodeInsulinLines(
-                                events = item.paired,
-                                mealAt = item.rows.minOfOrNull(rowTime),
-                            )
-                            // Only the calculation here. History's column is
-                            // narrower than Today's and the second action was
-                            // clipped to a single letter; the sitting's time is
-                            // editable on Today, where it fits.
-                            HistoryRecommendationButton(
-                                mealIds = item.rows.mapNotNull(rowRecordId),
-                                givenUnits = item.paired.sumOf { it.doseUnits },
+                EpisodeCard(
+                    date = date,
+                    context = context,
+                    rows = item.rows,
+                    rowId = rowId,
+                    rowTime = rowTime,
+                    rowRecordId = rowRecordId,
+                    rowCarbs = rowCarbs,
+                    rowKcal = rowKcal,
+                    paired = item.paired,
+                ) {
+                    // The sitting's minute is stated once, by the header. A
+                    // plate that broke away from it says so in its own meta.
+                    val sittingMinute = item.rows.minOfOrNull(rowTime)?.timeText()
+                    item.rows.forEachIndexed { rowIndex, row ->
+                        rowContent(
+                            row,
+                            rowTone(row),
+                            rowTime(row).timeText() != sittingMinute,
+                        ) {}
+                        if (rowIndex < item.rows.lastIndex) {
+                            GTHairlineDivider(
+                                modifier = Modifier.padding(horizontal = 14.dp),
                             )
                         }
                     }
@@ -1046,6 +1060,83 @@ private fun HistoryRecommendationButton(mealIds: List<String>, givenUnits: Doubl
     }
     if (valid.isEmpty()) return
     HistoricalInsulinButton(mealIds = valid, alreadyGivenUnits = givenUnits)
+}
+
+/**
+ * One episode as a card — the assembly «Сегодня» has and «История» had not.
+ *
+ * History wrapped a whole day in a single card and separated sittings with a
+ * hairline, which left every time in a left gutter, no statement of what the
+ * sitting was, and «СРАВНИТЬ С РАСЧЁТОМ» clipped to «СРАВНИТЬ С» in the
+ * narrower column. That clipping is why a second action was dropped from this
+ * screen in `bdc662f`; the footer's short «РАСЧЁТ ›» fits where the sentence
+ * did not, so the decision it forced no longer applies.
+ */
+@Composable
+private fun <T> EpisodeCard(
+    date: LocalDate?,
+    context: InsulinDayContext,
+    rows: List<T>,
+    rowId: (T) -> String,
+    rowTime: (T) -> Instant,
+    rowRecordId: (T) -> String?,
+    rowCarbs: (T) -> Double?,
+    rowKcal: (T) -> Double?,
+    paired: List<InsulinEvent>,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val first = rows.minByOrNull(rowTime) ?: return
+    val mealIds = rows.mapNotNull(rowRecordId)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
+    ) {
+        SittingHeader(
+            time = rowTime(first).timeText(),
+            kindLabel = episodeKindLabel(context.classificationByMealId[rowId(first)], rows.size),
+            kindColor = context.classificationByMealId[rowId(first)].kindColor(),
+            totals = todayEpisodeSummary(
+                rows.sumOf { rowCarbs(it) ?: 0.0 },
+                rows.sumOf { rowKcal(it) ?: 0.0 },
+                paired.sumOf { it.doseUnits },
+            ),
+            meals = rows.mapNotNull { row ->
+                rowRecordId(row)?.let { SittingMeal(it, rowTime(row)) }
+            },
+            episodeKey = context.episodeKeyByMealId[rowId(first)],
+            date = date,
+        )
+        GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
+        content()
+        if (mealIds.isNotEmpty()) {
+            EpisodeInsulinFooter(
+                events = paired,
+                mealAt = rowTime(first),
+                mealIds = mealIds,
+            )
+        }
+    }
+}
+
+@Composable
+private fun episodeKindLabel(kind: EpisodeTherapyClass?, count: Int): String = when (kind) {
+    EpisodeTherapyClass.Snack -> if (count > 1) {
+        stringResource(R.string.episode_kind_snack_group, count)
+    } else {
+        stringResource(R.string.episode_kind_snack)
+    }
+    EpisodeTherapyClass.CarbCorrection ->
+        stringResource(R.string.episode_kind_carb_correction)
+    EpisodeTherapyClass.InsulinCorrection ->
+        stringResource(R.string.episode_kind_insulin_correction)
+    EpisodeTherapyClass.Mixed -> stringResource(R.string.episode_kind_mixed)
+    else -> if (count > 1) {
+        stringResource(R.string.today_episode_group_kicker, count)
+    } else {
+        stringResource(R.string.today_episode_single_kicker)
+    }
 }
 
 private sealed interface InsulinTimelineItem<out T> {

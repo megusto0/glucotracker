@@ -773,28 +773,27 @@ private fun HistoryDaySection(
                 .padding(top = 10.dp)
                 .fillMaxWidth(),
         )
+        // No day-wide card any more: each episode carries its own, the way
+        // Today does. Wrapping the whole day in one and separating sittings
+        // with a hairline is what left every time in a left gutter with
+        // nothing to state what the sitting was.
         Column(
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .fillMaxWidth()
-                .background(GT.colors.surface, GT.shapes.card)
-                .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
+            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
         ) {
             LocalGlucoseSurfaces.current.HistoryRows(
                 date = day.date,
                 rows = day.rows,
-                rowContent = { row, tone, showTime, extraMetaContent ->
+                rowContent = { row, tone, framed, showTime, extraMetaContent ->
                     HistoryMealRow(
                         row = row,
                         tone = tone,
+                        framed = framed,
                         showTime = showTime,
                         onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
                         extraMetaContent = extraMetaContent,
                     )
                 },
-                divider = {
-                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
-                },
+                divider = { Spacer(Modifier.height(14.dp)) },
             )
         }
     }
@@ -805,6 +804,7 @@ private fun HistoryMealRow(
     row: HistoryMealRowUi,
     tone: HistoryEntryTone?,
     onOpenMealStack: (String) -> Unit,
+    framed: Boolean = true,
     showTime: Boolean = true,
     extraMetaContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -817,11 +817,20 @@ private fun HistoryMealRow(
     // width doing it. Every tone still says its name in the meta line, so
     // colour is never the only thing carrying the kind.
     val kindColor = toneColor(tone)
-    Box(modifier = clickModifier) {
+    val surface = if (framed) {
+        Modifier
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+    } else {
+        Modifier
+    }
+    Box(modifier = surface.then(clickModifier)) {
         GTMealRow(
-            // Blank, not absent: the gutter keeps its width so the plates of
-            // one sitting stay aligned with each other.
             time = if (showTime) row.eatenAt.timeText() else "",
+            // Inside an episode card the header states the minute, so the
+            // column goes rather than blanking out — reserved and empty it
+            // pushed every photo a column in from the card's own edge.
+            reserveTimeGutter = framed,
             photo = row.photo,
             name = row.title ?: fallbackTitle(row),
             // The time already sits in the gutter and the thumbnail already

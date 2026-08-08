@@ -373,6 +373,7 @@ fun SittingHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        Spacer(Modifier.width(8.dp))
         Text(
             text = totals,
             color = GT.colors.muted,

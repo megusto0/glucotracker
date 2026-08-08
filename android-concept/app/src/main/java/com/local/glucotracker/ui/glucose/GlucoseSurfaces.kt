@@ -160,9 +160,13 @@ interface GlucoseSurfaces {
         rows: List<HistoryMealRowUi>,
         // tone is the backend episode classification, or null when unknown or
         // for the food flavor, in which case the row renders plain.
+        // framed = false means the row sits inside a shared episode card, which
+        // supplies both the surface and the time in its header — so the row
+        // draws neither. Same contract as TodayRows.
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            framed: Boolean,
             showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
@@ -263,13 +267,16 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
+            framed: Boolean,
             showTime: Boolean,
             extraMetaContent: @Composable ColumnScope.() -> Unit,
         ) -> Unit,
         divider: @Composable () -> Unit,
     ) {
+        // No episodes without glucose, so each row carries its own card and its
+        // own time — the same shape this flavor's Today already has.
         rows.forEachIndexed { index, row ->
-            rowContent(row, null, true, {})
+            rowContent(row, null, true, true, {})
             if (index < rows.lastIndex) divider()
         }
     }

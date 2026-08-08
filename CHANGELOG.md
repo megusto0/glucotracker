@@ -71,6 +71,16 @@ External sources consulted while building are recorded in
   moment the label is withheld rather than guessed.
 
 
+- **Android** — History draws the assembly Today has: a card per episode, a
+  sitting header whose time is the control, the episode's real type, and one
+  footer link. It had been wrapping a whole day in one card and separating
+  sittings with a hairline, which left every time in a left gutter, nothing to
+  say what a sitting was, and «СРАВНИТЬ С РАСЧЁТОМ» clipped to «СРАВНИТЬ С» —
+  the clipping that made a second action impossible on this screen in `bdc662f`.
+  The footer's short «РАСЧЁТ ›» fits where the sentence did not.
+- **Android** — a sitting header states what the episode actually was —
+  «ПЕРЕКУС», «УГЛЕВОДНАЯ КОРРЕКЦИЯ», «КОРРЕКЦИЯ ИНСУЛИНОМ» — instead of «ПРИЁМ»
+  whatever the backend classified it as. On both Today and History.
 - **Android** — the pre-meal calculator states its terms one to a line instead of
   «еда 5,8 +0 коррекция −1,3 активный инсулин = 4,5 ЕД», where the signs belong
   to the values and the labels sit between them. The verdict on a dose already
