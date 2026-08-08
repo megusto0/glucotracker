@@ -27,6 +27,10 @@ External sources consulted while building are recorded in
 
 ### Added
 
+- **Android** — кнопка Health Connect показывает последнюю доступную приложению
+  точку пульса и время измерения. Точка читается и кэшируется на телефоне до
+  отправки на сервер, поэтому не исчезает при сетевой ошибке (`394fab8`).
+
 - **Backend** — `GET /glucose/episodes/breakdown` takes one episode apart into
   six blocks that are the same for every class: a −2 h/+4 h window of calibrated
   CGM sent point by point, the two or three readings the episode is read from,
