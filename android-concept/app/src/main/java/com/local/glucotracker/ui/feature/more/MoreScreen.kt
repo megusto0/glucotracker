@@ -764,57 +764,81 @@ private fun RhythmBar(
 ) {
     val colors = listOf(accent, GT.colors.accent, GT.colors.warn, GT.colors.info)
     if (windows.isEmpty()) return
+    val displayWindows = rhythmWindowsForDisplay(windows, sleep)
+    val separateSleep = sleep?.takeIf { shouldSeparateSleep(windows, it) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(38.dp)
             .clip(GT.shapes.tag),
     ) {
-        // The four day windows form the base 24-hour scale.
-        Row(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            windows.forEachIndexed { index, window ->
-                val duration = windowDuration(window.startMinute, window.endMinute)
-                Box(
-                    modifier = Modifier
-                        .weight(duration.toFloat())
-                        .fillMaxHeight()
-                        .background(colors[index % colors.size]),
+        if (separateSleep != null) {
+            // When typical sleep closes the anchor-relative day, it is a real
+            // fifth segment. "End of day" stops where sleep starts instead of
+            // claiming the same hours and stacking two symbols on one window.
+            Row(modifier = Modifier.fillMaxSize()) {
+                displayWindows.forEachIndexed { index, window ->
+                    RhythmSegment(
+                        durationMinutes = windowDuration(window.startMinute, window.endMinute),
+                        color = colors[index % colors.size],
+                    ) {
+                        RhythmWindowGlyph(
+                            index = index,
+                            label = rhythmWindowLabel(index, window.label),
+                        )
+                    }
+                }
+                RhythmSegment(
+                    durationMinutes = windowDuration(
+                        separateSleep.startMinute,
+                        separateSleep.endMinute,
+                    ),
+                    color = GT.colors.stateSleep,
+                ) {
+                    SleepGlyphIcon()
+                }
+            }
+        } else {
+            // A sleep interval that does not close at the day anchor remains
+            // contextual overlap rather than distorting the four day windows.
+            Row(modifier = Modifier.fillMaxSize()) {
+                windows.forEachIndexed { index, window ->
+                    RhythmSegment(
+                        durationMinutes = windowDuration(window.startMinute, window.endMinute),
+                        color = colors[index % colors.size],
+                    ) {
+                        RhythmWindowGlyph(
+                            index = index,
+                            label = rhythmWindowLabel(index, window.label),
+                        )
+                    }
+                }
+            }
+            sleep?.let {
+                SleepBand(originMinute = windows.first().startMinute, sleep = it)
+                SleepGlyphOverlay(
+                    originMinute = windows.first().startMinute,
+                    sleep = it,
                 )
             }
         }
+    }
+}
 
-        // Sleep overlaps a day window, so it is painted over the same scale
-        // rather than appended as a fifth period and making the day >24 h.
-        sleep?.let {
-            SleepBand(originMinute = windows.first().startMinute, sleep = it)
-        }
-
-        // Icons stay readable over both the window and sleep colours.
-        Row(modifier = Modifier.fillMaxSize()) {
-            windows.forEachIndexed { index, window ->
-                val duration = windowDuration(window.startMinute, window.endMinute)
-                Box(
-                    modifier = Modifier
-                        .weight(duration.toFloat())
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    RhythmWindowGlyph(
-                        index = index,
-                        label = rhythmWindowLabel(index, window.label),
-                    )
-                }
-            }
-        }
-
-        sleep?.let {
-            SleepGlyph(
-                originMinute = windows.first().startMinute,
-                sleep = it,
-            )
-        }
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.RhythmSegment(
+    durationMinutes: Int,
+    color: Color,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .weight(durationMinutes.toFloat())
+            .fillMaxHeight()
+            .background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
     }
 }
 
@@ -960,7 +984,7 @@ private fun RhythmWindowGlyph(index: Int, label: String) {
 }
 
 @Composable
-private fun SleepGlyph(originMinute: Int, sleep: SleepWindowUi) {
+private fun SleepGlyphOverlay(originMinute: Int, sleep: SleepWindowUi) {
     val description = stringResource(R.string.more_rhythm_sleep_label)
     val color = GT.colors.surface2
     Canvas(
@@ -993,6 +1017,37 @@ private fun SleepGlyph(originMinute: Int, sleep: SleepWindowUi) {
             sweepAngle = 170f,
             useCenter = false,
             topLeft = Offset(center.x - 2.dp.toPx(), center.y - 5.5.dp.toPx()),
+            size = Size(7.dp.toPx(), 11.dp.toPx()),
+            style = stroke,
+        )
+    }
+}
+
+@Composable
+private fun SleepGlyphIcon() {
+    val description = stringResource(R.string.more_rhythm_sleep_label)
+    val color = GT.colors.surface2
+    Canvas(
+        modifier = Modifier
+            .size(18.dp)
+            .semantics { contentDescription = description },
+    ) {
+        val stroke = Stroke(width = 1.35.dp.toPx(), cap = StrokeCap.Round)
+        drawArc(
+            color = color,
+            startAngle = 70f,
+            sweepAngle = 220f,
+            useCenter = false,
+            topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+            size = Size(11.dp.toPx(), 14.dp.toPx()),
+            style = stroke,
+        )
+        drawArc(
+            color = color,
+            startAngle = 95f,
+            sweepAngle = 170f,
+            useCenter = false,
+            topLeft = Offset(6.dp.toPx(), 3.5.dp.toPx()),
             size = Size(7.dp.toPx(), 11.dp.toPx()),
             style = stroke,
         )
@@ -1054,8 +1109,9 @@ private fun RhythmLegend(
     sleep: SleepWindowUi? = null,
 ) {
     val colors = listOf(accent, GT.colors.accent, GT.colors.warn, GT.colors.info)
+    val displayWindows = rhythmWindowsForDisplay(windows, sleep)
     Column {
-        windows.forEachIndexed { index, window ->
+        displayWindows.forEachIndexed { index, window ->
             if (index > 0) GTHairlineDivider()
             Row(
                 modifier = Modifier
@@ -1124,6 +1180,29 @@ private fun RhythmLegend(
                 )
             }
         }
+    }
+}
+
+internal fun rhythmWindowsForDisplay(
+    windows: List<RhythmWindowUi>,
+    sleep: SleepWindowUi?,
+): List<RhythmWindowUi> {
+    if (sleep == null || !shouldSeparateSleep(windows, sleep)) return windows
+    val last = windows.last()
+    return windows.dropLast(1) + last.copy(endMinute = sleep.startMinute)
+}
+
+private fun shouldSeparateSleep(
+    windows: List<RhythmWindowUi>,
+    sleep: SleepWindowUi,
+): Boolean {
+    if (windows.isEmpty() || sleep.endMinute != windows.first().startMinute) return false
+    val last = windows.last()
+    val start = sleep.startMinute
+    return if (last.startMinute <= last.endMinute) {
+        start > last.startMinute && start < last.endMinute
+    } else {
+        start > last.startMinute || start < last.endMinute
     }
 }
 
