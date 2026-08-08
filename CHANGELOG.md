@@ -108,6 +108,11 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Android (gluco)** — a malformed Health Connect changes page no longer
+  leaves its record type permanently stuck on the same cursor. Glucotracker
+  performs one recoverable full read, uploads the valid rows around unreadable
+  spans, and continues from a fresh cursor on later runs (`9891d18`).
+
 - **Android (gluco) + Glucotracker Bridge** — a long Helio Strap full-sync no
   longer discards heart-rate, sleep, and activity rows that the bridge has
   already stored: on the bounded wait it exports the available snapshot to
