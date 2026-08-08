@@ -687,7 +687,6 @@ private fun TodaySingleCard(
             totals = todayEpisodeSummary(
                 entry.row.totalCarbsG ?: 0.0,
                 entry.row.totalKcal ?: 0.0,
-                entry.paired.sumOf { it.doseUnits },
             ),
             meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
             episodeKey = episodeKey,
@@ -727,7 +726,6 @@ private fun TodayEpisodeCard(
 ) {
     val totalCarbs = entries.sumOf { it.row.totalCarbsG ?: 0.0 }
     val totalKcal = entries.sumOf { it.row.totalKcal ?: 0.0 }
-    val totalInsulin = entries.sumOf { entry -> entry.paired.sumOf { it.doseUnits } }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -740,7 +738,7 @@ private fun TodayEpisodeCard(
             firstAfterSleepWithInsulin = firstAfterSleepWithInsulin,
             kindLabel = episodeKindLabel(classification, entries.size),
             kindColor = kindColor(entries.first().row.id),
-            totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+            totals = todayEpisodeSummary(totalCarbs, totalKcal),
             meals = entries.mapNotNull { entry ->
                 entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
             },
@@ -835,16 +833,10 @@ private fun todayEpisodeCoverage(
 private fun todayEpisodeSummary(
     totalCarbs: Double,
     totalKcal: Double,
-    totalInsulin: Double,
 ): String {
     val carbs = stringResource(R.string.today_episode_carbs, formatGrams(totalCarbs))
     val kcal = stringResource(R.string.today_episode_kcal, formatKcal(totalKcal))
-    val base = "$carbs · $kcal"
-    return if (totalInsulin > 0.0) {
-        "$base · ${formatInsulinDose(totalInsulin)} ${stringResource(R.string.insulin_units_short)}"
-    } else {
-        base
-    }
+    return "$carbs · $kcal"
 }
 
 @Composable
@@ -1011,7 +1003,7 @@ private fun BodyStateRow(state: BodyState, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = state.label ?: stringResource(
+            text = stringResource(
                 when (state.kind) {
                     BodyState.Kind.Sleep -> R.string.body_state_sleep
                     BodyState.Kind.Activity -> R.string.body_state_activity
@@ -1214,7 +1206,6 @@ private fun <T> EpisodeCard(
             totals = todayEpisodeSummary(
                 rows.sumOf { rowCarbs(it) ?: 0.0 },
                 rows.sumOf { rowKcal(it) ?: 0.0 },
-                paired.sumOf { it.doseUnits },
             ),
             meals = rows.mapNotNull { row ->
                 rowRecordId(row)?.let { SittingMeal(it, rowTime(row)) }
