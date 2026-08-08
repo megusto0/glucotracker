@@ -725,9 +725,14 @@ private fun OutboxItem.isConfirmedCreation(): Boolean =
 private fun OutboxItem.isAlreadyAccepted(acceptedMeals: List<Meal>): Boolean {
     val acceptedIds = acceptedMeals.map { it.id }.toSet()
     return when (val outboxKind = kind) {
-        is OutboxKind.CapturedMeal -> draft?.id in acceptedIds ||
-            (serverIdOnSuccess != null && serverIdOnSuccess in acceptedIds) ||
-            (attempts > 0 && acceptedMeals.any { meal -> meal.matchesPhotoCapture(outboxKind.capturedAt) })
+        is OutboxKind.CapturedMeal -> {
+            val knownServerIds = listOfNotNull(draft?.id, linkedMealId, serverIdOnSuccess)
+            if (knownServerIds.isNotEmpty()) {
+                knownServerIds.any { it in acceptedIds }
+            } else {
+                attempts > 0 && acceptedMeals.any { meal -> meal.matchesPhotoCapture(outboxKind.capturedAt) }
+            }
+        }
         is OutboxKind.CreateMeal -> (serverIdOnSuccess != null && serverIdOnSuccess in acceptedIds) ||
             (attempts > 0 && acceptedMeals.any { meal -> meal.matchesCreateMeal(outboxKind) })
         else -> false

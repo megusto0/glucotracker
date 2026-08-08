@@ -48,16 +48,21 @@ class PhotoEstimateRowHandoverTest {
         estimateStatus = estimateStatus,
     )
 
-    private fun capture(state: OutboxState, linkedMealId: String?) = OutboxItem(
-        id = "outbox-1",
+    private fun capture(
+        state: OutboxState,
+        linkedMealId: String?,
+        id: String = "outbox-1",
+        at: Instant = capturedAt,
+    ) = OutboxItem(
+        id = id,
         kind = OutboxKind.CapturedMeal(
             localPhotoPath = "/data/photo.jpg",
-            capturedAt = capturedAt,
+            capturedAt = at,
             source = "photo",
         ),
         state = state,
-        createdAt = capturedAt,
-        lastAttemptAt = capturedAt,
+        createdAt = at,
+        lastAttemptAt = at,
         attempts = 1,
         serverIdOnSuccess = linkedMealId,
         errorMessage = null,
@@ -129,5 +134,34 @@ class PhotoEstimateRowHandoverTest {
 
         assertEquals(1, rows.size)
         assertEquals(TodayMealRowKind.Accepted, rows.single().kind)
+    }
+
+    @Test
+    fun `first accepted photo does not hide a second estimate from the same minute`() {
+        val accepted = draftMeal("meal-1", estimateStatus = "succeeded")
+            .copy(status = "accepted", title = "First photo", totalKcal = 165.0)
+        val first = capture(OutboxState.Confirmed, linkedMealId = "meal-1")
+        val second = capture(
+            state = OutboxState.Queued,
+            linkedMealId = "meal-2",
+            id = "outbox-2",
+            at = Instant.parse("2026-08-08T02:26:39Z"),
+        )
+
+        val visibleOutbox = visibleTodayOutbox(
+            outbox = listOf(first, second),
+            acceptedMeals = listOf(accepted),
+        )
+        val rows = buildRows(
+            date = day,
+            acceptedMeals = listOf(accepted),
+            backendDrafts = emptyList(),
+            outbox = visibleOutbox,
+        )
+
+        assertEquals(listOf("outbox-2"), visibleOutbox.map { it.id })
+        assertEquals(2, rows.size)
+        val estimating = rows.single { it.outboxId == "outbox-2" }
+        assertEquals(TodayMealStatus.Estimating, estimating.status)
     }
 }
