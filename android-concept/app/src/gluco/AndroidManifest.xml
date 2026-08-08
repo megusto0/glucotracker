@@ -41,9 +41,11 @@
     <uses-permission android:name="android.permission.health.READ_WHEELCHAIR_PUSHES" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="com.glucotracker.mobile.permission.CONTROL_WEARABLE_BRIDGE" />
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.glucotracker.bridge" />
     </queries>
 
     <application>

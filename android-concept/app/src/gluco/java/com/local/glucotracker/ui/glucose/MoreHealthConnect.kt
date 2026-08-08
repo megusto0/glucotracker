@@ -2,12 +2,14 @@ package com.local.glucotracker.ui.glucose
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.local.glucotracker.R
 import com.local.glucotracker.healthconnect.DebugHealthConnectSync
@@ -16,6 +18,8 @@ import com.local.glucotracker.ui.feature.more.SettingsGlyphKind
 import com.local.glucotracker.ui.feature.more.SettingsGroup
 import com.local.glucotracker.ui.feature.more.SettingsRow
 import com.local.glucotracker.ui.feature.more.SettingsSection
+import com.local.glucotracker.wearable.HelioBridgeClient
+import com.local.glucotracker.wearable.HelioBridgeStatus
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -34,9 +38,23 @@ import kotlinx.coroutines.delay
 internal fun MoreHealthConnectSurface() {
     if (!DebugHealthConnectSync.isAvailable()) return
 
+    val context = LocalContext.current
     var isRunning by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf(HcSyncStatus()) }
     var sent by remember { mutableStateOf(0) }
+    var bridgeStatus by remember {
+        mutableStateOf(
+            HelioBridgeStatus(installed = HelioBridgeClient.isInstalled(context)),
+        )
+    }
+
+    DisposableEffect(context) {
+        val receiver = HelioBridgeClient.register(context) { bridgeStatus = it }
+        if (bridgeStatus.installed) {
+            HelioBridgeClient.requestStatus(context)
+        }
+        onDispose { context.unregisterReceiver(receiver) }
+    }
 
     LaunchedEffect(Unit) {
         status = lastSyncStatus()
@@ -58,6 +76,29 @@ internal fun MoreHealthConnectSurface() {
         sent = 0
         isRunning = false
     }
+    LaunchedEffect(bridgeStatus.phase) {
+        if (bridgeStatus.phase == "complete") {
+            // The bridge has finished writing the freshly fetched wearable
+            // records to Health Connect. Upload exactly that local truth next.
+            DebugHealthConnectSync.forceSyncNow()
+            isRunning = true
+        }
+    }
+
+    MoreWearableBridgeContent(
+        bridge = bridgeStatus,
+        latestHeartRateBpm = status.latestHeartRateBpm,
+        latestHeartRateAt = status.latestHeartRateAt,
+        onSync = {
+            if (bridgeStatus.installed && bridgeStatus.error != "not_paired") {
+                bridgeStatus = bridgeStatus.copy(phase = "connecting", error = null)
+                HelioBridgeClient.sync(context)
+            } else if (bridgeStatus.installed) {
+                HelioBridgeClient.openBridge(context)
+            }
+        },
+        onOpen = { HelioBridgeClient.openBridge(context) },
+    )
 
     MoreHealthConnectContent(
         status = status,
@@ -68,6 +109,69 @@ internal fun MoreHealthConnectSurface() {
             isRunning = true
         },
     )
+}
+
+@Composable
+private fun MoreWearableBridgeContent(
+    bridge: HelioBridgeStatus,
+    latestHeartRateBpm: Long,
+    latestHeartRateAt: Long,
+    onSync: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    val battery = if (bridge.battery in 0..100) {
+        stringResource(R.string.more_wearable_battery, bridge.battery)
+    } else {
+        ""
+    }
+    val description = when {
+        !bridge.installed -> stringResource(R.string.more_wearable_not_installed)
+        bridge.error == "not_paired" -> stringResource(R.string.more_wearable_not_paired)
+        bridge.error == "health_connect_required" ->
+            stringResource(R.string.more_wearable_hc_required)
+        bridge.phase == "connecting" -> stringResource(R.string.more_wearable_connecting)
+        bridge.phase == "device_sync" || bridge.phase == "syncing" ->
+            stringResource(R.string.more_wearable_device_sync)
+        bridge.phase == "health_connect" -> stringResource(R.string.more_wearable_hc_sync)
+        bridge.phase == "error" -> stringResource(R.string.more_wearable_sync_error)
+        bridge.connected -> stringResource(R.string.more_wearable_connected, battery)
+        else -> stringResource(R.string.more_wearable_disconnected)
+    }
+    val latestHeartRate = if (latestHeartRateBpm > 0L && latestHeartRateAt > 0L) {
+        stringResource(
+            R.string.more_hc_latest_heart_rate,
+            latestHeartRateBpm,
+            latestHeartRateAt.timeLabel(),
+        )
+    } else {
+        null
+    }
+
+    SettingsSection(title = stringResource(R.string.more_wearable_section)) {
+        SettingsGroup {
+            SettingsRow(
+                title = stringResource(R.string.more_wearable_title),
+                description = description,
+                glyph = SettingsGlyphKind.Signal,
+                actionBelow = true,
+                action = {
+                    GTOutlineButton(
+                        text = stringResource(
+                            when {
+                                bridge.isBusy -> R.string.more_wearable_syncing
+                                bridge.error == "not_paired" -> R.string.more_wearable_open
+                                else -> R.string.more_wearable_sync
+                            },
+                        ),
+                        meta = latestHeartRate,
+                        enabled = bridge.installed && !bridge.isBusy,
+                        onClick = onSync,
+                    )
+                },
+                onClick = if (bridge.installed && !bridge.isBusy) onOpen else null,
+            )
+        }
+    }
 }
 
 /**
