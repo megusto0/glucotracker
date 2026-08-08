@@ -44,6 +44,7 @@ import java.time.temporal.TemporalAccessor
 import java.util.IdentityHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +79,8 @@ object DebugHealthConnectSync {
     private const val LastSyncSkippedKey = "last_sync_skipped"
     private const val LastSyncUnreadableKey = "last_sync_unreadable"
     private const val LastSyncErrorKey = "last_sync_error"
+    private const val LatestHeartRateBpmKey = "latest_heart_rate_bpm"
+    private const val LatestHeartRateAtKey = "latest_heart_rate_at"
     private const val ProviderPackage = "com.google.android.apps.healthdata"
     private const val DaysToAggregate = 14
     private const val PageSize = 500
@@ -306,6 +309,35 @@ object DebugHealthConnectSync {
             ?.getString(LastSyncErrorKey, null)
             ?.takeIf { it.isNotEmpty() }
 
+    @JvmStatic
+    fun getLatestHeartRateBpm(): Long =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getLong(LatestHeartRateBpmKey, -1L)
+            ?: -1L
+
+    @JvmStatic
+    fun getLatestHeartRateAtMillis(): Long =
+        appContext?.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            ?.getLong(LatestHeartRateAtKey, -1L)
+            ?: -1L
+
+    /**
+     * Refreshes the small local status shown in More without waiting for a
+     * server upload. A network failure must not hide a point Health Connect
+     * has already made available on this phone.
+     */
+    suspend fun refreshLatestHeartRate() {
+        val context = appContext ?: return
+        if (HealthConnectClient.getSdkStatus(context, ProviderPackage) !=
+            HealthConnectClient.SDK_AVAILABLE
+        ) {
+            return
+        }
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        refreshLatestHeartRate(context, client, granted)
+    }
+
     internal suspend fun syncFromWorker(context: Context): Boolean {
         if (HealthConnectClient.getSdkStatus(context, ProviderPackage) !=
             HealthConnectClient.SDK_AVAILABLE
@@ -411,6 +443,9 @@ object DebugHealthConnectSync {
         granted: Set<String>,
     ): SyncRunCounts {
         val counts = SyncRunCounts()
+        // This is a local Health Connect read, so do it before any network
+        // work and retain it even when the backend is unreachable.
+        refreshLatestHeartRate(context, client, granted)
         val entryPoint = EntryPointAccessors.fromApplication(
             context,
             HealthConnectEntryPoint::class.java,
@@ -433,6 +468,53 @@ object DebugHealthConnectSync {
             )
         }
         return counts
+    }
+
+    private suspend fun refreshLatestHeartRate(
+        context: Context,
+        client: HealthConnectClient,
+        granted: Set<String>,
+    ) {
+        val preferences = context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+        if (heartRatePermission !in granted) {
+            preferences.edit()
+                .remove(LatestHeartRateBpmKey)
+                .remove(LatestHeartRateAtKey)
+                .apply()
+            return
+        }
+
+        runCatching {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.before(Instant.now().plusSeconds(1)),
+                    ascendingOrder = false,
+                    pageSize = 10,
+                ),
+            ).records
+                .asSequence()
+                .flatMap { record -> record.samples.asSequence() }
+                .maxByOrNull { sample -> sample.time }
+        }.onSuccess { sample ->
+            val editor = preferences.edit()
+            if (sample == null) {
+                editor
+                    .remove(LatestHeartRateBpmKey)
+                    .remove(LatestHeartRateAtKey)
+            } else {
+                editor
+                    .putLong(LatestHeartRateBpmKey, sample.beatsPerMinute)
+                    .putLong(LatestHeartRateAtKey, sample.time.toEpochMilli())
+            }
+            editor.apply()
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
+            // Keep the last successfully read point. Its timestamp makes the
+            // staleness visible and a transient provider failure cannot turn
+            // a known value into "no data".
+            Log.w(Tag, "Latest heart rate unavailable: ${error.safeFailureName()}")
+        }
     }
 
     private suspend fun syncRawRecords(

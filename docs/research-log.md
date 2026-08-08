@@ -59,6 +59,22 @@ Multiple sources for one question get one entry each, sharing the same
 
 ## Log
 
+### 2026-08-08 — Latest heart-rate sample from Health Connect
+
+- **URL:** https://developer.android.com/reference/kotlin/androidx/health/connect/client/records/HeartRateRecord.Sample
+- **Consulted for:** whether a heart-rate record exposes individual measurement times, so the UI can show the latest point rather than a daily average.
+- **Used in:** `android-concept/app/src/gluco/java/com/local/glucotracker/healthconnect/DebugHealthConnectSync.kt`, `android-concept/app/src/gluco/java/com/local/glucotracker/ui/glucose/MoreHealthConnect.kt`.
+- **Takeaway:** each `HeartRateRecord.Sample` has its own `time` and `beatsPerMinute`; the newest accessible sample can therefore be selected exactly.
+- **Verdict:** applied — the Health Connect card caches and displays the newest sample returned by the provider.
+
+### 2026-08-08 — Health Connect read-history boundary
+
+- **URL:** https://developer.android.com/health-and-fitness/health-connect/read-data
+- **Consulted for:** whether “latest” means the newest sensor measurement globally or only the newest point the app is permitted to read.
+- **Used in:** `android-concept/app/src/gluco/java/com/local/glucotracker/healthconnect/DebugHealthConnectSync.kt` and the Health Connect status semantics.
+- **Takeaway:** Health Connect returns only data visible under the user-granted data-type and history permissions; without history permission, third-party history is restricted to the documented 30-day window.
+- **Verdict:** applied — the UI describes and shows the latest point available to this app, with its timestamp, rather than implying live watch access.
+
 ### 2026-08-08 — Разделение IOB еды и коррекции в расчёте болюса
 
 - **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC8783627/

@@ -318,6 +318,7 @@
     <string name="more_hc_status_unreadable">Отправлено %1$d записей · часть Health Connect не отдаёт · %2$s</string>
     <string name="more_hc_status_uptodate">Данные актуальны · %1$s</string>
     <string name="more_hc_sync_now">Синхронизировать сейчас</string>
+    <string name="more_hc_latest_heart_rate">%1$d уд/мин · %2$s</string>
     <string name="more_hc_sync_run_desc">Отправляем последние данные на сервер…</string>
     <string name="more_hc_sync_run_progress">Отправлено %1$d записей…</string>
     <string name="more_hc_sync_running">Синхронизация…</string>

@@ -395,9 +395,11 @@ fun GTOutlineButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    meta: String? = null,
 ) {
     GTButtonFrame(
         text = text,
+        meta = meta,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
@@ -416,6 +418,7 @@ fun GTPrimaryButton(
 ) {
     GTButtonFrame(
         text = text,
+        meta = null,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
@@ -812,6 +815,7 @@ fun GTHintBox(
 @Composable
 private fun GTButtonFrame(
     text: String,
+    meta: String?,
     onClick: () -> Unit,
     modifier: Modifier,
     enabled: Boolean,
@@ -834,13 +838,27 @@ private fun GTButtonFrame(
                 .padding(horizontal = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = text,
-                color = contentColor,
-                style = GT.type.sansLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = text,
+                    color = contentColor,
+                    style = GT.type.sansLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (meta != null) {
+                    Text(
+                        text = meta,
+                        color = contentColor,
+                        style = GT.type.monoLabel,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }

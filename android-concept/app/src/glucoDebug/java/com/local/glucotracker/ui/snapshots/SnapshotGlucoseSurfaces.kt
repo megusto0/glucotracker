@@ -262,6 +262,8 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
                 lastSyncAt = 1_786_100_000_000L,
                 records = 1_284,
                 unreadable = 1,
+                latestHeartRateBpm = 74,
+                latestHeartRateAt = 1_786_099_880_000L,
             ),
             isRunning = false,
             sent = 0,

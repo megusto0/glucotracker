@@ -40,6 +40,8 @@ internal fun MoreHealthConnectSurface() {
 
     LaunchedEffect(Unit) {
         status = lastSyncStatus()
+        DebugHealthConnectSync.refreshLatestHeartRate()
+        status = lastSyncStatus()
         if (DebugHealthConnectSync.isSyncRunning()) {
             isRunning = true
         }
@@ -83,6 +85,17 @@ internal fun MoreHealthConnectContent(
     sent: Int,
     onSync: () -> Unit,
 ) {
+    val latestHeartRate = if (
+        status.latestHeartRateBpm > 0L && status.latestHeartRateAt > 0L
+    ) {
+        stringResource(
+            R.string.more_hc_latest_heart_rate,
+            status.latestHeartRateBpm,
+            status.latestHeartRateAt.timeLabel(),
+        )
+    } else {
+        null
+    }
     val description = when {
         isRunning && sent > 0 -> stringResource(R.string.more_hc_sync_run_progress, sent)
         isRunning -> stringResource(R.string.more_hc_sync_run_desc)
@@ -127,6 +140,7 @@ internal fun MoreHealthConnectContent(
                                 else -> R.string.more_hc_sync_now
                             },
                         ),
+                        meta = latestHeartRate,
                         enabled = !isRunning,
                         onClick = onSync,
                     )
@@ -143,6 +157,8 @@ internal data class HcSyncStatus(
     val skipped: Int = 0,
     val unreadable: Int = 0,
     val error: String? = null,
+    val latestHeartRateBpm: Long = -1L,
+    val latestHeartRateAt: Long = -1L,
 )
 
 /** Straight calls now: the surface lives in the flavor that owns the class. */
@@ -153,6 +169,8 @@ private fun lastSyncStatus(): HcSyncStatus = HcSyncStatus(
     skipped = DebugHealthConnectSync.getLastSyncSkipped(),
     unreadable = DebugHealthConnectSync.getLastSyncUnreadable(),
     error = DebugHealthConnectSync.getLastSyncError(),
+    latestHeartRateBpm = DebugHealthConnectSync.getLatestHeartRateBpm(),
+    latestHeartRateAt = DebugHealthConnectSync.getLatestHeartRateAtMillis(),
 )
 
 private fun Long.timeLabel(): String =
