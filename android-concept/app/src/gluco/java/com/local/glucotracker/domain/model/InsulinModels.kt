@@ -49,6 +49,34 @@ enum class EpisodeTherapyClass {
     Unresolved,
 }
 
+enum class EpisodeOutcomeStatus {
+    Complete,
+    Ongoing,
+    NoCgm,
+}
+
+enum class EpisodeOutcomeKind {
+    Peak,
+    Recovery,
+    Minimum,
+}
+
+/** Backend-owned facts for the compact diary footer. */
+data class EpisodeFooterOutcome(
+    val status: EpisodeOutcomeStatus,
+    val kind: EpisodeOutcomeKind,
+    val startValue: Double?,
+    val resultValue: Double?,
+    val deltaMmolL: Double?,
+    val isLow: Boolean,
+)
+
+data class EpisodeFooterSummary(
+    val episodeKey: String,
+    val classification: EpisodeTherapyClass,
+    val outcome: EpisodeFooterOutcome,
+)
+
 data class InsulinDayContext(
     val byMealId: Map<String, List<InsulinEvent>>,
     val orphans: List<InsulinEvent>,
@@ -62,6 +90,10 @@ data class InsulinDayContext(
     // fetched by. Server-assigned, never rebuilt here: it is derived from the
     // grouping and a key assembled on the client would resolve to nothing.
     val episodeKeyByMealId: Map<String, String> = emptyMap(),
+    // Compact server-calculated result, indexed both ways so standalone
+    // insulin corrections can use the same footer as meal episodes.
+    val footerByMealId: Map<String, EpisodeFooterSummary> = emptyMap(),
+    val footerByInsulinId: Map<String, EpisodeFooterSummary> = emptyMap(),
 ) {
     val allEvents: List<InsulinEvent>
         get() = byMealId.values.flatten() + orphans

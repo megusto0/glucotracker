@@ -366,6 +366,8 @@ def test_episodes_standalone_insulin_is_correction(api_client: TestClient) -> No
     assert kinds == {"food_only", "correction"}
     lone = next(e for e in episodes if e["kind"] == "correction")
     assert lone["meal_ids"] == []
+    assert lone["outcome"]["status"] == "no_cgm"
+    assert lone["outcome"]["kind"] == "minimum"
     event = lone["insulin"][0]
     assert event["id"] == str(correction.id)
     assert event["kind"] == "correction"
@@ -549,6 +551,14 @@ def test_a_chasing_dose_stays_with_the_meal_it_chases(
     assert dinner["total_insulin_units"] == 7.0
     assert croissant["total_insulin_units"] == 2.0
     assert croissant["total_carbs_g"] == 29.0
+    assert dinner["outcome"] == {
+        "status": "complete",
+        "kind": "peak",
+        "start_value": 6.0,
+        "result_value": 9.6,
+        "delta_mmol_l": 3.6,
+        "is_low": False,
+    }
     # And the chase is named as one rather than passing for meal insulin.
     chased = next(
         event for event in dinner["insulin"] if event["id"] == str(ids["chase"])

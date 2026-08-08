@@ -208,6 +208,17 @@ class DayEpisodeTherapyResponse(BaseModel):
     peak_post_event_normalized: float | None = None
 
 
+class DayEpisodeOutcomeResponse(BaseModel):
+    """Compact, backend-owned outcome shown in a diary card footer."""
+
+    status: Literal["complete", "ongoing", "no_cgm"]
+    kind: Literal["peak", "recovery", "minimum"]
+    start_value: float | None = None
+    result_value: float | None = None
+    delta_mmol_l: float | None = None
+    is_low: bool = False
+
+
 class DayEpisodeResponse(BaseModel):
     """One grouped meal/insulin episode for client attribution."""
 
@@ -221,6 +232,7 @@ class DayEpisodeResponse(BaseModel):
     total_kcal: float
     total_insulin_units: float
     therapy: DayEpisodeTherapyResponse
+    outcome: DayEpisodeOutcomeResponse
 
 
 class DayEpisodesResponse(BaseModel):

@@ -184,6 +184,24 @@ def test_breakdown_stops_at_the_next_episode(api_client: TestClient) -> None:
         _seed_night(session, owner_id)
         session.commit()
 
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-06T00:00:00", "to": "2026-08-07T00:00:00"},
+    ).json()["episodes"]
+    rescue = next(
+        episode
+        for episode in episodes
+        if episode["therapy"]["classification"] == "carb_correction"
+    )
+    assert rescue["outcome"] == {
+        "status": "complete",
+        "kind": "recovery",
+        "start_value": 3.6,
+        "result_value": 7.9,
+        "delta_mmol_l": 4.3,
+        "is_low": False,
+    }
+
     body = _rescue(api_client)
 
     anchors = {anchor["role"]: anchor for anchor in body["anchors"]}

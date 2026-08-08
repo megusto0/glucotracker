@@ -55,6 +55,9 @@ import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.EpisodeFooterSummary
+import com.local.glucotracker.domain.model.EpisodeOutcomeKind
+import com.local.glucotracker.domain.model.EpisodeOutcomeStatus
 import com.local.glucotracker.domain.model.EpisodeTherapyClass
 import com.local.glucotracker.domain.model.InsulinDayContext
 import com.local.glucotracker.domain.model.InsulinEvent
@@ -452,6 +455,7 @@ private fun TodayEpisodeRows(
                 classification = context.classificationByMealId[item.entry.row.id],
                 date = date,
                 episodeKey = context.episodeKeyByMealId[item.entry.row.id],
+                footer = context.footerByMealId[item.entry.row.id],
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
@@ -465,12 +469,17 @@ private fun TodayEpisodeRows(
                 episodeKey = item.entries.firstNotNullOfOrNull { entry ->
                     context.episodeKeyByMealId[entry.row.id]
                 },
+                footer = item.entries.firstNotNullOfOrNull { entry ->
+                    context.footerByMealId[entry.row.id]
+                },
                 rowContent = rowContent,
             )
             is TodayTimelineItem.Orphan -> OrphanInsulinRow(
                 event = item.event,
                 onOpenResponse = { responseCardEvent = item.event }
                     .takeIf { !item.event.isPending },
+                footer = context.footerByInsulinId[item.event.id],
+                date = date,
             )
             is TodayTimelineItem.Body -> BodyStateRow(
                 state = item.state,
@@ -567,6 +576,7 @@ private fun TodaySingleCard(
     classification: EpisodeTherapyClass?,
     date: LocalDate,
     episodeKey: String?,
+    footer: EpisodeFooterSummary?,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
@@ -606,6 +616,8 @@ private fun TodaySingleCard(
                 events = entry.paired,
                 mealAt = entry.row.eatenAt,
                 mealIds = listOf(mealId),
+                footer = footer,
+                date = date,
             )
         }
     }
@@ -619,6 +631,7 @@ private fun TodayEpisodeCard(
     classification: EpisodeTherapyClass?,
     date: LocalDate,
     episodeKey: String?,
+    footer: EpisodeFooterSummary?,
     rowContent: @Composable (
         row: TodayMealRowUi,
         framed: Boolean,
@@ -688,6 +701,8 @@ private fun TodayEpisodeCard(
             events = sittingInsulin,
             mealAt = entries.minOfOrNull { it.row.eatenAt },
             mealIds = sitting,
+            footer = footer,
+            date = date,
         )
     }
 }
@@ -863,6 +878,8 @@ private fun <T> InsulinAwareRows(
                 onOpenResponse = { responseCardEvent = item.event }
                     .takeIf { !item.event.isPending },
                 framed = false,
+                footer = context.footerByInsulinId[item.event.id],
+                date = date,
             )
             is InsulinTimelineItem.Body -> BodyStateRow(state = item.state)
         }
@@ -1115,6 +1132,8 @@ private fun <T> EpisodeCard(
                 events = paired,
                 mealAt = rowTime(first),
                 mealIds = mealIds,
+                footer = mealIds.firstNotNullOfOrNull { context.footerByMealId[it] },
+                date = date,
             )
         }
     }
@@ -1184,9 +1203,12 @@ private fun EpisodeInsulinFooter(
     events: List<InsulinEvent>,
     mealAt: Instant?,
     mealIds: List<String>,
+    footer: EpisodeFooterSummary?,
+    date: LocalDate?,
 ) {
     var showSheet by remember(mealIds) { mutableStateOf(false) }
     var showBreakdown by remember(mealIds) { mutableStateOf(false) }
+    var showEpisodeBreakdown by remember(footer?.episodeKey) { mutableStateOf(false) }
     val valid = mealIds.filter { runCatching { java.util.UUID.fromString(it) }.isSuccess }
     val total = events.sumOf { it.doseUnits }
     // The line already asked two different questions under one label. With no
@@ -1194,25 +1216,20 @@ private fun EpisodeInsulinFooter(
     // With insulin recorded «РАСЧЁТ» is retrospective — why was it that much —
     // and that is a different sheet, not a differently-worded one.
     val retrospective = events.isNotEmpty()
+    val correctionWithoutInsulin =
+        footer?.classification == EpisodeTherapyClass.CarbCorrection && events.isEmpty()
+    val canOpenInsulin = retrospective || (valid.isNotEmpty() && !correctionWithoutInsulin)
     GTHairlineDivider(modifier = Modifier.padding(horizontal = 14.dp))
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 40.dp)
-            .then(
-                if (valid.isEmpty()) {
-                    Modifier
-                } else {
-                    Modifier.clickable(role = Role.Button) {
-                        if (retrospective) showBreakdown = true else showSheet = true
-                    }
-                },
-            )
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (events.isEmpty()) {
+        EpisodeFooterZone(
+            fact = if (correctionWithoutInsulin) {
+                stringResource(R.string.insulin_footer_without)
+            } else if (events.isEmpty()) {
                 stringResource(R.string.insulin_footer_none)
             } else {
                 insulinAgainstMeal(total, events.minOf { it.timestamp }, mealAt) +
@@ -1226,24 +1243,30 @@ private fun EpisodeInsulinFooter(
                         ""
                     }
             },
+            action = if (!canOpenInsulin) {
+                null
+            } else if (retrospective) {
+                stringResource(R.string.insulin_footer_review)
+            } else {
+                stringResource(R.string.insulin_footer_suggest)
+            },
+            onClick = if (canOpenInsulin) {
+                {
+                    if (retrospective) showBreakdown = true else showSheet = true
+                }
+            } else {
+                null
+            },
             modifier = Modifier.weight(1f),
-            color = GT.colors.muted,
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
-        if (valid.isNotEmpty()) {
-            Text(
-                text = stringResource(
-                    if (events.isEmpty()) {
-                        R.string.insulin_footer_suggest
-                    } else {
-                        R.string.insulin_footer_review
-                    },
-                ),
-                color = GT.colors.accent,
-                style = GT.type.kicker,
-                maxLines = 1,
+        if (footer != null && date != null) {
+            Spacer(Modifier.width(8.dp))
+            EpisodeFooterZone(
+                fact = episodeOutcomeText(footer),
+                action = stringResource(R.string.episode_footer_breakdown),
+                onClick = { showEpisodeBreakdown = true },
+                modifier = Modifier.weight(1f),
+                endAligned = true,
             )
         }
     }
@@ -1260,6 +1283,92 @@ private fun EpisodeInsulinFooter(
             mealAt = mealAt,
             onDismiss = { showBreakdown = false },
         )
+    }
+    if (showEpisodeBreakdown && footer != null && date != null) {
+        EpisodeBreakdownSheet(
+            episodeKey = footer.episodeKey,
+            date = date,
+            onDismiss = { showEpisodeBreakdown = false },
+        )
+    }
+}
+
+@Composable
+private fun EpisodeFooterZone(
+    fact: String,
+    action: String?,
+    onClick: (() -> Unit)?,
+    modifier: Modifier,
+    endAligned: Boolean = false,
+) {
+    Column(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        horizontalAlignment = if (endAligned) Alignment.End else Alignment.Start,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = fact,
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        action?.let {
+            Text(
+                text = it,
+                color = GT.colors.accent,
+                style = GT.type.kicker.copy(fontSize = 9.sp),
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun episodeOutcomeText(summary: EpisodeFooterSummary): String {
+    val outcome = summary.outcome
+    if (outcome.status == EpisodeOutcomeStatus.Ongoing) {
+        return stringResource(R.string.episode_footer_ongoing)
+    }
+    if (outcome.status == EpisodeOutcomeStatus.NoCgm) {
+        return stringResource(R.string.episode_footer_no_cgm)
+    }
+    val result = outcome.resultValue
+        ?: return stringResource(R.string.episode_footer_no_cgm)
+    return when (outcome.kind) {
+        EpisodeOutcomeKind.Peak -> stringResource(
+            R.string.episode_footer_peak,
+            formatMmol(result),
+            outcome.deltaMmolL?.let(::formatGlucoseDelta).orEmpty(),
+        )
+        EpisodeOutcomeKind.Recovery -> {
+            val start = outcome.startValue
+                ?: return stringResource(R.string.episode_footer_no_cgm)
+            stringResource(
+                R.string.episode_footer_recovery,
+                formatMmol(start),
+                formatMmol(result),
+                outcome.deltaMmolL?.let(::formatGlucoseDelta).orEmpty(),
+            )
+        }
+        EpisodeOutcomeKind.Minimum -> if (outcome.isLow) {
+            stringResource(R.string.episode_footer_minimum_low, formatMmol(result))
+        } else {
+            stringResource(
+                R.string.episode_footer_minimum,
+                formatMmol(result),
+                outcome.deltaMmolL?.let(::formatGlucoseDelta).orEmpty(),
+            )
+        }
     }
 }
 
@@ -1430,6 +1539,8 @@ private fun OrphanInsulinRow(
     // or it reads as something that failed to draw. History has them inside the
     // day's card, where the same surface became a card within a card.
     framed: Boolean = true,
+    footer: EpisodeFooterSummary? = null,
+    date: LocalDate? = null,
 ) {
     var showTooltip by remember(event.id) { mutableStateOf(false) }
     var showManagement by remember(event.id) { mutableStateOf(false) }
@@ -1445,9 +1556,8 @@ private fun OrphanInsulinRow(
                 .padding(horizontal = 18.dp)
                 .background(GT.colors.surface, GT.shapes.card)
                 .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-                .padding(horizontal = 14.dp, vertical = 2.dp)
         } else {
-            Modifier.padding(horizontal = 14.dp)
+            Modifier
         },
     ) {
         Row(
@@ -1466,7 +1576,7 @@ private fun OrphanInsulinRow(
                         onLongPress = { showTooltip = true },
                     )
                 }
-                .padding(vertical = 4.dp),
+                .padding(horizontal = 14.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -1503,7 +1613,18 @@ private fun OrphanInsulinRow(
             )
         }
         if (showTooltip) {
-            InsulinTooltip(event = event)
+            Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                InsulinTooltip(event = event)
+            }
+        }
+        if (footer != null) {
+            EpisodeInsulinFooter(
+                events = listOf(event),
+                mealAt = null,
+                mealIds = emptyList(),
+                footer = footer,
+                date = date,
+            )
         }
     }
     if (showManagement) {

@@ -16,6 +16,7 @@ from glucotracker.api.schemas import (
     BodyStatesResponse,
     CgmCalibrationModelResponse,
     DayEpisodeInsulinResponse,
+    DayEpisodeOutcomeResponse,
     DayEpisodeResponse,
     DayEpisodesResponse,
     DayEpisodeTherapyResponse,
@@ -49,7 +50,10 @@ from glucotracker.api.schemas import (
     TopUpDoseResponse,
 )
 from glucotracker.application.body_states import BodyStateService
-from glucotracker.application.episode_breakdown import EpisodeBreakdownService
+from glucotracker.application.episode_breakdown import (
+    EpisodeBreakdownService,
+    episode_footer_outcome,
+)
 from glucotracker.application.episode_therapy import (
     catch_up_event_ids,
     classify_episode_therapy,
@@ -163,6 +167,12 @@ def get_glucose_episodes(
     episodes: list[DayEpisodeResponse] = []
     for component in components:
         therapy = classify_episode_therapy(component, therapy_points)
+        footer_outcome = episode_footer_outcome(
+            component,
+            components,
+            therapy,
+            therapy_points,
+        )
         catch_ups = catch_up_event_ids(component, therapy_points)
         # Raw UTC timestamps, same as /nightscout/insulin — clients convert.
         insulin = [
@@ -209,6 +219,7 @@ def get_glucose_episodes(
                     sum(event.insulin_units or 0 for event in component.insulin), 2
                 ),
                 therapy=DayEpisodeTherapyResponse(**vars(therapy)),
+                outcome=DayEpisodeOutcomeResponse(**vars(footer_outcome)),
             )
         )
     return DayEpisodesResponse(

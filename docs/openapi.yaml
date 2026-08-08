@@ -1357,6 +1357,47 @@ components:
       - kind
       title: DayEpisodeInsulinResponse
       type: object
+    DayEpisodeOutcomeResponse:
+      description: Compact, backend-owned outcome shown in a diary card footer.
+      properties:
+        delta_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Delta Mmol L
+        is_low:
+          default: false
+          title: Is Low
+          type: boolean
+        kind:
+          enum:
+          - peak
+          - recovery
+          - minimum
+          title: Kind
+          type: string
+        result_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Result Value
+        start_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Start Value
+        status:
+          enum:
+          - complete
+          - ongoing
+          - no_cgm
+          title: Status
+          type: string
+      required:
+      - status
+      - kind
+      title: DayEpisodeOutcomeResponse
+      type: object
     DayEpisodeResponse:
       description: One grouped meal/insulin episode for client attribution.
       properties:
@@ -1385,6 +1426,8 @@ components:
             type: string
           title: Meal Ids
           type: array
+        outcome:
+          $ref: '#/components/schemas/DayEpisodeOutcomeResponse'
         start_at:
           format: date-time
           title: Start At
@@ -1411,6 +1454,7 @@ components:
       - total_kcal
       - total_insulin_units
       - therapy
+      - outcome
       title: DayEpisodeResponse
       type: object
     DayEpisodeTherapyResponse:

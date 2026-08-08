@@ -2934,6 +2934,33 @@ export interface components {
             timestamp: string;
         };
         /**
+         * DayEpisodeOutcomeResponse
+         * @description Compact, backend-owned outcome shown in a diary card footer.
+         */
+        DayEpisodeOutcomeResponse: {
+            /** Delta Mmol L */
+            delta_mmol_l?: number | null;
+            /**
+             * Is Low
+             * @default false
+             */
+            is_low: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "peak" | "recovery" | "minimum";
+            /** Result Value */
+            result_value?: number | null;
+            /** Start Value */
+            start_value?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "ongoing" | "no_cgm";
+        };
+        /**
          * DayEpisodeResponse
          * @description One grouped meal/insulin episode for client attribution.
          */
@@ -2954,6 +2981,7 @@ export interface components {
             kind: "food" | "food_only" | "correction";
             /** Meal Ids */
             meal_ids: string[];
+            outcome: components["schemas"]["DayEpisodeOutcomeResponse"];
             /**
              * Start At
              * Format: date-time

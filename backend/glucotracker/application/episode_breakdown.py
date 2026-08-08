@@ -22,7 +22,7 @@ Read-only throughout. Nothing here writes a record or produces a dose.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
@@ -158,6 +158,18 @@ class BreakdownFrequency:
     count: int
     days: int
     label: str
+
+
+@dataclass(frozen=True)
+class EpisodeFooterOutcome:
+    """The one-line result a diary card can state without recomputing CGM."""
+
+    status: Literal["complete", "ongoing", "no_cgm"]
+    kind: Literal["peak", "recovery", "minimum"]
+    start_value: float | None
+    result_value: float | None
+    delta_mmol_l: float | None
+    is_low: bool
 
 
 @dataclass(frozen=True)
@@ -601,6 +613,68 @@ def _anchors(
             _extreme(points, start_at, until(settle_after), lowest=True),
         )
     return anchors
+
+
+def episode_footer_outcome(
+    component: EpisodeComponent,
+    components: list[EpisodeComponent],
+    therapy: EpisodeTherapy,
+    points: list[GlucoseDashboardPoint],
+    *,
+    now: datetime | None = None,
+) -> EpisodeFooterOutcome:
+    """Return the same bounded anchors as the sheet, condensed for its card.
+
+    A list cell must not derive an outcome from CGM independently. Reusing the
+    breakdown anchors also means a later snack cannot become an earlier meal's
+    peak merely because both readings are visible in the day query.
+    """
+    boundary = _next_start(component, components)
+    anchors = _anchors(therapy.classification, component, points, boundary)
+    by_role = {anchor.role: anchor for anchor in anchors}
+    if therapy.classification == "carb_correction":
+        kind: Literal["peak", "recovery", "minimum"] = "recovery"
+        start = by_role.get("trough")
+        result = by_role.get("peak")
+    elif therapy.classification == "insulin_correction":
+        kind = "minimum"
+        start = by_role.get("start")
+        result = by_role.get("trough")
+    else:
+        kind = "peak"
+        start = by_role.get("start")
+        result = by_role.get("peak")
+
+    horizon = SETTLE_HORIZON.get(
+        therapy.classification,
+        Horizon.IMMEDIATE_RESPONSE.value,
+    )
+    complete_at = component.start_at + horizon
+    if boundary is not None:
+        complete_at = min(complete_at, boundary)
+    local_now = now or _local_wall_time(datetime.now(UTC))
+    if local_now < complete_at:
+        status: Literal["complete", "ongoing", "no_cgm"] = "ongoing"
+    elif start is None or result is None:
+        status = "no_cgm"
+    else:
+        status = "complete"
+
+    start_value = start.value if start is not None else None
+    result_value = result.value if result is not None else None
+    delta = (
+        round(result_value - start_value, 1)
+        if start_value is not None and result_value is not None
+        else None
+    )
+    return EpisodeFooterOutcome(
+        status=status,
+        kind=kind,
+        start_value=start_value,
+        result_value=result_value,
+        delta_mmol_l=delta,
+        is_low=result_value is not None and result_value < LOW_GLUCOSE_MMOL_L,
+    )
 
 
 def _next_start(
