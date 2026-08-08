@@ -47,9 +47,7 @@ def anchor_is_typical_morning(anchor_minutes: int | None) -> bool:
     if anchor_minutes is None:
         return True
     return (
-        TYPICAL_MORNING_START_MINUTES
-        <= anchor_minutes
-        <= TYPICAL_MORNING_END_MINUTES
+        TYPICAL_MORNING_START_MINUTES <= anchor_minutes <= TYPICAL_MORNING_END_MINUTES
     )
 
 
@@ -176,16 +174,21 @@ def sleep_rhythm(session: Session, user_id: UUID) -> SleepRhythm | None:
     nights = _nights(session, user_id)
     if len(nights) < MIN_SLEEP_NIGHTS:
         return None
-    starts = [_minutes_from_midnight(night.start_at) for night in nights]
-    ends = [_minutes_from_midnight(night.end_at) for night in nights]
+    # The wider lookup tolerates an occasional night that the watch missed,
+    # but the rhythm itself and the evidence count both describe the same last
+    # seven recorded nights. Previously the times used seven while the API
+    # reported every night found in the ten-day lookup.
+    recent_nights = nights[-len(WEIGHTS_7D) :]
+    starts = [_minutes_from_midnight(night.start_at) for night in recent_nights]
+    ends = [_minutes_from_midnight(night.end_at) for night in recent_nights]
     # Bedtime straddles midnight, so it is averaged on the far side of the
     # clock and brought back. Waking does not, and is taken as it comes.
     shifted = [start + 24 * 60 if start < 12 * 60 else start for start in starts]
-    start = int(round(_weighted_median(shifted[-7:], WEIGHTS_7D))) % (24 * 60)
+    start = int(round(_weighted_median(shifted, WEIGHTS_7D))) % (24 * 60)
     return SleepRhythm(
         start_minutes=start,
-        end_minutes=int(round(_weighted_median(ends[-7:], WEIGHTS_7D))),
-        nights=len(nights),
+        end_minutes=int(round(_weighted_median(ends, WEIGHTS_7D))),
+        nights=len(recent_nights),
     )
 
 
@@ -268,9 +271,7 @@ def compute_user_anchors(
     if (
         len(recent_3) >= SHIFT_DETECTION_DAYS
         and len(minutes_list) >= 7
-        and all(
-            abs(m - weighted_7d) >= SHIFT_THRESHOLD_MINUTES for m in recent_3
-        )
+        and all(abs(m - weighted_7d) >= SHIFT_THRESHOLD_MINUTES for m in recent_3)
     ):
         anchor = median(recent_3)
         _record_shift(session, user_id)
@@ -307,8 +308,7 @@ def compute_user_anchors(
         weekday_anchor is not None
         and weekend_anchor is not None
         and weeks_covered >= WEEKEND_SPLIT_MIN_WEEKS
-        and abs(weekday_anchor - weekend_anchor)
-        >= WEEKEND_SPLIT_THRESHOLD_MINUTES
+        and abs(weekday_anchor - weekend_anchor) >= WEEKEND_SPLIT_THRESHOLD_MINUTES
     ):
         return (
             int(round(weekday_anchor)),
@@ -382,10 +382,7 @@ def _append_anchor_history(
         .order_by(DayAnchorHistory.effective_from.desc())
         .limit(1)
     )
-    if (
-        open_row is not None
-        and open_row.effective_from == today
-    ):
+    if open_row is not None and open_row.effective_from == today:
         open_row.anchor_weekday_minutes = weekday
         open_row.anchor_weekend_minutes = weekend
         open_row.basis = basis
@@ -422,9 +419,7 @@ def recompute_anchors_for_all_users(session: Session) -> None:
         try:
             recompute_and_persist_anchors(session, user_id)
         except Exception:
-            logger.exception(
-                "Failed to recompute anchors for user %s", user_id
-            )
+            logger.exception("Failed to recompute anchors for user %s", user_id)
     session.commit()
 
 

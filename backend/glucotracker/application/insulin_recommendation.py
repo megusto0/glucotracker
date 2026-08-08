@@ -21,7 +21,7 @@ from statistics import median
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import (
@@ -406,7 +406,12 @@ class HistoricalInsulinRecommendationService:
         """
         session = self.repository.session
         meal_key = "|".join(sorted(str(meal_id) for meal_id in unique_ids))
-        fingerprint = _meal_fingerprint(meals, twin_params)
+        target_at = min(meal.eaten_at for meal in meals)
+        fingerprint = _meal_fingerprint(
+            meals,
+            twin_params,
+            first_meal_context=self._first_meal_context_fingerprint(target_at),
+        )
         row = session.scalar(
             select(InsulinRecommendationCache).where(
                 InsulinRecommendationCache.owner_id == self.repository.user_id,
@@ -444,6 +449,36 @@ class HistoricalInsulinRecommendationService:
             row.computed_at = datetime.now(UTC)
         session.commit()
         return estimate, None
+
+    def _first_meal_context_fingerprint(self, target_at: datetime) -> str:
+        """Fingerprint late sleep/HR evidence used by the food estimate.
+
+        Health Connect often uploads a completed sleep session after the meal
+        recommendation was first opened. The first-after-sleep factor belongs
+        to the food half, so that late evidence must invalidate its persisted
+        cache even though the target meal itself did not change.
+        """
+        target_utc = _utc_instant_from_local_wall(target_at)
+        rows = self.repository.session.execute(
+            select(
+                HealthConnectRecord.record_type,
+                func.count(HealthConnectRecord.id),
+                func.max(HealthConnectRecord.updated_at),
+            )
+            .where(
+                HealthConnectRecord.owner_id == self.repository.user_id,
+                HealthConnectRecord.record_type.in_(
+                    ("SleepSessionRecord", "HeartRateRecord")
+                ),
+                HealthConnectRecord.start_time >= target_utc - HR_SLEEP_LOOKBACK,
+                HealthConnectRecord.start_time <= target_utc,
+            )
+            .group_by(HealthConnectRecord.record_type)
+            .order_by(HealthConnectRecord.record_type)
+        ).all()
+        return "|".join(
+            f"{kind}:{count}:{updated_at}" for kind, count, updated_at in rows
+        )
 
     def _meal_estimate(
         self,
@@ -649,8 +684,7 @@ class HistoricalInsulinRecommendationService:
             select(HealthConnectRecord).where(
                 HealthConnectRecord.owner_id == self.repository.user_id,
                 HealthConnectRecord.record_type == "SleepSessionRecord",
-                HealthConnectRecord.start_time
-                >= target_utc - timedelta(hours=24),
+                HealthConnectRecord.start_time >= target_utc - timedelta(hours=24),
                 HealthConnectRecord.start_time <= target_utc,
             )
         ).all()
@@ -678,8 +712,7 @@ class HistoricalInsulinRecommendationService:
             select(HealthConnectRecord).where(
                 HealthConnectRecord.owner_id == self.repository.user_id,
                 HealthConnectRecord.record_type == "HeartRateRecord",
-                HealthConnectRecord.start_time
-                >= target_utc - HR_SLEEP_LOOKBACK,
+                HealthConnectRecord.start_time >= target_utc - HR_SLEEP_LOOKBACK,
                 HealthConnectRecord.start_time <= target_utc,
             )
         ).all()
@@ -1325,9 +1358,7 @@ def _hr_trough_ended_within_window(
     for run_start, run_end in runs:
         if run_end - run_start < MIN_SLEEP_FOR_FIRST_MEAL:
             continue
-        if not (
-            timedelta(0) <= target_utc - run_end <= SLEEP_TO_FIRST_MEAL_WINDOW
-        ):
+        if not (timedelta(0) <= target_utc - run_end <= SLEEP_TO_FIRST_MEAL_WINDOW):
             continue
         if not any(
             bpm > threshold
@@ -1339,7 +1370,12 @@ def _hr_trough_ended_within_window(
     return False
 
 
-def _meal_fingerprint(meals: list[Meal], twin_params: TwinParams) -> str:
+def _meal_fingerprint(
+    meals: list[Meal],
+    twin_params: TwinParams,
+    *,
+    first_meal_context: str = "",
+) -> str:
     """Summarise the sitting and the parameters the food estimate came from."""
     # The parameters themselves, not their updated_at: an unpersisted default
     # row is rebuilt with a fresh timestamp on every request, and an unrelated
@@ -1355,6 +1391,7 @@ def _meal_fingerprint(meals: list[Meal], twin_params: TwinParams) -> str:
         str(twin_params.evening_start_minutes),
         str(_trusted_isf(twin_params)),
         str(twin_params.last_fit_method),
+        first_meal_context,
     ]
     for meal in sorted(meals, key=lambda item: item.id):
         parts.append(
@@ -1393,9 +1430,7 @@ def _estimate_from_json(payload: dict[str, Any]) -> HistoricalDoseEstimate | Non
                             "occurred_at": datetime.fromisoformat(
                                 str(match["occurred_at"])
                             ),
-                            "meal_ids": [
-                                UUID(str(item)) for item in match["meal_ids"]
-                            ],
+                            "meal_ids": [UUID(str(item)) for item in match["meal_ids"]],
                         }
                     )
                     for match in payload.get("matches", [])
@@ -1429,12 +1464,9 @@ def _icr_dose(
     daypart, icr = _icr_for_time(meal_at, twin_params)
     if icr is None or icr <= 0 or not isfinite(icr):
         return None
-    if (
-        twin_params.last_fit_method != "manual"
-        and (
-            icr <= AUTO_FIT_ICR_MIN_G_PER_UNIT + FIT_BOUNDARY_TOLERANCE
-            or icr >= AUTO_FIT_ICR_MAX_G_PER_UNIT - FIT_BOUNDARY_TOLERANCE
-        )
+    if twin_params.last_fit_method != "manual" and (
+        icr <= AUTO_FIT_ICR_MIN_G_PER_UNIT + FIT_BOUNDARY_TOLERANCE
+        or icr >= AUTO_FIT_ICR_MAX_G_PER_UNIT - FIT_BOUNDARY_TOLERANCE
     ):
         # A constrained fit landing exactly on a bound is not a trustworthy
         # personal ratio. Keep history usable, but do not blend/fallback to it.
@@ -1476,12 +1508,9 @@ def _trusted_isf(twin_params: TwinParams) -> float | None:
     isf = float(raw_isf)
     if not isfinite(isf) or isf <= 0:
         return None
-    if (
-        twin_params.last_fit_method != "manual"
-        and (
-            isf <= AUTO_FIT_ISF_MIN_MMOL_L_PER_UNIT + FIT_BOUNDARY_TOLERANCE
-            or isf >= AUTO_FIT_ISF_MAX_MMOL_L_PER_UNIT - FIT_BOUNDARY_TOLERANCE
-        )
+    if twin_params.last_fit_method != "manual" and (
+        isf <= AUTO_FIT_ISF_MIN_MMOL_L_PER_UNIT + FIT_BOUNDARY_TOLERANCE
+        or isf >= AUTO_FIT_ISF_MAX_MMOL_L_PER_UNIT - FIT_BOUNDARY_TOLERANCE
     ):
         return None
     return isf

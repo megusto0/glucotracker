@@ -276,8 +276,7 @@ def test_recommendation_replaces_auto_fitted_isf_at_constraint_boundary(
                 NightscoutGlucoseEntry(
                     owner_id=owner_id,
                     source_key=f"boundary-isf-cgm-{index}",
-                    timestamp=target_at
-                    - timedelta(minutes=15 - index * 5),
+                    timestamp=target_at - timedelta(minutes=15 - index * 5),
                     value_mmol_l=value,
                     value_mg_dl=round(value * 18.0182),
                     source="CGM",
@@ -592,6 +591,55 @@ def test_the_food_half_is_stored_and_the_correction_is_not(
     ).json()
     assert after_edit["meal_from_cache"] is False
     assert after_edit["target_carbs_g"] == 80.0
+
+
+def test_late_sleep_sync_recomputes_the_first_after_sleep_food_cache(
+    api_client: TestClient,
+) -> None:
+    """A meal can gain its sleep context after the watch finishes syncing."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    target_utc = target_at.replace(tzinfo=UTC)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 62.0)
+        _meal(session, owner_id, target_at - timedelta(hours=11), 30.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    payload = {"meal_ids": [str(target.id)]}
+    before_sleep = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    assert before_sleep["icr_after_sleep"] is False
+
+    with session_factory() as session:
+        _sleep(
+            session,
+            owner_id,
+            start=target_utc - timedelta(hours=9),
+            end=target_utc - timedelta(hours=1),
+        )
+        session.commit()
+
+    after_sleep = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    assert after_sleep["meal_from_cache"] is False
+    assert after_sleep["icr_after_sleep"] is True
+
+    cached = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    assert cached["meal_from_cache"] is True
+    assert cached["icr_after_sleep"] is True
 
 
 def test_recommendation_reports_how_history_and_the_ratio_were_blended(

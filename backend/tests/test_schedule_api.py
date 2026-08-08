@@ -208,6 +208,22 @@ def test_schedule_anchors_on_real_sleep_when_nights_are_known(
     assert body["sleep_nights"] == 7
 
 
+def test_schedule_reports_the_same_seven_nights_used_by_the_rhythm(
+    api_client: TestClient,
+) -> None:
+    """The ten-day recovery lookup must not be presented as a ten-night mean."""
+    session_factory = api_client.app_state["session_factory"]
+    user_id = UUID(str(api_client.app_state["current_user_id"]))
+    session = session_factory()
+    _seed_nights(session, user_id, nights=10, wake_hour=6)
+    session.close()
+
+    body = api_client.get("/me/schedule").json()
+
+    assert body["basis"] == "sleep_7d"
+    assert body["sleep_nights"] == 7
+
+
 def test_schedule_falls_back_to_meals_when_sleep_is_sparse(
     api_client: TestClient,
 ) -> None:

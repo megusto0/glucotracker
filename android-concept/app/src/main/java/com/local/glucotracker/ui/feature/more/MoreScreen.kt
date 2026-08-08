@@ -40,11 +40,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -794,21 +797,152 @@ private fun RhythmBar(
                         .weight(duration.toFloat())
                         .fillMaxHeight()
                         .background(colors[index % colors.size]),
-                    contentAlignment = Alignment.CenterStart,
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = window.label,
-                        modifier = Modifier.padding(horizontal = 7.dp),
-                        color = GT.colors.surface2,
-                        style = GT.type.sansLabel.copy(fontSize = 9.sp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    RhythmWindowGlyph(index = index, label = window.label)
                 }
             }
         }
         if (sleep != null && windows.isNotEmpty()) {
             SleepTrack(originMinute = windows.first().startMinute, sleep = sleep)
+        }
+    }
+}
+
+/**
+ * Compact symbols for the four anchor-relative parts of a day.
+ *
+ * Full wording remains in the legend below; the narrow strip is visual
+ * navigation and no longer tries to fit clipped copies of those labels.
+ */
+@Composable
+private fun RhythmWindowGlyph(index: Int, label: String) {
+    val color = GT.colors.surface2
+    Canvas(
+        modifier = Modifier
+            .size(18.dp)
+            .semantics { contentDescription = label },
+    ) {
+        val stroke = Stroke(width = 1.35.dp.toPx(), cap = StrokeCap.Round)
+        when (index % 4) {
+            0 -> {
+                // Fork and knife: the first eating window after waking.
+                drawLine(
+                    color,
+                    Offset(5.dp.toPx(), 4.dp.toPx()),
+                    Offset(5.dp.toPx(), 14.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(3.dp.toPx(), 4.dp.toPx()),
+                    Offset(3.dp.toPx(), 7.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(7.dp.toPx(), 4.dp.toPx()),
+                    Offset(7.dp.toPx(), 7.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(3.dp.toPx(), 7.dp.toPx()),
+                    Offset(7.dp.toPx(), 7.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(12.5.dp.toPx(), 4.dp.toPx()),
+                    Offset(12.5.dp.toPx(), 14.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(10.5.dp.toPx(), 4.dp.toPx()),
+                    Offset(10.5.dp.toPx(), 8.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(10.5.dp.toPx(), 4.dp.toPx()),
+                    Offset(12.5.dp.toPx(), 8.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            1 -> {
+                // High sun: middle of the anchor-relative day.
+                drawCircle(color, 2.8.dp.toPx(), style = stroke)
+                listOf(
+                    Offset(9.dp.toPx(), 2.dp.toPx()) to Offset(9.dp.toPx(), 4.dp.toPx()),
+                    Offset(9.dp.toPx(), 14.dp.toPx()) to Offset(9.dp.toPx(), 16.dp.toPx()),
+                    Offset(2.dp.toPx(), 9.dp.toPx()) to Offset(4.dp.toPx(), 9.dp.toPx()),
+                    Offset(14.dp.toPx(), 9.dp.toPx()) to Offset(16.dp.toPx(), 9.dp.toPx()),
+                    Offset(4.dp.toPx(), 4.dp.toPx()) to Offset(5.4.dp.toPx(), 5.4.dp.toPx()),
+                    Offset(12.6.dp.toPx(), 12.6.dp.toPx()) to Offset(14.dp.toPx(), 14.dp.toPx()),
+                    Offset(14.dp.toPx(), 4.dp.toPx()) to Offset(12.6.dp.toPx(), 5.4.dp.toPx()),
+                    Offset(5.4.dp.toPx(), 12.6.dp.toPx()) to Offset(4.dp.toPx(), 14.dp.toPx()),
+                ).forEach { (from, to) ->
+                    drawLine(color, from, to, strokeWidth = stroke.width, cap = StrokeCap.Round)
+                }
+            }
+
+            2 -> {
+                // Setting sun: second half of the day.
+                drawLine(
+                    color,
+                    Offset(2.5.dp.toPx(), 12.5.dp.toPx()),
+                    Offset(15.5.dp.toPx(), 12.5.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawArc(
+                    color = color,
+                    startAngle = 180f,
+                    sweepAngle = 180f,
+                    useCenter = false,
+                    topLeft = Offset(5.dp.toPx(), 7.dp.toPx()),
+                    size = Size(8.dp.toPx(), 8.dp.toPx()),
+                    style = stroke,
+                )
+                drawLine(
+                    color,
+                    Offset(9.dp.toPx(), 4.dp.toPx()),
+                    Offset(9.dp.toPx(), 6.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            else -> {
+                // Crescent: the end-of-day window leading back to sleep.
+                drawArc(
+                    color = color,
+                    startAngle = 70f,
+                    sweepAngle = 220f,
+                    useCenter = false,
+                    topLeft = Offset(3.dp.toPx(), 2.dp.toPx()),
+                    size = Size(11.dp.toPx(), 14.dp.toPx()),
+                    style = stroke,
+                )
+                drawArc(
+                    color = color,
+                    startAngle = 95f,
+                    sweepAngle = 170f,
+                    useCenter = false,
+                    topLeft = Offset(7.dp.toPx(), 3.5.dp.toPx()),
+                    size = Size(7.dp.toPx(), 11.dp.toPx()),
+                    style = stroke,
+                )
+            }
         }
     }
 }
