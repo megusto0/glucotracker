@@ -10,6 +10,7 @@ import "./therapy-analysis-page.css";
 type Metric = TherapyAnalysisResponse["overall_icr_g_per_unit"];
 type BasalProfile = TherapyAnalysisResponse["basal_profile"];
 type BasalSlot = BasalProfile["slots"][number];
+type BasalCompression = NonNullable<BasalProfile["compressions"]>[number];
 type IcrComparison = NonNullable<
   TherapyAnalysisResponse["icr_proposals"]
 >[number];
@@ -398,6 +399,7 @@ function lineSegments(
 }
 
 function BasalProfileChart({ profile }: { profile: BasalProfile }) {
+  const [windowCount, setWindowCount] = useState(24);
   const values = profile.slots.flatMap((slot) =>
     BASAL_SERIES.flatMap((series) => {
       const value = slot[series.key].value;
@@ -409,6 +411,28 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
     Math.ceil(Math.max(0, ...values) * 2) / 2,
   );
   const hasEvidence = values.length > 0;
+  const hourlyFallback: BasalCompression = {
+    projected_daily_basal_units: profile.projected_daily_basal_units,
+    slots: profile.slots.map((slot) => ({
+      autotuned_basal_u_per_hour:
+        slot.autotuned_basal_u_per_hour ?? slot.configured_basal_u_per_hour,
+      autotuned_hour_count:
+        slot.autotuned_basal_u_per_hour == null ? 0 : 1,
+      basal_adjustment_u_per_hour: slot.basal_adjustment_u_per_hour ?? 0,
+      configured_basal_u_per_hour: slot.configured_basal_u_per_hour,
+      end_hour: slot.hour + 1,
+      equivalent_drift_mmol_l_per_hour:
+        slot.quiet_drift_mmol_l_per_hour.value ?? 0,
+      evidence_window_count:
+        slot.quiet_drift_mmol_l_per_hour.sample_count,
+      label: `${slot.label}–${(slot.hour + 1).toString().padStart(2, "0")}:00`,
+      start_hour: slot.hour,
+    })),
+    window_count: 24,
+  };
+  const compression =
+    profile.compressions?.find((item) => item.window_count === windowCount) ??
+    hourlyFallback;
 
   return (
     <section className="therapy-basal-card">
@@ -449,6 +473,124 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
           <small>Для разделения активности пока нет данных пульса</small>
         )}
       </div>
+
+      <section
+        aria-labelledby="basal-autotune-title"
+        className="therapy-basal-autotune"
+      >
+        <header>
+          <div>
+            <strong id="basal-autotune-title">
+              Basal autotune для плоского фона
+            </strong>
+            <span>
+              00–03: 0,80 · 03–12: 0,70 · 12–16: 0,80 · 16–00: 1,00 Ед/ч
+            </span>
+          </div>
+          <small>
+            ISF {profile.autotune_isf_mmol_l_per_unit.toFixed(2)} ммоль/л/Ед
+          </small>
+        </header>
+        <div className="therapy-basal-compression-control">
+          <label htmlFor="basal-window-count">
+            <span>Количество временных окон</span>
+            <strong>{compression.window_count}</strong>
+          </label>
+          <input
+            aria-label="Количество временных окон"
+            id="basal-window-count"
+            max={24}
+            min={4}
+            onChange={(event) => setWindowCount(Number(event.target.value))}
+            step={1}
+            type="range"
+            value={windowCount}
+          />
+          <div>
+            <span>4 окна · сильное сжатие</span>
+            <span>24 окна · каждый час</span>
+          </div>
+          <small>
+            Границы выбираются по сходству ставок и числу спокойных normalized
+            окон. Суточная доза сохраняется.
+          </small>
+        </div>
+        <div className="therapy-basal-autotune-totals">
+          <span>
+            исходный профиль
+            <strong>
+              {profile.configured_daily_basal_units.toFixed(2)} Ед/сут
+            </strong>
+          </span>
+          <span>
+            рассчитано часов
+            <strong>{profile.autotuned_hour_count} / 24</strong>
+          </span>
+          <span>
+            при замене рассчитанных часов
+            <strong>
+              {compression.projected_daily_basal_units.toFixed(2)} Ед/сут
+            </strong>
+          </span>
+        </div>
+        <div className="therapy-basal-autotune-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Интервал</th>
+                <th>Исходно</th>
+                <th>Quiet-drift normalized</th>
+                <th>Поправка</th>
+                <th>Для плоского фона</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compression.slots.map((slot) => {
+                const durationHours = slot.end_hour - slot.start_hour;
+                return (
+                  <tr key={slot.start_hour}>
+                    <th scope="row">{slot.label}</th>
+                    <td>{slot.configured_basal_u_per_hour.toFixed(2)} Ед/ч</td>
+                    <td>
+                      {slot.autotuned_hour_count === 0 ? (
+                        "—"
+                      ) : (
+                        <>
+                          {slot.equivalent_drift_mmol_l_per_hour > 0 ? "+" : ""}
+                          {slot.equivalent_drift_mmol_l_per_hour.toFixed(2)}{" "}
+                          ммоль/л/ч
+                          <small>{slot.evidence_window_count} окон данных</small>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      {slot.basal_adjustment_u_per_hour == null
+                        ? "—"
+                        : `${slot.basal_adjustment_u_per_hour > 0 ? "+" : ""}${slot.basal_adjustment_u_per_hour.toFixed(2)} Ед/ч`}
+                    </td>
+                    <td>
+                      <strong>
+                        {slot.autotuned_basal_u_per_hour.toFixed(2)} Ед/ч
+                      </strong>
+                      {slot.autotuned_hour_count < durationHours ? (
+                        <small>
+                          normalized-оценка: {slot.autotuned_hour_count} из{" "}
+                          {durationHours} ч
+                        </small>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Эквивалентная ретроспективная ставка = исходная + quiet-drift / ISF.
+          Используется только normalized CGM; часы с повышенным или неизвестным
+          пульсом не формируют расчёт.
+        </p>
+      </section>
 
       {hasEvidence ? (
         <div className="therapy-basal-chart-scroll">
@@ -575,7 +717,7 @@ export function TherapyAnalysisPage() {
         </button>
         <div className="therapy-review-toolbar-title">
           <span>Nightscout</span>
-          <strong>ICR и ISF по времени суток</strong>
+          <strong>ICR, ISF и базал по часам</strong>
         </div>
         <button
           aria-label="Открыть разбор по дням"

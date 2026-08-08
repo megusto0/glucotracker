@@ -472,6 +472,31 @@ class TherapyBasalSlotResponse(BaseModel):
     elevated_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
     unknown_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
     signal: Literal["insufficient", "stable", "rising", "falling"]
+    configured_basal_u_per_hour: float
+    autotuned_basal_u_per_hour: float | None = None
+    basal_adjustment_u_per_hour: float | None = None
+
+
+class TherapyBasalCompressedSlotResponse(BaseModel):
+    """One interval in an evidence-aware compressed basal profile."""
+
+    start_hour: int
+    end_hour: int
+    label: str
+    configured_basal_u_per_hour: float
+    autotuned_basal_u_per_hour: float
+    basal_adjustment_u_per_hour: float
+    equivalent_drift_mmol_l_per_hour: float
+    evidence_window_count: int
+    autotuned_hour_count: int
+
+
+class TherapyBasalCompressionResponse(BaseModel):
+    """One selectable compression of the hourly basal profile."""
+
+    window_count: int
+    projected_daily_basal_units: float
+    slots: list[TherapyBasalCompressedSlotResponse]
 
 
 class TherapyBasalProfileResponse(BaseModel):
@@ -484,7 +509,12 @@ class TherapyBasalProfileResponse(BaseModel):
     quiet_window_count: int
     elevated_hr_window_count: int
     unknown_hr_window_count: int
+    autotune_isf_mmol_l_per_unit: float
+    configured_daily_basal_units: float
+    projected_daily_basal_units: float
+    autotuned_hour_count: int
     slots: list[TherapyBasalSlotResponse]
+    compressions: list[TherapyBasalCompressionResponse] = Field(default_factory=list)
 
 
 class IsfCaseResponse(BaseModel):

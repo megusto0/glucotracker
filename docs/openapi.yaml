@@ -8728,9 +8728,85 @@ components:
       - isf_mmol_l_per_unit
       title: TherapyAnalysisSlotResponse
       type: object
+    TherapyBasalCompressedSlotResponse:
+      description: One interval in an evidence-aware compressed basal profile.
+      properties:
+        autotuned_basal_u_per_hour:
+          title: Autotuned Basal U Per Hour
+          type: number
+        autotuned_hour_count:
+          title: Autotuned Hour Count
+          type: integer
+        basal_adjustment_u_per_hour:
+          title: Basal Adjustment U Per Hour
+          type: number
+        configured_basal_u_per_hour:
+          title: Configured Basal U Per Hour
+          type: number
+        end_hour:
+          title: End Hour
+          type: integer
+        equivalent_drift_mmol_l_per_hour:
+          title: Equivalent Drift Mmol L Per Hour
+          type: number
+        evidence_window_count:
+          title: Evidence Window Count
+          type: integer
+        label:
+          title: Label
+          type: string
+        start_hour:
+          title: Start Hour
+          type: integer
+      required:
+      - start_hour
+      - end_hour
+      - label
+      - configured_basal_u_per_hour
+      - autotuned_basal_u_per_hour
+      - basal_adjustment_u_per_hour
+      - equivalent_drift_mmol_l_per_hour
+      - evidence_window_count
+      - autotuned_hour_count
+      title: TherapyBasalCompressedSlotResponse
+      type: object
+    TherapyBasalCompressionResponse:
+      description: One selectable compression of the hourly basal profile.
+      properties:
+        projected_daily_basal_units:
+          title: Projected Daily Basal Units
+          type: number
+        slots:
+          items:
+            $ref: '#/components/schemas/TherapyBasalCompressedSlotResponse'
+          title: Slots
+          type: array
+        window_count:
+          title: Window Count
+          type: integer
+      required:
+      - window_count
+      - projected_daily_basal_units
+      - slots
+      title: TherapyBasalCompressionResponse
+      type: object
     TherapyBasalProfileResponse:
       description: Twenty-four-hour clean background glucose drift profile.
       properties:
+        autotune_isf_mmol_l_per_unit:
+          title: Autotune Isf Mmol L Per Unit
+          type: number
+        autotuned_hour_count:
+          title: Autotuned Hour Count
+          type: integer
+        compressions:
+          items:
+            $ref: '#/components/schemas/TherapyBasalCompressionResponse'
+          title: Compressions
+          type: array
+        configured_daily_basal_units:
+          title: Configured Daily Basal Units
+          type: number
         elevated_hr_threshold_bpm:
           anyOf:
           - type: number
@@ -8739,6 +8815,9 @@ components:
         elevated_hr_window_count:
           title: Elevated Hr Window Count
           type: integer
+        projected_daily_basal_units:
+          title: Projected Daily Basal Units
+          type: number
         quiet_window_count:
           title: Quiet Window Count
           type: integer
@@ -8767,12 +8846,29 @@ components:
       - quiet_window_count
       - elevated_hr_window_count
       - unknown_hr_window_count
+      - autotune_isf_mmol_l_per_unit
+      - configured_daily_basal_units
+      - projected_daily_basal_units
+      - autotuned_hour_count
       - slots
       title: TherapyBasalProfileResponse
       type: object
     TherapyBasalSlotResponse:
       description: Background glucose drift evidence for one local clock hour.
       properties:
+        autotuned_basal_u_per_hour:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Autotuned Basal U Per Hour
+        basal_adjustment_u_per_hour:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Basal Adjustment U Per Hour
+        configured_basal_u_per_hour:
+          title: Configured Basal U Per Hour
+          type: number
         elevated_hr_drift_mmol_l_per_hour:
           $ref: '#/components/schemas/TherapyAnalysisMetricResponse'
         hour:
@@ -8800,6 +8896,7 @@ components:
       - elevated_hr_drift_mmol_l_per_hour
       - unknown_hr_drift_mmol_l_per_hour
       - signal
+      - configured_basal_u_per_hour
       title: TherapyBasalSlotResponse
       type: object
     TherapyEvidenceResponse:

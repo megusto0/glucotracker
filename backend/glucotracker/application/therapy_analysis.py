@@ -64,9 +64,7 @@ BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 # ratio.
 # v3: measured ratios are compared against the configured slots, episodes near
 # effort are excluded, and ISF says how thin its evidence is.
-THERAPY_ANALYSIS_MODEL_VERSION = (
-    f"retrospective-therapy-analysis-v5+{GROUPING_VERSION}"
-)
+THERAPY_ANALYSIS_MODEL_VERSION = f"retrospective-therapy-analysis-v7+{GROUPING_VERSION}"
 # Below this many isolated corrections the ISF median is an estimate rather
 # than a measurement, and the page must say so.
 MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
@@ -85,6 +83,19 @@ BACKGROUND_POINT_TOLERANCE = timedelta(minutes=15)
 MIN_BACKGROUND_GLUCOSE = 3.0
 MAX_BACKGROUND_GLUCOSE = 15.0
 MAX_BACKGROUND_DRIFT = 5.0
+MIN_BASAL_AUTOTUNE_WINDOWS = 3
+MIN_BASAL_PROFILE_WINDOWS = 4
+MAX_BASAL_PROFILE_WINDOWS = 24
+# The profile under retrospective test on the desktop analysis page.  It is
+# deliberately explicit in the response: no stored pump setting is silently
+# changed by this read-only analysis.
+TEST_BASAL_RATES_U_PER_HOUR = (
+    *(0.8 for _ in range(3)),
+    *(0.7 for _ in range(9)),
+    *(0.8 for _ in range(4)),
+    *(1.0 for _ in range(8)),
+)
+TEST_BASAL_AUTOTUNE_ISF_MMOL_L_PER_UNIT = 3.6
 MIN_HR_SAMPLES_PER_WINDOW = 3
 MIN_ELEVATED_HR_BPM = 80.0
 ELEVATED_HR_ABOVE_RESTING_BPM = 20.0
@@ -127,6 +138,33 @@ class TherapyBasalSlot:
     elevated_hr_drift_mmol_l_per_hour: TherapyAnalysisMetric
     unknown_hr_drift_mmol_l_per_hour: TherapyAnalysisMetric
     signal: BasalSignal
+    configured_basal_u_per_hour: float
+    autotuned_basal_u_per_hour: float | None
+    basal_adjustment_u_per_hour: float | None
+
+
+@dataclass(frozen=True)
+class TherapyBasalCompressedSlot:
+    """One contiguous interval in a compressed basal profile."""
+
+    start_hour: int
+    end_hour: int
+    label: str
+    configured_basal_u_per_hour: float
+    autotuned_basal_u_per_hour: float
+    basal_adjustment_u_per_hour: float
+    equivalent_drift_mmol_l_per_hour: float
+    evidence_window_count: int
+    autotuned_hour_count: int
+
+
+@dataclass(frozen=True)
+class TherapyBasalCompression:
+    """Evidence-aware piecewise-constant view of the hourly profile."""
+
+    window_count: int
+    projected_daily_basal_units: float
+    slots: list[TherapyBasalCompressedSlot]
 
 
 @dataclass(frozen=True)
@@ -140,7 +178,12 @@ class TherapyBasalProfile:
     quiet_window_count: int
     elevated_hr_window_count: int
     unknown_hr_window_count: int
+    autotune_isf_mmol_l_per_unit: float
+    configured_daily_basal_units: float
+    projected_daily_basal_units: float
+    autotuned_hour_count: int
     slots: list[TherapyBasalSlot]
+    compressions: list[TherapyBasalCompression]
 
 
 @dataclass(frozen=True)
@@ -297,9 +340,7 @@ class TherapyAnalysisService:
             self.session,
             self.user_id,
         ).get_or_create_params(persist=False)
-        fallback_isf = (
-            _trusted_isf(params) or DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT
-        )
+        fallback_isf = _trusted_isf(params) or DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT
         isf_source: IsfSource = (
             "correction_episodes"
             if overall_isf.value is not None
@@ -333,6 +374,8 @@ class TherapyAnalysisService:
             period_end=period_end,
             points=points,
             components=components,
+            configured_rates=TEST_BASAL_RATES_U_PER_HOUR,
+            autotune_isf=TEST_BASAL_AUTOTUNE_ISF_MMOL_L_PER_UNIT,
         )
 
         slots = []
@@ -368,6 +411,11 @@ class TherapyAnalysisService:
                 "без углеводов и быстрого инсулина в предыдущие 4 часа."
             ),
             (
+                "Basal autotune: ретроспективная нейтрализующая поправка "
+                "равна медианному фоновому дрейфу / ISF 3,6; расчёт только "
+                "для часов минимум с тремя спокойными окнами."
+            ),
+            (
                 "Часы с повышенным пульсом показаны отдельно и не формируют "
                 "сигнал фоновой стабильности."
             ),
@@ -386,8 +434,7 @@ class TherapyAnalysisService:
             )
 
         correction_count = sum(
-            item.classification == "insulin_correction"
-            for item in period_candidates
+            item.classification == "insulin_correction" for item in period_candidates
         )
         identifiability, isf_note = _isf_identifiability(
             isolated=overall_isf.sample_count,
@@ -449,8 +496,14 @@ class TherapyAnalysisService:
         period_end: date,
         points: list[GlucoseDashboardPoint],
         components: list[EpisodeComponent],
+        configured_rates: tuple[float, ...],
+        autotune_isf: float,
     ) -> TherapyBasalProfile:
         """Summarize clean one-hour glucose drift by local clock hour."""
+        if len(configured_rates) != 24:
+            raise ValueError("configured basal profile must contain 24 rates")
+        if autotune_isf <= 0:
+            raise ValueError("basal autotune ISF must be positive")
         heart_rate_samples = self._heart_rate_samples(
             datetime.combine(period_start, time.min),
             datetime.combine(period_end + timedelta(days=1), time.min),
@@ -473,11 +526,7 @@ class TherapyAnalysisService:
             heart_rate_by_hour[hour].append(bpm)
 
         intervention_times = sorted(
-            {
-                meal.eaten_at
-                for component in components
-                for meal in component.meals
-            }
+            {meal.eaten_at for component in components for meal in component.meals}
             | {
                 _local_wall_time(event.timestamp)
                 for component in components
@@ -494,9 +543,7 @@ class TherapyAnalysisService:
         while day <= period_end:
             for hour in range(24):
                 start_at = datetime.combine(day, time(hour=hour))
-                end_at = start_at + timedelta(
-                    minutes=BACKGROUND_WINDOW_MINUTES
-                )
+                end_at = start_at + timedelta(minutes=BACKGROUND_WINDOW_MINUTES)
                 if _contains_timestamp(
                     intervention_times,
                     start_at - timedelta(minutes=BACKGROUND_WASHOUT_MINUTES),
@@ -507,11 +554,12 @@ class TherapyAnalysisService:
                 end = _nearest_indexed(points, point_times, end_at)
                 if start is None or end is None or start.timestamp == end.timestamp:
                     continue
-                start_value = _point_value(start)
-                end_value = _point_value(end)
-                elapsed_hours = (
-                    end.timestamp - start.timestamp
-                ).total_seconds() / 3600
+                # Raw CGM is intentionally not a fallback here.  A window is
+                # eligible for basal autotune only when both anchors have a
+                # sensor-session-specific normalized value.
+                start_value = _normalized_point_value(start)
+                end_value = _normalized_point_value(end)
+                elapsed_hours = (end.timestamp - start.timestamp).total_seconds() / 3600
                 if (
                     start_value is None
                     or end_value is None
@@ -519,9 +567,7 @@ class TherapyAnalysisService:
                     or not MIN_BACKGROUND_GLUCOSE
                     <= start_value
                     <= MAX_BACKGROUND_GLUCOSE
-                    or not MIN_BACKGROUND_GLUCOSE
-                    <= end_value
-                    <= MAX_BACKGROUND_GLUCOSE
+                    or not MIN_BACKGROUND_GLUCOSE <= end_value <= MAX_BACKGROUND_GLUCOSE
                 ):
                     continue
                 drift = (end_value - start_value) / elapsed_hours
@@ -553,6 +599,12 @@ class TherapyAnalysisService:
                     if window.heart_rate_group == "quiet"
                 ]
             )
+            configured_rate = configured_rates[hour]
+            adjustment, autotuned_rate = _basal_autotune_rate(
+                configured_rate=configured_rate,
+                drift=quiet,
+                isf=autotune_isf,
+            )
             slots.append(
                 TherapyBasalSlot(
                     hour=hour,
@@ -573,21 +625,27 @@ class TherapyAnalysisService:
                         ]
                     ),
                     signal=_background_signal(quiet),
+                    configured_basal_u_per_hour=round(configured_rate, 2),
+                    autotuned_basal_u_per_hour=autotuned_rate,
+                    basal_adjustment_u_per_hour=adjustment,
                 )
             )
+
+        projected_rates = [
+            slot.autotuned_basal_u_per_hour
+            if slot.autotuned_basal_u_per_hour is not None
+            else slot.configured_basal_u_per_hour
+            for slot in slots
+        ]
 
         return TherapyBasalProfile(
             window_minutes=BACKGROUND_WINDOW_MINUTES,
             washout_minutes=BACKGROUND_WASHOUT_MINUTES,
             resting_reference_bpm=(
-                round(resting_reference, 1)
-                if resting_reference is not None
-                else None
+                round(resting_reference, 1) if resting_reference is not None else None
             ),
             elevated_hr_threshold_bpm=(
-                round(elevated_threshold, 1)
-                if elevated_threshold is not None
-                else None
+                round(elevated_threshold, 1) if elevated_threshold is not None else None
             ),
             quiet_window_count=sum(
                 window.heart_rate_group == "quiet" for window in windows
@@ -598,7 +656,24 @@ class TherapyAnalysisService:
             unknown_hr_window_count=sum(
                 window.heart_rate_group == "unknown" for window in windows
             ),
+            autotune_isf_mmol_l_per_unit=round(autotune_isf, 2),
+            configured_daily_basal_units=round(sum(configured_rates), 2),
+            projected_daily_basal_units=round(sum(projected_rates), 2),
+            autotuned_hour_count=sum(
+                slot.autotuned_basal_u_per_hour is not None for slot in slots
+            ),
             slots=slots,
+            compressions=[
+                _compress_basal_profile(
+                    slots,
+                    window_count=window_count,
+                    isf=autotune_isf,
+                )
+                for window_count in range(
+                    MIN_BASAL_PROFILE_WINDOWS,
+                    MAX_BASAL_PROFILE_WINDOWS + 1,
+                )
+            ],
         )
 
     def _heart_rate_samples(
@@ -727,9 +802,7 @@ class TherapyAnalysisService:
             timestamp=component.start_at,
             classification=therapy.classification,
             confidence=therapy.confidence,
-            carbs_g=sum(
-                float(meal.total_carbs_g or 0) for meal in component.meals
-            ),
+            carbs_g=sum(float(meal.total_carbs_g or 0) for meal in component.meals),
             insulin_units=sum(
                 float(event.insulin_units or 0) for event in component.insulin
             ),
@@ -858,16 +931,14 @@ class TherapyAnalysisService:
                 if local_isf.value is not None and local_isf.sample_count >= 2
                 else fallback_isf
             )
-            adjusted_units = item.insulin_units + (
-                item.glucose_plus_2h - target_mmol_l
-            ) / isf
+            adjusted_units = (
+                item.insulin_units + (item.glucose_plus_2h - target_mmol_l) / isf
+            )
             if adjusted_units <= 0.25:
                 continue
             value = item.carbs_g / adjusted_units
             if MIN_ICR <= value <= MAX_ICR:
-                evidence.append(
-                    _Evidence(item.timestamp, value, weight=item.carbs_g)
-                )
+                evidence.append(_Evidence(item.timestamp, value, weight=item.carbs_g))
         return evidence, excluded_for_activity
 
 
@@ -991,9 +1062,7 @@ def _has_neighbor(
 ) -> bool:
     return any(
         candidate.key != item.key
-        and item.timestamp - before
-        <= candidate.timestamp
-        <= item.timestamp + after
+        and item.timestamp - before <= candidate.timestamp <= item.timestamp + after
         for candidate in all_items
     )
 
@@ -1018,11 +1087,7 @@ def _nearest(
     if not points:
         return None
     point = min(points, key=lambda candidate: abs(candidate.timestamp - timestamp))
-    return (
-        point
-        if abs(point.timestamp - timestamp) <= timedelta(minutes=15)
-        else None
-    )
+    return point if abs(point.timestamp - timestamp) <= timedelta(minutes=15) else None
 
 
 def _nearest_indexed(
@@ -1044,9 +1109,7 @@ def _nearest_indexed(
         key=lambda candidate: abs(candidate.timestamp - target),
     )
     return (
-        point
-        if abs(point.timestamp - target) <= BACKGROUND_POINT_TOLERANCE
-        else None
+        point if abs(point.timestamp - target) <= BACKGROUND_POINT_TOLERANCE else None
     )
 
 
@@ -1063,16 +1126,10 @@ def _heart_rate_group(
     values: list[float],
     elevated_threshold: float | None,
 ) -> Literal["quiet", "elevated", "unknown"]:
-    if (
-        elevated_threshold is None
-        or len(values) < MIN_HR_SAMPLES_PER_WINDOW
-    ):
+    if elevated_threshold is None or len(values) < MIN_HR_SAMPLES_PER_WINDOW:
         return "unknown"
     elevated_count = sum(value >= elevated_threshold for value in values)
-    if (
-        median(values) >= elevated_threshold
-        or elevated_count / len(values) >= 1 / 3
-    ):
+    if median(values) >= elevated_threshold or elevated_count / len(values) >= 1 / 3:
         return "elevated"
     return "quiet"
 
@@ -1085,6 +1142,184 @@ def _background_signal(metric: TherapyAnalysisMetric) -> BasalSignal:
     if metric.value < -BACKGROUND_SIGNAL_THRESHOLD:
         return "falling"
     return "stable"
+
+
+def _basal_autotune_rate(
+    *,
+    configured_rate: float,
+    drift: TherapyAnalysisMetric,
+    isf: float,
+) -> tuple[float | None, float | None]:
+    """Return the retrospective rate that neutralizes a steady hourly drift.
+
+    At a steady state, a basal mismatch of one unit per hour contributes one
+    ISF worth of glucose drift per hour.  This is an equivalent retrospective
+    rate, not a pump command; thin hours deliberately produce no estimate.
+    """
+    if drift.value is None or drift.sample_count < MIN_BASAL_AUTOTUNE_WINDOWS:
+        return None, None
+    adjustment = drift.value / isf
+    autotuned = max(0.0, configured_rate + adjustment)
+    return round(adjustment, 2), round(autotuned, 2)
+
+
+def _compress_basal_profile(
+    slots: list[TherapyBasalSlot],
+    *,
+    window_count: int,
+    isf: float,
+) -> TherapyBasalCompression:
+    """Fit contiguous windows while preserving the hourly profile's daily dose.
+
+    Dynamic programming chooses boundaries that minimize squared error against
+    the hourly autotuned rates. Hours with more quiet normalized-CGM windows
+    carry more weight when boundaries are chosen. The rate printed for a
+    resulting interval remains the duration-weighted mean of its hourly rates,
+    so compression does not silently change the projected daily total.
+    """
+    if len(slots) != 24:
+        raise ValueError("basal compression requires 24 hourly slots")
+    if not MIN_BASAL_PROFILE_WINDOWS <= window_count <= len(slots):
+        raise ValueError("basal compression window count is out of range")
+
+    targets = [
+        slot.autotuned_basal_u_per_hour
+        if slot.autotuned_basal_u_per_hour is not None
+        else slot.configured_basal_u_per_hour
+        for slot in slots
+    ]
+    weights = [
+        float(slot.quiet_drift_mmol_l_per_hour.sample_count)
+        if slot.autotuned_basal_u_per_hour is not None
+        else 0.0
+        for slot in slots
+    ]
+
+    def segment_rate(start: int, end: int) -> float:
+        return sum(targets[start:end]) / (end - start)
+
+    def segment_cost(start: int, end: int) -> float:
+        rate = segment_rate(start, end)
+        segment_weights = weights[start:end]
+        effective_weights = (
+            segment_weights if any(segment_weights) else [1.0] * (end - start)
+        )
+        return sum(
+            weight * (target - rate) ** 2
+            for target, weight in zip(
+                targets[start:end],
+                effective_weights,
+                strict=True,
+            )
+        )
+
+    infinity = float("inf")
+    costs = [[infinity] * 25 for _ in range(window_count + 1)]
+    previous = [[-1] * 25 for _ in range(window_count + 1)]
+    costs[0][0] = 0.0
+    for count in range(1, window_count + 1):
+        for end in range(count, 25):
+            for start in range(count - 1, end):
+                candidate = costs[count - 1][start] + segment_cost(start, end)
+                if candidate < costs[count][end]:
+                    costs[count][end] = candidate
+                    previous[count][end] = start
+
+    boundaries: list[tuple[int, int]] = []
+    end = 24
+    for count in range(window_count, 0, -1):
+        start = previous[count][end]
+        boundaries.append((start, end))
+        end = start
+    boundaries.reverse()
+
+    durations = [end - start for start, end in boundaries]
+    raw_configured_rates = [
+        sum(slot.configured_basal_u_per_hour for slot in slots[start:end])
+        / (end - start)
+        for start, end in boundaries
+    ]
+    raw_autotuned_rates = [segment_rate(start, end) for start, end in boundaries]
+    configured_rates = _dose_preserving_rates(
+        raw_configured_rates,
+        durations,
+        target_daily_units=sum(slot.configured_basal_u_per_hour for slot in slots),
+    )
+    autotuned_rates = _dose_preserving_rates(
+        raw_autotuned_rates,
+        durations,
+        target_daily_units=sum(targets),
+    )
+
+    compressed_slots: list[TherapyBasalCompressedSlot] = []
+    for index, (start, end) in enumerate(boundaries):
+        configured = configured_rates[index]
+        autotuned = autotuned_rates[index]
+        adjustment = autotuned - configured
+        compressed_slots.append(
+            TherapyBasalCompressedSlot(
+                start_hour=start,
+                end_hour=end,
+                label=f"{start:02d}:00–{end:02d}:00",
+                configured_basal_u_per_hour=configured,
+                autotuned_basal_u_per_hour=autotuned,
+                basal_adjustment_u_per_hour=round(adjustment, 2),
+                equivalent_drift_mmol_l_per_hour=round(adjustment * isf, 2),
+                evidence_window_count=sum(
+                    slot.quiet_drift_mmol_l_per_hour.sample_count
+                    for slot in slots[start:end]
+                ),
+                autotuned_hour_count=sum(
+                    slot.autotuned_basal_u_per_hour is not None
+                    for slot in slots[start:end]
+                ),
+            )
+        )
+
+    return TherapyBasalCompression(
+        window_count=window_count,
+        projected_daily_basal_units=round(
+            sum(
+                duration * rate
+                for duration, rate in zip(
+                    durations,
+                    autotuned_rates,
+                    strict=True,
+                )
+            ),
+            2,
+        ),
+        slots=compressed_slots,
+    )
+
+
+def _dose_preserving_rates(
+    rates: list[float],
+    durations: list[int],
+    *,
+    target_daily_units: float,
+) -> list[float]:
+    """Round interval rates to 0.01 U/h with the closest possible daily total."""
+    target_centiunits = round(target_daily_units * 100)
+    # Map daily centiunits to the least squared rounding error and its rates.
+    states: dict[int, tuple[float, list[int]]] = {0: (0.0, [])}
+    for rate, duration in zip(rates, durations, strict=True):
+        center = round(rate * 100)
+        candidates = range(max(0, center - 4), center + 5)
+        next_states: dict[int, tuple[float, list[int]]] = {}
+        for total, (cost, chosen) in states.items():
+            for candidate in candidates:
+                next_total = total + duration * candidate
+                next_cost = cost + duration * (candidate / 100 - rate) ** 2
+                current = next_states.get(next_total)
+                if current is None or next_cost < current[0]:
+                    next_states[next_total] = (next_cost, [*chosen, candidate])
+        states = next_states
+    best_total = min(
+        states,
+        key=lambda total: (abs(total - target_centiunits), states[total][0]),
+    )
+    return [value / 100 for value in states[best_total][1]]
 
 
 def _payload_timestamp(value: Any) -> datetime | None:
@@ -1117,6 +1352,15 @@ def _point_value(point: GlucoseDashboardPoint | None) -> float | None:
         if point.normalized_value is not None
         else point.raw_value
     )
+
+
+def _normalized_point_value(
+    point: GlucoseDashboardPoint | None,
+) -> float | None:
+    """Return calibrated CGM only; raw CGM is not basal evidence."""
+    if point is None or point.normalized_value is None:
+        return None
+    return float(point.normalized_value)
 
 
 def _slot_start(hour: int) -> int:
