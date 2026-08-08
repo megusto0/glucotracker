@@ -340,6 +340,9 @@
     <string name="more_wearable_syncing">Синхронизация браслета…</string>
     <string name="more_wearable_open">Открыть Bridge</string>
     <string name="more_wearable_battery"> · %1$d%%</string>
+    <string name="more_wearable_auto_title">Автообновление</string>
+    <string name="more_wearable_auto_enabled">Каждые %1$d мин · пульс, сон и активность</string>
+    <string name="more_wearable_auto_disabled">Выключено · обновление только вручную</string>
     <string name="episode_breakdown_action">разбор</string>
     <string name="episode_breakdown_after">через %1$d мин</string>
     <string name="episode_breakdown_after_hours">через %1$d:%2$02d</string>

@@ -15,6 +15,7 @@ object HelioBridgeClient {
 
     private const val ActionStatus = "com.glucotracker.mobile.wearable.STATUS"
     private const val ActionSync = "com.glucotracker.mobile.wearable.SYNC"
+    private const val ActionAutoSync = "com.glucotracker.mobile.wearable.AUTO_SYNC"
     private const val ActionHealthConnectSettings =
         "com.glucotracker.mobile.wearable.HEALTH_CONNECT_SETTINGS"
     private const val ActionResult = "com.glucotracker.mobile.wearable.RESULT"
@@ -32,6 +33,10 @@ object HelioBridgeClient {
 
     fun sync(context: Context) {
         context.sendBroadcast(bridgeIntent(ActionSync))
+    }
+
+    fun setAutoSync(context: Context, enabled: Boolean) {
+        context.sendBroadcast(bridgeIntent(ActionAutoSync).putExtra("enabled", enabled))
     }
 
     fun openHealthConnectSettings(context: Context) {
@@ -62,6 +67,15 @@ object HelioBridgeClient {
                             ?: "Amazfit Helio Strap",
                         battery = intent.getIntExtra("battery", -1),
                         error = intent.getStringExtra("error"),
+                        autoSyncEnabled = intent.getBooleanExtra(
+                            "auto_sync_enabled",
+                            false,
+                        ),
+                        autoSyncIntervalMinutes = intent.getIntExtra(
+                            "auto_sync_interval_minutes",
+                            15,
+                        ),
+                        lastAutoSyncAt = intent.getLongExtra("last_auto_sync_at", -1L),
                     ),
                 )
             }
@@ -92,6 +106,9 @@ data class HelioBridgeStatus(
     val deviceName: String = "Amazfit Helio Strap",
     val battery: Int = -1,
     val error: String? = null,
+    val autoSyncEnabled: Boolean = false,
+    val autoSyncIntervalMinutes: Int = 15,
+    val lastAutoSyncAt: Long = -1L,
 ) {
     val isBusy: Boolean
         get() = phase in setOf("connecting", "device_sync", "health_connect", "syncing")

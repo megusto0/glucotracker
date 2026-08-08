@@ -71,5 +71,15 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <receiver
+            android:name=".wearable.HelioBridgeCompletionReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="com.glucotracker.mobile.permission.CONTROL_WEARABLE_BRIDGE">
+            <intent-filter>
+                <action android:name="com.glucotracker.mobile.wearable.RESULT" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -13,11 +13,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.local.glucotracker.R
 import com.local.glucotracker.healthconnect.DebugHealthConnectSync
+import com.local.glucotracker.ui.design.GT
+import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.feature.more.SettingsGlyphKind
 import com.local.glucotracker.ui.feature.more.SettingsGroup
 import com.local.glucotracker.ui.feature.more.SettingsRow
 import com.local.glucotracker.ui.feature.more.SettingsSection
+import com.local.glucotracker.ui.feature.more.SettingsSwitch
 import com.local.glucotracker.wearable.HelioBridgeClient
 import com.local.glucotracker.wearable.HelioBridgeStatus
 import java.time.Instant
@@ -76,15 +79,6 @@ internal fun MoreHealthConnectSurface() {
         sent = 0
         isRunning = false
     }
-    LaunchedEffect(bridgeStatus.phase) {
-        if (bridgeStatus.phase == "complete") {
-            // The bridge has finished writing the freshly fetched wearable
-            // records to Health Connect. Upload exactly that local truth next.
-            DebugHealthConnectSync.forceSyncNow()
-            isRunning = true
-        }
-    }
-
     MoreWearableBridgeContent(
         bridge = bridgeStatus,
         latestHeartRateBpm = status.latestHeartRateBpm,
@@ -100,6 +94,11 @@ internal fun MoreHealthConnectSurface() {
             }
         },
         onOpen = { HelioBridgeClient.openBridge(context) },
+        onAutoSyncToggle = {
+            val enabled = !bridgeStatus.autoSyncEnabled
+            bridgeStatus = bridgeStatus.copy(autoSyncEnabled = enabled)
+            HelioBridgeClient.setAutoSync(context, enabled)
+        },
     )
 
     MoreHealthConnectContent(
@@ -120,6 +119,7 @@ private fun MoreWearableBridgeContent(
     latestHeartRateAt: Long,
     onSync: () -> Unit,
     onOpen: () -> Unit,
+    onAutoSyncToggle: () -> Unit,
 ) {
     val battery = if (bridge.battery in 0..100) {
         stringResource(R.string.more_wearable_battery, bridge.battery)
@@ -174,6 +174,28 @@ private fun MoreWearableBridgeContent(
                 },
                 onClick = if (bridge.installed && !bridge.isBusy) onOpen else null,
             )
+            if (bridge.installed) {
+                GTHairlineDivider()
+                SettingsRow(
+                    title = stringResource(R.string.more_wearable_auto_title),
+                    description = if (bridge.autoSyncEnabled) {
+                        stringResource(
+                            R.string.more_wearable_auto_enabled,
+                            bridge.autoSyncIntervalMinutes,
+                        )
+                    } else {
+                        stringResource(R.string.more_wearable_auto_disabled)
+                    },
+                    action = {
+                        SettingsSwitch(
+                            checked = bridge.autoSyncEnabled,
+                            accent = GT.colors.info,
+                            onToggle = onAutoSyncToggle,
+                        )
+                    },
+                    onClick = onAutoSyncToggle,
+                )
+            }
         }
     }
 }

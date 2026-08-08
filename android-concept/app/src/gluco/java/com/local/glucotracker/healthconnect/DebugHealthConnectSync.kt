@@ -18,7 +18,9 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -261,6 +263,25 @@ object DebugHealthConnectSync {
     @JvmStatic
     fun forceSyncNow() {
         requestSync()
+    }
+
+    /**
+     * Runs after Bridge has committed a fresh wearable batch to Health Connect.
+     * Unique work keeps repeated completion broadcasts from starting overlapping
+     * server uploads, while the network constraint preserves the run offline.
+     */
+    fun enqueueBridgeSync(context: Context) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            "health_connect_bridge_sync",
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
     }
 
     /** False until `install` has run, i.e. the provider is not on this device. */
