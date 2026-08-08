@@ -1361,7 +1361,6 @@ private fun EpisodeInsulinFooter(
     if (showSheet) {
         HistoricalInsulinSheetHost(
             mealIds = valid,
-            alreadyGivenUnits = total,
             onDismiss = { showSheet = false },
         )
     }

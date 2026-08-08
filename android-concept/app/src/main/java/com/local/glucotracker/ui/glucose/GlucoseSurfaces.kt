@@ -89,7 +89,7 @@ interface GlucoseSurfaces {
     ) = Unit
 
     @Composable
-    fun MiniGlucoseCard(modifier: Modifier = Modifier)
+    fun MiniGlucoseCard(modifier: Modifier)
 
     /**
      * Fourth KPI card on the Today grid. The gluco flavor renders a
@@ -97,7 +97,7 @@ interface GlucoseSurfaces {
      * the noop returns false so the caller keeps the kcal-remaining card.
      */
     @Composable
-    fun TodayGlucoseKpiCard(modifier: Modifier = Modifier): Boolean
+    fun TodayGlucoseKpiCard(modifier: Modifier): Boolean
 
     /**
      * Daily TIR distribution card on the stats page. The gluco flavor
@@ -121,8 +121,8 @@ interface GlucoseSurfaces {
     fun StackMealContextMetaRows(
         mealId: String?,
         eatenAt: Instant,
-        meals: List<MealContextAnchor> = emptyList(),
-        recommendationEligible: Boolean = false,
+        meals: List<MealContextAnchor>,
+        recommendationEligible: Boolean,
     )
 
     /**
@@ -132,7 +132,7 @@ interface GlucoseSurfaces {
      * fall back to a food statistic rather than leaving a hole in the row.
      */
     @Composable
-    fun TodayGlucoseStat(modifier: Modifier = Modifier): Boolean
+    fun TodayGlucoseStat(modifier: Modifier): Boolean
 
     /**
      * Sleep and hard effort as two numbers under the day's totals.
@@ -141,7 +141,7 @@ interface GlucoseSurfaces {
      * the hour they happened. Renders nothing for a flavor with no watch.
      */
     @Composable
-    fun TodayBodyStates(date: LocalDate, modifier: Modifier = Modifier)
+    fun TodayBodyStates(date: LocalDate, modifier: Modifier)
 
     @Composable
     fun TodayRows(
@@ -188,7 +188,7 @@ interface GlucoseSurfaces {
         meals: List<HistoryTimelineMeal>,
         filters: Set<HistoryFilter>,
         onMealTap: (String) -> Unit,
-        modifier: Modifier = Modifier,
+        modifier: Modifier,
     )
 
     /**
@@ -200,7 +200,7 @@ interface GlucoseSurfaces {
      * renders nothing.
      */
     @Composable
-    fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier = Modifier)
+    fun HistoryDayGlucoseSummary(date: LocalDate, modifier: Modifier)
 
     @Composable
     fun MoreNightscoutSection()

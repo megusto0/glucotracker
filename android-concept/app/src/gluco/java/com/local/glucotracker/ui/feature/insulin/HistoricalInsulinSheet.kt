@@ -51,8 +51,10 @@ import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
 import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.generated.model.InsulinRecommendationResponse
 import com.local.glucotracker.ui.design.GT
-import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.glucose.BolusCalculationBlock
+import com.local.glucotracker.ui.glucose.BolusStateUi
+import com.local.glucotracker.ui.glucose.BolusTermUi
 import com.local.glucotracker.ui.glucose.GlucoCardAction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.DecimalFormat
@@ -65,6 +67,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 enum class IcrDaypart { Morning, Day, Evening }
 
@@ -287,13 +291,11 @@ private fun InsulinRecommendationResponse.correctionGap(): CorrectionGap? =
 @Composable
 fun HistoricalInsulinSheetHost(
     mealIds: List<String>,
-    alreadyGivenUnits: Double,
     onDismiss: () -> Unit,
 ) {
     if (mealIds.isEmpty()) return
     HistoricalInsulinSheet(
         mealIds = mealIds,
-        alreadyGivenUnits = alreadyGivenUnits,
         onDismiss = onDismiss,
     )
 }
@@ -323,7 +325,6 @@ fun HistoricalInsulinButton(
     if (showSheet) {
         HistoricalInsulinSheet(
             mealIds = mealIds,
-            alreadyGivenUnits = alreadyGivenUnits,
             onDismiss = { showSheet = false },
         )
     }
@@ -333,7 +334,6 @@ fun HistoricalInsulinButton(
 @Composable
 private fun HistoricalInsulinSheet(
     mealIds: List<String>,
-    alreadyGivenUnits: Double,
     onDismiss: () -> Unit,
     viewModel: HistoricalInsulinViewModel = hiltViewModel(),
 ) {
@@ -386,7 +386,6 @@ private fun HistoricalInsulinSheet(
 
             HistoricalEstimateBlock(
                 state = state,
-                alreadyGivenUnits = alreadyGivenUnits,
             )
 
             Column(
@@ -472,14 +471,9 @@ private fun HistoricalInsulinSheet(
 @Composable
 private fun HistoricalEstimateBlock(
     state: HistoricalInsulinUiState,
-    alreadyGivenUnits: Double,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             text = stringResource(R.string.insulin_history_estimate_label),
@@ -505,7 +499,16 @@ private fun HistoricalEstimateBlock(
                     color = GT.colors.ink,
                     style = GT.type.monoNumber,
                 )
-                DoseBreakdown(state)
+                val calculatedAt = remember(state) { Clock.System.now() }
+                BolusCalculationBlock(
+                    state = state.toBolusState(),
+                    terms = state.toBolusTerms(),
+                    total = state.headlineUnits,
+                    at = calculatedAt.timeText(),
+                    modifier = Modifier.testTag("historical-insulin-breakdown"),
+                    horizontalPadding = 0.dp,
+                )
+                CorrectionGapNotice(state.correctionGap)
                 IcrLine(state.basis)
                 Text(
                     text = stringResource(
@@ -552,77 +555,44 @@ private fun HistoricalEstimateBlock(
     }
 }
 
-/**
- * One term per line, each next to its own number.
- *
- * IOB belongs to the correction context. It must never appear as a hidden
- * negative food term: the backend's total is exactly food plus correction.
- */
-@Composable
-private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
-    val correction = state.correction
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .testTag("historical-insulin-breakdown"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        DoseTermRow(
-            label = stringResource(R.string.insulin_term_meal),
-            value = formatDose(state.mealUnits),
-        )
-        correction?.let {
-            DoseTermRow(
-                label = stringResource(R.string.bolus_term_correction),
-                value = formatSignedDose(it.units),
-            )
-        }
-        GTHairlineDivider()
-        DoseTermRow(
-            label = stringResource(R.string.insulin_term_total),
-            value = formatDose(state.headlineUnits) + " " +
-                stringResource(R.string.insulin_units_short),
-            emphasised = true,
-        )
-    }
-    state.correctionGap?.let { gap ->
-        Text(
-            text = stringResource(
-                when (gap) {
-                    CorrectionGap.TargetRequired -> R.string.insulin_history_gap_target
-                    CorrectionGap.IsfUnavailable -> R.string.insulin_history_gap_isf
-                    CorrectionGap.GlucoseUnavailable -> R.string.insulin_history_gap_glucose
-                    CorrectionGap.TrendUnavailable -> R.string.insulin_history_gap_trend
-                },
-            ),
-            modifier = Modifier.padding(top = 4.dp),
-            color = GT.colors.warn,
-            style = GT.type.sansLabel,
-        )
+internal fun HistoricalInsulinUiState.Ready.toBolusState() = BolusStateUi(
+    glucose = correction?.glucoseMmolL,
+    iob = correction?.iobUnits,
+    cob = correction?.priorCobG,
+    icr = basis.icrGPerUnit,
+    isf = correction?.isfMmolLPerUnit,
+    target = correction?.targetMmolL,
+)
+
+/** IOB is context inside correction, never a second subtraction from food. */
+internal fun HistoricalInsulinUiState.Ready.toBolusTerms() = buildList {
+    add(BolusTermUi(label = "meal", formula = null, value = mealUnits))
+    correction?.let {
+        add(BolusTermUi(label = "correction", formula = null, value = it.units))
     }
 }
 
+private fun kotlinx.datetime.Instant.timeText(): String {
+    val time = toLocalDateTime(TimeZone.currentSystemDefault()).time
+    return "%02d:%02d".format(time.hour, time.minute)
+}
+
 @Composable
-private fun DoseTermRow(label: String, value: String, emphasised: Boolean = false) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f),
-            color = if (emphasised) GT.colors.ink else GT.colors.ink2,
-            style = GT.type.sansLabel,
-            maxLines = 1,
-        )
-        Text(
-            text = value,
-            color = if (emphasised) GT.colors.ink else GT.colors.ink2,
-            style = if (emphasised) GT.type.monoNumber else GT.type.monoLabel,
-            maxLines = 1,
-        )
-    }
+private fun CorrectionGapNotice(gap: CorrectionGap?) {
+    if (gap == null) return
+    Text(
+        text = stringResource(
+            when (gap) {
+                CorrectionGap.TargetRequired -> R.string.insulin_history_gap_target
+                CorrectionGap.IsfUnavailable -> R.string.insulin_history_gap_isf
+                CorrectionGap.GlucoseUnavailable -> R.string.insulin_history_gap_glucose
+                CorrectionGap.TrendUnavailable -> R.string.insulin_history_gap_trend
+            },
+        ),
+        modifier = Modifier.padding(top = 4.dp),
+        color = GT.colors.warn,
+        style = GT.type.sansLabel,
+    )
 }
 
 /** The carbohydrate ratio behind the food half, and what it worked out to. */
@@ -785,12 +755,6 @@ private fun formatDose(value: Double): String = decimal("0.#").format(value)
 private fun formatRatio(value: Double): String = decimal("0.#").format(value)
 
 private fun formatMmol(value: Double): String = decimal("0.0").format(value)
-
-private fun formatSignedDose(value: Double): String {
-    // Typographical minus, per the number formatting rules.
-    val formatted = decimal("0.#").format(kotlin.math.abs(value))
-    return if (value < 0) "−$formatted" else "+$formatted"
-}
 
 private fun decimal(pattern: String): DecimalFormat {
     val symbols = DecimalFormatSymbols(Locale("ru")).apply {

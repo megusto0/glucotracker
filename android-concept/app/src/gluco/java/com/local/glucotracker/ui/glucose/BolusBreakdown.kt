@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -280,28 +281,12 @@ internal fun BolusBreakdownContent(
             return@Column
         }
 
-        BolusStateBlock(state = calc.state, at = clock(chosen.timestamp, zone))
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            calc.terms.forEach { term -> TermRow(term) }
-            calc.suggestedUnits?.let { total ->
-                GTHairlineDivider()
-                TermRow(
-                    BolusTermUi(
-                        label = "total",
-                        formula = null,
-                        value = total,
-                        isTotal = true,
-                    ),
-                )
-            }
-        }
+        BolusCalculationBlock(
+            state = calc.state,
+            terms = calc.terms,
+            total = calc.suggestedUnits,
+            at = clock(chosen.timestamp, zone),
+        )
 
         calc.unavailableNote?.let { note ->
             Text(
@@ -333,6 +318,45 @@ internal fun BolusBreakdownContent(
                 color = GT.colors.muted,
                 style = GT.type.monoLabel.copy(fontSize = 10.sp),
             )
+        }
+    }
+}
+
+/** Shared calculation body for a recommendation and a recorded bolus review. */
+@Composable
+internal fun BolusCalculationBlock(
+    state: BolusStateUi,
+    terms: List<BolusTermUi>,
+    total: Double?,
+    at: String,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 20.dp,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        BolusStateBlock(
+            state = state,
+            at = at,
+            horizontalPadding = horizontalPadding,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            terms.forEach { term -> TermRow(term) }
+            total?.let {
+                GTHairlineDivider()
+                TermRow(
+                    BolusTermUi(
+                        label = "total",
+                        formula = null,
+                        value = it,
+                        isTotal = true,
+                    ),
+                )
+            }
         }
     }
 }
@@ -378,10 +402,12 @@ private fun DoseRow(
 }
 
 @Composable
-private fun BolusStateBlock(state: BolusStateUi, at: String) {
+private fun BolusStateBlock(state: BolusStateUi, at: String, horizontalPadding: Dp) {
     Text(
         text = stringResource(R.string.bolus_state_at, at),
-        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 5.dp),
+        modifier = Modifier
+            .padding(horizontal = horizontalPadding)
+            .padding(top = 14.dp, bottom = 5.dp),
         color = GT.colors.muted,
         style = GT.type.kicker,
     )
@@ -394,7 +420,7 @@ private fun BolusStateBlock(state: BolusStateUi, at: String) {
         state.target?.let { stringResource(R.string.bolus_state_target) to mmol(it) },
     )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         cells.forEach { (label, value) ->
@@ -424,6 +450,7 @@ private fun TermRow(term: BolusTermUi) {
                 when (term.label) {
                     "correction" -> R.string.bolus_term_correction
                     "carbs" -> R.string.bolus_term_carbs
+                    "meal" -> R.string.insulin_term_meal
                     "iob" -> R.string.bolus_term_iob
                     else -> R.string.bolus_term_total
                 },
