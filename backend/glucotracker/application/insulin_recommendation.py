@@ -367,20 +367,14 @@ class HistoricalInsulinRecommendationService:
 
         correction_is_usable = correction.status in {"ready", "not_needed"}
         correction_units = correction.units if correction_is_usable else None
-        # The correction floors at zero, so insulin left over after it was
-        # simply discarded and the meal component was charged in full. A 24 g
-        # pastry an hour after a covered 113 g meal was quoted 3.8 U against
-        # roughly 10 U still working. Carry the surplus into the total.
-        surplus = (
-            correction.excess_iob_units or 0.0
-            if correction_is_usable and (correction.units or 0.0) <= 0.0
-            else 0.0
-        )
 
         def _total(base: float | None) -> float | None:
             if base is None or correction_units is None:
                 return None
-            return _round_dose(max(0.0, base + correction_units - surplus))
+            # The food estimate is the insulin for this new plate. Prior IOB is
+            # correction context only: subtracting it here silently spends the
+            # same insulin a second time when it is already covering prior COB.
+            return _round_dose(max(0.0, base + correction_units))
 
         total = _total(meal_estimate.recommended_units)
         total_low = _total(meal_estimate.range_low_units)
@@ -846,7 +840,10 @@ class HistoricalInsulinRecommendationService:
             return CorrectionEstimate(status="low_or_falling", **context)
 
         gross_units = (projected - target_mmol_l) / isf
-        net_units = gross_units - iob_units
+        # Only IOB left after the earlier COB commitment can reduce a glucose
+        # correction. The committed part cannot cover old carbohydrate and the
+        # correction at the same time.
+        net_units = gross_units - excess_iob
         if net_units <= 0:
             return CorrectionEstimate(status="not_needed", units=0.0, **context)
         return CorrectionEstimate(

@@ -93,6 +93,11 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Backend, Android, Desktop** — новый приём больше не уменьшается на весь IOB:
+  инсулин, уже обязанный прежнему COB, не расходуется второй раз, а свободный IOB
+  влияет только на коррекционную часть. Ретроспективный разбор также исключает
+  выбранный болюс из его собственного состояния «IOB до», поэтому введённые
+  6 ЕД больше не превращают расчёт 6 ЕД в ноль или заниженную дозу.
 - **Android** — a photographed meal's status updates while you sit on Today.
   The server draft row was hidden for the whole life of its outbox item, so once
   the upload confirmed the entry rendered from a record that carries no

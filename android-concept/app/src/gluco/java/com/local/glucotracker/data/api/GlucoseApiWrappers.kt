@@ -63,10 +63,12 @@ class GlucoseApi @Inject constructor(
     suspend fun topUpDose(
         at: Instant? = null,
         targetMmolL: Double? = null,
+        excludeInsulinId: java.util.UUID? = null,
     ): TopUpDoseResponse =
         glucoseApi.getTopUpDose(
             targetMmolL = targetMmolL?.let { java.math.BigDecimal.valueOf(it) },
             at = at,
+            excludeInsulinId = excludeInsulinId,
         ).body()
 
     suspend fun insulinRecommendation(

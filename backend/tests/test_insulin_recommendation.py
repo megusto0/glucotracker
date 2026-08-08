@@ -1219,13 +1219,13 @@ def test_hr_sample_instant_falls_back_to_row_start_time() -> None:
     assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
 
 
+def test_surplus_insulin_never_reduces_the_new_meal(api_client: TestClient) -> None:
+    """IOB may reduce a correction, but never the food half of a new bolus.
 
-
-def test_surplus_insulin_reduces_the_meal_total(api_client: TestClient) -> None:
-    """Reported 2026-08-03: a 24 g pastry quoted 3.8 U on top of ~10 U working.
-
-    The correction floors at zero, so the leftover insulin used to be discarded
-    and the meal component was charged in full.
+    Reported twice in the UI: a perfectly ordinary new plate showed a non-zero
+    food estimate and a zero total because old IOB was silently subtracted from
+    the food. That IOB belongs to the earlier episode; without an explicit
+    correction need there is no justified deduction from the new plate.
     """
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]
@@ -1240,7 +1240,7 @@ def test_surplus_insulin_reduces_the_meal_total(api_client: TestClient) -> None:
             occurred_at = target_at - timedelta(days=days_ago)
             _meal(session, owner_id, occurred_at, 24.0)
             _insulin(session, owner_id, occurred_at, 2.6)
-        for index, value in enumerate((8.9, 8.8, 8.7, 8.7)):
+        for index, value in enumerate((6.0, 6.0, 6.0, 6.0)):
             session.add(
                 NightscoutGlucoseEntry(
                     owner_id=owner_id,
@@ -1269,9 +1269,10 @@ def test_surplus_insulin_reduces_the_meal_total(api_client: TestClient) -> None:
     body = response.json()
     assert body["correction_status"] == "not_needed"
     assert body["correction_excess_iob_units"] > 0
-    # The meal component is unchanged; only the total absorbs the surplus.
+    # The food half remains the food half. Free IOB is correction context, not a
+    # hidden negative meal term.
     assert body["recommended_units"] is not None
-    assert body["total_recommended_units"] < body["recommended_units"]
+    assert body["total_recommended_units"] == body["recommended_units"]
 
 
 def test_no_surplus_when_insulin_is_committed_to_carbs_still_absorbing(
@@ -1283,8 +1284,10 @@ def test_no_surplus_when_insulin_is_committed_to_carbs_still_absorbing(
     target_at = datetime(2026, 8, 3, 17, 33)
     with session_factory() as session:
         target = _meal(session, owner_id, target_at, 24.0)
-        _meal(session, owner_id, target_at - timedelta(minutes=20), 110.0)
-        _insulin(session, owner_id, target_at - timedelta(minutes=20), 11.0)
+        # A separate earlier episode with enough carbohydrate still on board to
+        # commit every remaining unit of its own bolus.
+        _meal(session, owner_id, target_at - timedelta(minutes=90), 220.0)
+        _insulin(session, owner_id, target_at - timedelta(minutes=90), 11.0)
         for days_ago in (7, 14, 21):
             occurred_at = target_at - timedelta(days=days_ago)
             _meal(session, owner_id, occurred_at, 24.0)
@@ -1316,5 +1319,11 @@ def test_no_surplus_when_insulin_is_committed_to_carbs_still_absorbing(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["correction_prior_cob_g"] > 90
+    assert body["correction_prior_cob_g"] > 70
     assert body["correction_excess_iob_units"] == 0.0
+    assert body["correction_iob_units"] > 0
+    # IOB committed to COB cannot erase a glucose correction as well.
+    gross = (
+        body["correction_projected_glucose_mmol_l"] - body["correction_target_mmol_l"]
+    ) / body["correction_isf_mmol_l_per_unit"]
+    assert abs(body["correction_units"] - round(gross * 10) / 10) < 0.11

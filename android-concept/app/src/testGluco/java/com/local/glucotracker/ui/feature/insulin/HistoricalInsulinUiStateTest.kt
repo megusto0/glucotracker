@@ -9,19 +9,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * This sheet used to show the meal component on its own, which quietly dropped
- * the correction and the insulin still working. These pin the total, the two
- * halves it is made of, and the ratio behind the food half.
+ * The total is exactly food plus correction. IOB is context inside the
+ * correction and must never become a third, hidden subtraction from food.
  */
 class HistoricalInsulinUiStateTest {
 
     private fun response(
         recommendedUnits: BigDecimal? = BigDecimal("5.2"),
-        totalRecommendedUnits: BigDecimal? = BigDecimal("4.1"),
+        totalRecommendedUnits: BigDecimal? = BigDecimal("6.3"),
         correctionStatus: InsulinRecommendationResponse.CorrectionStatus =
             InsulinRecommendationResponse.CorrectionStatus.READY,
-        correctionUnits: BigDecimal? = BigDecimal("-1.1"),
+        correctionUnits: BigDecimal? = BigDecimal("1.1"),
         correctionIobUnits: BigDecimal? = BigDecimal("3.2"),
+        correctionPriorCobG: BigDecimal? = BigDecimal("23.0"),
+        correctionExcessIobUnits: BigDecimal? = BigDecimal("0.7"),
         icrGPerUnit: BigDecimal? = BigDecimal("9.3"),
         icrConfiguredGPerUnit: BigDecimal? = BigDecimal("9.3"),
         icrAfterSleep: Boolean = false,
@@ -41,6 +42,8 @@ class HistoricalInsulinUiStateTest {
         targetKcal = BigDecimal("520"),
         correctionUnits = correctionUnits,
         correctionIobUnits = correctionIobUnits,
+        correctionPriorCobG = correctionPriorCobG,
+        correctionExcessIobUnits = correctionExcessIobUnits,
         correctionGlucoseMmolL = BigDecimal("9.4"),
         correctionProjectedGlucoseMmolL = BigDecimal("8.1"),
         correctionTargetMmolL = BigDecimal("6.0"),
@@ -67,17 +70,19 @@ class HistoricalInsulinUiStateTest {
     fun `the headline is the total, not the meal component`() {
         val state = ready(response())
 
-        assertEquals(4.1, state.headlineUnits, 1e-9)
+        assertEquals(6.3, state.headlineUnits, 1e-9)
         assertEquals(5.2, state.mealUnits, 1e-9)
         assertTrue(state.includesCorrection)
     }
 
     @Test
-    fun `the correction carries the insulin still working`() {
+    fun `the correction carries committed and free insulin context`() {
         val state = ready(response())
 
-        assertEquals(-1.1, state.correction!!.units, 1e-9)
+        assertEquals(1.1, state.correction!!.units, 1e-9)
         assertEquals(3.2, state.correction!!.iobUnits!!, 1e-9)
+        assertEquals(23.0, state.correction!!.priorCobG!!, 1e-9)
+        assertEquals(0.7, state.correction!!.excessIobUnits!!, 1e-9)
         assertNull(state.correctionGap)
     }
 

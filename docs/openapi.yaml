@@ -11513,9 +11513,9 @@ paths:
 
         the question a chasing bolus raises and the one the diary cannot otherwise
 
-        reconstruct. The service already computed every term as of a supplied
+        reconstruct. [exclude_insulin_id] identifies that dose so it cannot appear
 
-        moment; only the endpoint was pinned to the present.
+        inside the IOB used to explain itself.
 
 
         Two terms do not travel backwards and the response says so through its own
@@ -11548,6 +11548,15 @@ paths:
             type: string
           - type: 'null'
           title: At
+      - in: query
+        name: exclude_insulin_id
+        required: false
+        schema:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Exclude Insulin Id
       - in: header
         name: authorization
         required: false

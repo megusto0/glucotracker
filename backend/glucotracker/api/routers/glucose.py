@@ -433,14 +433,15 @@ def get_top_up_dose(
     current_user: CurrentUserDep,
     target_mmol_l: Annotated[float | None, Query(ge=3.9, le=10.0)] = None,
     at: Annotated[datetime | None, Query()] = None,
+    exclude_insulin_id: Annotated[UUID | None, Query()] = None,
 ) -> TopUpDoseResponse:
     """Return the follow-up bolus implied by carbs left, IOB and the target.
 
     [at] is app-local wall time and defaults to now. Passing a past moment
     answers "what did this arithmetic say when that dose was given", which is
     the question a chasing bolus raises and the one the diary cannot otherwise
-    reconstruct. The service already computed every term as of a supplied
-    moment; only the endpoint was pinned to the present.
+    reconstruct. [exclude_insulin_id] identifies that dose so it cannot appear
+    inside the IOB used to explain itself.
 
     Two terms do not travel backwards and the response says so through its own
     fields: `projection_source` degrades to "none" once the stored forecast for
@@ -451,6 +452,7 @@ def get_top_up_dose(
     suggestion = TopUpDoseService(session, current_user.id).suggest(
         target_mmol_l=target_mmol_l,
         at=at,
+        exclude_insulin_id=exclude_insulin_id,
     )
     return TopUpDoseResponse(**asdict(suggestion))
 

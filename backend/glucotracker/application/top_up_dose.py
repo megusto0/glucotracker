@@ -33,7 +33,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from glucotracker.application.glucose_dashboard import GlucoseDashboardService
+from glucotracker.api.schemas import GlucoseDashboardInsulinEvent
+from glucotracker.application.glucose_dashboard import (
+    GlucoseDashboardService,
+    _local_wall_from_utc,
+    _remaining_on_board,
+)
 from glucotracker.application.glucose_trend_projection import (
     GlucoseTrendProjectionService,
 )
@@ -46,7 +51,13 @@ from glucotracker.application.insulin_recommendation import (
     _round_dose,
     _trusted_isf,
 )
+from glucotracker.application.on_board.classification import is_rapid_insulin_event
 from glucotracker.application.time import local_now
+from glucotracker.application.twin.kernels import (
+    PersonalizedInsulinKernel,
+    personalized_insulin_minutes_remaining,
+)
+from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.db.repositories.twin import TwinRepository
 
 LOOKBACK_MINUTES = 30
@@ -97,6 +108,7 @@ class TopUpDoseService:
         *,
         target_mmol_l: float | None = None,
         at: datetime | None = None,
+        exclude_insulin_id: UUID | None = None,
     ) -> TopUpSuggestion:
         """Return the follow-up bolus implied by carbs left, IOB and target."""
         now = at or local_now()
@@ -122,6 +134,13 @@ class TopUpDoseService:
             self.session,
             self.user_id,
         ).get_or_create_params(persist=False)
+        iob_units = _active_iob_units(
+            self.session,
+            self.user_id,
+            as_of=now,
+            dia_minutes=twin_params.dia_minutes,
+            exclude_insulin_id=exclude_insulin_id,
+        )
         trusted_isf = _trusted_isf(twin_params)
         isf = trusted_isf or DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT
         isf_source: Literal["manual", "fitted", "default"] = (
@@ -137,7 +156,7 @@ class TopUpDoseService:
                 status="icr_unavailable",
                 glucose_mmol_l=round(glucose, 1),
                 target_mmol_l=round(target, 1),
-                iob_units=round(summary.iob_units, 2),
+                iob_units=round(iob_units, 2),
                 cob_g=round(summary.cob_g, 1),
             )
 
@@ -159,7 +178,7 @@ class TopUpDoseService:
             "projection_source": projection_source,
             "target_mmol_l": round(target, 1),
             "cob_g": round(summary.cob_g, 1),
-            "iob_units": round(summary.iob_units, 2),
+            "iob_units": round(iob_units, 2),
             "icr_g_per_unit": round(icr, 1),
             "isf_mmol_l_per_unit": round(isf, 2),
             "isf_source": isf_source,
@@ -186,7 +205,7 @@ class TopUpDoseService:
         # glucose climbed from 10.1 to 11.7. Above the high band the belief that
         # the situation is handled has been contradicted by the reading itself,
         # so the correction toward target is offered instead of nothing.
-        net = carb_units + correction_units - summary.iob_units
+        net = carb_units + correction_units - iob_units
         contradicted = (
             net < MIN_SUGGESTION_UNITS
             and min(glucose, projected) > TIR_HIGH_MMOL_L
@@ -222,3 +241,63 @@ def _minutes(value: int):
     from datetime import timedelta
 
     return timedelta(minutes=value)
+
+
+def _active_iob_units(
+    session: Session,
+    user_id: UUID,
+    *,
+    as_of: datetime,
+    dia_minutes: int,
+    exclude_insulin_id: UUID | None,
+) -> float:
+    """Return owner-scoped rapid IOB, optionally before one selected bolus.
+
+    A retrospective explanation is evaluated at the selected bolus timestamp.
+    The dashboard quite correctly includes an event at that timestamp in its
+    current state, but the explanation must answer the instant immediately
+    before that event. Filtering by the persisted owner-scoped id avoids the
+    selected bolus subtracting itself while retaining every earlier dose.
+    """
+    repository = OnBoardRepository(session, user_id)
+    fit = repository.get_active_fit("iob", "rapid")
+    kernel: PersonalizedInsulinKernel | None = None
+    if fit is not None:
+        try:
+            kernel = PersonalizedInsulinKernel.from_mapping(fit.params_json)
+        except ValueError:
+            kernel = None
+    horizon = dia_minutes
+    if kernel is not None:
+        horizon = max(
+            horizon,
+            personalized_insulin_minutes_remaining(0, kernel),
+        )
+    rows = repository.list_training_insulin(
+        as_of - _minutes(horizon),
+        as_of,
+    )
+    events = [
+        GlucoseDashboardInsulinEvent(
+            timestamp=_local_wall_from_utc(row.timestamp),
+            insulin_units=row.insulin_units,
+            event_type=row.event_type,
+            insulin_type=row.insulin_type,
+            notes=row.notes,
+        )
+        for row in rows
+        if row.id != exclude_insulin_id
+        and is_rapid_insulin_event(
+            insulin_type=row.insulin_type,
+            event_type=row.event_type,
+        )
+    ]
+    units, _ = _remaining_on_board(
+        events,
+        as_of=as_of,
+        duration_minutes=dia_minutes,
+        amount=lambda event: event.insulin_units,
+        decay="insulin_pd",
+        insulin_kernel=kernel,
+    )
+    return units

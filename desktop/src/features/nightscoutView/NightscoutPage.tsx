@@ -736,7 +736,7 @@ function correctionStatusText(
   if (status === "low_or_falling")
     return "Глюкоза низкая или быстро снижается — итог не рассчитан.";
   if (status === "not_needed")
-    return "Коррекция не нужна с учётом тренда и IOB.";
+    return "Коррекция не нужна с учётом тренда и свободного IOB.";
   if (!status) return "Для коррекции нужен обновлённый backend.";
   return null;
 }
@@ -940,27 +940,6 @@ function InsulinEpisodePanel({
                   {formatDose(recommendationData.correction_units)} Ед
                 </strong>
               </div>
-              {/* Insulin still working is subtracted from the total, but only
-                  once the correction itself has floored at zero. Omitting it
-                  published arithmetic that does not hold — a 4,9 Ед meal with
-                  no correction adding up to 0. */}
-              {typeof recommendationData.correction_excess_iob_units ===
-                "number" &&
-              recommendationData.correction_excess_iob_units > 0 &&
-              (recommendationData.correction_units ?? 0) <= 0 ? (
-                <>
-                  <b aria-hidden="true">−</b>
-                  <div>
-                    <span>Активный инсулин</span>
-                    <strong>
-                      {formatDose(
-                        recommendationData.correction_excess_iob_units,
-                      )}{" "}
-                      Ед
-                    </strong>
-                  </div>
-                </>
-              ) : null}
               <b aria-hidden="true">=</b>
               <div className="ns-insulin-total">
                 <span>Итого</span>
@@ -978,14 +957,20 @@ function InsulinEpisodePanel({
                 {formatDose(
                   recommendationData.correction_projected_glucose_mmol_l,
                 )}{" "}
-                ммоль/л · IOB{" "}
-                {formatDose(recommendationData.correction_iob_units)} Ед · ISF{" "}
+                ммоль/л · ISF{" "}
                 {formatDose(recommendationData.correction_isf_mmol_l_per_unit)}
                 {recommendationData.correction_isf_source === "default"
                   ? " (по умолчанию)"
                   : ""}
               </small>
             )}
+            <small>
+              IOB до приёма {formatDose(recommendationData.correction_iob_units)}
+              {" Ед"} · прежний COB{" "}
+              {formatDose(recommendationData.correction_prior_cob_g)} г · свободно
+              для коррекции{" "}
+              {formatDose(recommendationData.correction_excess_iob_units)} Ед
+            </small>
             <small>
               Еда: {formatDose(recommendationData.range_low_units)}–
               {formatDose(recommendationData.range_high_units)} Ед · похожих

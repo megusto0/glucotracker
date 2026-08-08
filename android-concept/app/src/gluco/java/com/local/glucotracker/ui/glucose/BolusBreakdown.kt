@@ -94,10 +94,16 @@ class BolusBreakdownViewModel @Inject constructor(
     private val _calc = MutableStateFlow<BolusCalcUi?>(null)
     internal val calc: StateFlow<BolusCalcUi?> = _calc.asStateFlow()
 
-    fun load(at: Instant) {
+    fun load(at: Instant, insulinId: String) {
         _calc.value = null
         viewModelScope.launch {
-            val response = runCatching { glucoseApi.topUpDose(at = at) }.getOrNull()
+            val response = runCatching {
+                glucoseApi.topUpDose(
+                    at = at,
+                    excludeInsulinId = runCatching { java.util.UUID.fromString(insulinId) }
+                        .getOrNull(),
+                )
+            }.getOrNull()
             if (response == null) {
                 _calc.value = null
                 return@launch
@@ -161,7 +167,9 @@ fun BolusBreakdownSheet(
     if (ordered.isEmpty()) return
     var selected by remember(ordered.map { it.id }) { mutableIntStateOf(ordered.lastIndex) }
     val viewModel: BolusBreakdownViewModel = hiltViewModel()
-    LaunchedEffect(ordered[selected].id) { viewModel.load(ordered[selected].timestamp) }
+    LaunchedEffect(ordered[selected].id) {
+        viewModel.load(ordered[selected].timestamp, ordered[selected].id)
+    }
     val calc by viewModel.calc.collectAsStateWithLifecycle()
 
     ModalBottomSheet(

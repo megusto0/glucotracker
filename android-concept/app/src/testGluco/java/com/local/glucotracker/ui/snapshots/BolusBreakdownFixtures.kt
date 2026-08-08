@@ -39,7 +39,7 @@ private fun dose(id: String, units: Double, at: Instant, kind: InsulinEventType)
 internal fun chasingBolusCalc(): BolusCalcUi = BolusCalcUi(
     state = BolusStateUi(
         glucose = 12.4,
-        iob = 6.1,
+        iob = 3.9,
         cob = 34.0,
         icr = 8.0,
         isf = 2.6,
@@ -48,9 +48,9 @@ internal fun chasingBolusCalc(): BolusCalcUi = BolusCalcUi(
     terms = listOf(
         BolusTermUi("correction", "(12,4−6,0) / 2,6", 2.5),
         BolusTermUi("carbs", "34 г / 8,0", 4.3),
-        BolusTermUi("iob", null, -6.1),
+        BolusTermUi("iob", null, -3.9),
     ),
-    suggestedUnits = 1.8,
+    suggestedUnits = 2.9,
     unavailableNote = null,
     projectionStale = true,
 )

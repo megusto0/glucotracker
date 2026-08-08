@@ -175,8 +175,9 @@
     <string name="insulin_history_why_blend">Смешано: %1$d%% история + %2$d%% ICR = %3$s ЕД</string>
     <string name="insulin_history_why_correction_trend">Коррекция: %1$s → %2$s по тренду, цель %3$s, ISF %4$s</string>
     <string name="insulin_history_why_correction_forecast">Коррекция: %1$s → %2$s по прогнозу, цель %3$s, ISF %4$s</string>
-    <string name="insulin_history_why_iob">Активный инсулин: %1$s ЕД вычтено</string>
-    <string name="insulin_history_why_excess_iob">Излишек активного инсулина: %1$s ЕД снят с еды</string>
+    <string name="insulin_history_why_iob">IOB до приёма: %1$s ЕД</string>
+    <string name="insulin_history_why_committed_iob">Из него %1$s ЕД оставлено под прежний COB %2$s г</string>
+    <string name="insulin_history_why_excess_iob">Свободный IOB: %1$s ЕД учтён только в коррекции</string>
     <string name="insulin_history_why_isf_default">ISF взят по умолчанию — задайте личный в двойнике.</string>
     <string name="insulin_history_insufficient">Недостаточно истории: найдено %1$d из 3 нужных приёмов.</string>
     <string name="insulin_history_no_carbs">В этом приёме нет углеводов для исторического расчёта.</string>
@@ -348,14 +349,14 @@
     <string name="bolus_reason_alone">Отдельный болюс</string>
     <string name="bolus_state_at">СОСТОЯНИЕ НА %1$s</string>
     <string name="bolus_state_glucose">ГЛЮКОЗА</string>
-    <string name="bolus_state_iob">IOB</string>
+    <string name="bolus_state_iob">IOB ДО</string>
     <string name="bolus_state_cob">COB</string>
     <string name="bolus_state_icr">ICR</string>
     <string name="bolus_state_isf">ISF</string>
     <string name="bolus_state_target">ЦЕЛЬ</string>
     <string name="bolus_term_correction">на отклонение</string>
     <string name="bolus_term_carbs">на остаток углеводов</string>
-    <string name="bolus_term_iob">минус активный инсулин</string>
+    <string name="bolus_term_iob">минус IOB до болюса</string>
     <string name="bolus_term_total">итого расчётно</string>
     <string name="bolus_entered">%1$s ЕД введено</string>
     <string name="bolus_calc_was">расчёт был %1$s</string>

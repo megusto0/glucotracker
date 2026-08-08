@@ -59,6 +59,34 @@ Multiple sources for one question get one entry each, sharing the same
 
 ## Log
 
+### 2026-08-08 — Разделение IOB еды и коррекции в расчёте болюса
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC8783627/
+- **Consulted for:** должен ли активный инсулин уменьшать пищевую часть нового
+  болюса, если этот инсулин уже покрывает ранее съеденные углеводы.
+- **Used in:** `backend/glucotracker/application/insulin_recommendation.py`,
+  `desktop/src/features/nightscoutView/NightscoutPage.tsx`,
+  `android-concept/app/src/gluco/java/com/local/glucotracker/ui/feature/insulin/HistoricalInsulinSheet.kt`.
+- **Takeaway:** в проверенном калькуляторе пищевой и коррекционный IOB разделены;
+  пищевой IOB не вычитается из пищевой части нового болюса.
+- **Verdict:** partially applied — в Glucotracker нет разметки назначения каждой
+  введённой дозы, поэтому уже существующий расчёт обязательства IOB перед прежним
+  COB сохранён, а свободный остаток учитывается только в коррекционной части.
+
+### 2026-08-08 — IOB в ретроспективном разборе болюса
+
+- **URL:** https://pubmed.ncbi.nlm.nih.gov/24876553/
+- **Consulted for:** какое состояние IOB должен показывать разбор уже введённого
+  болюса и допустимо ли включать выбранную дозу в её собственный расчёт.
+- **Used in:** `backend/glucotracker/application/top_up_dose.py`,
+  `backend/glucotracker/api/routers/glucose.py`,
+  `android-concept/app/src/gluco/java/com/local/glucotracker/ui/glucose/BolusBreakdown.kt`.
+- **Takeaway:** IOB — остаток ранее введённого инсулина, который нужен для защиты
+  от наложения доз; выбранный болюс не может быть частью предшествующего ему IOB.
+- **Verdict:** applied — API принимает идентификатор разбираемой дозы и исключает
+  её из owner-scoped пересчёта IOB на этот момент; параметры действия инсулина не
+  менялись.
+
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model
 document._

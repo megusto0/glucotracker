@@ -1012,10 +1012,12 @@ describe("NightscoutPage", () => {
         data: {
           confidence: "medium",
           correction_glucose_mmol_l: ready ? 8.2 : null,
+          correction_excess_iob_units: ready ? 0.1 : null,
           correction_iob_units: ready ? 0.4 : null,
           correction_isf_mmol_l_per_unit: ready ? 1.5 : null,
           correction_isf_source: ready ? "default" : null,
           correction_projected_glucose_mmol_l: ready ? 8.4 : null,
+          correction_prior_cob_g: ready ? 2.8 : null,
           correction_status: ready ? "ready" : "target_required",
           correction_target_mmol_l: ready ? 6 : null,
           correction_trend_mmol_l_per_min: ready ? 0.02 : null,
@@ -1065,6 +1067,12 @@ describe("NightscoutPage", () => {
     expect(screen.getByText("5.3 Ед")).toBeInTheDocument();
     expect(screen.getByText(/Глюкоза 8.2 → 8.4 ммоль\/л/)).toBeInTheDocument();
     expect(screen.getByText(/ISF 1.5 \(по умолчанию\)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /IOB до приёма 0.4 Ед · прежний COB 2.8 г · свободно для коррекции 0.1 Ед/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Активный инсулин")).not.toBeInTheDocument();
   });
 
   test("the top-up button shows the number and the arithmetic behind it", () => {

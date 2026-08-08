@@ -85,6 +85,7 @@ data class CorrectionPart(
     val isfMmolLPerUnit: Double?,
     val isfIsDefault: Boolean,
     val iobUnits: Double?,
+    val priorCobG: Double?,
     val excessIobUnits: Double?,
     val projectionIsForecast: Boolean,
 )
@@ -262,6 +263,7 @@ private fun InsulinRecommendationResponse.correctionPart(): CorrectionPart? {
         isfIsDefault = correctionIsfSource ==
             InsulinRecommendationResponse.CorrectionIsfSource.DEFAULT,
         iobUnits = correctionIobUnits?.toDouble(),
+        priorCobG = correctionPriorCobG?.toDouble(),
         excessIobUnits = correctionExcessIobUnits?.toDouble(),
         projectionIsForecast = correctionProjectionSource ==
             InsulinRecommendationResponse.CorrectionProjectionSource.FORECAST,
@@ -553,22 +555,12 @@ private fun HistoricalEstimateBlock(
 /**
  * One term per line, each next to its own number.
  *
- * This was a single line reading «еда 5,8 +0 коррекция −1,3 активный инсулин =
- * 4,5 ЕД», where the signs belong to the values and the labels sit between
- * them, so nothing could be told apart or checked. The same terms stacked read
- * as arithmetic, which is what they are.
+ * IOB belongs to the correction context. It must never appear as a hidden
+ * negative food term: the backend's total is exactly food plus correction.
  */
 @Composable
 private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
     val correction = state.correction
-    // Insulin still working is subtracted from the total, but only when the
-    // correction itself already floored at zero. Leaving it out of the line
-    // published arithmetic that does not hold: a 4,9 U meal with no correction
-    // summing to 0. Shown here, not only under "Как посчитано", because this
-    // is the line that states the total.
-    val surplus = correction
-        ?.excessIobUnits
-        ?.takeIf { it > 0.0 && correction.units <= 0.0 }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -584,12 +576,6 @@ private fun DoseBreakdown(state: HistoricalInsulinUiState.Ready) {
             DoseTermRow(
                 label = stringResource(R.string.bolus_term_correction),
                 value = formatSignedDose(it.units),
-            )
-        }
-        surplus?.let {
-            DoseTermRow(
-                label = stringResource(R.string.bolus_term_iob),
-                value = "−" + formatDose(it),
             )
         }
         GTHairlineDivider()
@@ -774,8 +760,17 @@ private fun reasoningLines(state: HistoricalInsulinUiState.Ready): List<String> 
         }
         correction.iobUnits?.takeIf { it > 0.0 }?.let { iob ->
             lines += stringResource(R.string.insulin_history_why_iob, formatDose(iob))
+            val committed = (iob - (correction.excessIobUnits ?: 0.0)).coerceAtLeast(0.0)
+            val priorCob = correction.priorCobG
+            if (committed > 0.0 && priorCob != null && priorCob > 0.0) {
+                lines += stringResource(
+                    R.string.insulin_history_why_committed_iob,
+                    formatDose(committed),
+                    formatDose(priorCob),
+                )
+            }
         }
-        correction.excessIobUnits?.takeIf { it > 0.0 && correction.units <= 0.0 }?.let { excess ->
+        correction.excessIobUnits?.takeIf { it > 0.0 }?.let { excess ->
             lines += stringResource(R.string.insulin_history_why_excess_iob, formatDose(excess))
         }
         if (correction.isfIsDefault) {

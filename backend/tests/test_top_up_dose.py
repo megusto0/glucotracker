@@ -286,3 +286,70 @@ def test_top_up_can_be_asked_about_a_past_moment(api_client: TestClient) -> None
     assert body["projection_source"] == "none"
     # The undated call still means "now", where this owner has no CGM at all.
     assert undated.json()["status"] == "glucose_unavailable"
+
+
+def test_retrospective_top_up_excludes_the_bolus_being_explained(
+    api_client: TestClient,
+) -> None:
+    """A bolus cannot appear inside the IOB used to explain that same bolus."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    then = NOW - timedelta(days=4)
+    with api_client.app_state["session_factory"]() as session:
+        for minutes, value in {15: 6.0, 10: 6.0, 0: 6.0}.items():
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"self-iob-cgm-{minutes}",
+                    timestamp=then - timedelta(minutes=minutes),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        session.add(
+            Meal(
+                owner_id=owner_id,
+                eaten_at=then.replace(tzinfo=None),
+                title="Ужин",
+                source=MealSource.photo,
+                status=MealStatus.accepted,
+                total_carbs_g=60,
+                total_protein_g=10,
+                total_fat_g=8,
+                total_kcal=400,
+            )
+        )
+        selected = NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key="self-iob-selected",
+            nightscout_id="self-iob-selected",
+            timestamp=then,
+            insulin_units=4.0,
+            event_type="Meal Bolus",
+            entered_by="Nightscout",
+        )
+        session.add(selected)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 10.0
+        params.isf = 2.0
+        params.last_fit_method = "manual"
+        session.commit()
+        selected_id = selected.id
+
+    common = {
+        "at": then.replace(tzinfo=None).isoformat(),
+        "target_mmol_l": 6.0,
+    }
+    included = api_client.get("/glucose/top-up-dose", params=common)
+    excluded = api_client.get(
+        "/glucose/top-up-dose",
+        params={**common, "exclude_insulin_id": str(selected_id)},
+    )
+
+    assert included.status_code == excluded.status_code == 200
+    included_body = included.json()
+    excluded_body = excluded.json()
+    assert included_body["iob_units"] == 4.0
+    assert excluded_body["iob_units"] == 0.0
+    assert included_body["units"] == 2.0
+    assert excluded_body["units"] == 6.0

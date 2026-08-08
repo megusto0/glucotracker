@@ -624,8 +624,8 @@ export interface paths {
          *     [at] is app-local wall time and defaults to now. Passing a past moment
          *     answers "what did this arithmetic say when that dose was given", which is
          *     the question a chasing bolus raises and the one the diary cannot otherwise
-         *     reconstruct. The service already computed every term as of a supplied
-         *     moment; only the endpoint was pinned to the present.
+         *     reconstruct. [exclude_insulin_id] identifies that dose so it cannot appear
+         *     inside the IOB used to explain itself.
          *
          *     Two terms do not travel backwards and the response says so through its own
          *     fields: `projection_source` degrades to "none" once the stored forecast for
@@ -9368,6 +9368,7 @@ export interface operations {
             query?: {
                 target_mmol_l?: number | null;
                 at?: string | null;
+                exclude_insulin_id?: string | null;
             };
             header?: {
                 authorization?: string | null;

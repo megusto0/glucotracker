@@ -18569,7 +18569,7 @@
     },
     "/glucose/top-up-dose": {
       "get": {
-        "description": "Return the follow-up bolus implied by carbs left, IOB and the target.\n\n[at] is app-local wall time and defaults to now. Passing a past moment\nanswers \"what did this arithmetic say when that dose was given\", which is\nthe question a chasing bolus raises and the one the diary cannot otherwise\nreconstruct. The service already computed every term as of a supplied\nmoment; only the endpoint was pinned to the present.\n\nTwo terms do not travel backwards and the response says so through its own\nfields: `projection_source` degrades to \"none\" once the stored forecast for\nthat moment has aged out, and ICR/ISF are read from the owner's *current*\nparameters, so a figure recomputed after a refit will not reproduce what was\ndisplayed at the time.",
+        "description": "Return the follow-up bolus implied by carbs left, IOB and the target.\n\n[at] is app-local wall time and defaults to now. Passing a past moment\nanswers \"what did this arithmetic say when that dose was given\", which is\nthe question a chasing bolus raises and the one the diary cannot otherwise\nreconstruct. [exclude_insulin_id] identifies that dose so it cannot appear\ninside the IOB used to explain itself.\n\nTwo terms do not travel backwards and the response says so through its own\nfields: `projection_source` degrades to \"none\" once the stored forecast for\nthat moment has aged out, and ICR/ISF are read from the owner's *current*\nparameters, so a figure recomputed after a refit will not reproduce what was\ndisplayed at the time.",
         "operationId": "getTopUpDose",
         "parameters": [
           {
@@ -18605,6 +18605,23 @@
                 }
               ],
               "title": "At"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exclude_insulin_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Insulin Id"
             }
           },
           {
