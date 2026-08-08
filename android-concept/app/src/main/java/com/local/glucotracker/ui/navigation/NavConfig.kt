@@ -42,6 +42,7 @@ data class CaptureFabExtraActionSpec(
 enum class NavIcon {
     Today,
     Trend,
+    Stats,
     History,
     Base,
     More,

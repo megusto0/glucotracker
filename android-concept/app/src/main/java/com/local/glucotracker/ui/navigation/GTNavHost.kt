@@ -721,7 +721,7 @@ private fun BrandRightSlot(
         selectedRoute == Route.Today.route && hasBrand -> null
         selectedRoute == Route.Today.route -> stringResource(R.string.today_stats_action)
         selectedRoute == Route.History.route -> stringResource(R.string.history_search_hint)
-        selectedRoute == Route.Norm.route -> stringResource(R.string.nav_norm)
+        selectedRoute == Route.Norm.route -> stringResource(R.string.stats_page_label)
         selectedRoute == Route.Base.route -> stringResource(R.string.nav_base)
         selectedRoute == Route.More.route -> stringResource(R.string.nav_more)
         else -> null
@@ -805,6 +805,27 @@ private fun NavGlyph(kind: NavIcon) {
                     cubicTo(13.dp.toPx(), 19.dp.toPx(), 18.dp.toPx(), 16.dp.toPx(), 20.dp.toPx(), 8.dp.toPx())
                 }
                 drawPath(path = path, color = color, style = stroke)
+            }
+            NavIcon.Stats -> {
+                drawLine(
+                    color,
+                    Offset(3.dp.toPx(), 18.dp.toPx()),
+                    Offset(19.dp.toPx(), 18.dp.toPx()),
+                    stroke.width,
+                )
+                listOf(
+                    Triple(5.dp, 12.dp, 18.dp),
+                    Triple(10.dp, 8.dp, 18.dp),
+                    Triple(15.dp, 4.dp, 18.dp),
+                ).forEach { (x, top, bottom) ->
+                    drawLine(
+                        color,
+                        Offset(x.toPx(), top.toPx()),
+                        Offset(x.toPx(), bottom.toPx()),
+                        stroke.width,
+                        cap = StrokeCap.Round,
+                    )
+                }
             }
             NavIcon.History -> {
                 drawCircle(

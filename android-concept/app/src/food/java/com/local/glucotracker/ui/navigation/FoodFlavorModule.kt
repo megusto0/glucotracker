@@ -41,7 +41,7 @@ object FoodFlavorModule {
 private object FoodNavConfig : NavConfig {
     override val tabs = listOf(
         TabSpec(Route.Today.route, R.string.nav_today, NavIcon.Today),
-        TabSpec(Route.Norm.route, R.string.nav_norm, NavIcon.Trend),
+        TabSpec(Route.Norm.route, R.string.stats_page_label, NavIcon.Stats),
         TabSpec(Route.History.route, R.string.nav_history, NavIcon.History),
         TabSpec(Route.More.route, R.string.nav_more, NavIcon.More),
     )

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,10 +36,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -239,6 +242,12 @@ private fun LoadingState(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
+            .foodDaySwipe(
+                enabled = brandAccentColor != null,
+                canGoNext = false,
+                onPreviousDay = onPreviousDay,
+                onNextDay = onNextDay,
+            )
             .background(GT.colors.bg),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -276,6 +285,12 @@ private fun EmptyState(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
+            .foodDaySwipe(
+                enabled = brandAccentColor != null,
+                canGoNext = state.canGoNext,
+                onPreviousDay = onPreviousDay,
+                onNextDay = onNextDay,
+            )
             .background(GT.colors.bg),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -333,7 +348,14 @@ private fun DayState(
             .background(GT.colors.bg),
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .foodDaySwipe(
+                    enabled = brandAccentColor != null,
+                    canGoNext = state.canGoNext,
+                    onPreviousDay = onPreviousDay,
+                    onNextDay = onNextDay,
+                ),
             verticalArrangement = Arrangement.spacedBy(if (brandAccentColor != null) 0.dp else 14.dp),
         ) {
             item {
@@ -461,7 +483,6 @@ private fun TodayHeader(
             canGoNext = canGoNext,
             onPreviousDay = onPreviousDay,
             onNextDay = onNextDay,
-            onOpenStats = onOpenStats,
             modifier = modifier,
         )
         return
@@ -872,7 +893,6 @@ private fun FoodTodayHeader(
     canGoNext: Boolean,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
-    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dateText = date.toJavaLocalDate()
@@ -911,18 +931,34 @@ private fun FoodTodayHeader(
                     onClick = onNextDay,
                     enabled = canGoNext,
                 )
-                Text(
-                    text = stringResource(R.string.today_stats_action).uppercase(Locale("ru")),
-                    modifier = Modifier
-                        .heightIn(min = GT.space.touch)
-                        .clickable(onClick = onOpenStats)
-                        .padding(start = 8.dp, top = 14.dp),
-                    color = GT.colors.accent,
-                    style = GT.type.monoLabel.copy(fontSize = 9.5.sp),
-                    maxLines = 1,
-                )
             }
         }
+    }
+}
+
+private fun Modifier.foodDaySwipe(
+    enabled: Boolean,
+    canGoNext: Boolean,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+): Modifier = if (!enabled) {
+    this
+} else {
+    pointerInput(canGoNext, onPreviousDay, onNextDay) {
+        var horizontalDrag = 0f
+        val threshold = 64.dp.toPx()
+        detectHorizontalDragGestures(
+            onDragStart = { horizontalDrag = 0f },
+            onDragCancel = { horizontalDrag = 0f },
+            onDragEnd = {
+                when {
+                    horizontalDrag > threshold -> onPreviousDay()
+                    horizontalDrag < -threshold && canGoNext -> onNextDay()
+                }
+                horizontalDrag = 0f
+            },
+            onHorizontalDrag = { _, dragAmount -> horizontalDrag += dragAmount },
+        )
     }
 }
 
@@ -997,7 +1033,12 @@ private fun FoodMealJournal(
     onDeleteRow: (TodayMealRowUi) -> Unit,
 ) {
     val groups = remember(rows) { foodMealGroups(rows) }
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         groups.forEach { group ->
             val groupColor = if (group.isSnack) GT.colors.kindSnack else GT.colors.kindMeal
             val kcal = group.rows.sumOf { it.totalKcal ?: 0.0 }
@@ -1007,11 +1048,12 @@ private fun FoodMealJournal(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(GT.colors.surface),
+                    .clip(GT.shapes.card)
+                    .background(GT.colors.surface)
+                    .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card),
             ) {
-                GTHairlineDivider()
                 Row(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
@@ -1041,7 +1083,7 @@ private fun FoodMealJournal(
                     )
                 }
                 group.rows.forEach { row ->
-                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 12.dp))
                     SwipeMealRow(
                         row = row,
                         lastAddedId = lastAddedId,
@@ -1055,12 +1097,12 @@ private fun FoodMealJournal(
                     )
                 }
                 if (group.rows.all { it.kind == TodayMealRowKind.Accepted }) {
-                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                    GTHairlineDivider(modifier = Modifier.padding(horizontal = 12.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { group.rows.firstOrNull()?.let(onOpenRow) }
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -1146,16 +1188,18 @@ private fun FoodDayCurveSection(
     modifier: Modifier = Modifier,
 ) {
     val acceptedRows = rows.filter { it.kind == TodayMealRowKind.Accepted }
-    val meals = acceptedRows.map { row ->
-        val localTime = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
+    val meals = foodMealGroups(acceptedRows).map { group ->
+        val representative = group.rows.minBy { it.eatenAt }
+        val localTime = representative.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
         FoodCurveMeal(
             minutesOfDay = localTime.hour * 60 + localTime.minute,
-            kcal = row.totalKcal ?: 0.0,
-            kind = if (row.mealRole?.lowercase() in FoodSnackRoles) {
+            kcal = group.rows.sumOf { it.totalKcal ?: 0.0 },
+            kind = if (group.isSnack) {
                 FoodCurveMeal.Kind.Snack
             } else {
                 FoodCurveMeal.Kind.Meal
             },
+            id = representative.recordId ?: representative.outboxId,
         )
     }
     Column(modifier = modifier.fillMaxWidth()) {

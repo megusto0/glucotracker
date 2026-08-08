@@ -935,7 +935,11 @@ private fun GTBottomBarButton(
             text = item.label.uppercase(),
             modifier = Modifier.padding(top = 3.dp),
             color = color,
-            style = GT.type.kicker,
+            style = if (item.label.length > 8) {
+                GT.type.kicker.copy(fontSize = 8.sp, letterSpacing = 0.4.sp)
+            } else {
+                GT.type.kicker
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

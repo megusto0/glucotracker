@@ -567,6 +567,7 @@ private fun HistoryDayCard(
                 .padding(top = 8.dp)
                 .fillMaxWidth()
                 .height(56.dp),
+            onMealTap = { id -> onOpenMealStack(day.date, id) },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -591,19 +592,35 @@ private fun HistoryDayCard(
     }
 }
 
-private fun List<HistoryMealRowUi>.toFoodCurveMeals(): List<FoodCurveMeal> =
-    filter { it.kind == HistoryMealRowKind.Accepted }.map { row ->
-        val time = row.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
+private fun List<HistoryMealRowUi>.toFoodCurveMeals(): List<FoodCurveMeal> {
+    val sittings = mutableListOf<MutableList<HistoryMealRowUi>>()
+    filter { it.kind == HistoryMealRowKind.Accepted }
+        .sortedBy { it.eatenAt }
+        .forEach { row ->
+            val current = sittings.lastOrNull()
+            val previous = current?.lastOrNull()
+            val gapSeconds = previous?.let { row.eatenAt.epochSeconds - it.eatenAt.epochSeconds }
+            if (current != null && gapSeconds != null && gapSeconds <= FoodHistorySittingWindowSeconds) {
+                current += row
+            } else {
+                sittings += mutableListOf(row)
+            }
+        }
+    return sittings.map { rows ->
+        val representative = rows.first()
+        val time = representative.eatenAt.toLocalDateTime(TimeZone.currentSystemDefault()).time
         FoodCurveMeal(
             minutesOfDay = time.hour * 60 + time.minute,
-            kcal = row.totalKcal ?: 0.0,
-            kind = if (row.mealRole?.lowercase() in FoodHistorySnackRoles) {
+            kcal = rows.sumOf { it.totalKcal ?: 0.0 },
+            kind = if (rows.all { it.mealRole?.lowercase() in FoodHistorySnackRoles }) {
                 FoodCurveMeal.Kind.Snack
             } else {
                 FoodCurveMeal.Kind.Meal
             },
+            id = representative.recordId ?: representative.outboxId,
         )
     }
+}
 
 private fun List<HistoryMealRowUi>.foodEatingWindow(): String {
     val accepted = filter { it.kind == HistoryMealRowKind.Accepted }
@@ -615,6 +632,7 @@ private fun List<HistoryMealRowUi>.foodEatingWindow(): String {
 
 private val FoodHistorySnackRoles = setOf("snack", "drink", "dessert")
 private val FoodHistoryHourLabels = listOf("00", "06", "12", "18", "24")
+private const val FoodHistorySittingWindowSeconds = 10 * 60L
 
 /**
  * The day's food as a shelf of pictures rather than a column of lines.
