@@ -79,6 +79,11 @@ External sources consulted while building are recorded in
 
 ### Changed
 
+- **Android (gluco)** — строки сна и активности в дневной ленте теперь называются
+  просто «Сон» и «Активность», без технического названия источника Health Connect;
+  доза инсулина убрана из правой части заголовка приёма и остаётся в его нижнем
+  блоке расчёта (`44ab0bc`).
+
 - **Glucotracker Bridge** — the companion refresh now requests only Helio's
   minute activity stream, which already contains continuous heart rate,
   steps/activity, and sleep stages. It no longer waits for unrelated GPS,
