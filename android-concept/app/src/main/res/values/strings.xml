@@ -163,9 +163,14 @@
     <string name="history_status_button">%1$s ▼</string>
     <string name="history_status_sheet_title">Статус</string>
     <string name="history_view_content_description">Вариант просмотра истории</string>
-    <string name="history_view_sheet_title">Вариант просмотра</string>
+    <string name="history_view_sheet_title">Вид истории</string>
     <string name="history_view_list">Список</string>
     <string name="history_view_showcase">Витрина</string>
+    <string name="history_view_list_hint">Больше записей, видны цифры</string>
+    <string name="history_view_showcase_hint">Узнавание по фото</string>
+    <string name="history_view_tile_size">Размер плиток</string>
+    <string name="history_view_selected">Выбрано</string>
+    <string name="history_view_tile_columns">%1$d плитки в ряд</string>
     <string name="history_day_summary">%1$d приёмов · %2$s г · %3$s ккал · %4$s баланс</string>
     <string name="history_day_summary_compact">%1$s · %2$s г · %3$s ккал · %4$s баланс</string>
     <!-- Second summary line: how the day went, not only what went into it. -->

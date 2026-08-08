@@ -76,6 +76,10 @@ class SettingsStore @Inject constructor(
     val historyViewMode: Flow<String?> =
         dataStore.data.map { preferences -> preferences[Keys.HistoryViewMode] }
 
+    /** Null means the showcase uses its balanced three-column default. */
+    val historyTileColumns: Flow<Int?> =
+        dataStore.data.map { preferences -> preferences[Keys.HistoryTileColumns] }
+
     val composeSheetOpenCount: Flow<Int> =
         dataStore.data.map { preferences -> preferences[Keys.ComposeSheetOpenCount] ?: 0 }
 
@@ -171,6 +175,13 @@ class SettingsStore @Inject constructor(
         }
     }
 
+    suspend fun updateHistoryTileColumns(columns: Int) {
+        if (columns !in 2..4) return
+        dataStore.edit { preferences ->
+            preferences[Keys.HistoryTileColumns] = columns
+        }
+    }
+
     suspend fun incrementComposeSheetOpenCount() {
         dataStore.edit { preferences ->
             preferences[Keys.ComposeSheetOpenCount] =
@@ -193,6 +204,7 @@ class SettingsStore @Inject constructor(
         val NotifOutboxStuck = booleanPreferencesKey("notif_outbox_stuck")
         val StatsPeriod = stringPreferencesKey("stats_period")
         val HistoryViewMode = stringPreferencesKey("history_view_mode")
+        val HistoryTileColumns = intPreferencesKey("history_tile_columns")
         val ComposeSheetOpenCount = intPreferencesKey("compose_sheet_open_count")
     }
 }

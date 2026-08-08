@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -52,7 +54,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -111,6 +115,7 @@ fun HistoryRoute(
         onClearFilters = viewModel::clearFilters,
         onStatusChange = viewModel::setStatus,
         onViewModeChange = viewModel::setViewMode,
+        onShowcaseColumnsChange = viewModel::setShowcaseColumns,
         onSearchChange = viewModel::setSearch,
         onLoadMore = viewModel::loadMore,
         searchRequestCounter = searchRequestCounter,
@@ -128,6 +133,7 @@ fun HistoryScreen(
     onClearFilters: () -> Unit,
     onStatusChange: (HistoryStatusFilter) -> Unit,
     onViewModeChange: (HistoryViewMode) -> Unit = {},
+    onShowcaseColumnsChange: (Int) -> Unit = {},
     onSearchChange: (String) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -206,6 +212,7 @@ fun HistoryScreen(
                 HistoryDayCard(
                     day = day,
                     markerColor = brandAccentColor,
+                    showcaseColumns = state.showcaseColumns,
                     onOpenMealStack = onOpenMealStack,
                     onOpenDay = onOpenDay,
                     modifier = Modifier.padding(horizontal = 18.dp),
@@ -215,6 +222,7 @@ fun HistoryScreen(
                     day = day,
                     onOpenMealStack = onOpenMealStack,
                     showcaseMeals = state.viewMode == HistoryViewMode.Showcase,
+                    showcaseColumns = state.showcaseColumns,
                     modifier = Modifier.padding(horizontal = 18.dp),
                 )
             }
@@ -245,10 +253,11 @@ fun HistoryScreen(
     if (viewSheetVisible) {
         ViewModeSheet(
             selected = state.viewMode,
+            showcaseColumns = state.showcaseColumns,
             onSelect = { mode ->
                 onViewModeChange(mode)
-                viewSheetVisible = false
             },
+            onShowcaseColumnsSelect = onShowcaseColumnsChange,
             onDismiss = { viewSheetVisible = false },
         )
     }
@@ -456,6 +465,7 @@ private fun FilterChip(
 private fun HistoryDayCard(
     day: HistoryDayUi,
     markerColor: Color,
+    showcaseColumns: Int,
     onOpenMealStack: (LocalDate, String) -> Unit,
     onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
@@ -524,6 +534,7 @@ private fun HistoryDayCard(
         )
         HistoryShowcase(
             rows = day.rows,
+            columns = showcaseColumns,
             onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
             modifier = Modifier.padding(top = 12.dp),
         )
@@ -562,16 +573,18 @@ private fun HistoryDayCard(
 @Composable
 private fun HistoryShowcase(
     rows: List<HistoryMealRowUi>,
+    columns: Int,
     onOpenMealStack: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val entries = remember(rows) { rows.filter { it.kind == HistoryMealRowKind.Accepted } }
     if (entries.isEmpty()) return
+    val columnCount = columns.coerceIn(2, 4)
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        entries.chunked(ShowcaseColumns).forEach { row ->
+        entries.chunked(columnCount).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 row.forEach { entry ->
                     ShowcaseTile(
@@ -581,7 +594,7 @@ private fun HistoryShowcase(
                     )
                 }
                 // Keeps the last row's tiles the width of every other row's.
-                repeat(ShowcaseColumns - row.size) {
+                repeat(columnCount - row.size) {
                     Spacer(Modifier.weight(1f))
                 }
             }
@@ -656,8 +669,6 @@ private fun ShowcaseTile(
         )
     }
 }
-
-private const val ShowcaseColumns = 3
 
 @Composable
 private fun HourScaleHeader(modifier: Modifier = Modifier) {
@@ -771,6 +782,7 @@ private fun HistoryDaySection(
     day: HistoryDayUi,
     onOpenMealStack: (LocalDate, String) -> Unit,
     showcaseMeals: Boolean = false,
+    showcaseColumns: Int = DefaultShowcaseColumns,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -814,6 +826,7 @@ private fun HistoryDaySection(
         if (showcaseMeals) {
             HistoryShowcase(
                 rows = day.rows,
+                columns = showcaseColumns,
                 onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
                 modifier = Modifier.padding(top = 12.dp),
             )
@@ -1056,7 +1069,9 @@ private fun StatusSheet(
 @Composable
 private fun ViewModeSheet(
     selected: HistoryViewMode,
+    showcaseColumns: Int,
     onSelect: (HistoryViewMode) -> Unit,
+    onShowcaseColumnsSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -1069,21 +1084,239 @@ private fun ViewModeSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 18.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(bottom = 14.dp),
         ) {
             Text(
                 text = stringResource(R.string.history_view_sheet_title),
+                modifier = Modifier.padding(horizontal = 18.dp),
                 color = GT.colors.ink,
-                style = GT.type.serifSection,
+                style = GT.type.kicker,
             )
-            HistoryViewMode.entries.forEach { mode ->
-                GTOutlineButton(
-                    text = mode.label(),
-                    onClick = { onSelect(mode) },
-                    enabled = mode != selected,
-                    modifier = Modifier.fillMaxWidth(),
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+                    .fillMaxWidth()
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                HistoryViewMode.entries.forEach { mode ->
+                    ViewModeOption(
+                        mode = mode,
+                        selected = mode == selected,
+                        onSelect = { onSelect(mode) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            GTHairlineDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.history_view_tile_size),
+                    modifier = Modifier.weight(1f),
+                    color = if (selected == HistoryViewMode.Showcase) GT.colors.ink else GT.colors.muted,
+                    style = GT.type.sansBody,
                 )
+                TileSizeSelector(
+                    selectedColumns = showcaseColumns,
+                    enabled = selected == HistoryViewMode.Showcase,
+                    onSelect = onShowcaseColumnsSelect,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ViewModeOption(
+    mode: HistoryViewMode,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val selectedDescription = stringResource(R.string.history_view_selected)
+    Column(
+        modifier = modifier.selectable(
+            selected = selected,
+            onClick = onSelect,
+            role = Role.RadioButton,
+        ).semantics {
+            if (selected) stateDescription = selectedDescription
+        },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(104.dp)
+                .background(GT.colors.surface2, GT.shapes.card)
+                .border(
+                    width = if (selected) 1.dp else GT.space.hairline,
+                    color = if (selected) GT.colors.ink else GT.colors.hairline2,
+                    shape = GT.shapes.card,
+                ),
+        ) {
+            ViewModePreview(
+                mode = mode,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp),
+            )
+            if (selected) {
+                SelectionCheck(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(5.dp)
+                        .size(18.dp),
+                )
+            }
+        }
+        Text(
+            text = mode.label(),
+            modifier = Modifier.padding(top = 7.dp),
+            color = GT.colors.ink,
+            style = GT.type.sansLabel,
+            maxLines = 1,
+        )
+        Text(
+            text = mode.hint(),
+            modifier = Modifier.padding(top = 2.dp),
+            color = GT.colors.muted,
+            style = GT.type.sansLabel.copy(fontSize = 10.sp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ViewModePreview(
+    mode: HistoryViewMode,
+    modifier: Modifier = Modifier,
+) {
+    val line = GT.colors.hairline2
+    val tile = GT.colors.hairline
+    Canvas(modifier = modifier) {
+        if (mode == HistoryViewMode.List) {
+            val rowHeight = size.height / 5f
+            repeat(4) { index ->
+                val top = rowHeight * index + rowHeight * 0.18f
+                drawRoundRect(
+                    color = tile,
+                    topLeft = Offset(0f, top),
+                    size = Size(rowHeight * 0.64f, rowHeight * 0.64f),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
+                )
+                drawRoundRect(
+                    color = line,
+                    topLeft = Offset(rowHeight * 0.85f, top + rowHeight * 0.12f),
+                    size = Size(size.width * 0.58f, 3.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
+                )
+                drawRoundRect(
+                    color = line,
+                    topLeft = Offset(size.width * 0.83f, top + rowHeight * 0.12f),
+                    size = Size(size.width * 0.17f, 3.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
+                )
+            }
+        } else {
+            val gap = 5.dp.toPx()
+            val tileWidth = (size.width - gap * 2) / 3f
+            val tileHeight = (size.height - gap) / 2f
+            repeat(2) { row ->
+                repeat(3) { column ->
+                    drawRoundRect(
+                        color = tile,
+                        topLeft = Offset(column * (tileWidth + gap), row * (tileHeight + gap)),
+                        size = Size(tileWidth, tileHeight),
+                        cornerRadius = CornerRadius(3.dp.toPx()),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionCheck(modifier: Modifier = Modifier) {
+    val color = GT.colors.ink
+    val surface = GT.colors.surface
+    Canvas(modifier = modifier) {
+        drawCircle(color = surface, radius = size.minDimension / 2f)
+        drawCircle(
+            color = color,
+            radius = size.minDimension / 2f - 0.5.dp.toPx(),
+            style = Stroke(width = 1.dp.toPx()),
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.28f, size.height * 0.52f),
+            end = Offset(size.width * 0.44f, size.height * 0.68f),
+            strokeWidth = 1.4.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.44f, size.height * 0.68f),
+            end = Offset(size.width * 0.74f, size.height * 0.32f),
+            strokeWidth = 1.4.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+private fun TileSizeSelector(
+    selectedColumns: Int,
+    enabled: Boolean,
+    onSelect: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .height(GT.space.touch)
+            .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.iconButton)
+            .padding(horizontal = 2.dp)
+            .selectableGroup(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        (2..4).forEach { columns ->
+            val description = stringResource(R.string.history_view_tile_columns, columns)
+            Box(
+                modifier = Modifier
+                    .width(30.dp)
+                    .fillMaxSize()
+                    .selectable(
+                        selected = columns == selectedColumns,
+                        enabled = enabled,
+                        onClick = { onSelect(columns) },
+                        role = Role.RadioButton,
+                    )
+                    .semantics { contentDescription = description },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 26.dp, height = 24.dp)
+                        .background(
+                            color = if (columns == selectedColumns) GT.colors.ink else Color.Transparent,
+                            shape = GT.shapes.tag,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = columns.toString(),
+                        color = when {
+                            columns == selectedColumns -> GT.colors.surface
+                            enabled -> GT.colors.ink2
+                            else -> GT.colors.muted
+                        },
+                        style = GT.type.monoLabel,
+                    )
+                }
             }
         }
     }
@@ -1103,6 +1336,13 @@ private fun HistoryViewMode.label(): String =
     when (this) {
         HistoryViewMode.List -> stringResource(R.string.history_view_list)
         HistoryViewMode.Showcase -> stringResource(R.string.history_view_showcase)
+    }
+
+@Composable
+private fun HistoryViewMode.hint(): String =
+    when (this) {
+        HistoryViewMode.List -> stringResource(R.string.history_view_list_hint)
+        HistoryViewMode.Showcase -> stringResource(R.string.history_view_showcase_hint)
     }
 
 private fun List<HistoryMealRowUi>.toTimelineMeals(): List<HistoryTimelineMeal> =

@@ -47,6 +47,7 @@ data class HistoryScreenState(
     val totalDays: Int = 0,
     val totalRecords: Int = 0,
     val viewMode: HistoryViewMode = HistoryViewMode.List,
+    val showcaseColumns: Int = DefaultShowcaseColumns,
 )
 
 enum class HistoryViewMode {
@@ -62,6 +63,14 @@ private fun storedHistoryViewMode(
     fallback: HistoryViewMode,
 ): HistoryViewMode =
     HistoryViewMode.entries.firstOrNull { mode -> mode.name == value } ?: fallback
+
+internal fun storedHistoryTileColumns(value: Int?): Int =
+    value?.takeIf { columns -> columns in 2..4 } ?: DefaultShowcaseColumns
+
+private data class HistoryDisplayPreferences(
+    val viewMode: HistoryViewMode,
+    val showcaseColumns: Int,
+)
 
 data class HistoryDayUi(
     val date: LocalDate,
@@ -168,19 +177,31 @@ class HistoryViewModel @Inject constructor(
     }
 
     private val history = query.flatMapLatest(historyRepository::observeHistory)
+    private val displayPreferences = combine(
+        settingsStore.historyViewMode,
+        settingsStore.historyTileColumns,
+    ) { storedViewMode, storedTileColumns ->
+        HistoryDisplayPreferences(
+            viewMode = storedHistoryViewMode(storedViewMode, defaultViewMode),
+            showcaseColumns = storedHistoryTileColumns(storedTileColumns),
+        )
+    }
 
     val state = combine(
         query,
         history,
         outboxRepository.observe(),
         connectivityObserver.observe(),
-        settingsStore.historyViewMode,
-    ) { activeQuery, page, outbox, network, storedViewMode ->
+        displayPreferences,
+    ) { activeQuery, page, outbox, network, displayPreferences ->
         page.toScreenState(
             query = activeQuery,
             outbox = outbox,
             isOnline = network.isConnected,
-        ).copy(viewMode = storedHistoryViewMode(storedViewMode, defaultViewMode))
+        ).copy(
+            viewMode = displayPreferences.viewMode,
+            showcaseColumns = displayPreferences.showcaseColumns,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -194,12 +215,19 @@ class HistoryViewModel @Inject constructor(
             totalDays = 0,
             totalRecords = 0,
             viewMode = defaultViewMode,
+            showcaseColumns = DefaultShowcaseColumns,
         ),
     )
 
     fun setViewMode(mode: HistoryViewMode) {
         viewModelScope.launch {
             settingsStore.updateHistoryViewMode(mode.name)
+        }
+    }
+
+    fun setShowcaseColumns(columns: Int) {
+        viewModelScope.launch {
+            settingsStore.updateHistoryTileColumns(columns)
         }
     }
 
@@ -231,6 +259,7 @@ class HistoryViewModel @Inject constructor(
 private const val InitialHistoryDays = 7
 private const val HistoryPageDays = 7
 private const val OfflineCacheDays = 14
+internal const val DefaultShowcaseColumns = 3
 
 private fun CachedView<HistoryPage>.toScreenState(
     query: HistoryQuery,
