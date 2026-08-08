@@ -90,7 +90,9 @@ internal fun MoreHealthConnectSurface() {
         latestHeartRateBpm = status.latestHeartRateBpm,
         latestHeartRateAt = status.latestHeartRateAt,
         onSync = {
-            if (bridgeStatus.installed && bridgeStatus.error != "not_paired") {
+            if (bridgeStatus.error == "health_connect_required") {
+                HelioBridgeClient.openHealthConnectSettings(context)
+            } else if (bridgeStatus.installed && bridgeStatus.error != "not_paired") {
                 bridgeStatus = bridgeStatus.copy(phase = "connecting", error = null)
                 HelioBridgeClient.sync(context)
             } else if (bridgeStatus.installed) {
@@ -160,6 +162,8 @@ private fun MoreWearableBridgeContent(
                             when {
                                 bridge.isBusy -> R.string.more_wearable_syncing
                                 bridge.error == "not_paired" -> R.string.more_wearable_open
+                                bridge.error == "health_connect_required" ->
+                                    R.string.more_wearable_open
                                 else -> R.string.more_wearable_sync
                             },
                         ),

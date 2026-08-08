@@ -15,6 +15,8 @@ object HelioBridgeClient {
 
     private const val ActionStatus = "com.glucotracker.mobile.wearable.STATUS"
     private const val ActionSync = "com.glucotracker.mobile.wearable.SYNC"
+    private const val ActionHealthConnectSettings =
+        "com.glucotracker.mobile.wearable.HEALTH_CONNECT_SETTINGS"
     private const val ActionResult = "com.glucotracker.mobile.wearable.RESULT"
 
     fun isInstalled(context: Context): Boolean = try {
@@ -30,6 +32,10 @@ object HelioBridgeClient {
 
     fun sync(context: Context) {
         context.sendBroadcast(bridgeIntent(ActionSync))
+    }
+
+    fun openHealthConnectSettings(context: Context) {
+        context.sendBroadcast(bridgeIntent(ActionHealthConnectSettings))
     }
 
     fun openBridge(context: Context): Boolean {
