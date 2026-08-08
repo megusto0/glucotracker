@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -56,6 +58,7 @@ import com.local.glucotracker.R
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.GlucoseReading
 import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.HistoryFilter
 import com.local.glucotracker.domain.model.EpisodeFooterSummary
 import com.local.glucotracker.domain.model.EpisodeOutcomeKind
 import com.local.glucotracker.domain.model.EpisodeOutcomeStatus
@@ -72,6 +75,7 @@ import com.local.glucotracker.ui.design.primitives.GTKpiCard
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.tokens.GTColors
 import com.local.glucotracker.ui.feature.history.HistoryEntryTone
+import com.local.glucotracker.ui.feature.history.FilterChip
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinButton
 import com.local.glucotracker.ui.feature.insulin.HistoricalInsulinSheetHost
@@ -101,6 +105,35 @@ import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.minutes
 
 class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
+    @Composable
+    override fun HistoryQuickFilters(
+        filters: Set<HistoryFilter>,
+        onToggleFilter: (HistoryFilter) -> Unit,
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                label = stringResource(R.string.history_filter_first_meal),
+                active = HistoryFilter.FirstAfterSleep in filters,
+                onClick = { onToggleFilter(HistoryFilter.FirstAfterSleep) },
+            )
+            FilterChip(
+                label = stringResource(R.string.history_filter_peak_above_10),
+                active = HistoryFilter.PeakAbove10 in filters,
+                onClick = { onToggleFilter(HistoryFilter.PeakAbove10) },
+            )
+            FilterChip(
+                label = stringResource(R.string.history_filter_peak_above_13),
+                active = HistoryFilter.PeakAbove13 in filters,
+                onClick = { onToggleFilter(HistoryFilter.PeakAbove13) },
+            )
+        }
+    }
+
     @Composable
     override fun MiniGlucoseCard(modifier: Modifier) {
         MiniGlucoseSurface(modifier)
@@ -315,6 +348,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     override fun HistoryRows(
         date: LocalDate,
         rows: List<HistoryMealRowUi>,
+        filters: Set<HistoryFilter>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
@@ -345,8 +379,9 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
                 viewModel.onBodyStatesChanged(date, bodyStateSignature)
             }
         }
+        val filtered = filters.hasFocusedHistoryFilter()
         InsulinAwareRows(
-            context = context,
+            context = if (filtered) context.onlyMeals(rows.mapTo(mutableSetOf()) { it.id }) else context,
             rows = rows,
             rowId = { row -> row.id },
             rowTime = { row -> row.eatenAt },
@@ -356,7 +391,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
                 rowContent(row, tone, false, showTime, extra)
             },
             separator = divider,
-            bodyStates = dayBodyStates,
+            bodyStates = if (filtered) emptyList() else dayBodyStates,
             date = date,
             rowCarbs = { row -> row.totalCarbsG },
             rowKcal = { row -> row.totalKcal },
@@ -367,6 +402,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
     override fun HistoryDayTimeline(
         date: LocalDate,
         meals: List<HistoryTimelineMeal>,
+        filters: Set<HistoryFilter>,
         onMealTap: (String) -> Unit,
         modifier: Modifier,
     ) {
@@ -378,13 +414,19 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
         LaunchedEffect(date) { bodyStatesViewModel.load(date) }
         val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
+        val filtered = filters.hasFocusedHistoryFilter()
+        val visibleContext = if (filtered) {
+            context.onlyMeals(meals.mapTo(mutableSetOf()) { meal -> meal.id })
+        } else {
+            context
+        }
         DayTimelineGluco(
             date = date,
             meals = meals,
             readings = readings,
-            classification = context.classificationByMealId,
-            insulin = context.allEvents,
-            bodyStates = bodyStates[date].orEmpty(),
+            classification = visibleContext.classificationByMealId,
+            insulin = visibleContext.allEvents,
+            bodyStates = if (filtered) emptyList() else bodyStates[date].orEmpty(),
             onMealTap = onMealTap,
             modifier = modifier,
         )
@@ -1934,6 +1976,30 @@ internal fun shouldShowFirstAfterSleepGlyph(
     firstAfterSleepMealIds: Set<String>,
     totalInsulinUnits: Double,
 ): Boolean = totalInsulinUnits > 0.0 && mealIds.any(firstAfterSleepMealIds::contains)
+
+private fun Set<HistoryFilter>.hasFocusedHistoryFilter(): Boolean =
+    HistoryFilter.FirstAfterSleep in this ||
+        HistoryFilter.PeakAbove10 in this ||
+        HistoryFilter.PeakAbove13 in this
+
+internal fun InsulinDayContext.onlyMeals(mealIds: Set<String>): InsulinDayContext {
+    val visibleByMealId = byMealId.filterKeys(mealIds::contains)
+    val visibleInsulinIds = visibleByMealId.values
+        .flatten()
+        .mapTo(mutableSetOf()) { event -> event.id }
+    return copy(
+        byMealId = visibleByMealId,
+        orphans = emptyList(),
+        mealEpisodeGroups = mealEpisodeGroups
+            .map { group -> group.filter(mealIds::contains) }
+            .filter { group -> group.size >= 2 },
+        classificationByMealId = classificationByMealId.filterKeys(mealIds::contains),
+        episodeKeyByMealId = episodeKeyByMealId.filterKeys(mealIds::contains),
+        firstAfterSleepMealIds = firstAfterSleepMealIds.intersect(mealIds),
+        footerByMealId = footerByMealId.filterKeys(mealIds::contains),
+        footerByInsulinId = footerByInsulinId.filterKeys(visibleInsulinIds::contains),
+    )
+}
 
 private val InsulinDoseFormat = DecimalFormat(
     "0.0",

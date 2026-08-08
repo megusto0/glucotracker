@@ -111,6 +111,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
     override fun HistoryRows(
         date: LocalDate,
         rows: List<HistoryMealRowUi>,
+        filters: Set<com.local.glucotracker.domain.model.HistoryFilter>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
@@ -146,6 +147,7 @@ object SnapshotGlucoseSurfaces : GlucoseSurfaces {
     override fun HistoryDayTimeline(
         date: LocalDate,
         meals: List<HistoryTimelineMeal>,
+        filters: Set<com.local.glucotracker.domain.model.HistoryFilter>,
         onMealTap: (String) -> Unit,
         modifier: Modifier,
     ) {

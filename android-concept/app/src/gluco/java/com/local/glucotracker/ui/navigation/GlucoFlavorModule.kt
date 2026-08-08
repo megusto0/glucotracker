@@ -20,6 +20,8 @@ import com.local.glucotracker.data.local.GlucoseCacheDatabase
 import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
 import com.local.glucotracker.data.repository.MealContextProvider
 import com.local.glucotracker.data.repository.NightscoutMealContextProvider
+import com.local.glucotracker.data.repository.HistoryMealMarkerProvider
+import com.local.glucotracker.data.repository.EpisodeHistoryMealMarkerProvider
 import com.local.glucotracker.data.repository.NightscoutRepositoryImpl
 import com.local.glucotracker.data.repository.SensorRepositoryImpl
 import com.local.glucotracker.data.sync.GlucoOutboxRemote
@@ -151,6 +153,12 @@ object GlucoFlavorModule {
     @Provides
     @Singleton
     fun provideMealContextProvider(impl: NightscoutMealContextProvider): MealContextProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideHistoryMealMarkerProvider(
+        impl: EpisodeHistoryMealMarkerProvider,
+    ): HistoryMealMarkerProvider = impl
 
     @Provides
     @Singleton

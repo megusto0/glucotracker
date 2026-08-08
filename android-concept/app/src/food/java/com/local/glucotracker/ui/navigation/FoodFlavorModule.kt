@@ -3,6 +3,8 @@ package com.local.glucotracker.ui.navigation
 import com.local.glucotracker.R
 import com.local.glucotracker.data.repository.MealContextProvider
 import com.local.glucotracker.data.repository.NoopMealContextProvider
+import com.local.glucotracker.data.repository.HistoryMealMarkerProvider
+import com.local.glucotracker.data.repository.NoopHistoryMealMarkerProvider
 import com.local.glucotracker.data.sync.KtorOutboxRemote
 import com.local.glucotracker.data.sync.OutboxRemote
 import com.local.glucotracker.ui.design.FoodBrandTokens
@@ -32,6 +34,11 @@ object FoodFlavorModule {
     @Provides
     @Singleton
     fun provideMealContextProvider(): MealContextProvider = NoopMealContextProvider
+
+    @Provides
+    @Singleton
+    fun provideHistoryMealMarkerProvider(): HistoryMealMarkerProvider =
+        NoopHistoryMealMarkerProvider
 
     @Provides
     @Singleton

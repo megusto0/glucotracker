@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.BuildConfig
 import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.data.sync.ConnectivityObserver
+import com.local.glucotracker.data.repository.HistoryMealMarkerProvider
+import com.local.glucotracker.data.repository.HistoryMealMarkers
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayTotals
 import com.local.glucotracker.domain.model.HistoryFilter
@@ -25,6 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -103,6 +106,7 @@ data class HistoryMealRowUi(
     //: How far glucose rose after this meal. The journal recorded what went in
     //: and never how it landed, which is the half that makes a day readable.
     val deltaMaxMmolL: Double? = null,
+    val peakMmolL: Double? = null,
 )
 
 /**
@@ -152,6 +156,7 @@ enum class HistoryMealStatus {
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
+    private val historyMealMarkerProvider: HistoryMealMarkerProvider,
     outboxRepository: OutboxRepository,
     connectivityObserver: ConnectivityObserver,
     private val settingsStore: SettingsStore,
@@ -179,6 +184,12 @@ class HistoryViewModel @Inject constructor(
     }
 
     private val history = query.flatMapLatest(historyRepository::observeHistory)
+    private val historyWithMarkers = combine(
+        history,
+        query.flatMapLatest { activeQuery ->
+            historyMealMarkerProvider.observe(activeQuery.fromDay, activeQuery.toDay)
+        },
+    ) { page, markers -> HistoryPageWithMarkers(page, markers) }
     private val displayPreferences = combine(
         settingsStore.historyViewMode,
         settingsStore.historyTileColumns,
@@ -193,15 +204,16 @@ class HistoryViewModel @Inject constructor(
 
     val state = combine(
         query,
-        history,
+        historyWithMarkers,
         outboxRepository.observe(),
         connectivityObserver.observe(),
         displayPreferences,
-    ) { activeQuery, page, outbox, network, displayPreferences ->
-        page.toScreenState(
+    ) { activeQuery, pageWithMarkers, outbox, network, displayPreferences ->
+        pageWithMarkers.page.toScreenState(
             query = activeQuery,
             outbox = outbox,
             isOnline = network.isConnected,
+            markers = pageWithMarkers.markers,
         ).copy(
             viewMode = displayPreferences.viewMode,
             showcaseColumns = displayPreferences.showcaseColumns,
@@ -225,6 +237,16 @@ class HistoryViewModel @Inject constructor(
         ),
     )
 
+    init {
+        viewModelScope.launch {
+            query.collectLatest { activeQuery ->
+                if (HistoryFilter.FirstAfterSleep in activeQuery.filters) {
+                    historyMealMarkerProvider.refresh(activeQuery.fromDay, activeQuery.toDay)
+                }
+            }
+        }
+    }
+
     fun setViewMode(mode: HistoryViewMode) {
         viewModelScope.launch {
             settingsStore.updateHistoryViewMode(mode.name)
@@ -242,10 +264,15 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun toggleFilter(filter: HistoryFilter) {
-        filters.value = if (filter in filters.value) {
-            filters.value - filter
+        val current = filters.value
+        filters.value = if (filter in current) {
+            current - filter
         } else {
-            filters.value + filter
+            when (filter) {
+                HistoryFilter.PeakAbove10 -> current - HistoryFilter.PeakAbove13 + filter
+                HistoryFilter.PeakAbove13 -> current - HistoryFilter.PeakAbove10 + filter
+                else -> current + filter
+            }
         }
     }
 
@@ -267,10 +294,16 @@ private const val HistoryPageDays = 7
 private const val OfflineCacheDays = 14
 internal const val DefaultShowcaseColumns = 3
 
+private data class HistoryPageWithMarkers(
+    val page: CachedView<HistoryPage>,
+    val markers: HistoryMealMarkers,
+)
+
 private fun CachedView<HistoryPage>.toScreenState(
     query: HistoryQuery,
     outbox: List<OutboxItem>,
     isOnline: Boolean,
+    markers: HistoryMealMarkers,
 ): HistoryScreenState {
     val pageDays = value?.days.orEmpty()
     val acceptedMeals = pageDays.flatMap { day -> day.meals.filter { meal -> meal.status.equals("accepted", ignoreCase = true) } }
@@ -288,7 +321,11 @@ private fun CachedView<HistoryPage>.toScreenState(
             HistoryDayUi(
                 date = day.date,
                 totals = day.totals,
-                rows = (acceptedRows + pendingRows).sortedByDescending { it.eatenAt },
+                rows = filterHistoryRows(
+                    rows = acceptedRows + pendingRows,
+                    filters = query.filters,
+                    firstAfterSleepMealIds = markers.firstAfterSleepMealIds,
+                ).sortedByDescending { it.eatenAt },
                 dailyAverageKcalForPeriod = day.dailyAverageKcalForPeriod,
                 photoCount = day.photoCount,
             )
@@ -300,7 +337,12 @@ private fun CachedView<HistoryPage>.toScreenState(
                     HistoryDayUi(
                         date = date,
                         totals = null,
-                        rows = rows.sortedByDescending { it.eatenAt },
+                        rows = filterHistoryRows(
+                            rows = rows,
+                            filters = query.filters,
+                            firstAfterSleepMealIds = markers.firstAfterSleepMealIds,
+                        )
+                            .sortedByDescending { it.eatenAt },
                         dailyAverageKcalForPeriod = null,
                         photoCount = rows.count { row -> row.source == HistoryMealSource.Photo || row.photo != null },
                     )
@@ -355,9 +397,35 @@ private fun List<Meal>.toAcceptedRows(outbox: List<OutboxItem>): List<HistoryMea
                 mealRole = meal.mealRole,
                 responseKey = meal.postprandialResponse?.glycemicResponse,
                 deltaMaxMmolL = meal.postprandialResponse?.deltaMaxMmolL,
+                peakMmolL = meal.postprandialResponse?.points
+                    ?.maxOfOrNull { point -> point.valueMmolL },
                 errorMessage = activeItem?.errorMessage,
             )
         }
+}
+
+internal fun filterHistoryRows(
+    rows: List<HistoryMealRowUi>,
+    filters: Set<HistoryFilter>,
+    firstAfterSleepMealIds: Set<String> = emptySet(),
+): List<HistoryMealRowUi> {
+    if (
+        HistoryFilter.FirstAfterSleep !in filters &&
+        HistoryFilter.PeakAbove10 !in filters &&
+        HistoryFilter.PeakAbove13 !in filters
+    ) {
+        return rows
+    }
+
+    val peakThreshold = when {
+        HistoryFilter.PeakAbove13 in filters -> 13.0
+        HistoryFilter.PeakAbove10 in filters -> 10.0
+        else -> null
+    }
+    return rows.filter { row ->
+        (HistoryFilter.FirstAfterSleep !in filters || row.id in firstAfterSleepMealIds) &&
+            (peakThreshold == null || (row.peakMmolL ?: Double.NEGATIVE_INFINITY) > peakThreshold)
+    }
 }
 
 private fun OutboxItem.toPendingRow(query: HistoryQuery): HistoryMealRowUi? {

@@ -206,6 +206,9 @@ enum class HistoryFilter {
     Breakfast,
     LowConfidence,
     PhotoOnly,
+    FirstAfterSleep,
+    PeakAbove10,
+    PeakAbove13,
 }
 
 enum class HistoryStatusFilter {

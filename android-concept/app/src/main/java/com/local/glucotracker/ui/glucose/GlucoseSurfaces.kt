@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import com.local.glucotracker.ui.feature.history.HistoryEntryTone
 import com.local.glucotracker.ui.feature.history.HistoryMealRowUi
 import com.local.glucotracker.ui.feature.today.TodayMealRowUi
+import com.local.glucotracker.domain.model.HistoryFilter
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -80,6 +81,13 @@ fun layoutHistoryTimelineCircles(
 }
 
 interface GlucoseSurfaces {
+    /** Flavor-owned history filters. Their copy stays out of the food APK. */
+    @Composable
+    fun HistoryQuickFilters(
+        filters: Set<HistoryFilter>,
+        onToggleFilter: (HistoryFilter) -> Unit,
+    ) = Unit
+
     @Composable
     fun MiniGlucoseCard(modifier: Modifier = Modifier)
 
@@ -158,6 +166,7 @@ interface GlucoseSurfaces {
     fun HistoryRows(
         date: LocalDate,
         rows: List<HistoryMealRowUi>,
+        filters: Set<HistoryFilter>,
         // tone is the backend episode classification, or null when unknown or
         // for the food flavor, in which case the row renders plain.
         // framed = false means the row sits inside a shared episode card, which
@@ -177,6 +186,7 @@ interface GlucoseSurfaces {
     fun HistoryDayTimeline(
         date: LocalDate,
         meals: List<HistoryTimelineMeal>,
+        filters: Set<HistoryFilter>,
         onMealTap: (String) -> Unit,
         modifier: Modifier = Modifier,
     )
@@ -208,6 +218,12 @@ val LocalGlucoseSurfaces: ProvidableCompositionLocal<GlucoseSurfaces> =
     staticCompositionLocalOf { GlucoseSurfacesNoop }
 
 object GlucoseSurfacesNoop : GlucoseSurfaces {
+    @Composable
+    override fun HistoryQuickFilters(
+        filters: Set<HistoryFilter>,
+        onToggleFilter: (HistoryFilter) -> Unit,
+    ) = Unit
+
     @Composable
     override fun MiniGlucoseCard(modifier: Modifier) = Unit
 
@@ -264,6 +280,7 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
     override fun HistoryRows(
         date: LocalDate,
         rows: List<HistoryMealRowUi>,
+        filters: Set<HistoryFilter>,
         rowContent: @Composable (
             row: HistoryMealRowUi,
             tone: HistoryEntryTone?,
@@ -285,6 +302,7 @@ object GlucoseSurfacesNoop : GlucoseSurfaces {
     override fun HistoryDayTimeline(
         date: LocalDate,
         meals: List<HistoryTimelineMeal>,
+        filters: Set<HistoryFilter>,
         onMealTap: (String) -> Unit,
         modifier: Modifier,
     ) = Unit

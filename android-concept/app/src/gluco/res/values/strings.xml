@@ -111,6 +111,9 @@
     <string name="today_kpi_below_range_sub">время &lt;3.9 за сегодня</string>
     <string name="history_filter_cgm">С CGM</string>
     <string name="history_filter_insulin">С инсулином</string>
+    <string name="history_filter_first_meal">Первый приём дня</string>
+    <string name="history_filter_peak_above_10">Пик &gt; 10</string>
+    <string name="history_filter_peak_above_13">Пик &gt; 13</string>
     <string name="stats_chart_tir">TIR</string>
     <string name="stats_tir_daily_title">TIR по дням</string>
     <string name="stats_tir_daily_description">Распределение глюкозы по зонам за %1$d дн.</string>

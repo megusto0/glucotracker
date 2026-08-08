@@ -144,7 +144,6 @@ fun HistoryScreen(
     searchRequestCounter: Int = 0,
     brandAccentColor: Color? = null,
 ) {
-    var statusSheetVisible by remember { mutableStateOf(false) }
     var viewSheetVisible by remember { mutableStateOf(false) }
     var searchVisible by remember { mutableStateOf(state.search.isNotBlank()) }
     val listState = rememberLazyListState()
@@ -188,7 +187,6 @@ fun HistoryScreen(
                     state = state,
                     onToggleFilter = onToggleFilter,
                     onSearchChange = onSearchChange,
-                    onStatusClick = { statusSheetVisible = true },
                     viewMode = state.viewMode,
                     onViewClick = { viewSheetVisible = true },
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
@@ -223,6 +221,7 @@ fun HistoryScreen(
             } else {
                 HistoryDaySection(
                     day = day,
+                    filters = state.filters,
                     onOpenMealStack = onOpenMealStack,
                     showcaseMeals = state.viewMode == HistoryViewMode.Showcase,
                     showcaseColumns = state.showcaseColumns,
@@ -243,16 +242,6 @@ fun HistoryScreen(
         }
     }
 
-    if (statusSheetVisible && brandAccentColor == null) {
-        StatusSheet(
-            selected = state.status,
-            onSelect = { status ->
-                onStatusChange(status)
-                statusSheetVisible = false
-            },
-            onDismiss = { statusSheetVisible = false },
-        )
-    }
     if (viewSheetVisible) {
         ViewModeSheet(
             selected = state.viewMode,
@@ -372,7 +361,6 @@ private fun HistoryHeader(
     state: HistoryScreenState,
     onToggleFilter: (HistoryFilter) -> Unit,
     onSearchChange: (String) -> Unit,
-    onStatusClick: () -> Unit,
     viewMode: HistoryViewMode,
     onViewClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -393,28 +381,10 @@ private fun HistoryHeader(
             onValueChange = onSearchChange,
             modifier = Modifier.padding(top = 12.dp),
         )
-        Row(
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                label = stringResource(R.string.history_filter_low_confidence),
-                active = HistoryFilter.LowConfidence in state.filters,
-                onClick = { onToggleFilter(HistoryFilter.LowConfidence) },
-            )
-            FilterChip(
-                label = stringResource(R.string.history_filter_photo),
-                active = HistoryFilter.PhotoOnly in state.filters,
-                onClick = { onToggleFilter(HistoryFilter.PhotoOnly) },
-            )
-            FilterChip(
-                label = stringResource(R.string.history_status_button, state.status.label()),
-                active = state.status != HistoryStatusFilter.Active,
-                onClick = onStatusClick,
-            )
-        }
+        LocalGlucoseSurfaces.current.HistoryQuickFilters(
+            filters = state.filters,
+            onToggleFilter = onToggleFilter,
+        )
         GTHairlineDivider(modifier = Modifier.padding(top = 12.dp))
     }
 }
@@ -475,7 +445,7 @@ private fun SearchField(
 }
 
 @Composable
-private fun FilterChip(
+internal fun FilterChip(
     label: String,
     active: Boolean,
     onClick: () -> Unit,
@@ -877,6 +847,7 @@ private fun DayTimeline(
 @Composable
 private fun HistoryDaySection(
     day: HistoryDayUi,
+    filters: Set<HistoryFilter>,
     onOpenMealStack: (LocalDate, String) -> Unit,
     showcaseMeals: Boolean = false,
     showcaseColumns: Int = DefaultShowcaseColumns,
@@ -911,6 +882,7 @@ private fun HistoryDaySection(
         LocalGlucoseSurfaces.current.HistoryDayTimeline(
             date = day.date,
             meals = day.rows.toTimelineMeals(),
+            filters = filters,
             onMealTap = { id -> onOpenMealStack(day.date, id) },
             modifier = Modifier
                 .padding(top = 10.dp)
@@ -935,6 +907,7 @@ private fun HistoryDaySection(
                 LocalGlucoseSurfaces.current.HistoryRows(
                     date = day.date,
                     rows = day.rows,
+                    filters = filters,
                     rowContent = { row, tone, framed, showTime, extraMetaContent ->
                         HistoryMealRow(
                             row = row,
