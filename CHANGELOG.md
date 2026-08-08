@@ -108,6 +108,13 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Android (gluco) + Glucotracker Bridge** — a long Helio Strap full-sync no
+  longer discards heart-rate, sleep, and activity rows that the bridge has
+  already stored: on the bounded wait it exports the available snapshot to
+  Health Connect. Missing writer permissions are reported explicitly and the
+  Glucotracker action opens the bridge's exact Health Connect setup screen
+  (`595dc2b`, `fee5853`).
+
 - **Android** — «Мой ритм» теперь показывает пять непересекающихся частей суток:
   «Конец дня» завершается в момент начала типичного сна, а сон занимает отдельный
   следующий сегмент со своей луной. Значки стоят в центрах собственных интервалов,
