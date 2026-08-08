@@ -437,7 +437,7 @@
     <string name="more_import_desc">Ручное добавление продуктов — в десктоп-версии.</string>
     <string name="more_desktop_pill">десктоп</string>
     <string name="more_rhythm_sleep_label">Типичный сон</string>
-    <string name="more_rhythm_sleep_value">%1$s–%2$s · за %3$d ночей</string>
+    <string name="more_rhythm_sleep_value">%1$s–%2$s</string>
     <string name="more_rhythm_basis_sleep">по последним 7 ночам</string>
     <string name="more_rhythm_basis_meals">по первым приёмам</string>
     <string name="more_rhythm_basis_shift">сдвиг режима</string>

@@ -270,30 +270,6 @@ private fun RhythmSection(
                     )
                 }
 
-                // The sleep the anchor was read from, stated next to it. The
-                // screen showed only the conclusion, so there was no way to see
-                // whether "начало дня" matched a night that actually happened.
-                rhythm?.sleep?.let { sleep ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.more_rhythm_sleep_label),
-                            color = GT.colors.muted,
-                            style = GT.type.sansLabel,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            text = stringResource(
-                                R.string.more_rhythm_sleep_value,
-                                sleep.startMinute.minuteLabel(),
-                                sleep.endMinute.minuteLabel(),
-                                sleep.nights,
-                            ),
-                            color = GT.colors.ink2,
-                            style = GT.type.monoLabel.copy(fontSize = 12.sp),
-                        )
-                    }
-                }
-
                 if (rhythm?.windows.isNullOrEmpty()) {
                     GTHintBox(text = stringResource(R.string.more_rhythm_no_data))
                 } else {
@@ -302,7 +278,11 @@ private fun RhythmSection(
                         accent = accent,
                         sleep = rhythm.sleep,
                     )
-                    RhythmLegend(windows = rhythm.windows, accent = accent)
+                    RhythmLegend(
+                        windows = rhythm.windows,
+                        accent = accent,
+                        sleep = rhythm.sleep,
+                    )
                 }
 
                 Row(
@@ -783,12 +763,16 @@ private fun RhythmBar(
     sleep: SleepWindowUi? = null,
 ) {
     val colors = listOf(accent, GT.colors.accent, GT.colors.warn, GT.colors.info)
-    Column {
+    if (windows.isEmpty()) return
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(GT.shapes.tag),
+    ) {
+        // The four day windows form the base 24-hour scale.
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(38.dp)
-                .clip(GT.shapes.tag),
+            modifier = Modifier.fillMaxSize(),
         ) {
             windows.forEachIndexed { index, window ->
                 val duration = windowDuration(window.startMinute, window.endMinute)
@@ -797,14 +781,29 @@ private fun RhythmBar(
                         .weight(duration.toFloat())
                         .fillMaxHeight()
                         .background(colors[index % colors.size]),
+                )
+            }
+        }
+
+        // Sleep overlaps a day window, so it is painted over the same scale
+        // rather than appended as a fifth period and making the day >24 h.
+        sleep?.let {
+            SleepBand(originMinute = windows.first().startMinute, sleep = it)
+        }
+
+        // Icons stay readable over both the window and sleep colours.
+        Row(modifier = Modifier.fillMaxSize()) {
+            windows.forEachIndexed { index, window ->
+                val duration = windowDuration(window.startMinute, window.endMinute)
+                Box(
+                    modifier = Modifier
+                        .weight(duration.toFloat())
+                        .fillMaxHeight(),
                     contentAlignment = Alignment.Center,
                 ) {
                     RhythmWindowGlyph(index = index, label = window.label)
                 }
             }
-        }
-        if (sleep != null && windows.isNotEmpty()) {
-            SleepTrack(originMinute = windows.first().startMinute, sleep = sleep)
         }
     }
 }
@@ -948,15 +947,14 @@ private fun RhythmWindowGlyph(index: Int, label: String) {
 }
 
 /**
- * The night drawn under the day it defines.
+ * The night drawn inside the day it defines.
  *
- * The bar above runs one full day from the anchor, so the same scale places
- * sleep on it directly: if the anchor is right, the strip ends exactly where
- * the first window begins. A night that runs past midnight wraps to the front
- * of the track rather than being clipped off the end.
+ * The bar runs one full day from the anchor, so the same scale places sleep on
+ * it directly. A night crossing the anchor wraps to the front rather than
+ * being clipped.
  */
 @Composable
-private fun SleepTrack(originMinute: Int, sleep: SleepWindowUi) {
+private fun SleepBand(originMinute: Int, sleep: SleepWindowUi) {
     val day = 24 * 60
     val start = ((sleep.startMinute - originMinute) % day + day) % day
     val length = windowDuration(sleep.startMinute, sleep.endMinute)
@@ -968,11 +966,7 @@ private fun SleepTrack(originMinute: Int, sleep: SleepWindowUi) {
         (day - start - (length - wrapped)) to false,
     )
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp)
-            .height(5.dp)
-            .clip(GT.shapes.tag),
+        modifier = Modifier.fillMaxSize(),
     ) {
         segments.forEach { (minutes, isSleep) ->
             if (minutes <= 0) return@forEach
@@ -980,7 +974,10 @@ private fun SleepTrack(originMinute: Int, sleep: SleepWindowUi) {
                 modifier = Modifier
                     .weight(minutes.toFloat())
                     .fillMaxHeight()
-                    .background(if (isSleep) GT.colors.ink2 else GT.colors.hairline),
+                    .then(
+                        if (isSleep) Modifier.background(GT.colors.stateSleep)
+                        else Modifier
+                    ),
             )
         }
     }
@@ -990,6 +987,7 @@ private fun SleepTrack(originMinute: Int, sleep: SleepWindowUi) {
 private fun RhythmLegend(
     windows: List<RhythmWindowUi>,
     accent: Color,
+    sleep: SleepWindowUi? = null,
 ) {
     val colors = listOf(accent, GT.colors.accent, GT.colors.warn, GT.colors.info)
     Column {
@@ -1021,6 +1019,40 @@ private fun RhythmLegend(
                         R.string.more_rhythm_window,
                         window.startMinute.minuteLabel(),
                         window.endMinute.minuteLabel(),
+                    ),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel,
+                    maxLines = 1,
+                )
+            }
+        }
+        sleep?.let {
+            GTHairlineDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .background(GT.colors.stateSleep, GT.shapes.iconButton),
+                )
+                Text(
+                    text = stringResource(R.string.more_rhythm_sleep_label),
+                    modifier = Modifier
+                        .padding(start = 9.dp)
+                        .weight(1f),
+                    color = GT.colors.ink2,
+                    style = GT.type.sansLabel,
+                    maxLines = 1,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.more_rhythm_sleep_value,
+                        it.startMinute.minuteLabel(),
+                        it.endMinute.minuteLabel(),
                     ),
                     color = GT.colors.muted,
                     style = GT.type.monoLabel,
