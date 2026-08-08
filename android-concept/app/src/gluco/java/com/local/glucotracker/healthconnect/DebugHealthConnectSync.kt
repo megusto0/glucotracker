@@ -599,7 +599,28 @@ object DebugHealthConnectSync {
 
         var activeToken = changesToken ?: return
         while (true) {
-            val response = client.getChanges(activeToken)
+            val response = try {
+                client.getChanges(activeToken)
+            } catch (error: IllegalArgumentException) {
+                // A malformed provider row can make the Android converter
+                // reject the entire changes page before exposing its next
+                // token. Reset once to the bounded full-read path: that path
+                // narrows around unreadable spans, uploads all valid rows, and
+                // stores a fresh token taken before the recovery read.
+                preferences.edit().remove(tokenKey).apply()
+                if (allowExpiredTokenReset) {
+                    syncRecordType(
+                        context = context,
+                        client = client,
+                        api = api,
+                        recordType = recordType,
+                        canReadHistory = canReadHistory,
+                        counts = counts,
+                        allowExpiredTokenReset = false,
+                    )
+                }
+                return
+            }
             if (response.changesTokenExpired) {
                 preferences.edit().remove(tokenKey).apply()
                 if (allowExpiredTokenReset) {
