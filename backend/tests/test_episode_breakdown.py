@@ -111,6 +111,17 @@ def _seed_night(session: Session, owner_id: UUID) -> None:
             total_kcal=420,
         )
     )
+    session.add(
+        NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key="breakdown-meal-bolus",
+            nightscout_id="breakdown-meal-bolus",
+            timestamp=_at(140),
+            insulin_units=4.0,
+            event_type="Meal Bolus",
+            entered_by="Nightscout",
+        )
+    )
 
 
 def _rescue(api_client: TestClient) -> dict:
@@ -149,7 +160,8 @@ def test_breakdown_reads_the_rescue_from_its_trough(
     body = _rescue(api_client)
 
     assert body["classification"] == "carb_correction"
-    assert body["title"] == "Сок яблочный, 12 г"
+    assert body["title"] == "Сок яблочный"
+    assert body["subtitle"] == "12 г"
     anchors = {anchor["role"]: anchor for anchor in body["anchors"]}
     assert anchors["trough"]["value"] == 3.6
     assert anchors["trough"]["label"] == "Минимум перед приёмом"
@@ -202,6 +214,42 @@ def test_breakdown_names_the_dose_as_the_cause(api_client: TestClient) -> None:
     assert "Коррекция инсулином" in crossings["insulin"]["label"]
     assert crossings["episode"]["offset_minutes"] == 75
     assert body["frequency"]["days"] == 30
+
+
+def test_food_breakdown_reports_observation_without_claiming_bolus_causality(
+    api_client: TestClient,
+) -> None:
+    """One trace cannot prove what the same meal would do without its bolus."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    with api_client.app_state["session_factory"]() as session:
+        _seed_night(session, owner_id)
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-06T00:00:00", "to": "2026-08-07T00:00:00"},
+    ).json()["episodes"]
+    food = next(
+        episode
+        for episode in episodes
+        if episode["therapy"]["classification"] in {"meal", "mixed"}
+    )
+    response = api_client.get(
+        "/glucose/episodes/breakdown",
+        params={
+            "key": food["key"],
+            "from": "2026-08-06T00:00:00",
+            "to": "2026-08-07T00:00:00",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["title"] == "Печенье"
+    assert body["subtitle"] == "53 г · 4,0 ЕД"
+    assert "На фоне болюса 4,0 ЕД" in body["cause"]["text"]
+    assert "удержал" not in body["cause"]["text"]
+    assert "не удержал" not in body["cause"]["text"]
 
 
 def test_breakdown_rejects_a_key_outside_the_range(api_client: TestClient) -> None:

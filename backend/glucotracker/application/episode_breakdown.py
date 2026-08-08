@@ -425,7 +425,7 @@ class EpisodeBreakdownService:
             index=max(index, 1),
             count=len(excursions),
             days=FREQUENCY_DAYS,
-            label=f"{max(index, 1)}-я {kind} за {FREQUENCY_DAYS} дней",
+            label=f"{kind.capitalize()} за {FREQUENCY_DAYS} дней: {len(excursions)}",
         )
 
     def _insulin_correction_frequency(
@@ -454,7 +454,10 @@ class EpisodeBreakdownService:
             index=len(corrections),
             count=len(corrections),
             days=FREQUENCY_DAYS,
-            label=f"{len(corrections)}-я коррекция инсулином за {FREQUENCY_DAYS} дней",
+            label=(
+                f"Коррекций инсулином за {FREQUENCY_DAYS} дней:"
+                f" {len(corrections)}"
+            ),
         )
 
     def _meal_frequency(
@@ -484,7 +487,7 @@ class EpisodeBreakdownService:
             index=len(repeats),
             count=len(repeats),
             days=FREQUENCY_DAYS,
-            label=f"{len(repeats)}-й раз за {FREQUENCY_DAYS} дней",
+            label=f"Таких приёмов за {FREQUENCY_DAYS} дней: {len(repeats)}",
         )
 
 
@@ -749,18 +752,20 @@ def _correction_cause(
         return None
     if trough.value < LOW_GLUCOSE_MMOL_L:
         severity = (
-            "во вторую степень" if trough.value < LEVEL_TWO_LOW_MMOL_L else "в гипо"
+            "гипо второй степени"
+            if trough.value < LEVEL_TWO_LOW_MMOL_L
+            else "гипо"
         )
         return BreakdownCause(
             "correction_overshot",
-            f"Коррекция {mmol(units)} ЕД при {mmol(start.value)}"
-            f" увела {severity}: {mmol(trough.value)}"
+            f"После коррекции {mmol(units)} ЕД при {mmol(start.value)}"
+            f" глюкоза достигла {mmol(trough.value)} ({severity})"
             f" через {trough.minutes_from_start} мин.",
         )
     return BreakdownCause(
         "correction_landed",
-        f"Коррекция {mmol(units)} ЕД снизила с {mmol(start.value)}"
-        f" до {mmol(trough.value)} за {trough.minutes_from_start} мин.",
+        f"После коррекции {mmol(units)} ЕД: {mmol(start.value)} →"
+        f" {mmol(trough.value)} за {trough.minutes_from_start} мин.",
     )
 
 
@@ -774,28 +779,18 @@ def _food_cause(
         return None
     rise = peak.value - start.value
     units = sum(float(event.insulin_units or 0) for event in component.insulin)
-    if units <= 0 and rise >= 2.0:
-        return BreakdownCause(
-            "uncovered_rise",
-            f"Подъём +{mmol(rise)} без болюса,"
-            f" пик через {peak.minutes_from_start} мин.",
-        )
-    if units > 0 and rise >= 3.0:
-        return BreakdownCause(
-            "bolus_late",
-            f"Болюс {mmol(units)} ЕД не удержал подъём:"
-            f" +{mmol(rise)} к {peak.at:%H:%M}.",
-        )
-    if units > 0:
-        return BreakdownCause(
-            "bolus_held",
-            f"Болюс {mmol(units)} ЕД удержал подъём: +{mmol(rise)}"
-            f" за {peak.minutes_from_start} мин.",
-        )
-    return BreakdownCause(
-        "flat_response",
-        f"Подъём +{mmol(rise)} — глюкоза осталась в пределах приёма.",
+    context = f"На фоне болюса {mmol(units)} ЕД" if units > 0 else "Без болюса"
+    observation = (
+        f"{context}: {mmol(start.value)} → {mmol(peak.value)}"
+        f" ({_signed_mmol(rise)}) за {peak.minutes_from_start} мин."
     )
+    if units <= 0 and rise >= 2.0:
+        return BreakdownCause("uncovered_rise", observation)
+    if units > 0 and rise >= 3.0:
+        return BreakdownCause("bolus_late", observation)
+    if units > 0:
+        return BreakdownCause("bolus_held", observation)
+    return BreakdownCause("flat_response", observation)
 
 
 def _covers(
@@ -879,19 +874,35 @@ def _title(component: EpisodeComponent, therapy: EpisodeTherapy) -> str:
     if not component.meals:
         units = sum(float(event.insulin_units or 0) for event in component.insulin)
         return f"Коррекция {mmol(units)} ЕД"
-    carbs = sum(float(meal.total_carbs_g or 0) for meal in component.meals)
     titles = [meal.title for meal in component.meals if meal.title]
     head = titles[0] if titles else "Приём"
     if len(titles) > 1:
-        head = f"{head} +{len(titles) - 1}"
-    return f"{head}, {carbs:.0f} г"
+        extra = len(titles) - 1
+        head = f"{head} + ещё {extra} {_dish_word(extra)}"
+    return head
 
 
 def _subtitle(component: EpisodeComponent) -> str | None:
+    carbs = sum(float(meal.total_carbs_g or 0) for meal in component.meals)
     units = sum(float(event.insulin_units or 0) for event in component.insulin)
-    if units <= 0 or not component.meals:
+    if not component.meals:
         return None
-    return f"{mmol(units)} ЕД"
+    parts = [f"{carbs:.0f} г"]
+    if units > 0:
+        parts.append(f"{mmol(units)} ЕД")
+    return " · ".join(parts)
+
+
+def _dish_word(count: int) -> str:
+    if count % 10 == 1 and count % 100 != 11:
+        return "блюдо"
+    if count % 10 in {2, 3, 4} and count % 100 not in {12, 13, 14}:
+        return "блюда"
+    return "блюд"
+
+
+def _signed_mmol(value: float) -> str:
+    return f"−{mmol(abs(value))}" if value < 0 else f"+{mmol(value)}"
 
 
 def _after(

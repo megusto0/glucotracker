@@ -23,9 +23,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,7 +59,7 @@ import kotlinx.datetime.toLocalDateTime
  * One episode taken apart, as the backend read it.
  *
  * Nothing here is computed on the client. The anchors, the per-gram figure, the
- * crossings and the probable cause all arrive already decided, because they are
+ * crossings and the interpretation all arrive already decided, because they are
  * the same judgements the diary colours rows by — recomputing them here would
  * be a second opinion that could disagree with the row that opened this sheet.
  */
@@ -259,6 +263,15 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    breakdown.subtitle?.let { subtitle ->
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = subtitle,
+                            color = GT.colors.muted,
+                            style = GT.type.monoLabel,
+                            maxLines = 1,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
@@ -270,7 +283,7 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
             }
         }
 
-        BreakdownChart(breakdown = breakdown, kindColor = kindColor)
+        BreakdownChart(breakdown = breakdown)
 
         Column(
             modifier = Modifier
@@ -279,8 +292,8 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                 .padding(top = 4.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            breakdown.anchors.forEach { anchor ->
-                AnchorRow(anchor = anchor, zone = zone)
+            breakdown.anchors.forEachIndexed { index, anchor ->
+                AnchorRow(number = index + 1, anchor = anchor, zone = zone)
             }
             breakdown.derived.forEach { derived ->
                 DerivedRow(derived = derived, kindColor = kindColor)
@@ -294,8 +307,12 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                 color = GT.colors.muted,
                 style = GT.type.kicker,
             )
+            val markedCrossings = breakdown.crossings.filter { it.kind != "sleep" }
             breakdown.crossings.forEach { crossing ->
-                CrossingRow(crossing = crossing)
+                CrossingRow(
+                    crossing = crossing,
+                    markerIndex = markedCrossings.indexOf(crossing).takeIf { it >= 0 },
+                )
             }
         }
 
@@ -321,7 +338,7 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.episode_breakdown_cause),
+                        text = episodeInterpretationTitle(breakdown.classification),
                         color = kindColor,
                         style = GT.type.kicker,
                     )
@@ -342,15 +359,13 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
 }
 
 /**
- * Points, not a line.
+ * Sensor points with gap-aware segments.
  *
- * The day chart draws a path because there the useful thing is shape. Here it
- * is how densely the sensor actually reported and where it stopped: a gap drawn
- * as a straight segment is an hour of invented glucose, and this sheet exists
- * to explain a low, which is exactly when sensors drop out.
+ * A faint segment helps the eye follow adjacent reports, but a missing interval
+ * remains visibly missing instead of becoming an invented glucose trajectory.
  */
 @Composable
-private fun BreakdownChart(breakdown: EpisodeBreakdownUi, kindColor: Color) {
+private fun BreakdownChart(breakdown: EpisodeBreakdownUi) {
     val points = breakdown.points
     if (points.isEmpty()) return
     val anchors = breakdown.anchors
@@ -361,6 +376,7 @@ private fun BreakdownChart(breakdown: EpisodeBreakdownUi, kindColor: Color) {
     val hairline = GT.colors.hairline2
     val band = GT.colors.bg
     val sleepColor = GT.colors.stateSleep
+    val surfaceColor = GT.colors.surface
 
     val crossingColors = crossings.associateWith { crossingColor(it) }
     val anchorRingColors = anchors.associate { it.role to anchorColor(it.role) }
@@ -404,17 +420,53 @@ private fun BreakdownChart(breakdown: EpisodeBreakdownUi, kindColor: Color) {
                 ),
             )
         }
-        crossings.filter { it.kind != "sleep" }.forEach { crossing ->
-            val at = x(crossing.at)
-            if (at < 0f || at > size.width) return@forEach
+        crossings.filter { it.kind != "sleep" }.forEachIndexed { index, crossing ->
+            val rawX = x(crossing.at)
+            if (rawX < 0f || rawX > size.width) return@forEachIndexed
+            val at = rawX.coerceIn(7.dp.toPx(), size.width - 7.dp.toPx())
             val color = crossingColors[crossing] ?: inkColor
             drawLine(
                 color = color.copy(alpha = 0.6f),
-                start = androidx.compose.ui.geometry.Offset(at, 0f),
+                start = androidx.compose.ui.geometry.Offset(at, 14.dp.toPx()),
                 end = androidx.compose.ui.geometry.Offset(at, size.height),
                 strokeWidth = 1.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())),
             )
+            drawNumberedMarker(
+                label = crossingMarker(index),
+                centerX = at,
+                centerY = 7.dp.toPx(),
+                color = color,
+                surfaceColor = surfaceColor,
+                radiusPx = 6.dp.toPx(),
+                textSizePx = 7.sp.toPx(),
+            )
+        }
+        // A faint segment is drawn only between adjacent sensor reports. This
+        // makes the shape readable without bridging a real CGM gap — the reason
+        // ADR-020 §4 rejected a single uninterrupted path here.
+        points.zipWithNext().forEach { (first, second) ->
+            val gapMinutes = (
+                second.at.toEpochMilliseconds() - first.at.toEpochMilliseconds()
+            ) / 60_000
+            if (
+                gapMinutes in 0..10 &&
+                first.at >= breakdown.windowFrom &&
+                second.at <= breakdown.windowTo
+            ) {
+                drawLine(
+                    color = inkColor.copy(alpha = 0.18f),
+                    start = androidx.compose.ui.geometry.Offset(
+                        x(first.at),
+                        y(first.value.toFloat()),
+                    ),
+                    end = androidx.compose.ui.geometry.Offset(
+                        x(second.at),
+                        y(second.value.toFloat()),
+                    ),
+                    strokeWidth = 0.7.dp.toPx(),
+                )
+            }
         }
         points.forEach { point ->
             if (point.at < breakdown.windowFrom || point.at > breakdown.windowTo) {
@@ -430,32 +482,29 @@ private fun BreakdownChart(breakdown: EpisodeBreakdownUi, kindColor: Color) {
                 alpha = if (point.isLow) 1f else 0.75f,
             )
         }
-        anchors.forEach { anchor ->
-            drawCircle(
+        anchors.forEachIndexed { index, anchor ->
+            drawNumberedMarker(
+                label = (index + 1).toString(),
+                centerX = x(anchor.at),
+                centerY = y(anchor.value.toFloat()),
                 color = anchorRingColors[anchor.role] ?: inkColor,
-                radius = 4.5.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(
-                    x(anchor.at),
-                    y(anchor.value.toFloat()),
-                ),
-                style = Stroke(width = 1.4.dp.toPx()),
+                surfaceColor = surfaceColor,
+                radiusPx = 7.dp.toPx(),
+                textSizePx = 8.sp.toPx(),
             )
         }
     }
 }
 
 @Composable
-private fun AnchorRow(anchor: BreakdownAnchorUi, zone: TimeZone) {
+private fun AnchorRow(number: Int, anchor: BreakdownAnchorUi, zone: TimeZone) {
     val ringColor = anchorColor(anchor.role)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Canvas(modifier = Modifier.size(9.dp)) {
-            drawCircle(
-                color = ringColor,
-                radius = size.minDimension / 2,
-                style = Stroke(width = 1.6.dp.toPx()),
-            )
-        }
-        Spacer(Modifier.width(9.dp))
+        NumberedMarker(
+            label = number.toString(),
+            color = ringColor,
+        )
+        Spacer(Modifier.width(8.dp))
         Text(
             text = anchor.label,
             modifier = Modifier.weight(1f),
@@ -524,7 +573,7 @@ private fun DerivedRow(derived: BreakdownDerivedUi, kindColor: Color) {
 }
 
 @Composable
-private fun CrossingRow(crossing: BreakdownCrossingUi) {
+private fun CrossingRow(crossing: BreakdownCrossingUi, markerIndex: Int?) {
     val color = crossingColor(crossing)
     Row(
         modifier = Modifier
@@ -532,13 +581,15 @@ private fun CrossingRow(crossing: BreakdownCrossingUi) {
             .padding(horizontal = 20.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (crossing.kind == "sleep" || crossing.kind == "activity") {
+        if (crossing.kind == "sleep") {
             Box(modifier = Modifier.width(12.dp).height(4.dp).background(color.copy(alpha = 0.35f)))
         } else {
-            Box(modifier = Modifier.size(7.dp).background(color, GT.shapes.tag))
-            Spacer(Modifier.width(5.dp))
+            NumberedMarker(
+                label = crossingMarker(markerIndex ?: 0),
+                color = color,
+            )
         }
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(8.dp))
         Text(
             text = crossing.label,
             modifier = Modifier.weight(1f),
@@ -555,6 +606,55 @@ private fun CrossingRow(crossing: BreakdownCrossingUi) {
         )
     }
 }
+
+@Composable
+private fun NumberedMarker(label: String, color: Color) {
+    val surfaceColor = GT.colors.surface
+    Canvas(modifier = Modifier.size(18.dp)) {
+        drawNumberedMarker(
+            label = label,
+            centerX = size.width / 2f,
+            centerY = size.height / 2f,
+            color = color,
+            surfaceColor = surfaceColor,
+            radiusPx = 8.dp.toPx(),
+            textSizePx = 8.sp.toPx(),
+        )
+    }
+}
+
+private fun DrawScope.drawNumberedMarker(
+    label: String,
+    centerX: Float,
+    centerY: Float,
+    color: Color,
+    surfaceColor: Color,
+    radiusPx: Float,
+    textSizePx: Float,
+) {
+    val center = Offset(centerX, centerY)
+    drawCircle(color = surfaceColor, radius = radiusPx, center = center)
+    drawCircle(
+        color = color,
+        radius = radiusPx,
+        center = center,
+        style = Stroke(width = 1.4.dp.toPx()),
+    )
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color.toArgb()
+        textAlign = android.graphics.Paint.Align.CENTER
+        textSize = textSizePx
+        typeface = android.graphics.Typeface.create(
+            android.graphics.Typeface.MONOSPACE,
+            android.graphics.Typeface.BOLD,
+        )
+    }
+    val baseline = centerY - (paint.ascent() + paint.descent()) / 2f
+    drawContext.canvas.nativeCanvas.drawText(label, centerX, baseline, paint)
+}
+
+private fun crossingMarker(index: Int): String =
+    if (index in 0..25) ('A'.code + index).toChar().toString() else (index + 1).toString()
 
 @Composable
 private fun offsetLabel(minutes: Int): String {
@@ -578,6 +678,16 @@ private fun breakdownKindLabel(classification: String): String = stringResource(
         "mixed" -> R.string.episode_breakdown_kind_mixed
         "meal" -> R.string.episode_breakdown_kind_meal
         else -> R.string.episode_breakdown_kind_unresolved
+    },
+)
+
+@Composable
+private fun episodeInterpretationTitle(classification: String): String = stringResource(
+    when (classification) {
+        "carb_correction" -> R.string.episode_breakdown_cause_hypo
+        "insulin_correction" -> R.string.episode_breakdown_result_correction
+        "meal", "snack" -> R.string.episode_breakdown_result_meal
+        else -> R.string.episode_breakdown_result_mixed
     },
 )
 

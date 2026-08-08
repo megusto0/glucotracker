@@ -54,8 +54,8 @@ private fun curvePoints(): List<BreakdownPointUi> {
 
 internal fun nightRescueBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
     classification = "carb_correction",
-    title = "Сок яблочный, 12 г",
-    subtitle = null,
+    title = "Сок яблочный",
+    subtitle = "12 г",
     startAt = at(65),
     windowFrom = at(-55),
     windowTo = at(305),
@@ -97,14 +97,14 @@ internal fun nightRescueBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
     ),
     causeText = "Гипо через 47 мин после коррекции инсулином на активном IOB 2,4 ЕД." +
         " Не еда — доза.",
-    frequencyLabel = "4-я ночная гипо за 30 дней",
+    frequencyLabel = "Ночная гипо за 30 дней: 4",
 )
 
 /** The same frame for ordinary food, which is the point of the system. */
 internal fun coveredMealBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
     classification = "meal",
-    title = "Паста с курицей, 78 г",
-    subtitle = "8,0 ЕД",
+    title = "Паста с курицей",
+    subtitle = "78 г · 8,0 ЕД",
     startAt = at(65),
     windowFrom = at(-55),
     windowTo = at(305),
@@ -128,6 +128,6 @@ internal fun coveredMealBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
             detail = null,
         ),
     ),
-    causeText = "Болюс 8,0 ЕД удержал подъём: +4,3 за 58 мин.",
-    frequencyLabel = "3-й раз за 30 дней",
+    causeText = "На фоне болюса 8,0 ЕД: 3,6 → 7,9 (+4,3) за 58 мин.",
+    frequencyLabel = "Таких приёмов за 30 дней: 3",
 )

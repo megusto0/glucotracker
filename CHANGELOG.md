@@ -31,10 +31,11 @@ External sources consulted while building are recorded in
   six blocks that are the same for every class: a −2 h/+4 h window of calibrated
   CGM sent point by point, the two or three readings the episode is read from,
   one derived figure (rise per gram, or fall per unit), everything else in the
-  window with a signed offset, a probable cause, and how often this has happened
-  in 30 days. What differs by class is only which readings are anchors and which
-  figure is worth deriving. See
+  window with a signed offset, a class-specific interpretation, and how often
+  this has happened in 30 days. What differs by class is only which readings are
+  anchors and which figure is worth deriving. See
   [ADR-020](docs/adr/ADR-020-episode-breakdown.md).
+
 - **Backend** — an episode's label now carries the named evidence behind it —
   a stable code, the sentence, and its weight — alongside the plain `reasons`
   older clients render, plus the trough the judgement was made on.
@@ -61,6 +62,10 @@ External sources consulted while building are recorded in
 
 ### Changed
 
+- **Android + Backend** — разбор эпизода связывает ключевые точки графика со
+  строками номерами 1–3, а соседние события — буквами A–Z. Для еды и коррекции
+  блок больше не называется «вероятной причиной»: он показывает наблюдаемый
+  результат без причинного утверждения о действии болюса.
 - **Backend** — a carbohydrate correction is decided from the lowest calibrated
   reading around the plate, not from the slope at it. Food eaten while glucose
   fell steeply *toward a perfectly ordinary number* was filed as hypoglycaemia
