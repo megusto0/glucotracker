@@ -202,10 +202,10 @@ fun HistoryScreen(
             items = visibleDays,
             key = { day -> day.date.toString() },
         ) { day ->
-            if (state.viewMode == HistoryViewMode.Showcase) {
+            if (brandAccentColor != null && state.viewMode == HistoryViewMode.Showcase) {
                 HistoryDayCard(
                     day = day,
-                    markerColor = brandAccentColor ?: GT.colors.info,
+                    markerColor = brandAccentColor,
                     onOpenMealStack = onOpenMealStack,
                     onOpenDay = onOpenDay,
                     modifier = Modifier.padding(horizontal = 18.dp),
@@ -214,6 +214,7 @@ fun HistoryScreen(
                 HistoryDaySection(
                     day = day,
                     onOpenMealStack = onOpenMealStack,
+                    showcaseMeals = state.viewMode == HistoryViewMode.Showcase,
                     modifier = Modifier.padding(horizontal = 18.dp),
                 )
             }
@@ -769,6 +770,7 @@ private fun DayTimeline(
 private fun HistoryDaySection(
     day: HistoryDayUi,
     onOpenMealStack: (LocalDate, String) -> Unit,
+    showcaseMeals: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -809,24 +811,33 @@ private fun HistoryDaySection(
         // Today does. Wrapping the whole day in one and separating sittings
         // with a hairline is what left every time in a left gutter with
         // nothing to state what the sitting was.
-        Column(
-            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
-        ) {
-            LocalGlucoseSurfaces.current.HistoryRows(
-                date = day.date,
+        if (showcaseMeals) {
+            HistoryShowcase(
                 rows = day.rows,
-                rowContent = { row, tone, framed, showTime, extraMetaContent ->
-                    HistoryMealRow(
-                        row = row,
-                        tone = tone,
-                        framed = framed,
-                        showTime = showTime,
-                        onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
-                        extraMetaContent = extraMetaContent,
-                    )
-                },
-                divider = { Spacer(Modifier.height(14.dp)) },
+                onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
+                modifier = Modifier.padding(top = 12.dp),
             )
+            GTHairlineDivider(modifier = Modifier.padding(top = 14.dp))
+        } else {
+            Column(
+                modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+            ) {
+                LocalGlucoseSurfaces.current.HistoryRows(
+                    date = day.date,
+                    rows = day.rows,
+                    rowContent = { row, tone, framed, showTime, extraMetaContent ->
+                        HistoryMealRow(
+                            row = row,
+                            tone = tone,
+                            framed = framed,
+                            showTime = showTime,
+                            onOpenMealStack = { id -> onOpenMealStack(day.date, id) },
+                            extraMetaContent = extraMetaContent,
+                        )
+                    },
+                    divider = { Spacer(Modifier.height(14.dp)) },
+                )
+            }
         }
     }
 }
