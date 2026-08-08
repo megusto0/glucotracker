@@ -139,18 +139,21 @@ class TodayViewModel @Inject constructor(
         .map { it.isConnected }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    // Keep the requested date attached to the cache emission it produced.
+    // Combining selectedDate and dayView independently let the new date win a
+    // frame before the new Room query did, briefly drawing yesterday's rows
+    // under today's header and then rebuilding every card.
     private val dayView = combine(selectedDate, refreshTick, dayRefreshTick) { date, _, _ -> date }
-        .flatMapLatest { date -> todayRepository.observeDay(date) }
+        .switchDated(todayRepository::observeDay)
 
     private val coreState = combine(
-        selectedDate,
         dayView,
         outboxRepository.observe(),
         syncRepository.observeStatus(),
-    ) { date, cachedDay, outbox, syncStatus ->
+    ) { datedDay, outbox, syncStatus ->
         TodayCoreState(
-            date = date,
-            cachedDay = cachedDay,
+            date = datedDay.date,
+            cachedDay = datedDay.value,
             outbox = outbox,
             syncStatus = syncStatus,
         )
@@ -374,6 +377,21 @@ private data class TodayCoreState(
     val outbox: List<OutboxItem>,
     val syncStatus: SyncStatus,
 )
+
+internal data class DatedValue<T>(
+    val date: LocalDate,
+    val value: T,
+)
+
+/**
+ * Switch a date-bound stream without ever pairing a new date with the last
+ * value emitted by the previous date's stream.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun <T> kotlinx.coroutines.flow.Flow<LocalDate>.switchDated(
+    observe: (LocalDate) -> kotlinx.coroutines.flow.Flow<T>,
+): kotlinx.coroutines.flow.Flow<DatedValue<T>> =
+    flatMapLatest { date -> observe(date).map { DatedValue(date, it) } }
 
 private data class NonTypicalDatePeriod(
     val startDate: LocalDate,

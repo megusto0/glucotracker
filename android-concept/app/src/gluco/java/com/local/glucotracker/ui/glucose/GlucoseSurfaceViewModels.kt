@@ -3,6 +3,7 @@ package com.local.glucotracker.ui.glucose
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.data.api.GlucoseApi
+import com.local.glucotracker.data.auth.AuthRepository
 import com.local.glucotracker.data.settings.GlucoAlarmToggles
 import com.local.glucotracker.data.settings.GlucoSettingsStore
 import com.local.glucotracker.domain.model.CreateNightscoutInsulinOutboxKind
@@ -33,17 +34,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 sealed interface MiniGlucoseUiState {
@@ -234,8 +239,15 @@ class GlucoseSparklineViewModel @Inject constructor(
 class InsulinContextViewModel @Inject constructor(
     private val insulinRepository: InsulinRepository,
     private val outboxRepository: OutboxRepository,
+    authRepository: AuthRepository,
 ) : ViewModel() {
     private val lock = Any()
+    private val session = authRepository.observeSession().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+    private val contextCache = LinkedHashMap<UserDayKey, InsulinDayContext>(7, 0.75f, true)
     private val insulinSignatures = mutableMapOf<LocalDate, String>()
     // Keyed by surface as well as date. Two surfaces on one screen see
     // different slices of the same day, and if they overwrote each other they
@@ -243,7 +255,50 @@ class InsulinContextViewModel @Inject constructor(
     private val mealSignatures = mutableMapOf<LocalDate, MutableMap<String, String>>()
     private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
-    fun context(date: LocalDate): Flow<InsulinDayContext> {
+    fun context(date: LocalDate): Flow<InsulinDayContext> =
+        rawContext(date)
+            .onStart {
+                val cached = cachedContext(date)
+                if (cached != null) emit(cached)
+            }
+            .onEach { context ->
+                currentKey(date)?.let { key ->
+                    cacheContext(key, context)
+                }
+            }
+            .distinctUntilChanged()
+
+    /** A ready in-memory snapshot prevents a date switch from starting empty. */
+    fun cachedContext(date: LocalDate): InsulinDayContext? =
+        currentKey(date)?.let { key -> synchronized(lock) { contextCache[key] } }
+
+    /**
+     * Read adjacent Room snapshots while the current day is on screen. The
+     * arrows then switch to a complete grouping/footer snapshot immediately;
+     * network reconciliation continues without changing the card structure.
+     */
+    fun prefetchAdjacent(date: LocalDate) {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        listOf(
+            date.plus(DatePeriod(days = -1)),
+            date.plus(DatePeriod(days = 1)),
+        ).filter { it <= today }.forEach { adjacent ->
+            if (cachedContext(adjacent) == null) {
+                viewModelScope.launch {
+                    val context = combine(
+                        outboxRepository.observe()
+                            .map { it.insulinOutboxForDate(adjacent) },
+                        insulinRepository.observeContextForDay(adjacent),
+                    ) { items, server ->
+                        applyInsulinOutbox(server = server, items = items, date = adjacent)
+                    }.first()
+                    currentKey(adjacent)?.let { key -> cacheContext(key, context) }
+                }
+            }
+        }
+    }
+
+    private fun rawContext(date: LocalDate): Flow<InsulinDayContext> {
         val mutationsForDate = outboxRepository.observe()
             .map { items -> items.insulinOutboxForDate(date) }
             .distinctUntilChanged()
@@ -264,11 +319,23 @@ class InsulinContextViewModel @Inject constructor(
         }
     }
 
+    private fun currentKey(date: LocalDate): UserDayKey? =
+        session.value?.userId?.toString()?.let { UserDayKey(it, date) }
+
+    private fun cacheContext(key: UserDayKey, context: InsulinDayContext) {
+        synchronized(lock) {
+            contextCache[key] = context
+            while (contextCache.size > MaxPrefetchedContextDays) {
+                contextCache.remove(contextCache.entries.first().key)
+            }
+        }
+    }
+
     /**
      * Re-pull grouping when the day's food changes.
      *
-     * Grouping and classification are decided by the backend and held only in
-     * memory, and the refresh used to be triggered by insulin mutations alone.
+     * Grouping and classification are decided by the backend and cached in
+     * Room, while refresh used to be triggered by insulin mutations alone.
      * Adding a photo touches nothing in the insulin outbox, so a dish entered
      * beside an existing one stayed its own card until the process restarted
      * and the first subscription happened to refetch. Callers pass
@@ -304,6 +371,10 @@ class InsulinContextViewModel @Inject constructor(
         }
     }
 }
+
+private data class UserDayKey(val userId: String, val date: LocalDate)
+
+private const val MaxPrefetchedContextDays = 7
 
 /**
  * Identity of a day's food as grouping depends on it.

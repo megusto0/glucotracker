@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -275,19 +276,30 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
                 },
             )
         }
-        LaunchedEffect(date, signature) { viewModel.onMealsChanged(date, "today", signature) }
-        val context by viewModel.context(date)
-            .collectAsStateWithLifecycle(initialValue = InsulinDayContext.Empty)
-        val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
-        LaunchedEffect(date) { bodyStatesViewModel.load(date) }
-        val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
-        TodayEpisodeRows(
-            date = date,
-            context = context,
-            rows = rows,
-            rowContent = rowContent,
-            bodyStates = bodyStates[date].orEmpty(),
-        )
+        LaunchedEffect(date, signature) {
+            viewModel.onMealsChanged(date, "today", signature)
+            viewModel.prefetchAdjacent(date)
+        }
+        // A keyed subtree cannot retain the previous day's collected context.
+        // Its initial value is the snapshot prefetched while that neighbour
+        // was off-screen, so grouped cards do not first appear as loose rows.
+        key(date) {
+            val contextFlow = remember(date) { viewModel.context(date) }
+            val initialContext = remember(date) {
+                viewModel.cachedContext(date) ?: InsulinDayContext.Empty
+            }
+            val context by contextFlow.collectAsStateWithLifecycle(initialValue = initialContext)
+            val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
+            LaunchedEffect(date) { bodyStatesViewModel.load(date) }
+            val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
+            TodayEpisodeRows(
+                date = date,
+                context = context,
+                rows = rows,
+                rowContent = rowContent,
+                bodyStates = bodyStates[date].orEmpty(),
+            )
+        }
     }
 
     @Composable

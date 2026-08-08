@@ -1,6 +1,10 @@
 package com.local.glucotracker.ui.feature.today
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -487,24 +491,46 @@ private fun TodayHeader(
                 .padding(top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val dateText = if (foodBrand) foodDateTitle(date) else dateTitle(date)
-            val dateContentDescription = stringResource(
-                R.string.today_date_content_description,
-                dateText,
-                weekdaySpoken(date),
-            )
-            Text(
-                text = dateText,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics {
-                        contentDescription = dateContentDescription
+            AnimatedContent(
+                targetState = date,
+                modifier = Modifier.weight(1f),
+                transitionSpec = {
+                    val direction = if (targetState > initialState) 1 else -1
+                    slideInHorizontally(tween(durationMillis = 120)) { width ->
+                        direction * width
+                    } togetherWith slideOutHorizontally(tween(durationMillis = 100)) { width ->
+                        -direction * width
+                    }
+                },
+                label = "today-date",
+            ) { visibleDate ->
+                val dateText = if (foodBrand) {
+                    foodDateTitle(visibleDate)
+                } else {
+                    dateTitle(visibleDate)
+                }
+                val dateContentDescription = stringResource(
+                    R.string.today_date_content_description,
+                    dateText,
+                    weekdaySpoken(visibleDate),
+                )
+                Text(
+                    text = dateText,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription = dateContentDescription
+                        },
+                    color = GT.colors.ink,
+                    style = if (foodBrand) {
+                        GT.type.serifTitle.copy(fontSize = 32.sp)
+                    } else {
+                        GT.type.serifTitle
                     },
-                color = GT.colors.ink,
-                style = if (foodBrand) GT.type.serifTitle.copy(fontSize = 32.sp) else GT.type.serifTitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 DayNavButton(
                     text = if (foodBrand) "‹" else "◀",
