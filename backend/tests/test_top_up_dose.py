@@ -337,7 +337,9 @@ def test_retrospective_top_up_excludes_the_bolus_being_explained(
         selected_id = selected.id
 
     common = {
-        "at": then.replace(tzinfo=None).isoformat(),
+        # Android sends kotlinx.datetime.Instant with a Z suffix. Production
+        # PostgreSQL preserves that tzinfo, unlike the earlier naive-only test.
+        "at": then.isoformat().replace("+00:00", "Z"),
         "target_mmol_l": 6.0,
     }
     included = api_client.get("/glucose/top-up-dose", params=common)

@@ -93,9 +93,12 @@ class BolusBreakdownViewModel @Inject constructor(
 
     private val _calc = MutableStateFlow<BolusCalcUi?>(null)
     internal val calc: StateFlow<BolusCalcUi?> = _calc.asStateFlow()
+    private val _loadFailed = MutableStateFlow(false)
+    internal val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
     fun load(at: Instant, insulinId: String) {
         _calc.value = null
+        _loadFailed.value = false
         viewModelScope.launch {
             val response = runCatching {
                 glucoseApi.topUpDose(
@@ -105,7 +108,7 @@ class BolusBreakdownViewModel @Inject constructor(
                 )
             }.getOrNull()
             if (response == null) {
-                _calc.value = null
+                _loadFailed.value = true
                 return@launch
             }
             val glucose = response.glucoseMmolL?.toDouble()
@@ -171,6 +174,7 @@ fun BolusBreakdownSheet(
         viewModel.load(ordered[selected].timestamp, ordered[selected].id)
     }
     val calc by viewModel.calc.collectAsStateWithLifecycle()
+    val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -182,6 +186,7 @@ fun BolusBreakdownSheet(
             mealAt = mealAt,
             selectedIndex = selected,
             calc = calc,
+            loadFailed = loadFailed,
             onSelect = { selected = it },
         )
     }
@@ -199,6 +204,7 @@ internal fun BolusBreakdownContent(
     mealAt: Instant?,
     selectedIndex: Int,
     calc: BolusCalcUi?,
+    loadFailed: Boolean = false,
     onSelect: (Int) -> Unit,
 ) {
     val zone = TimeZone.currentSystemDefault()
@@ -261,7 +267,16 @@ internal fun BolusBreakdownContent(
         }
 
         if (calc == null) {
-            Spacer(Modifier.height(90.dp))
+            if (loadFailed) {
+                Text(
+                    text = stringResource(R.string.bolus_calc_load_error),
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 12.dp),
+                    color = GT.colors.muted,
+                    style = GT.type.sansLabel,
+                )
+            } else {
+                Spacer(Modifier.height(90.dp))
+            }
             return@Column
         }
 

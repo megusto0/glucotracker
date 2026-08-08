@@ -364,6 +364,7 @@
     <string name="bolus_delta_under">вы ввели −%1$s к расчёту</string>
     <string name="bolus_delta_equal">ровно по расчёту</string>
     <string name="bolus_calc_unavailable">Расчёт на этот момент не восстановить: %1$s</string>
+    <string name="bolus_calc_load_error">Расчёт сейчас недоступен. Попробуйте ещё раз.</string>
     <string name="bolus_caveats">Прогноз на тот момент не сохранился, поэтому расчёт идёт от факта. ICR и ISF взяты текущие.</string>
     <string name="insulin_term_meal">на еду</string>
     <string name="insulin_term_total">итого</string>

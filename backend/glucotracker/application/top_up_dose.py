@@ -52,7 +52,7 @@ from glucotracker.application.insulin_recommendation import (
     _trusted_isf,
 )
 from glucotracker.application.on_board.classification import is_rapid_insulin_event
-from glucotracker.application.time import local_now
+from glucotracker.application.time import local_now, local_wall_time
 from glucotracker.application.twin.kernels import (
     PersonalizedInsulinKernel,
     personalized_insulin_minutes_remaining,
@@ -111,7 +111,11 @@ class TopUpDoseService:
         exclude_insulin_id: UUID | None = None,
     ) -> TopUpSuggestion:
         """Return the follow-up bolus implied by carbs left, IOB and target."""
-        now = at or local_now()
+        # Android sends an Instant (`...Z`) while dashboard/on-board arithmetic
+        # works in the configured local wall clock. Normalize at the boundary
+        # so PostgreSQL's timezone-aware timestamps and SQLite's naive values
+        # produce the same calculation.
+        now = local_wall_time(at) if at is not None else local_now()
         target = (
             target_mmol_l
             if target_mmol_l is not None
