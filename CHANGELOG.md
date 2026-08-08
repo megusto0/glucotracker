@@ -27,6 +27,13 @@ External sources consulted while building are recorded in
 
 ### Added
 
+- **Android (gluco) / Glucotracker Bridge** — в «Ещё» добавлено
+  «Автообновление»: Bridge сам запрашивает у Amazfit Helio Strap пульс, сон и
+  активность каждые 15 минут, пишет результат в Health Connect, после чего
+  Glucotracker без открытого экрана отправляет новые записи на сервер. Повторные
+  сигналы не запускают параллельные импорты; расписание сохраняется после
+  перезапуска приложения (`0b5d82c`, Bridge `2b10a6c`).
+
 - **Android (gluco)** — в «Ещё» появилась прямая настройка Amazfit Helio Strap:
   Glucotracker показывает состояние отдельного Glucotracker Bridge, последний
   доступный пульс и запускает цепочку «подключить → получить данные → записать
