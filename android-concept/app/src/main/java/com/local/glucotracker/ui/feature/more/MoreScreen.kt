@@ -801,9 +801,19 @@ private fun RhythmBar(
                         .fillMaxHeight(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    RhythmWindowGlyph(index = index, label = window.label)
+                    RhythmWindowGlyph(
+                        index = index,
+                        label = rhythmWindowLabel(index, window.label),
+                    )
                 }
             }
+        }
+
+        sleep?.let {
+            SleepGlyph(
+                originMinute = windows.first().startMinute,
+                sleep = it,
+            )
         }
     }
 }
@@ -922,28 +932,82 @@ private fun RhythmWindowGlyph(index: Int, label: String) {
             }
 
             else -> {
-                // Crescent: the end-of-day window leading back to sleep.
-                drawArc(
-                    color = color,
-                    startAngle = 70f,
-                    sweepAngle = 220f,
-                    useCenter = false,
-                    topLeft = Offset(3.dp.toPx(), 2.dp.toPx()),
-                    size = Size(11.dp.toPx(), 14.dp.toPx()),
-                    style = stroke,
+                // Finish flag: the last day window is distinct from sleep.
+                drawLine(
+                    color,
+                    Offset(5.dp.toPx(), 3.dp.toPx()),
+                    Offset(5.dp.toPx(), 15.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
                 )
-                drawArc(
-                    color = color,
-                    startAngle = 95f,
-                    sweepAngle = 170f,
-                    useCenter = false,
-                    topLeft = Offset(7.dp.toPx(), 3.5.dp.toPx()),
-                    size = Size(7.dp.toPx(), 11.dp.toPx()),
-                    style = stroke,
+                drawLine(
+                    color,
+                    Offset(5.dp.toPx(), 3.dp.toPx()),
+                    Offset(13.dp.toPx(), 5.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(13.dp.toPx(), 5.dp.toPx()),
+                    Offset(5.dp.toPx(), 8.dp.toPx()),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
                 )
             }
         }
     }
+}
+
+@Composable
+private fun SleepGlyph(originMinute: Int, sleep: SleepWindowUi) {
+    val description = stringResource(R.string.more_rhythm_sleep_label)
+    val color = GT.colors.surface2
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics { contentDescription = description },
+    ) {
+        val midpoint = sleepMidpointFraction(
+            originMinute = originMinute,
+            startMinute = sleep.startMinute,
+            endMinute = sleep.endMinute,
+        )
+        val center = Offset(
+            x = size.width * midpoint,
+            y = size.height / 2f,
+        )
+        val stroke = Stroke(width = 1.35.dp.toPx(), cap = StrokeCap.Round)
+        drawArc(
+            color = color,
+            startAngle = 70f,
+            sweepAngle = 220f,
+            useCenter = false,
+            topLeft = Offset(center.x - 6.dp.toPx(), center.y - 7.dp.toPx()),
+            size = Size(11.dp.toPx(), 14.dp.toPx()),
+            style = stroke,
+        )
+        drawArc(
+            color = color,
+            startAngle = 95f,
+            sweepAngle = 170f,
+            useCenter = false,
+            topLeft = Offset(center.x - 2.dp.toPx(), center.y - 5.5.dp.toPx()),
+            size = Size(7.dp.toPx(), 11.dp.toPx()),
+            style = stroke,
+        )
+    }
+}
+
+internal fun sleepMidpointFraction(
+    originMinute: Int,
+    startMinute: Int,
+    endMinute: Int,
+): Float {
+    val day = 24 * 60
+    val start = ((startMinute - originMinute) % day + day) % day
+    val length = windowDuration(startMinute, endMinute)
+    return ((start + length / 2f) % day) / day
 }
 
 /**
@@ -1005,7 +1069,7 @@ private fun RhythmLegend(
                         .background(colors[index % colors.size], GT.shapes.iconButton),
                 )
                 Text(
-                    text = window.label,
+                    text = rhythmWindowLabel(index, window.label),
                     modifier = Modifier
                         .padding(start = 9.dp)
                         .weight(1f),
@@ -1061,6 +1125,15 @@ private fun RhythmLegend(
             }
         }
     }
+}
+
+@Composable
+private fun rhythmWindowLabel(index: Int, fallback: String): String = when (index) {
+    0 -> stringResource(R.string.more_rhythm_window_first)
+    1 -> stringResource(R.string.more_rhythm_window_middle)
+    2 -> stringResource(R.string.more_rhythm_window_second_half)
+    3 -> stringResource(R.string.more_rhythm_window_end)
+    else -> fallback
 }
 
 @Composable
