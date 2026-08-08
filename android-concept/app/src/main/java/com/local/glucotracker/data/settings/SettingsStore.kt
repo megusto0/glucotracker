@@ -72,6 +72,10 @@ class SettingsStore @Inject constructor(
             }
         }
 
+    /** Null means the flavor-specific history default has never been changed. */
+    val historyViewMode: Flow<String?> =
+        dataStore.data.map { preferences -> preferences[Keys.HistoryViewMode] }
+
     val composeSheetOpenCount: Flow<Int> =
         dataStore.data.map { preferences -> preferences[Keys.ComposeSheetOpenCount] ?: 0 }
 
@@ -161,6 +165,12 @@ class SettingsStore @Inject constructor(
         }
     }
 
+    suspend fun updateHistoryViewMode(mode: String) {
+        dataStore.edit { preferences ->
+            preferences[Keys.HistoryViewMode] = mode
+        }
+    }
+
     suspend fun incrementComposeSheetOpenCount() {
         dataStore.edit { preferences ->
             preferences[Keys.ComposeSheetOpenCount] =
@@ -182,6 +192,7 @@ class SettingsStore @Inject constructor(
         val NotifLowConfidence = booleanPreferencesKey("notif_low_confidence")
         val NotifOutboxStuck = booleanPreferencesKey("notif_outbox_stuck")
         val StatsPeriod = stringPreferencesKey("stats_period")
+        val HistoryViewMode = stringPreferencesKey("history_view_mode")
         val ComposeSheetOpenCount = intPreferencesKey("compose_sheet_open_count")
     }
 }

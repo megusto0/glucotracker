@@ -2,6 +2,8 @@ package com.local.glucotracker.ui.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.glucotracker.BuildConfig
+import com.local.glucotracker.data.settings.SettingsStore
 import com.local.glucotracker.data.sync.ConnectivityObserver
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.DayTotals
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
@@ -43,7 +46,22 @@ data class HistoryScreenState(
     val showNeedsNetworkHint: Boolean,
     val totalDays: Int = 0,
     val totalRecords: Int = 0,
+    val viewMode: HistoryViewMode = HistoryViewMode.List,
 )
+
+enum class HistoryViewMode {
+    List,
+    Showcase,
+}
+
+internal fun defaultHistoryViewMode(flavor: String): HistoryViewMode =
+    if (flavor == "food") HistoryViewMode.Showcase else HistoryViewMode.List
+
+private fun storedHistoryViewMode(
+    value: String?,
+    fallback: HistoryViewMode,
+): HistoryViewMode =
+    HistoryViewMode.entries.firstOrNull { mode -> mode.name == value } ?: fallback
 
 data class HistoryDayUi(
     val date: LocalDate,
@@ -125,7 +143,9 @@ class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     outboxRepository: OutboxRepository,
     connectivityObserver: ConnectivityObserver,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
+    private val defaultViewMode = defaultHistoryViewMode(BuildConfig.FLAVOR)
     private val loadedDays = MutableStateFlow(InitialHistoryDays)
     private val filters = MutableStateFlow<Set<HistoryFilter>>(emptySet())
     private val status = MutableStateFlow(HistoryStatusFilter.Active)
@@ -154,12 +174,13 @@ class HistoryViewModel @Inject constructor(
         history,
         outboxRepository.observe(),
         connectivityObserver.observe(),
-    ) { activeQuery, page, outbox, network ->
+        settingsStore.historyViewMode,
+    ) { activeQuery, page, outbox, network, storedViewMode ->
         page.toScreenState(
             query = activeQuery,
             outbox = outbox,
             isOnline = network.isConnected,
-        )
+        ).copy(viewMode = storedHistoryViewMode(storedViewMode, defaultViewMode))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -172,8 +193,15 @@ class HistoryViewModel @Inject constructor(
             showNeedsNetworkHint = false,
             totalDays = 0,
             totalRecords = 0,
+            viewMode = defaultViewMode,
         ),
     )
+
+    fun setViewMode(mode: HistoryViewMode) {
+        viewModelScope.launch {
+            settingsStore.updateHistoryViewMode(mode.name)
+        }
+    }
 
     fun loadMore() {
         loadedDays.value += HistoryPageDays

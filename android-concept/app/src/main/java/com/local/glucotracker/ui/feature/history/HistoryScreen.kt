@@ -110,6 +110,7 @@ fun HistoryRoute(
         onToggleFilter = viewModel::toggleFilter,
         onClearFilters = viewModel::clearFilters,
         onStatusChange = viewModel::setStatus,
+        onViewModeChange = viewModel::setViewMode,
         onSearchChange = viewModel::setSearch,
         onLoadMore = viewModel::loadMore,
         searchRequestCounter = searchRequestCounter,
@@ -126,6 +127,7 @@ fun HistoryScreen(
     onToggleFilter: (HistoryFilter) -> Unit,
     onClearFilters: () -> Unit,
     onStatusChange: (HistoryStatusFilter) -> Unit,
+    onViewModeChange: (HistoryViewMode) -> Unit = {},
     onSearchChange: (String) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -133,6 +135,7 @@ fun HistoryScreen(
     brandAccentColor: Color? = null,
 ) {
     var statusSheetVisible by remember { mutableStateOf(false) }
+    var viewSheetVisible by remember { mutableStateOf(false) }
     var searchVisible by remember { mutableStateOf(state.search.isNotBlank()) }
     val listState = rememberLazyListState()
     val visibleDays = remember(state.days) { state.days.filter { day -> day.rows.isNotEmpty() } }
@@ -167,6 +170,8 @@ fun HistoryScreen(
                     onToggleFilter = onToggleFilter,
                     onClearFilters = onClearFilters,
                     onSearchChange = onSearchChange,
+                    viewMode = state.viewMode,
+                    onViewClick = { viewSheetVisible = true },
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                 )
             } else {
@@ -175,6 +180,8 @@ fun HistoryScreen(
                     onToggleFilter = onToggleFilter,
                     onSearchChange = onSearchChange,
                     onStatusClick = { statusSheetVisible = true },
+                    viewMode = state.viewMode,
+                    onViewClick = { viewSheetVisible = true },
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                 )
             }
@@ -195,10 +202,10 @@ fun HistoryScreen(
             items = visibleDays,
             key = { day -> day.date.toString() },
         ) { day ->
-            if (brandAccentColor != null) {
+            if (state.viewMode == HistoryViewMode.Showcase) {
                 HistoryDayCard(
                     day = day,
-                    markerColor = brandAccentColor,
+                    markerColor = brandAccentColor ?: GT.colors.info,
                     onOpenMealStack = onOpenMealStack,
                     onOpenDay = onOpenDay,
                     modifier = Modifier.padding(horizontal = 18.dp),
@@ -234,6 +241,16 @@ fun HistoryScreen(
             onDismiss = { statusSheetVisible = false },
         )
     }
+    if (viewSheetVisible) {
+        ViewModeSheet(
+            selected = state.viewMode,
+            onSelect = { mode ->
+                onViewModeChange(mode)
+                viewSheetVisible = false
+            },
+            onDismiss = { viewSheetVisible = false },
+        )
+    }
 }
 
 @Composable
@@ -243,15 +260,21 @@ private fun FoodHistoryHeader(
     onToggleFilter: (HistoryFilter) -> Unit,
     onClearFilters: () -> Unit,
     onSearchChange: (String) -> Unit,
+    viewMode: HistoryViewMode,
+    onViewClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.history_title),
-            color = GT.colors.ink,
-            style = GT.type.serifTitle,
-            maxLines = 1,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.history_title),
+                color = GT.colors.ink,
+                style = GT.type.serifTitle,
+                maxLines = 1,
+            )
+            Spacer(Modifier.weight(1f))
+            HistoryViewButton(viewMode = viewMode, onClick = onViewClick)
+        }
         Text(
             text = stringResource(
                 R.string.history_header_meta_compact,
@@ -311,6 +334,8 @@ private fun HistoryHeader(
     onToggleFilter: (HistoryFilter) -> Unit,
     onSearchChange: (String) -> Unit,
     onStatusClick: () -> Unit,
+    viewMode: HistoryViewMode,
+    onViewClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -322,13 +347,7 @@ private fun HistoryHeader(
                 maxLines = 1,
             )
             Spacer(Modifier.weight(1f))
-            val statusDescription = stringResource(R.string.history_status_content_description)
-            GTIconButton(
-                onClick = onStatusClick,
-                modifier = Modifier.semantics { contentDescription = statusDescription },
-            ) {
-                FilterGlyph()
-            }
+            HistoryViewButton(viewMode = viewMode, onClick = onViewClick)
         }
         SearchField(
             value = state.search,
@@ -358,6 +377,20 @@ private fun HistoryHeader(
             )
         }
         GTHairlineDivider(modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+@Composable
+private fun HistoryViewButton(
+    viewMode: HistoryViewMode,
+    onClick: () -> Unit,
+) {
+    val description = stringResource(R.string.history_view_content_description)
+    GTIconButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { contentDescription = description },
+    ) {
+        HistoryViewGlyph(viewMode)
     }
 }
 
@@ -518,10 +551,9 @@ private fun HistoryDayCard(
  * picture — it is an icon meaning "there was a photo". Three to a row, each a
  * third of the screen, is the size at which food is actually identifiable.
  *
- * Food only, deliberately. The grid drops what it cannot carry — insulin
- * belongs to a sitting rather than a dish, and the gaps between entries are the
- * content of a diabetes record — and the food flavor has none of that to lose.
- * Its day card showed no entries at all until now.
+ * The grid is the food flavor's default and an optional recognition-first view
+ * in gluco. It deliberately carries dishes rather than insulin context; gluco
+ * keeps the episode-rich list as its default.
  *
  * Built from plain rows, not a lazy grid: this sits inside a LazyColumn item,
  * where a nested lazy container has no bounded height to measure against.
@@ -1009,6 +1041,43 @@ private fun StatusSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ViewModeSheet(
+    selected: HistoryViewMode,
+    onSelect: (HistoryViewMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = GT.colors.surface,
+        contentColor = GT.colors.ink,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.history_view_sheet_title),
+                color = GT.colors.ink,
+                style = GT.type.serifSection,
+            )
+            HistoryViewMode.entries.forEach { mode ->
+                GTOutlineButton(
+                    text = mode.label(),
+                    onClick = { onSelect(mode) },
+                    enabled = mode != selected,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun HistoryStatusFilter.label(): String =
     when (this) {
@@ -1016,6 +1085,13 @@ private fun HistoryStatusFilter.label(): String =
         HistoryStatusFilter.Accepted -> stringResource(R.string.history_status_accepted)
         HistoryStatusFilter.Drafts -> stringResource(R.string.history_status_drafts)
         HistoryStatusFilter.All -> stringResource(R.string.history_status_all)
+    }
+
+@Composable
+private fun HistoryViewMode.label(): String =
+    when (this) {
+        HistoryViewMode.List -> stringResource(R.string.history_view_list)
+        HistoryViewMode.Showcase -> stringResource(R.string.history_view_showcase)
     }
 
 private fun List<HistoryMealRowUi>.toTimelineMeals(): List<HistoryTimelineMeal> =
@@ -1097,13 +1173,40 @@ private fun SearchGlyph(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun FilterGlyph() {
+private fun HistoryViewGlyph(viewMode: HistoryViewMode) {
     val color = GT.colors.ink2
     Canvas(modifier = Modifier.size(16.dp)) {
         val stroke = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(color, Offset(2.dp.toPx(), 4.dp.toPx()), Offset(14.dp.toPx(), 4.dp.toPx()), stroke.width)
-        drawLine(color, Offset(4.dp.toPx(), 8.dp.toPx()), Offset(12.dp.toPx(), 8.dp.toPx()), stroke.width)
-        drawLine(color, Offset(6.dp.toPx(), 12.dp.toPx()), Offset(10.dp.toPx(), 12.dp.toPx()), stroke.width)
+        if (viewMode == HistoryViewMode.List) {
+            listOf(4f, 8f, 12f).forEach { y ->
+                drawCircle(
+                    color = color,
+                    radius = 0.9.dp.toPx(),
+                    center = Offset(2.5.dp.toPx(), y.dp.toPx()),
+                )
+                drawLine(
+                    color,
+                    Offset(5.dp.toPx(), y.dp.toPx()),
+                    Offset(14.dp.toPx(), y.dp.toPx()),
+                    stroke.width,
+                )
+            }
+        } else {
+            listOf(
+                Offset(2.dp.toPx(), 2.dp.toPx()),
+                Offset(9.dp.toPx(), 2.dp.toPx()),
+                Offset(2.dp.toPx(), 9.dp.toPx()),
+                Offset(9.dp.toPx(), 9.dp.toPx()),
+            ).forEach { topLeft ->
+                drawRoundRect(
+                    color = color,
+                    topLeft = topLeft,
+                    size = Size(5.dp.toPx(), 5.dp.toPx()),
+                    cornerRadius = CornerRadius(1.dp.toPx()),
+                    style = stroke,
+                )
+            }
+        }
     }
 }
 

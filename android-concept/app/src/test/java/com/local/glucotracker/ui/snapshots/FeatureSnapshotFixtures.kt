@@ -36,6 +36,7 @@ import com.local.glucotracker.ui.feature.history.HistoryMealSource
 import com.local.glucotracker.ui.feature.history.HistoryMealStatus
 import com.local.glucotracker.ui.feature.history.HistoryScreen
 import com.local.glucotracker.ui.feature.history.HistoryScreenState
+import com.local.glucotracker.ui.feature.history.HistoryViewMode
 import com.local.glucotracker.ui.feature.more.MoreScreen
 import com.local.glucotracker.ui.feature.more.MoreState
 import com.local.glucotracker.ui.feature.record.RecordScreen
@@ -97,9 +98,17 @@ internal fun StatsSnapshot(state: StatsState, brandAccentColor: Color? = null) {
 }
 
 @Composable
-internal fun HistorySnapshot(state: HistoryScreenState, brandAccentColor: Color? = null) {
+internal fun HistorySnapshot(
+    state: HistoryScreenState,
+    brandAccentColor: Color? = null,
+    viewMode: HistoryViewMode = if (brandAccentColor == null) {
+        HistoryViewMode.List
+    } else {
+        HistoryViewMode.Showcase
+    },
+) {
     HistoryScreen(
-        state = state,
+        state = state.copy(viewMode = viewMode),
         onOpenMealStack = { _, _ -> },
         onOpenDay = {},
         onToggleFilter = {},
