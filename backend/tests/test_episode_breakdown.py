@@ -270,6 +270,147 @@ def test_food_breakdown_reports_observation_without_claiming_bolus_causality(
     assert "не удержал" not in body["cause"]["text"]
 
 
+def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(
+    api_client: TestClient,
+) -> None:
+    """A boundary sample is not a peak while the same meal rise continues."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    start = datetime(2026, 8, 6, 13, 44)
+    curve = [
+        (-5, 6.4),
+        (60, 7.4),
+        (120, 8.9),
+        (135, 9.8),
+        (145, 10.5),
+        (165, 11.4),
+        (190, 12.2),
+        (220, 9.1),
+        (230, 13.0),
+        (240, 7.2),
+    ]
+
+    with api_client.app_state["session_factory"]() as session:
+        for minutes, value in curve:
+            at = start + timedelta(minutes=minutes)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"delayed-peak-{minutes}",
+                    timestamp=at,
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        meal = Meal(
+            owner_id=owner_id,
+            eaten_at=start,
+            title="Delayed meal",
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_carbs_g=117,
+            total_protein_g=20,
+            total_fat_g=30,
+            total_kcal=800,
+        )
+        session.add(meal)
+        session.add(
+            NightscoutInsulinEvent(
+                owner_id=owner_id,
+                source_key="delayed-peak-bolus",
+                nightscout_id="delayed-peak-bolus",
+                timestamp=start,
+                insulin_units=11.6,
+                event_type="Meal Bolus",
+                entered_by="Nightscout",
+            )
+        )
+        session.commit()
+        meal_id = meal.id
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-06T00:00:00", "to": "2026-08-07T00:00:00"},
+    ).json()["episodes"]
+    delayed_episode = next(
+        episode for episode in episodes if f"m:{meal_id}" in episode["key"]
+    )
+    episode_key = delayed_episode["key"]
+    assert delayed_episode["outcome"]["result_value"] == 12.2
+
+    response = api_client.get(
+        "/glucose/episodes/breakdown",
+        params={
+            "key": episode_key,
+            "from": "2026-08-06T00:00:00",
+            "to": "2026-08-07T00:00:00",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    anchors = {anchor["role"]: anchor for anchor in response.json()["anchors"]}
+    assert anchors["peak"]["value"] == 12.2
+    assert anchors["peak"]["minutes_from_start"] == 190
+
+
+def test_food_breakdown_does_not_claim_a_later_rise_after_the_peak_settled(
+    api_client: TestClient,
+) -> None:
+    """A separate late fluctuation stays context once the meal already crested."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    start = datetime(2026, 8, 6, 10, 0)
+    curve = [
+        (0, 6.0),
+        (60, 9.0),
+        (120, 7.0),
+        (145, 6.5),
+        (180, 10.0),
+        (220, 8.0),
+    ]
+
+    with api_client.app_state["session_factory"]() as session:
+        for minutes, value in curve:
+            at = start + timedelta(minutes=minutes)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"settled-peak-{minutes}",
+                    timestamp=at,
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        meal = Meal(
+            owner_id=owner_id,
+            eaten_at=start,
+            title="Settled meal",
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_carbs_g=60,
+            total_protein_g=20,
+            total_fat_g=15,
+            total_kcal=500,
+        )
+        session.add(meal)
+        session.commit()
+        meal_id = meal.id
+
+    response = api_client.get(
+        "/glucose/episodes/breakdown",
+        params={
+            "key": f"m:{meal_id}",
+            "from": "2026-08-06T00:00:00",
+            "to": "2026-08-07T00:00:00",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    anchors = {anchor["role"]: anchor for anchor in response.json()["anchors"]}
+    assert anchors["peak"]["value"] == 9.0
+    assert anchors["peak"]["minutes_from_start"] == 60
+
+
 def test_breakdown_rejects_a_key_outside_the_range(api_client: TestClient) -> None:
     response = api_client.get(
         "/glucose/episodes/breakdown",

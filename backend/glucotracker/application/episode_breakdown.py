@@ -71,7 +71,14 @@ SETTLE_HORIZON: dict[str, timedelta] = {
     "unresolved": Horizon.IMMEDIATE_RESPONSE.value,
 }
 
+# Most meals have declared their peak by 2.5 hours. Slow meals sometimes have
+# not: when the trace is still climbing at that boundary, keep following the
+# same rise through the chart window instead of labelling the boundary sample
+# as "peak". A later episode still wins as the hard attribution boundary.
 PEAK_SEARCH = timedelta(minutes=150)
+DELAYED_PEAK_SEARCH = WINDOW_AFTER
+PEAK_CONFIRMATION = timedelta(minutes=15)
+PEAK_CONFIRMATION_DROP_MMOL_L = 0.3
 TROUGH_SEARCH_BEFORE = timedelta(minutes=20)
 TROUGH_SEARCH_AFTER = timedelta(minutes=45)
 POINT_TOLERANCE = timedelta(minutes=15)
@@ -582,7 +589,16 @@ def _anchors(
         until(TROUGH_SEARCH_AFTER),
         lowest=True,
     )
-    peak = _extreme(points, start_at, until(PEAK_SEARCH), lowest=False)
+    peak_until = until(PEAK_SEARCH)
+    peak = _extreme(points, start_at, peak_until, lowest=False)
+    if classification in {"meal", "snack", "mixed", "unresolved"}:
+        peak = _food_peak(
+            points,
+            start_at,
+            peak_until,
+            until(DELAYED_PEAK_SEARCH),
+            fallback=peak,
+        )
     settle = _nearest(points, until(settle_after))
     settle_hours = settle_after.total_seconds() / 3600
 
@@ -650,6 +666,20 @@ def episode_footer_outcome(
         Horizon.IMMEDIATE_RESPONSE.value,
     )
     complete_at = component.start_at + horizon
+    if kind == "peak":
+        standard_until = component.start_at + PEAK_SEARCH
+        delayed_until = component.start_at + DELAYED_PEAK_SEARCH
+        if boundary is not None:
+            standard_until = min(standard_until, boundary)
+            delayed_until = min(delayed_until, boundary)
+        complete_at = max(complete_at, standard_until)
+        if _food_peak_should_extend(
+            points,
+            component.start_at,
+            standard_until,
+            delayed_until,
+        ):
+            complete_at = delayed_until
     if boundary is not None:
         complete_at = min(complete_at, boundary)
     local_now = now or _local_wall_time(datetime.now(UTC))
@@ -1010,6 +1040,69 @@ def _extreme(
     if not found:
         return None
     return min(found) if lowest else max(found)
+
+
+def _food_peak(
+    points: list[GlucoseDashboardPoint],
+    start_at: datetime,
+    standard_until: datetime,
+    delayed_until: datetime,
+    *,
+    fallback: tuple[float, datetime] | None,
+) -> tuple[float, datetime] | None:
+    """Follow a meal rise past 2.5 h only when it has not crested yet.
+
+    The four-hour chart intentionally contains context after the ordinary meal
+    response. Searching all of it unconditionally can hand a later unrelated
+    fluctuation to the meal. Conversely, stopping at 150 minutes while the
+    calibrated trace is plainly climbing turns the last eligible sample into a
+    fake peak. The trend gate distinguishes those cases; the next episode is
+    already folded into both limits by ``_anchors``.
+    """
+    if not _food_peak_should_extend(
+        points,
+        start_at,
+        standard_until,
+        delayed_until,
+    ):
+        return fallback
+
+    peak = fallback
+    candidates = sorted(
+        (point.timestamp, value)
+        for point in points
+        if standard_until < point.timestamp <= delayed_until
+        if (value := _value(point)) is not None
+    )
+    for at, value in candidates:
+        if peak is None or value >= peak[0]:
+            peak = (value, at)
+            continue
+        peak_value, peak_at = peak
+        if (
+            at - peak_at >= PEAK_CONFIRMATION
+            and peak_value - value >= PEAK_CONFIRMATION_DROP_MMOL_L
+        ):
+            break
+    return peak
+
+
+def _food_peak_should_extend(
+    points: list[GlucoseDashboardPoint],
+    start_at: datetime,
+    standard_until: datetime,
+    delayed_until: datetime,
+) -> bool:
+    if delayed_until <= standard_until:
+        return False
+
+    series = [
+        (point.timestamp, value)
+        for point in points
+        if start_at <= point.timestamp <= delayed_until
+        if (value := _value(point)) is not None
+    ]
+    return rising_test(series)(standard_until)
 
 
 def _nearest(
