@@ -72,6 +72,12 @@ External sources consulted while building are recorded in
 
 ### Changed
 
+- **Glucotracker Bridge** — the companion refresh now requests only Helio's
+  minute activity stream, which already contains continuous heart rate,
+  steps/activity, and sleep stages. It no longer waits for unrelated GPS,
+  SpO2, stress, PAI, HRV, temperature, and summary operations; the measured
+  phone cycle fell from more than two minutes to about ten seconds (`2a09627`).
+
 - **Android + Backend** — разбор эпизода связывает ключевые точки графика со
   строками номерами 1–3, а соседние события — буквами A–Z. Для еды и коррекции
   блок больше не называется «вероятной причиной»: он показывает наблюдаемый
