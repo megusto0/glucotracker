@@ -2104,6 +2104,11 @@
             "title": "End At",
             "type": "string"
           },
+          "first_after_sleep": {
+            "default": false,
+            "title": "First After Sleep",
+            "type": "boolean"
+          },
           "insulin": {
             "items": {
               "$ref": "#/components/schemas/DayEpisodeInsulinResponse"

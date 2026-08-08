@@ -93,6 +93,7 @@ class InsulinRepository @Inject constructor(
                 classification = episode.therapy.classification.value,
                 mealIdsCsv = episode.mealIds.joinToString(","),
                 insulinIdsCsv = episode.insulin.joinToString(",") { it.id.toString() },
+                firstAfterSleep = episode.firstAfterSleep == true,
                 outcomeStatus = episode.outcome.status.value,
                 outcomeKind = episode.outcome.kind.value,
                 outcomeStartValue = episode.outcome.startValue?.toDouble(),
@@ -138,6 +139,9 @@ internal fun cachedContext(
                 episode.mealIds().forEach { put(it, episode.key) }
             }
         },
+        firstAfterSleepMealIds = episodeEntities
+            .filter { episode -> episode.firstAfterSleep }
+            .flatMapTo(mutableSetOf()) { episode -> episode.mealIds() },
         footerByMealId = buildMap {
             summaries.forEach { (episode, summary) ->
                 episode.mealIds().forEach { put(it, summary) }

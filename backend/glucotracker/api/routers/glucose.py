@@ -145,14 +145,18 @@ def get_glucose_episodes(
     to_datetime: Annotated[datetime, Query(alias="to")],
 ) -> DayEpisodesResponse:
     """Return grouped meal/insulin episodes for the range (attribution only)."""
-    therapy_points = GlucoseDashboardService(
-        session,
-        current_user.id,
-    ).dashboard(
-        from_datetime - timedelta(minutes=20),
-        to_datetime + timedelta(minutes=150),
-        "normalized",
-    ).points
+    therapy_points = (
+        GlucoseDashboardService(
+            session,
+            current_user.id,
+        )
+        .dashboard(
+            from_datetime - timedelta(minutes=20),
+            to_datetime + timedelta(minutes=150),
+            "normalized",
+        )
+        .points
+    )
     components = EpisodeQueryService(session, current_user.id).components(
         from_datetime,
         to_datetime,
@@ -163,6 +167,10 @@ def get_glucose_episodes(
                 if point.display_value is not None
             ]
         ),
+    )
+    recommendation_context = HistoricalInsulinRecommendationService(
+        session,
+        current_user.id,
     )
     episodes: list[DayEpisodeResponse] = []
     for component in components:
@@ -217,6 +225,13 @@ def get_glucose_episodes(
                 total_kcal=round(sum(meal.total_kcal for meal in component.meals), 1),
                 total_insulin_units=round(
                     sum(event.insulin_units or 0 for event in component.insulin), 2
+                ),
+                first_after_sleep=(
+                    recommendation_context.is_first_after_sleep(
+                        [meal.id for meal in component.meals]
+                    )
+                    if component.meals
+                    else False
                 ),
                 therapy=DayEpisodeTherapyResponse(**vars(therapy)),
                 outcome=DayEpisodeOutcomeResponse(**vars(footer_outcome)),
@@ -294,8 +309,7 @@ def get_glucose_therapy_review(
             for item in review.items
         ],
         body_states=[
-            BodyStateIntervalResponse(**vars(state))
-            for state in review.body_states
+            BodyStateIntervalResponse(**vars(state)) for state in review.body_states
         ],
     )
 
@@ -369,9 +383,7 @@ def get_glucose_therapy_analysis(
                 IcrDaypartComparisonResponse(**vars(proposal))
                 for proposal in analysis.icr_proposals
             ],
-            "isf_cases": [
-                IsfCaseResponse(**vars(case)) for case in analysis.isf_cases
-            ],
+            "isf_cases": [IsfCaseResponse(**vars(case)) for case in analysis.isf_cases],
             "slots": [
                 TherapyAnalysisSlotResponse(
                     start_hour=slot.start_hour,
@@ -389,15 +401,11 @@ def get_glucose_therapy_analysis(
             "basal_profile": TherapyBasalProfileResponse(
                 window_minutes=analysis.basal_profile.window_minutes,
                 washout_minutes=analysis.basal_profile.washout_minutes,
-                resting_reference_bpm=(
-                    analysis.basal_profile.resting_reference_bpm
-                ),
+                resting_reference_bpm=(analysis.basal_profile.resting_reference_bpm),
                 elevated_hr_threshold_bpm=(
                     analysis.basal_profile.elevated_hr_threshold_bpm
                 ),
-                quiet_window_count=(
-                    analysis.basal_profile.quiet_window_count
-                ),
+                quiet_window_count=(analysis.basal_profile.quiet_window_count),
                 elevated_hr_window_count=(
                     analysis.basal_profile.elevated_hr_window_count
                 ),
@@ -415,9 +423,7 @@ def get_glucose_therapy_analysis(
                         ),
                         elevated_hr_drift_mmol_l_per_hour=(
                             TherapyAnalysisMetricResponse(
-                                **vars(
-                                    slot.elevated_hr_drift_mmol_l_per_hour
-                                )
+                                **vars(slot.elevated_hr_drift_mmol_l_per_hour)
                             )
                         ),
                         unknown_hr_drift_mmol_l_per_hour=(
@@ -521,9 +527,7 @@ def get_insulin_recommendation(
         correction_isf_source=correction.isf_source,
         correction_iob_units=correction.iob_units,
         correction_projection_source=correction.projection_source,
-        correction_projection_horizon_minutes=(
-            correction.projection_horizon_minutes
-        ),
+        correction_projection_horizon_minutes=(correction.projection_horizon_minutes),
         correction_projection_calibration_factor=(
             correction.projection_calibration_factor
         ),

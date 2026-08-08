@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.glucose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,11 +33,16 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -315,6 +321,7 @@ fun SittingHeader(
     totals: String,
     meals: List<SittingMeal>,
     modifier: Modifier = Modifier,
+    firstAfterSleepWithInsulin: Boolean = false,
     // What this sitting is, on the server's terms, and the day it was listed
     // on. Both are needed to fetch its breakdown; null leaves the kind label
     // as plain text, which is what a queued record gets.
@@ -332,8 +339,13 @@ fun SittingHeader(
             .padding(top = 9.dp, bottom = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.size(7.dp).background(kindColor, GT.shapes.tag))
-        Spacer(Modifier.width(9.dp))
+        if (firstAfterSleepWithInsulin) {
+            FirstAfterSleepGlyph(color = kindColor)
+            Spacer(Modifier.width(6.dp))
+        } else {
+            Box(modifier = Modifier.size(7.dp).background(kindColor, GT.shapes.tag))
+            Spacer(Modifier.width(9.dp))
+        }
         Text(
             text = if (editable) {
                 stringResource(R.string.sitting_header_time_editable, time)
@@ -389,6 +401,65 @@ fun SittingHeader(
             episodeKey = episodeKey,
             date = date,
             onDismiss = { breakdownOpen = false },
+        )
+    }
+}
+
+/** Bowl and spoon: the first dosed sitting after sleep, readable without colour. */
+@Composable
+private fun FirstAfterSleepGlyph(color: Color) {
+    val description = stringResource(R.string.sitting_first_after_sleep_description)
+    Canvas(
+        modifier = Modifier
+            .size(15.dp)
+            .semantics { contentDescription = description },
+    ) {
+        val stroke = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round)
+        val rimY = 7.5.dp.toPx()
+        drawLine(
+            color = color,
+            start = Offset(1.5.dp.toPx(), rimY),
+            end = Offset(12.5.dp.toPx(), rimY),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawArc(
+            color = color,
+            startAngle = 0f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(1.5.dp.toPx(), 3.5.dp.toPx()),
+            size = Size(11.dp.toPx(), 8.dp.toPx()),
+            style = stroke,
+        )
+        // Spoon rising out of the bowl.
+        drawLine(
+            color = color,
+            start = Offset(9.5.dp.toPx(), 7.dp.toPx()),
+            end = Offset(13.dp.toPx(), 2.5.dp.toPx()),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawCircle(
+            color = color,
+            radius = 0.8.dp.toPx(),
+            center = Offset(13.3.dp.toPx(), 2.1.dp.toPx()),
+            style = stroke,
+        )
+        // Two small steam strokes keep the mark legible as warm food at 15 dp.
+        drawLine(
+            color = color.copy(alpha = 0.7f),
+            start = Offset(4.5.dp.toPx(), 5.5.dp.toPx()),
+            end = Offset(4.dp.toPx(), 2.5.dp.toPx()),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color.copy(alpha = 0.7f),
+            start = Offset(7.dp.toPx(), 5.3.dp.toPx()),
+            end = Offset(7.5.dp.toPx(), 2.dp.toPx()),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
         )
     }
 }

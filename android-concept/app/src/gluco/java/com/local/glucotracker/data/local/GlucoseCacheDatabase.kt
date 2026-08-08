@@ -124,6 +124,7 @@ data class CachedEpisodeEntity(
     val classification: String,
     val mealIdsCsv: String,
     val insulinIdsCsv: String,
+    val firstAfterSleep: Boolean,
     val outcomeStatus: String,
     val outcomeKind: String,
     val outcomeStartValue: Double?,
@@ -270,6 +271,15 @@ val GLUCOSE_CACHE_MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+val GLUCOSE_CACHE_MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `cached_episodes` " +
+                "ADD COLUMN `firstAfterSleep` INTEGER NOT NULL DEFAULT 0",
+        )
+    }
+}
+
 @Database(
     entities = [
         CachedGlucoseEntity::class,
@@ -277,7 +287,7 @@ val GLUCOSE_CACHE_MIGRATION_4_5 = object : Migration(4, 5) {
         CachedInsulinEventEntity::class,
         CachedEpisodeEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)

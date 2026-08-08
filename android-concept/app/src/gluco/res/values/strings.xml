@@ -163,6 +163,7 @@
     <string name="insulin_history_icr">ICR %1$s г/ЕД</string>
     <string name="insulin_history_icr_with_daypart">ICR %1$s г/ЕД · %2$s</string>
     <string name="insulin_history_icr_after_sleep">первый после сна, обычно %1$s</string>
+    <string name="sitting_first_after_sleep_description">Первый приём после сна с инсулином</string>
     <string name="insulin_history_icr_implied">по факту %1$s г/ЕД</string>
     <string name="insulin_history_daypart_morning">утро</string>
     <string name="insulin_history_daypart_day">день</string>

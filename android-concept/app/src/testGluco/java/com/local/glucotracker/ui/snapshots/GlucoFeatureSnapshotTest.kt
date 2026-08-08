@@ -4,10 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.glucose.BolusBreakdownContent
 import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
+import com.local.glucotracker.ui.glucose.SittingHeader
+import com.local.glucotracker.ui.glucose.SittingMeal
 import com.local.glucotracker.ui.navigation.OfflineBannerUiState
+import kotlinx.datetime.Instant
 import org.junit.Rule
 import org.junit.Test
 
@@ -81,6 +85,18 @@ class GlucoFeatureSnapshotTest {
 
     @Test fun historyTimelineMixedStatus() = glucoSnapshot("gluco_history_timeline_mixed_status") {
         HistorySnapshot(historyTimelineMixedStatusState())
+    }
+
+    @Test fun firstAfterSleepSittingHeader() = glucoSnapshot("gluco_first_after_sleep_header") {
+        val eatenAt = Instant.parse("2026-08-08T06:55:00Z")
+        SittingHeader(
+            time = "10:55",
+            kindLabel = "ПРИЁМ 3×",
+            kindColor = GT.colors.kindMeal,
+            totals = "38,9 г · 493 ккал · 6,0 ЕД",
+            meals = listOf(SittingMeal("11111111-1111-1111-1111-111111111111", eatenAt)),
+            firstAfterSleepWithInsulin = true,
+        )
     }
 
     @Test fun composeSheetEmpty() = glucoSnapshot("gluco_compose_sheet_empty") {

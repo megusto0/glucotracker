@@ -253,6 +253,7 @@ class InsulinContextViewModel @Inject constructor(
     // different slices of the same day, and if they overwrote each other they
     // would each find the other's signature stale and refetch forever.
     private val mealSignatures = mutableMapOf<LocalDate, MutableMap<String, String>>()
+    private val bodyStateSignatures = mutableMapOf<LocalDate, String>()
     private val loadedSignatures = mutableMapOf<LocalDate, String>()
 
     fun context(date: LocalDate): Flow<InsulinDayContext> =
@@ -350,6 +351,12 @@ class InsulinContextViewModel @Inject constructor(
         refreshIfStale(date)
     }
 
+    /** Late Health Connect sleep can change first-after-sleep attribution. */
+    fun onBodyStatesChanged(date: LocalDate, signature: String) {
+        synchronized(lock) { bodyStateSignatures[date] = signature }
+        refreshIfStale(date)
+    }
+
     private fun refreshIfStale(date: LocalDate) {
         val next = synchronized(lock) {
             val meals = mealSignatures[date].orEmpty()
@@ -357,6 +364,7 @@ class InsulinContextViewModel @Inject constructor(
                 .sortedBy { it.key }
                 .joinToString(",") { "${it.key}=${it.value}" }
             val combined = "${insulinSignatures[date].orEmpty()}/$meals"
+                .plus("/body=${bodyStateSignatures[date].orEmpty()}")
             if (loadedSignatures[date] == combined) return
             loadedSignatures[date] = combined
             combined

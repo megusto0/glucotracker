@@ -27,6 +27,7 @@ class InsulinRepositoryCacheTest {
             classification = "meal",
             mealIdsCsv = "$firstMeal,$secondMeal",
             insulinIdsCsv = insulinId,
+            firstAfterSleep = true,
             outcomeStatus = "complete",
             outcomeKind = "peak",
             outcomeStartValue = 5.6,
@@ -52,6 +53,7 @@ class InsulinRepositoryCacheTest {
         assertEquals(listOf(listOf(firstMeal, secondMeal)), context.mealEpisodeGroups)
         assertEquals(EpisodeTherapyClass.Meal, context.classificationByMealId[secondMeal])
         assertEquals("m:$firstMeal", context.episodeKeyByMealId[firstMeal])
+        assertEquals(setOf(firstMeal, secondMeal), context.firstAfterSleepMealIds)
         assertEquals(EpisodeOutcomeStatus.Complete, context.footerByMealId[firstMeal]?.outcome?.status)
         assertEquals(EpisodeOutcomeKind.Peak, context.footerByInsulinId[insulinId]?.outcome?.kind)
         assertSame(context.footerByMealId[firstMeal], context.footerByInsulinId[insulinId])

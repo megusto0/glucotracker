@@ -90,6 +90,9 @@ data class InsulinDayContext(
     // fetched by. Server-assigned, never rebuilt here: it is derived from the
     // grouping and a key assembled on the client would resolve to nothing.
     val episodeKeyByMealId: Map<String, String> = emptyMap(),
+    // Backend-owned recommendation context. Every meal id in a multi-dish
+    // sitting is included so the shared sitting header can render one marker.
+    val firstAfterSleepMealIds: Set<String> = emptySet(),
     // Compact server-calculated result, indexed both ways so standalone
     // insulin corrections can use the same footer as meal episodes.
     val footerByMealId: Map<String, EpisodeFooterSummary> = emptyMap(),

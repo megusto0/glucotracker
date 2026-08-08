@@ -15,6 +15,7 @@ import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_1_2
 import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_2_3
 import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_3_4
 import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_4_5
+import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_5_6
 import com.local.glucotracker.data.local.GlucoseCacheDatabase
 import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
 import com.local.glucotracker.data.repository.MealContextProvider
@@ -119,6 +120,7 @@ object GlucoFlavorModule {
                 GLUCOSE_CACHE_MIGRATION_2_3,
                 GLUCOSE_CACHE_MIGRATION_3_4,
                 GLUCOSE_CACHE_MIGRATION_4_5,
+                GLUCOSE_CACHE_MIGRATION_5_6,
             )
             .build()
 

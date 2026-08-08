@@ -231,6 +231,9 @@ class DayEpisodeResponse(BaseModel):
     total_carbs_g: float
     total_kcal: float
     total_insulin_units: float
+    # Exact recommendation context, exposed so clients can mark the sitting
+    # without reimplementing sleep and previous-meal rules locally.
+    first_after_sleep: bool = False
     therapy: DayEpisodeTherapyResponse
     outcome: DayEpisodeOutcomeResponse
 
@@ -538,9 +541,7 @@ class TherapyAnalysisResponse(BaseModel):
     isf_correction_count: int = 0
     isf_cases: list[IsfCaseResponse] = Field(default_factory=list)
     isf_rejections: dict[str, int] = Field(default_factory=dict)
-    icr_proposals: list[IcrDaypartComparisonResponse] = Field(
-        default_factory=list
-    )
+    icr_proposals: list[IcrDaypartComparisonResponse] = Field(default_factory=list)
     icr_excluded_for_activity: int = 0
     notes: list[str] = Field(default_factory=list)
 

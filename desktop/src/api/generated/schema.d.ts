@@ -2970,6 +2970,11 @@ export interface components {
              * Format: date-time
              */
             end_at: string;
+            /**
+             * First After Sleep
+             * @default false
+             */
+            first_after_sleep: boolean;
             /** Insulin */
             insulin: components["schemas"]["DayEpisodeInsulinResponse"][];
             /** Key */

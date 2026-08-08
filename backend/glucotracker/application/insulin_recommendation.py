@@ -50,6 +50,7 @@ from glucotracker.application.time import (
     utc_instant_from_local_wall as _utc_instant_from_local_wall,
 )
 from glucotracker.application.twin.kernels import PersonalizedInsulinKernel
+from glucotracker.domain.entities import MealStatus
 from glucotracker.infra.db.models import (
     HealthConnectRecord,
     InsulinRecommendationCache,
@@ -286,6 +287,41 @@ class HistoricalInsulinRecommendationService:
         self._preloaded_components = self.episodes.components(
             self._preloaded_from,
             self._preloaded_to,
+        )
+
+    def is_first_after_sleep(self, meal_ids: list[UUID]) -> bool:
+        """Return the exact first-after-sleep fact used by the ICR estimate.
+
+        Diary episode projections use this method for their visual marker, so
+        the icon and the recommendation cannot drift into two client-visible
+        definitions. The previous-meal lookup is owner-scoped and deliberately
+        excludes the current sitting.
+        """
+        unique_ids = list(dict.fromkeys(meal_ids))
+        meals = self.repository.list_accepted_meals_by_ids(unique_ids)
+        if len(meals) != len(unique_ids) or not meals:
+            return False
+        target_at = min(meal.eaten_at for meal in meals)
+        previous_at = self.repository.session.scalar(
+            select(Meal.eaten_at)
+            .where(
+                Meal.owner_id == self.repository.user_id,
+                Meal.status == MealStatus.accepted,
+                Meal.id.not_in(unique_ids),
+                Meal.eaten_at < target_at,
+                Meal.total_carbs_g >= 10.0,
+            )
+            .order_by(Meal.eaten_at.desc())
+            .limit(1)
+        )
+        hours_since_previous = (
+            (target_at - previous_at).total_seconds() / 3600.0
+            if previous_at is not None
+            else None
+        )
+        return self._is_first_meal_after_sleep(
+            target_at,
+            hours_since_previous_meal=hours_since_previous,
         )
 
     def correction_at(

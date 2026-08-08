@@ -292,12 +292,21 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
             val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
             LaunchedEffect(date) { bodyStatesViewModel.load(date) }
             val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
+            val dayBodyStates = bodyStates[date].orEmpty()
+            val bodyStateSignature = remember(dayBodyStates) {
+                dayBodyStates.signature()
+            }
+            LaunchedEffect(date, bodyStateSignature, bodyStates.containsKey(date)) {
+                if (bodyStates.containsKey(date)) {
+                    viewModel.onBodyStatesChanged(date, bodyStateSignature)
+                }
+            }
             TodayEpisodeRows(
                 date = date,
                 context = context,
                 rows = rows,
                 rowContent = rowContent,
-                bodyStates = bodyStates[date].orEmpty(),
+                bodyStates = dayBodyStates,
             )
         }
     }
@@ -329,6 +338,13 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
         val bodyStatesViewModel: BodyStatesViewModel = hiltViewModel()
         LaunchedEffect(date) { bodyStatesViewModel.load(date) }
         val bodyStates by bodyStatesViewModel.state.collectAsStateWithLifecycle()
+        val dayBodyStates = bodyStates[date].orEmpty()
+        val bodyStateSignature = remember(dayBodyStates) { dayBodyStates.signature() }
+        LaunchedEffect(date, bodyStateSignature, bodyStates.containsKey(date)) {
+            if (bodyStates.containsKey(date)) {
+                viewModel.onBodyStatesChanged(date, bodyStateSignature)
+            }
+        }
         InsulinAwareRows(
             context = context,
             rows = rows,
@@ -340,7 +356,7 @@ class GlucoseSurfacesReal @Inject constructor() : GlucoseSurfaces {
                 rowContent(row, tone, false, showTime, extra)
             },
             separator = divider,
-            bodyStates = bodyStates[date].orEmpty(),
+            bodyStates = dayBodyStates,
             date = date,
             rowCarbs = { row -> row.totalCarbsG },
             rowKcal = { row -> row.totalKcal },
@@ -463,6 +479,11 @@ private fun TodayEpisodeRows(
         when (item) {
             is TodayTimelineItem.Single -> TodaySingleCard(
                 entry = item.entry,
+                firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+                    mealIds = listOf(item.entry.row.id),
+                    firstAfterSleepMealIds = context.firstAfterSleepMealIds,
+                    totalInsulinUnits = item.entry.paired.sumOf { event -> event.doseUnits },
+                ),
                 kindColor = context.classificationByMealId[item.entry.row.id].kindColor(),
                 classification = context.classificationByMealId[item.entry.row.id],
                 date = date,
@@ -472,6 +493,13 @@ private fun TodayEpisodeRows(
             )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
                 entries = item.entries,
+                firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+                    mealIds = item.entries.map { entry -> entry.row.id },
+                    firstAfterSleepMealIds = context.firstAfterSleepMealIds,
+                    totalInsulinUnits = item.entries.sumOf { entry ->
+                        entry.paired.sumOf { event -> event.doseUnits }
+                    },
+                ),
                 recommendationEligible = isCurrentDay,
                 kindColor = @Composable { id ->
                     context.classificationByMealId[id].kindColor()
@@ -584,6 +612,7 @@ private fun buildTodayTimeline(
 @Composable
 private fun TodaySingleCard(
     entry: TodayMealEntry,
+    firstAfterSleepWithInsulin: Boolean,
     kindColor: Color,
     classification: EpisodeTherapyClass?,
     date: LocalDate,
@@ -610,6 +639,7 @@ private fun TodaySingleCard(
         // the odd entry out on the page and had nowhere to put its time.
         SittingHeader(
             time = entry.row.eatenAt.timeText(),
+            firstAfterSleepWithInsulin = firstAfterSleepWithInsulin,
             kindLabel = episodeKindLabel(classification, 1),
             kindColor = kindColor,
             totals = todayEpisodeSummary(
@@ -638,6 +668,7 @@ private fun TodaySingleCard(
 @Composable
 private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
+    firstAfterSleepWithInsulin: Boolean,
     recommendationEligible: Boolean,
     kindColor: @Composable (String) -> Color,
     classification: EpisodeTherapyClass?,
@@ -664,6 +695,7 @@ private fun TodayEpisodeCard(
     ) {
         SittingHeader(
             time = entries.minOf { it.row.eatenAt }.timeText(),
+            firstAfterSleepWithInsulin = firstAfterSleepWithInsulin,
             kindLabel = episodeKindLabel(classification, entries.size),
             kindColor = kindColor(entries.first().row.id),
             totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
@@ -1042,6 +1074,12 @@ private fun BodyStateTotal(color: Color, value: String, label: String) {
 private fun formatBodyStateDuration(totalMinutes: Int): String =
     "%d:%02d".format(totalMinutes / 60, totalMinutes % 60)
 
+/** Identity of the sleep/activity evidence that can change episode context. */
+private fun List<BodyState>.signature(): String =
+    sortedBy { state -> state.startAt }.joinToString("|") { state ->
+        "${state.kind}:${state.startAt.epochSeconds}-${state.endAt.epochSeconds}"
+    }
+
 /**
  * The bar down a photo's leading edge. Mixed and unresolved go unmarked: a
  * guess is not worth a colour, and graphite would claim it is an ordinary meal.
@@ -1124,6 +1162,11 @@ private fun <T> EpisodeCard(
     ) {
         SittingHeader(
             time = rowTime(first).timeText(),
+            firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+                mealIds = mealIds,
+                firstAfterSleepMealIds = context.firstAfterSleepMealIds,
+                totalInsulinUnits = paired.sumOf { event -> event.doseUnits },
+            ),
             kindLabel = episodeKindLabel(context.classificationByMealId[rowId(first)], rows.size),
             kindColor = context.classificationByMealId[rowId(first)].kindColor(),
             totals = todayEpisodeSummary(
@@ -1885,6 +1928,12 @@ private fun InsulinEvent.displaySource(): String =
 
 private fun formatInsulinDose(value: Double): String =
     InsulinDoseFormat.format(value)
+
+internal fun shouldShowFirstAfterSleepGlyph(
+    mealIds: Collection<String>,
+    firstAfterSleepMealIds: Set<String>,
+    totalInsulinUnits: Double,
+): Boolean = totalInsulinUnits > 0.0 && mealIds.any(firstAfterSleepMealIds::contains)
 
 private val InsulinDoseFormat = DecimalFormat(
     "0.0",

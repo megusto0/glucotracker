@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -13,6 +13,7 @@ from glucotracker.application.insulin_links import InsulinLinkDayService
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
+    HealthConnectRecord,
     Meal,
     MealInsulinEpisodeSnapshot,
     NightscoutGlucoseEntry,
@@ -91,6 +92,25 @@ def _seed_insulin(
     return event
 
 
+def _seed_sleep(
+    session: Session,
+    owner_id: UUID,
+    *,
+    start: datetime,
+    end: datetime,
+) -> None:
+    session.add(
+        HealthConnectRecord(
+            owner_id=owner_id,
+            record_id=f"episode-sleep-{owner_id}-{start.isoformat()}",
+            record_type="SleepSessionRecord",
+            start_time=start,
+            end_time=end,
+            payload={},
+        )
+    )
+
+
 def test_episodes_group_many_meals_and_insulin_into_one(
     api_client: TestClient,
 ) -> None:
@@ -138,6 +158,60 @@ def test_episodes_group_many_meals_and_insulin_into_one(
     assert event["id"] == str(bolus.id)
     assert event["kind"] == "food"
     assert event["anchor_meal_id"] == str(nuggets.id)
+
+
+def test_episode_gains_owner_scoped_first_after_sleep_context_retroactively(
+    api_client: TestClient,
+) -> None:
+    """A late sleep sync marks the already-dosed sitting on the next read."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    other_id = UUID("22222222-2222-2222-2222-222222222222")
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 8, 10, 55)
+    target_utc = target_at.replace(tzinfo=UTC)
+    with session_factory() as session:
+        session.add(
+            User(
+                id=other_id,
+                username="other-sleeper",
+                password_hash=hash_password("test-password"),
+                role=UserRole.gluco,
+            )
+        )
+        _seed_meal(
+            session,
+            owner_id,
+            "Previous meal",
+            target_at - timedelta(hours=8, minutes=29),
+        )
+        target = _seed_meal(session, owner_id, "Breakfast", target_at, carbs=39)
+        _seed_insulin(session, owner_id, "breakfast-bolus", target_at, units=6)
+        # Another user's sleep must never influence this user's marker.
+        _seed_sleep(
+            session,
+            other_id,
+            start=target_utc - timedelta(hours=6, minutes=35),
+            end=target_utc - timedelta(minutes=48),
+        )
+        session.commit()
+
+    params = {"from": "2026-08-08T00:00:00", "to": "2026-08-09T00:00:00"}
+    before = api_client.get("/glucose/episodes", params=params).json()["episodes"]
+    target_before = next(row for row in before if str(target.id) in row["meal_ids"])
+    assert target_before["first_after_sleep"] is False
+
+    with session_factory() as session:
+        _seed_sleep(
+            session,
+            owner_id,
+            start=target_utc - timedelta(hours=6, minutes=35),
+            end=target_utc - timedelta(minutes=48),
+        )
+        session.commit()
+
+    after = api_client.get("/glucose/episodes", params=params).json()["episodes"]
+    target_after = next(row for row in after if str(target.id) in row["meal_ids"])
+    assert target_after["first_after_sleep"] is True
 
 
 def test_a_sitting_is_anchored_to_its_first_meal_not_chained(
@@ -188,9 +262,7 @@ def test_a_sitting_is_anchored_to_its_first_meal_not_chained(
         params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
     ).json()["episodes"]
 
-    by_meals = {
-        frozenset(episode["meal_ids"]): episode for episode in episodes
-    }
+    by_meals = {frozenset(episode["meal_ids"]): episode for episode in episodes}
     assert len(episodes) == 3
     assert frozenset({str(first.id)}) in by_meals
     assert frozenset({str(second.id)}) in by_meals
@@ -247,9 +319,7 @@ def test_insulin_joins_one_sitting_and_never_bridges_two(
 
     assert len(episodes) == 2
     by_meal = {
-        episode["meal_ids"][0]: episode
-        for episode in episodes
-        if episode["meal_ids"]
+        episode["meal_ids"][0]: episode for episode in episodes if episode["meal_ids"]
     }
     # Each bolus lands on its own sitting rather than bridging the two.
     assert by_meal[str(early.id)]["total_insulin_units"] == 4.6
@@ -330,9 +400,7 @@ def test_a_bolus_given_on_a_flat_trace_stays_ordinary(
         params={"from": "2026-08-05T00:00:00", "to": "2026-08-06T00:00:00"},
     ).json()["episodes"]
 
-    kinds = [
-        event["kind"] for episode in episodes for event in episode["insulin"]
-    ]
+    kinds = [event["kind"] for episode in episodes for event in episode["insulin"]]
     assert "catch_up" not in kinds
 
 
@@ -493,14 +561,18 @@ def _seed_evening(session: Session, owner_id: UUID) -> dict[str, UUID]:
     chase = _seed_insulin(
         session, owner_id, "ns-chase", at(19, 38), units=1, event_type="Bolus"
     )
-    _seed_insulin(
-        session, owner_id, "ns-snack", at(20, 3), units=2, event_type="Bolus"
-    )
+    _seed_insulin(session, owner_id, "ns-snack", at(20, 3), units=2, event_type="Bolus")
 
     # Climbing hard through the chase, which is why it was given.
     curve = [
-        (17, 30, 5.4), (18, 44, 6.0), (19, 0, 7.2), (19, 20, 8.6),
-        (19, 38, 9.4), (20, 0, 9.6), (20, 40, 8.8), (21, 30, 7.3),
+        (17, 30, 5.4),
+        (18, 44, 6.0),
+        (19, 0, 7.2),
+        (19, 20, 8.6),
+        (19, 38, 9.4),
+        (20, 0, 9.6),
+        (20, 40, 8.8),
+        (21, 30, 7.3),
     ]
     for index in range(len(curve) - 1):
         (h0, m0, v0), (h1, m1, v1) = curve[index], curve[index + 1]
