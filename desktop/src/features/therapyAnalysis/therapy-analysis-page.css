@@ -901,3 +901,17 @@
   color: var(--muted, #8a857a);
   cursor: not-allowed;
 }
+
+.therapy-basal-test-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.therapy-basal-test-last {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline, #e6e2d6);
+  color: var(--muted, #8a857a);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}

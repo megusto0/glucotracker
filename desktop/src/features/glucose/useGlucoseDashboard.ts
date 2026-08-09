@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import {
   apiClient,
+  type BasalFastingTestStartRequest,
+  type BasalFastingTestStopRequest,
   type FingerstickReadingCreate,
   type FingerstickReadingPatch,
   type GlucoseMode,
@@ -251,6 +253,41 @@ export function useGlucoseTherapyAnalysis(
     gcTime: 60 * 60 * 1000,
     retry: 1,
     staleTime: 30 * 60 * 1000,
+  });
+}
+
+export function useBasalFastingTests() {
+  const config = useApiConfig();
+  return useQuery({
+    queryFn: () => apiClient.listBasalFastingTests(config),
+    queryKey: ["basal-fasting-tests"],
+    // A run is a clock the owner is watching, so a stale card is worse than a
+    // refetch; the outcome is recomputed from CGM on every read anyway.
+    refetchInterval: 60_000,
+  });
+}
+
+export function useStartBasalFastingTest() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: BasalFastingTestStartRequest) =>
+      apiClient.startBasalFastingTest(config, body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["basal-fasting-tests"] }),
+  });
+}
+
+export function useStopBasalFastingTest() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      runId: string;
+      body: BasalFastingTestStopRequest;
+    }) => apiClient.stopBasalFastingTest(config, input.runId, input.body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["basal-fasting-tests"] }),
   });
 }
 

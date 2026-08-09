@@ -326,6 +326,132 @@ components:
       - display_name
       title: AutocompleteSuggestion
       type: object
+    BasalFastingTestOutcomeResponse:
+      description: What the trace did across a finished run, and whether it counts.
+      properties:
+        drift_mmol_l_per_hour:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Drift Mmol L Per Hour
+        end_glucose_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: End Glucose Mmol L
+        fast_held:
+          title: Fast Held
+          type: boolean
+        intervention_count:
+          title: Intervention Count
+          type: integer
+        measured_hours:
+          title: Measured Hours
+          type: number
+        start_glucose_mmol_l:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Start Glucose Mmol L
+      required:
+      - measured_hours
+      - fast_held
+      - intervention_count
+      title: BasalFastingTestOutcomeResponse
+      type: object
+    BasalFastingTestRunResponse:
+      description: One deliberately fasted stretch, with its outcome derived on read.
+      properties:
+        abort_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Abort Reason
+        ended_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Ended At
+        id:
+          format: uuid
+          title: Id
+          type: string
+        outcome:
+          anyOf:
+          - $ref: '#/components/schemas/BasalFastingTestOutcomeResponse'
+          - type: 'null'
+        planned_hours:
+          title: Planned Hours
+          type: integer
+        started_at:
+          format: date-time
+          title: Started At
+          type: string
+        status:
+          enum:
+          - running
+          - completed
+          - aborted
+          title: Status
+          type: string
+        window_end_hour:
+          title: Window End Hour
+          type: integer
+        window_start_hour:
+          title: Window Start Hour
+          type: integer
+      required:
+      - id
+      - started_at
+      - window_start_hour
+      - window_end_hour
+      - planned_hours
+      - status
+      title: BasalFastingTestRunResponse
+      type: object
+    BasalFastingTestStartRequest:
+      description: Begin a run over the stretch the suggestion named.
+      properties:
+        planned_hours:
+          maximum: 12.0
+          minimum: 1.0
+          title: Planned Hours
+          type: integer
+        window_end_hour:
+          maximum: 24.0
+          minimum: 0.0
+          title: Window End Hour
+          type: integer
+        window_start_hour:
+          maximum: 23.0
+          minimum: 0.0
+          title: Window Start Hour
+          type: integer
+      required:
+      - window_start_hour
+      - window_end_hour
+      - planned_hours
+      title: BasalFastingTestStartRequest
+      type: object
+    BasalFastingTestStopRequest:
+      description: Finish a run, or say it broke and why.
+      properties:
+        abort_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Abort Reason
+        status:
+          enum:
+          - completed
+          - aborted
+          title: Status
+          type: string
+      required:
+      - status
+      title: BasalFastingTestStopRequest
+      type: object
     BiasCurvePoint:
       description: One sampled point on the estimated bias curve.
       properties:
@@ -11090,6 +11216,143 @@ paths:
       security:
       - BearerAuth: []
       summary: Patch Fingerstick
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/basal-tests:
+    get:
+      description: 'Return recorded fasted stretches, newest first, with their outcomes.
+
+
+        The drift is recomputed from CGM on every read rather than stored, so a run
+
+        can never disagree with the trace it was measured against.'
+      operationId: listBasalFastingTests
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          title: Limit
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BasalFastingTestRunResponse'
+                title: Response Listbasalfastingtests
+                type: array
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: List Basal Fasting Tests
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+    post:
+      description: Begin a fasted stretch, superseding any run left open.
+      operationId: startBasalFastingTest
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BasalFastingTestStartRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasalFastingTestRunResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Start Basal Fasting Test
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/basal-tests/{run_id}:
+    patch:
+      description: Finish a run, or record that it broke and why.
+      operationId: stopBasalFastingTest
+      parameters:
+      - in: path
+        name: run_id
+        required: true
+        schema:
+          format: uuid
+          title: Run Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BasalFastingTestStopRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasalFastingTestRunResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Stop Basal Fasting Test
       tags:
       - glucose
       x-glucotracker-required-feature: glucose

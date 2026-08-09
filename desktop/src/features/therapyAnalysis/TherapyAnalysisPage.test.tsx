@@ -3,18 +3,27 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { TherapyAnalysisResponse } from "../../api/client";
 import {
+  useBasalFastingTests,
   useGlucoseTherapyAnalysis,
+  useStartBasalFastingTest,
+  useStopBasalFastingTest,
   useTopUpDose,
 } from "../glucose/useGlucoseDashboard";
 import { TherapyAnalysisPage } from "./TherapyAnalysisPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
+  useBasalFastingTests: vi.fn(),
   useGlucoseTherapyAnalysis: vi.fn(),
+  useStartBasalFastingTest: vi.fn(),
+  useStopBasalFastingTest: vi.fn(),
   useTopUpDose: vi.fn(),
 }));
 
 const mockedUseAnalysis = vi.mocked(useGlucoseTherapyAnalysis);
 const mockedUseTopUp = vi.mocked(useTopUpDose);
+const mockedUseRuns = vi.mocked(useBasalFastingTests);
+const mockedStartRun = vi.mocked(useStartBasalFastingTest);
+const mockedStopRun = vi.mocked(useStopBasalFastingTest);
 
 const emptyMetric = {
   confidence: "none" as const,
@@ -383,7 +392,12 @@ describe("предложение базального теста", () => {
     window_count: 12,
   };
 
-  const renderWithIob = (iobUnits: number | null) => {
+  const startSpy = vi.fn();
+
+  const renderWithIob = (
+    iobUnits: number | null,
+    runs: unknown[] = [],
+  ) => {
     mockedUseAnalysis.mockReturnValue({
       data: {
         ...analysis,
@@ -399,6 +413,17 @@ describe("предложение базального теста", () => {
       data: iobUnits == null ? undefined : { iob_units: iobUnits },
       isSuccess: iobUnits != null,
     } as ReturnType<typeof useTopUpDose>);
+    mockedUseRuns.mockReturnValue({ data: runs } as ReturnType<
+      typeof useBasalFastingTests
+    >);
+    mockedStartRun.mockReturnValue({
+      isPending: false,
+      mutate: startSpy,
+    } as unknown as ReturnType<typeof useStartBasalFastingTest>);
+    mockedStopRun.mockReturnValue({
+      isPending: false,
+      mutate: vi.fn(),
+    } as unknown as ReturnType<typeof useStopBasalFastingTest>);
     render(
       <MemoryRouter>
         <TherapyAnalysisPage />
@@ -429,6 +454,39 @@ describe("предложение базального теста", () => {
     renderWithIob(0);
 
     expect(screen.getByText(/Активного инсулина нет/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Начать тест" })).toBeEnabled();
+    const start = screen.getByRole("button", { name: "Начать тест" });
+    expect(start).toBeEnabled();
+
+    fireEvent.click(start);
+    expect(startSpy).toHaveBeenCalledWith({
+      planned_hours: 4,
+      window_end_hour: 22,
+      window_start_hour: 20,
+    });
+  });
+
+  test("прошлый прогон с нарушенным голоданием не выдаётся за результат", () => {
+    // Keeping the record and publishing its drift are different things: a run
+    // with a meal inside measured the meal.
+    renderWithIob(0, [
+      {
+        ended_at: "2026-08-08T00:00:00",
+        id: "run-1",
+        outcome: {
+          drift_mmol_l_per_hour: -1.4,
+          fast_held: false,
+          intervention_count: 1,
+          measured_hours: 3.5,
+        },
+        planned_hours: 4,
+        started_at: "2026-08-07T20:00:00",
+        status: "aborted",
+        window_end_hour: 22,
+        window_start_hour: 20,
+      },
+    ]);
+
+    expect(screen.getByText(/не засчитан/)).toBeVisible();
+    expect(screen.queryByText(/дрейф -1\.40/)).toBeNull();
   });
 });

@@ -144,6 +144,13 @@ Android is local-first and flavor-aware:
   paged initial history import and then uses a separate changes token per type;
   the `food` source set contains neither Health Connect code nor its generated
   API models.
+- Glucotracker Bridge owns the recurring wearable pull: its persistent
+  WorkManager schedule requests Helio's focused activity stream every 15
+  minutes. After the Bridge export reaches Health Connect, a
+  signature-protected explicit broadcast wakes the `gluco` source set, which
+  queues a network-constrained incremental server upload. Neither an open
+  Glucotracker screen nor the hourly fallback import is required; Android may
+  still defer an individual periodic run while the phone is in Doze.
 
 The food flavor must compile without glucose feature code except the shared no-op
 surface contracts required for dependency injection. This is enforced by Gradle

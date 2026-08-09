@@ -59,6 +59,70 @@ Multiple sources for one question get one entry each, sharing the same
 
 ## Log
 
+### 2026-08-08 — Current Zepp authentication-key extractor
+
+- **URL:** https://codeberg.org/argrento/huami-token
+- **Consulted for:** retrieving the already-issued Amazfit Helio Strap Bluetooth authentication key without root access or reading Zepp's private Android database.
+- **Used in:** the one-time local Helio Strap migration to Glucotracker Bridge; no extractor code or credentials were added to this repository.
+- **Takeaway:** current `huami-token` encrypts the credential exchange expected by Zepp's v2 token endpoint and retrieves the bound device's 128-bit `auth_key` from the account device list.
+- **Verdict:** applied — the key was stored outside the repository in the user's protected local application-data directory and was never printed to the task output.
+
+### 2026-08-08 — Legacy Huafetcher Zepp login
+
+- **URL:** https://codeberg.org/vanous/huafetcher
+- **Consulted for:** a non-root Android/desktop fallback for retrieving the Helio Strap key.
+- **Used in:** evaluation only; no code or credentials were retained.
+- **Takeaway:** its embedded legacy Amazfit login posts directly to the old registration endpoint and the live server rejected the attempt with HTTP 429.
+- **Verdict:** rejected — no retry was made; the maintained encrypted `huami-token` flow was used instead.
+
+### 2026-08-08 — Helio Strap support in Gadgetbridge
+
+- **URL:** https://gadgetbridge.org/basics/topics/zeppos/
+- **Consulted for:** whether a Gadgetbridge fork can own the Amazfit Helio Strap connection and retrieve the records Glucotracker needs.
+- **Used in:** `docs/wearable-bridge.md`, `android-concept/app/src/gluco/java/com/local/glucotracker/wearable/HelioBridgeClient.kt`, and the separate `glucotracker-gadgetbridge` fork.
+- **Takeaway:** Helio Strap is a supported Zepp OS device; activity sync includes heart rate, HRV, sleep, SpO2 and stress, and real-time HR is supported. A manual phone-initiated HR measurement is not implemented.
+- **Verdict:** applied — the bridge requests a recorded-data sync and never claims to force a new sensor reading.
+
+### 2026-08-08 — Helio Strap support maturity
+
+- **URL:** https://gadgetbridge.org/blog/release-0_89_00/
+- **Consulted for:** whether to base the fork on the initial experimental release or a newer upstream with Helio-specific fixes and Health Connect.
+- **Used in:** the separate `glucotracker-gadgetbridge` fork, based on upstream `0.92.2`.
+- **Takeaway:** Gadgetbridge 0.89.0 added Health Connect and Helio Strap detection improvements after the initial 0.87.0 support.
+- **Verdict:** applied — the fork is based on current `0.92.2`, not the initial Helio implementation.
+
+### 2026-08-08 — Amazfit authentication-key migration
+
+- **URL:** https://gadgetbridge.org/basics/pairing/huami-xiaomi-server/
+- **Consulted for:** whether Zepp can be deleted before pairing Helio Strap with the fork and what actions invalidate the key.
+- **Used in:** `docs/wearable-bridge.md` and the migration instructions shown to the user.
+- **Takeaway:** newer Amazfit devices require a vendor-issued auth key; removing the device in Zepp or factory-resetting it invalidates that key, while uninstalling Zepp after extracting the key is supported.
+- **Verdict:** applied — setup explicitly forbids unpairing/resetting before key extraction.
+
+### 2026-08-08 — Companion-device background reliability
+
+- **URL:** https://gadgetbridge.org/basics/pairing/companion-device/
+- **Consulted for:** how the bridge can be available when Glucotracker requests a sync from the background.
+- **Used in:** `docs/wearable-bridge.md` and the bridge pairing procedure.
+- **Takeaway:** companion-device pairing grants the background execution path intended for a wearable companion on Android 8+ and is recommended on modern Android.
+- **Verdict:** applied — companion pairing is a required setup step rather than relying only on an ordinary BLE bond.
+
+### 2026-08-08 — Latest heart-rate sample from Health Connect
+
+- **URL:** https://developer.android.com/reference/kotlin/androidx/health/connect/client/records/HeartRateRecord.Sample
+- **Consulted for:** whether a heart-rate record exposes individual measurement times, so the UI can show the latest point rather than a daily average.
+- **Used in:** `android-concept/app/src/gluco/java/com/local/glucotracker/healthconnect/DebugHealthConnectSync.kt`, `android-concept/app/src/gluco/java/com/local/glucotracker/ui/glucose/MoreHealthConnect.kt`.
+- **Takeaway:** each `HeartRateRecord.Sample` has its own `time` and `beatsPerMinute`; the newest accessible sample can therefore be selected exactly.
+- **Verdict:** applied — the Health Connect card caches and displays the newest sample returned by the provider.
+
+### 2026-08-08 — Health Connect read-history boundary
+
+- **URL:** https://developer.android.com/health-and-fitness/health-connect/read-data
+- **Consulted for:** whether “latest” means the newest sensor measurement globally or only the newest point the app is permitted to read.
+- **Used in:** `android-concept/app/src/gluco/java/com/local/glucotracker/healthconnect/DebugHealthConnectSync.kt` and the Health Connect status semantics.
+- **Takeaway:** Health Connect returns only data visible under the user-granted data-type and history permissions; without history permission, third-party history is restricted to the documented 30-day window.
+- **Verdict:** applied — the UI describes and shows the latest point available to this app, with its timestamp, rather than implying live watch access.
+
 ### 2026-08-08 — Разделение IOB еды и коррекции в расчёте болюса
 
 - **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC8783627/

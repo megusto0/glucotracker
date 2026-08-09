@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +37,8 @@ import com.local.glucotracker.R
 import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
+import com.local.glucotracker.generated.model.InsulinRecommendationResponse
+import com.local.glucotracker.generated.model.TopUpDoseResponse
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -83,8 +86,27 @@ internal data class BolusCalcUi(
     val terms: List<BolusTermUi>,
     val suggestedUnits: Double?,
     val unavailableNote: String?,
+    val unavailableReason: BolusUnavailableReason? = null,
+    val omittedCorrectionReason: BolusCorrectionGap? = null,
+    val configuredIcr: Double? = null,
+    val icrAfterSleep: Boolean = false,
     val projectionStale: Boolean,
 )
+
+internal enum class BolusUnavailableReason {
+    Glucose,
+    Icr,
+    History,
+    Carbs,
+    LowOrFalling,
+}
+
+internal enum class BolusCorrectionGap {
+    Glucose,
+    Trend,
+    Isf,
+    Target,
+}
 
 @HiltViewModel
 class BolusBreakdownViewModel @Inject constructor(
@@ -96,67 +118,148 @@ class BolusBreakdownViewModel @Inject constructor(
     private val _loadFailed = MutableStateFlow(false)
     internal val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
-    fun load(at: Instant, insulinId: String) {
+    fun load(event: InsulinEvent, mealIds: List<String>) {
         _calc.value = null
         _loadFailed.value = false
         viewModelScope.launch {
-            val response = runCatching {
-                glucoseApi.topUpDose(
-                    at = at,
-                    excludeInsulinId = runCatching { java.util.UUID.fromString(insulinId) }
-                        .getOrNull(),
-                )
+            val loaded = runCatching {
+                if (event.eventType == InsulinEventType.Bolus && mealIds.isNotEmpty()) {
+                    glucoseApi.insulinRecommendation(
+                        mealIds.distinct().map(java.util.UUID::fromString),
+                    ).toMealBolusCalcUi()
+                } else {
+                    glucoseApi.topUpDose(
+                        at = event.timestamp,
+                        excludeInsulinId = runCatching { java.util.UUID.fromString(event.id) }
+                            .getOrNull(),
+                    ).toBolusCalcUi()
+                }
             }.getOrNull()
-            if (response == null) {
+            if (loaded == null) {
                 _loadFailed.value = true
                 return@launch
             }
-            val glucose = response.glucoseMmolL?.toDouble()
-            val target = response.targetMmolL?.toDouble()
-            val isf = response.isfMmolLPerUnit?.toDouble()
-            val cob = response.cobG?.toDouble()
-            val icr = response.icrGPerUnit?.toDouble()
-            val iob = response.iobUnits?.toDouble()
-            val carbUnits = response.carbUnits?.toDouble()
-            val correctionUnits = response.correctionUnits?.toDouble()
-
-            val terms = buildList {
-                if (correctionUnits != null && glucose != null && target != null && isf != null) {
-                    add(
-                        BolusTermUi(
-                            label = "correction",
-                            formula = "(${mmol(glucose)}−${mmol(target)}) / ${mmol(isf)}",
-                            value = correctionUnits,
-                        ),
-                    )
-                }
-                if (carbUnits != null && cob != null && icr != null) {
-                    add(
-                        BolusTermUi(
-                            label = "carbs",
-                            formula = "${grams(cob)} / ${mmol(icr)}",
-                            value = carbUnits,
-                        ),
-                    )
-                }
-                if (iob != null) {
-                    add(BolusTermUi(label = "iob", formula = null, value = -iob))
-                }
-            }
-
-            _calc.value = BolusCalcUi(
-                state = BolusStateUi(glucose, iob, cob, icr, isf, target),
-                terms = terms,
-                suggestedUnits = response.units?.toDouble(),
-                unavailableNote = response.note.takeIf { response.units == null },
-                // The stored forecast for a past minute has usually aged out, so
-                // the correction term runs from the reading rather than from
-                // where it was heading. The sheet says so instead of implying
-                // this reproduces what was on screen at the time.
-                projectionStale = response.projectionSource?.value == "none",
-            )
+            _calc.value = loaded
         }
     }
+}
+
+/** The first food bolus belongs to the meal recommendation, not top-up math. */
+internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
+    val mealUnits = recommendedUnits?.toDouble()
+    val effectiveIcr = icrGPerUnit?.toDouble()
+    val afterSleepIcrIsDirect = icrAfterSleep == true &&
+        methodVersion == "historical-episode-median-v3"
+    val usableCorrection =
+        correctionStatus == InsulinRecommendationResponse.CorrectionStatus.READY ||
+            correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED
+    val correctionUnits = correctionUnits?.toDouble().takeIf { usableCorrection }
+    val total = totalRecommendedUnits?.toDouble().takeIf { usableCorrection } ?: mealUnits
+    return BolusCalcUi(
+        state = BolusStateUi(
+            glucose = correctionGlucoseMmolL?.toDouble(),
+            iob = correctionIobUnits?.toDouble(),
+            cob = correctionPriorCobG?.toDouble(),
+            icr = effectiveIcr,
+            isf = correctionIsfMmolLPerUnit?.toDouble(),
+            target = correctionTargetMmolL?.toDouble(),
+        ),
+        terms = buildList {
+            mealUnits?.let {
+                add(
+                    BolusTermUi(
+                        label = "meal",
+                        formula = if (afterSleepIcrIsDirect && effectiveIcr != null) {
+                            "${grams(targetCarbsG.toDouble())} / ${mmol(effectiveIcr)}"
+                        } else {
+                            null
+                        },
+                        value = it,
+                    ),
+                )
+            }
+            correctionUnits?.let {
+                add(BolusTermUi(label = "correction", formula = null, value = it))
+            }
+        },
+        suggestedUnits = total,
+        unavailableNote = null,
+        unavailableReason = when (status) {
+            InsulinRecommendationResponse.Status.INSUFFICIENT_HISTORY ->
+                BolusUnavailableReason.History
+            InsulinRecommendationResponse.Status.MEAL_WITHOUT_CARBS ->
+                BolusUnavailableReason.Carbs
+            InsulinRecommendationResponse.Status.LOW_OR_FALLING ->
+                BolusUnavailableReason.LowOrFalling
+            InsulinRecommendationResponse.Status.READY -> null
+        },
+        omittedCorrectionReason = when (correctionStatus) {
+            InsulinRecommendationResponse.CorrectionStatus.GLUCOSE_UNAVAILABLE ->
+                BolusCorrectionGap.Glucose
+            InsulinRecommendationResponse.CorrectionStatus.TREND_UNAVAILABLE ->
+                BolusCorrectionGap.Trend
+            InsulinRecommendationResponse.CorrectionStatus.ISF_UNAVAILABLE ->
+                BolusCorrectionGap.Isf
+            InsulinRecommendationResponse.CorrectionStatus.TARGET_REQUIRED ->
+                BolusCorrectionGap.Target
+            else -> null
+        },
+        configuredIcr = icrConfiguredGPerUnit?.toDouble(),
+        icrAfterSleep = icrAfterSleep == true,
+        projectionStale = false,
+    )
+}
+
+internal fun TopUpDoseResponse.toBolusCalcUi(): BolusCalcUi {
+    val glucose = glucoseMmolL?.toDouble()
+    val target = targetMmolL?.toDouble()
+    val isf = isfMmolLPerUnit?.toDouble()
+    val cob = cobG?.toDouble()
+    val icr = icrGPerUnit?.toDouble()
+    val iob = iobUnits?.toDouble()
+    val carb = carbUnits?.toDouble()
+    val correction = correctionUnits?.toDouble()
+
+    val terms = buildList {
+        if (correction != null && glucose != null && target != null && isf != null) {
+            add(
+                BolusTermUi(
+                    label = "correction",
+                    formula = "(${mmol(glucose)}−${mmol(target)}) / ${mmol(isf)}",
+                    value = correction,
+                ),
+            )
+        }
+        if (carb != null && cob != null && icr != null) {
+            add(
+                BolusTermUi(
+                    label = "carbs",
+                    formula = "${grams(cob)} / ${mmol(icr)}",
+                    value = carb,
+                ),
+            )
+        }
+        if (iob != null) {
+            add(BolusTermUi(label = "iob", formula = null, value = -iob))
+        }
+    }
+
+    val units = units?.toDouble()
+    return BolusCalcUi(
+        state = BolusStateUi(glucose, iob, cob, icr, isf, target),
+        terms = terms,
+        suggestedUnits = units,
+        unavailableNote = note.takeIf { units == null },
+        unavailableReason = when (status) {
+            TopUpDoseResponse.Status.GLUCOSE_UNAVAILABLE -> BolusUnavailableReason.Glucose
+            TopUpDoseResponse.Status.ICR_UNAVAILABLE -> BolusUnavailableReason.Icr
+            else -> null
+        },
+        // The caveat only explains a calculation that actually exists. When
+        // glucose or ICR is absent there is no fallback arithmetic to qualify.
+        projectionStale = units != null &&
+            projectionSource == TopUpDoseResponse.ProjectionSource.NONE,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -164,14 +267,15 @@ class BolusBreakdownViewModel @Inject constructor(
 fun BolusBreakdownSheet(
     events: List<InsulinEvent>,
     mealAt: Instant?,
+    mealIds: List<String>,
     onDismiss: () -> Unit,
 ) {
     val ordered = remember(events) { events.sortedBy { it.timestamp } }
     if (ordered.isEmpty()) return
     var selected by remember(ordered.map { it.id }) { mutableIntStateOf(ordered.lastIndex) }
     val viewModel: BolusBreakdownViewModel = hiltViewModel()
-    LaunchedEffect(ordered[selected].id) {
-        viewModel.load(ordered[selected].timestamp, ordered[selected].id)
+    LaunchedEffect(ordered[selected].id, mealIds) {
+        viewModel.load(ordered[selected], mealIds)
     }
     val calc by viewModel.calc.collectAsStateWithLifecycle()
     val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
@@ -280,34 +384,61 @@ internal fun BolusBreakdownContent(
             return@Column
         }
 
-        BolusStateBlock(state = calc.state, at = clock(chosen.timestamp, zone))
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            calc.terms.forEach { term -> TermRow(term) }
-            calc.suggestedUnits?.let { total ->
-                GTHairlineDivider()
-                TermRow(
-                    BolusTermUi(
-                        label = "total",
-                        formula = null,
-                        value = total,
-                        isTotal = true,
-                    ),
-                )
-            }
+        val hasCalculationContext = calc.state.glucose != null ||
+            calc.terms.isNotEmpty() ||
+            calc.suggestedUnits != null
+        if (hasCalculationContext) {
+            BolusCalculationBlock(
+                state = calc.state,
+                terms = calc.terms,
+                total = calc.suggestedUnits,
+                at = clock(chosen.timestamp, zone),
+            )
         }
 
-        calc.unavailableNote?.let { note ->
+        val unavailableDetail = calc.unavailableNote ?: when (calc.unavailableReason) {
+            BolusUnavailableReason.Glucose -> stringResource(R.string.bolus_calc_missing_glucose)
+            BolusUnavailableReason.Icr -> stringResource(R.string.bolus_calc_missing_icr)
+            BolusUnavailableReason.History -> stringResource(R.string.bolus_calc_missing_history)
+            BolusUnavailableReason.Carbs -> stringResource(R.string.bolus_calc_missing_carbs)
+            BolusUnavailableReason.LowOrFalling ->
+                stringResource(R.string.bolus_calc_low_or_falling)
+            null -> null
+        }
+        unavailableDetail?.let { note ->
             Text(
                 text = stringResource(R.string.bolus_calc_unavailable, note),
                 modifier = Modifier.padding(horizontal = 20.dp).padding(top = 10.dp),
                 color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+
+        calc.omittedCorrectionReason?.let { gap ->
+            Text(
+                text = stringResource(
+                    when (gap) {
+                        BolusCorrectionGap.Glucose -> R.string.bolus_correction_gap_glucose
+                        BolusCorrectionGap.Trend -> R.string.bolus_correction_gap_trend
+                        BolusCorrectionGap.Isf -> R.string.bolus_correction_gap_isf
+                        BolusCorrectionGap.Target -> R.string.bolus_correction_gap_target
+                    },
+                ),
+                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                color = GT.colors.warn,
+                style = GT.type.sansLabel,
+            )
+        }
+
+        if (calc.icrAfterSleep && calc.configuredIcr != null && calc.state.icr != null) {
+            Text(
+                text = stringResource(
+                    R.string.bolus_first_after_sleep_icr,
+                    mmol(calc.configuredIcr),
+                    mmol(calc.state.icr),
+                ),
+                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                color = GT.colors.ink2,
                 style = GT.type.sansLabel,
             )
         }
@@ -333,6 +464,45 @@ internal fun BolusBreakdownContent(
                 color = GT.colors.muted,
                 style = GT.type.monoLabel.copy(fontSize = 10.sp),
             )
+        }
+    }
+}
+
+/** Shared calculation body for a recommendation and a recorded bolus review. */
+@Composable
+internal fun BolusCalculationBlock(
+    state: BolusStateUi,
+    terms: List<BolusTermUi>,
+    total: Double?,
+    at: String,
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 20.dp,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        BolusStateBlock(
+            state = state,
+            at = at,
+            horizontalPadding = horizontalPadding,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            terms.forEach { term -> TermRow(term) }
+            total?.let {
+                GTHairlineDivider()
+                TermRow(
+                    BolusTermUi(
+                        label = "total",
+                        formula = null,
+                        value = it,
+                        isTotal = true,
+                    ),
+                )
+            }
         }
     }
 }
@@ -378,10 +548,12 @@ private fun DoseRow(
 }
 
 @Composable
-private fun BolusStateBlock(state: BolusStateUi, at: String) {
+private fun BolusStateBlock(state: BolusStateUi, at: String, horizontalPadding: Dp) {
     Text(
         text = stringResource(R.string.bolus_state_at, at),
-        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 5.dp),
+        modifier = Modifier
+            .padding(horizontal = horizontalPadding)
+            .padding(top = 14.dp, bottom = 5.dp),
         color = GT.colors.muted,
         style = GT.type.kicker,
     )
@@ -394,7 +566,7 @@ private fun BolusStateBlock(state: BolusStateUi, at: String) {
         state.target?.let { stringResource(R.string.bolus_state_target) to mmol(it) },
     )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         cells.forEach { (label, value) ->
@@ -424,6 +596,7 @@ private fun TermRow(term: BolusTermUi) {
                 when (term.label) {
                     "correction" -> R.string.bolus_term_correction
                     "carbs" -> R.string.bolus_term_carbs
+                    "meal" -> R.string.insulin_term_meal
                     "iob" -> R.string.bolus_term_iob
                     else -> R.string.bolus_term_total
                 },

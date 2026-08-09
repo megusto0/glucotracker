@@ -87,6 +87,26 @@ class HistoricalInsulinUiStateTest {
     }
 
     @Test
+    fun `prospective calculation uses the shared bolus state block`() {
+        val state = ready(response()).toBolusState()
+
+        assertEquals(9.4, state.glucose!!, 1e-9)
+        assertEquals(3.2, state.iob!!, 1e-9)
+        assertEquals(23.0, state.cob!!, 1e-9)
+        assertEquals(9.3, state.icr!!, 1e-9)
+        assertEquals(2.8, state.isf!!, 1e-9)
+        assertEquals(6.0, state.target!!, 1e-9)
+    }
+
+    @Test
+    fun `prospective terms do not subtract iob a second time`() {
+        val terms = ready(response()).toBolusTerms()
+
+        assertEquals(listOf("meal", "correction"), terms.map { it.label })
+        assertEquals(listOf(5.2, 1.1), terms.map { it.value })
+    }
+
+    @Test
     fun `a correction that is simply not needed still counts as included`() {
         val state = ready(
             response(

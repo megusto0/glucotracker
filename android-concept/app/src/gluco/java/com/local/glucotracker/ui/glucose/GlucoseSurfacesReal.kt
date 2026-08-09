@@ -521,10 +521,9 @@ private fun TodayEpisodeRows(
         when (item) {
             is TodayTimelineItem.Single -> TodaySingleCard(
                 entry = item.entry,
-                firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+                firstAfterSleep = shouldShowFirstAfterSleepGlyph(
                     mealIds = listOf(item.entry.row.id),
                     firstAfterSleepMealIds = context.firstAfterSleepMealIds,
-                    totalInsulinUnits = item.entry.paired.sumOf { event -> event.doseUnits },
                 ),
                 kindColor = context.classificationByMealId[item.entry.row.id].kindColor(),
                 classification = context.classificationByMealId[item.entry.row.id],
@@ -535,12 +534,9 @@ private fun TodayEpisodeRows(
             )
             is TodayTimelineItem.Episode -> TodayEpisodeCard(
                 entries = item.entries,
-                firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+                firstAfterSleep = shouldShowFirstAfterSleepGlyph(
                     mealIds = item.entries.map { entry -> entry.row.id },
                     firstAfterSleepMealIds = context.firstAfterSleepMealIds,
-                    totalInsulinUnits = item.entries.sumOf { entry ->
-                        entry.paired.sumOf { event -> event.doseUnits }
-                    },
                 ),
                 recommendationEligible = isCurrentDay,
                 kindColor = @Composable { id ->
@@ -654,7 +650,7 @@ private fun buildTodayTimeline(
 @Composable
 private fun TodaySingleCard(
     entry: TodayMealEntry,
-    firstAfterSleepWithInsulin: Boolean,
+    firstAfterSleep: Boolean,
     kindColor: Color,
     classification: EpisodeTherapyClass?,
     date: LocalDate,
@@ -681,13 +677,12 @@ private fun TodaySingleCard(
         // the odd entry out on the page and had nowhere to put its time.
         SittingHeader(
             time = entry.row.eatenAt.timeText(),
-            firstAfterSleepWithInsulin = firstAfterSleepWithInsulin,
+            firstAfterSleep = firstAfterSleep,
             kindLabel = episodeKindLabel(classification, 1),
             kindColor = kindColor,
             totals = todayEpisodeSummary(
                 entry.row.totalCarbsG ?: 0.0,
                 entry.row.totalKcal ?: 0.0,
-                entry.paired.sumOf { it.doseUnits },
             ),
             meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
             episodeKey = episodeKey,
@@ -710,7 +705,7 @@ private fun TodaySingleCard(
 @Composable
 private fun TodayEpisodeCard(
     entries: List<TodayMealEntry>,
-    firstAfterSleepWithInsulin: Boolean,
+    firstAfterSleep: Boolean,
     recommendationEligible: Boolean,
     kindColor: @Composable (String) -> Color,
     classification: EpisodeTherapyClass?,
@@ -727,7 +722,6 @@ private fun TodayEpisodeCard(
 ) {
     val totalCarbs = entries.sumOf { it.row.totalCarbsG ?: 0.0 }
     val totalKcal = entries.sumOf { it.row.totalKcal ?: 0.0 }
-    val totalInsulin = entries.sumOf { entry -> entry.paired.sumOf { it.doseUnits } }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -737,10 +731,10 @@ private fun TodayEpisodeCard(
     ) {
         SittingHeader(
             time = entries.minOf { it.row.eatenAt }.timeText(),
-            firstAfterSleepWithInsulin = firstAfterSleepWithInsulin,
+            firstAfterSleep = firstAfterSleep,
             kindLabel = episodeKindLabel(classification, entries.size),
             kindColor = kindColor(entries.first().row.id),
-            totals = todayEpisodeSummary(totalCarbs, totalKcal, totalInsulin),
+            totals = todayEpisodeSummary(totalCarbs, totalKcal),
             meals = entries.mapNotNull { entry ->
                 entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
             },
@@ -835,16 +829,10 @@ private fun todayEpisodeCoverage(
 private fun todayEpisodeSummary(
     totalCarbs: Double,
     totalKcal: Double,
-    totalInsulin: Double,
 ): String {
     val carbs = stringResource(R.string.today_episode_carbs, formatGrams(totalCarbs))
     val kcal = stringResource(R.string.today_episode_kcal, formatKcal(totalKcal))
-    val base = "$carbs · $kcal"
-    return if (totalInsulin > 0.0) {
-        "$base · ${formatInsulinDose(totalInsulin)} ${stringResource(R.string.insulin_units_short)}"
-    } else {
-        base
-    }
+    return "$carbs · $kcal"
 }
 
 @Composable
@@ -1011,7 +999,7 @@ private fun BodyStateRow(state: BodyState, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = state.label ?: stringResource(
+            text = stringResource(
                 when (state.kind) {
                     BodyState.Kind.Sleep -> R.string.body_state_sleep
                     BodyState.Kind.Activity -> R.string.body_state_activity
@@ -1204,17 +1192,15 @@ private fun <T> EpisodeCard(
     ) {
         SittingHeader(
             time = rowTime(first).timeText(),
-            firstAfterSleepWithInsulin = shouldShowFirstAfterSleepGlyph(
+            firstAfterSleep = shouldShowFirstAfterSleepGlyph(
                 mealIds = mealIds,
                 firstAfterSleepMealIds = context.firstAfterSleepMealIds,
-                totalInsulinUnits = paired.sumOf { event -> event.doseUnits },
             ),
             kindLabel = episodeKindLabel(context.classificationByMealId[rowId(first)], rows.size),
             kindColor = context.classificationByMealId[rowId(first)].kindColor(),
             totals = todayEpisodeSummary(
                 rows.sumOf { rowCarbs(it) ?: 0.0 },
                 rows.sumOf { rowKcal(it) ?: 0.0 },
-                paired.sumOf { it.doseUnits },
             ),
             meals = rows.mapNotNull { row ->
                 rowRecordId(row)?.let { SittingMeal(it, rowTime(row)) }
@@ -1370,7 +1356,6 @@ private fun EpisodeInsulinFooter(
     if (showSheet) {
         HistoricalInsulinSheetHost(
             mealIds = valid,
-            alreadyGivenUnits = total,
             onDismiss = { showSheet = false },
         )
     }
@@ -1378,6 +1363,7 @@ private fun EpisodeInsulinFooter(
         BolusBreakdownSheet(
             events = events,
             mealAt = mealAt,
+            mealIds = valid,
             onDismiss = { showBreakdown = false },
         )
     }
@@ -1974,8 +1960,7 @@ private fun formatInsulinDose(value: Double): String =
 internal fun shouldShowFirstAfterSleepGlyph(
     mealIds: Collection<String>,
     firstAfterSleepMealIds: Set<String>,
-    totalInsulinUnits: Double,
-): Boolean = totalInsulinUnits > 0.0 && mealIds.any(firstAfterSleepMealIds::contains)
+): Boolean = mealIds.any(firstAfterSleepMealIds::contains)
 
 private fun Set<HistoryFilter>.hasFocusedHistoryFilter(): Boolean =
     HistoryFilter.FirstAfterSleep in this ||

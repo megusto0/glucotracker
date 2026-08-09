@@ -27,6 +27,23 @@ External sources consulted while building are recorded in
 
 ### Added
 
+- **Android (gluco) / Glucotracker Bridge** — в «Ещё» добавлено
+  «Автообновление»: Bridge сам запрашивает у Amazfit Helio Strap пульс, сон и
+  активность каждые 15 минут, пишет результат в Health Connect, после чего
+  Glucotracker без открытого экрана отправляет новые записи на сервер. Повторные
+  сигналы не запускают параллельные импорты; расписание сохраняется после
+  перезапуска приложения (`0b5d82c`, Bridge `2b10a6c`).
+
+- **Android (gluco)** — в «Ещё» появилась прямая настройка Amazfit Helio Strap:
+  Glucotracker показывает состояние отдельного Glucotracker Bridge, последний
+  доступный пульс и запускает цепочку «подключить → получить данные → записать
+  в Health Connect → отправить на сервер». Связь между APK защищена общей
+  подписью; food-flavor не содержит этот код (`6e94b9e`).
+
+- **Android** — кнопка Health Connect показывает последнюю доступную приложению
+  точку пульса и время измерения. Точка читается и кэшируется на телефоне до
+  отправки на сервер, поэтому не исчезает при сетевой ошибке (`394fab8`).
+
 - **Desktop + Backend** — `/nightscout/review/analysis` now shows a 24-hour
   retrospective basal autotune table for the tested `0.8 / 0.7 / 0.8 / 1.0`
   U/h profile and ISF 3.6. Each hourly equivalent flat-background rate is
@@ -35,6 +52,13 @@ External sources consulted while building are recorded in
   compresses the 24 hourly rates down to 4–23 contiguous windows: boundaries
   follow evidence-weighted rate similarity while the projected daily dose is
   preserved.
+
+- **Desktop + Backend** — прогоны базального теста сохраняются на сервере:
+  `/glucose/basal-tests` заводит отрезок, закрывает его как завершённый или
+  прерванный и отдаёт историю. Дрейф не хранится — он пересчитывается из
+  нормализованной CGM при каждом чтении, поэтому запись не может разойтись с
+  трассой, по которой её мерили. Еда или болюс внутри прогона не удаляют запись,
+  а снимают с неё статус результата: «не засчитан, внутри было N событий».
 
 - **Desktop + Backend** — таблица автотюна называет один отрезок, который стоит
   измерить активно, и предлагает базальный тест голодом на него. Отрезок
@@ -80,6 +104,23 @@ External sources consulted while building are recorded in
 
 ### Changed
 
+- **Android (gluco)** — первичная рекомендация инсулина теперь использует общий
+  с разбором введённого болюса блок «состояние → слагаемые → итог», сохраняя ввод
+  фактической дозы. Удалены default-параметры из flavor-контракта Compose,
+  из-за которых gluco APK падал при открытии Today с `AbstractMethodError`
+  (`77b74e3`).
+
+- **Android (gluco)** — строки сна и активности в дневной ленте теперь называются
+  просто «Сон» и «Активность», без технического названия источника Health Connect;
+  доза инсулина убрана из правой части заголовка приёма и остаётся в его нижнем
+  блоке расчёта (`44ab0bc`).
+
+- **Glucotracker Bridge** — the companion refresh now requests only Helio's
+  minute activity stream, which already contains continuous heart rate,
+  steps/activity, and sleep stages. It no longer waits for unrelated GPS,
+  SpO2, stress, PAI, HRV, temperature, and summary operations; the measured
+  phone cycle fell from more than two minutes to about ten seconds (`2a09627`).
+
 - **Android + Backend** — разбор эпизода связывает ключевые точки графика со
   строками номерами 1–3, а соседние события — буквами A–Z. Для еды и коррекции
   блок больше не называется «вероятной причиной»: он показывает наблюдаемый
@@ -115,6 +156,27 @@ External sources consulted while building are recorded in
   screen while the doses are open, and carries a mark saying it opens at all.
 
 ### Fixed
+
+- **Backend, Android (gluco)** — разбор первого пищевого болюса снова берёт
+  исходный расчёт приёма: пищевая часть остаётся видна без CGM, а недоступной
+  помечается только коррекция по глюкозе. Для первого приёма после сна доза на
+  еду теперь считается непосредственно по скорректированному ICR; обычные
+  похожие приёмы остаются справкой с нулевым весом и больше не могут изменить
+  показанную формулу (например, 77 г / 7,6 г/ЕД = 10,1 ЕД). В листе явно показаны
+  формула и изменение ICR. Значок первого приёма после сна появляется до
+  добавления инсулина (`ed946f7`, `9c0a36f`).
+
+- **Android (gluco)** — a malformed Health Connect changes page no longer
+  leaves its record type permanently stuck on the same cursor. Glucotracker
+  performs one recoverable full read, uploads the valid rows around unreadable
+  spans, and continues from a fresh cursor on later runs (`9891d18`).
+
+- **Android (gluco) + Glucotracker Bridge** — a long Helio Strap full-sync no
+  longer discards heart-rate, sleep, and activity rows that the bridge has
+  already stored: on the bounded wait it exports the available snapshot to
+  Health Connect. Missing writer permissions are reported explicitly and the
+  Glucotracker action opens the bridge's exact Health Connect setup screen
+  (`595dc2b`, `fee5853`).
 
 - **Android** — «Мой ритм» теперь показывает пять непересекающихся частей суток:
   «Конец дня» завершается в момент начала типичного сна, а сон занимает отдельный

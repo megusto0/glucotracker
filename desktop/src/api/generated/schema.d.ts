@@ -383,6 +383,53 @@ export interface paths {
         patch: operations["patchFingerstick"];
         trace?: never;
     };
+    "/glucose/basal-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Basal Fasting Tests
+         * @description Return recorded fasted stretches, newest first, with their outcomes.
+         *
+         *     The drift is recomputed from CGM on every read rather than stored, so a run
+         *     can never disagree with the trace it was measured against.
+         */
+        get: operations["listBasalFastingTests"];
+        put?: never;
+        /**
+         * Start Basal Fasting Test
+         * @description Begin a fasted stretch, superseding any run left open.
+         */
+        post: operations["startBasalFastingTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/glucose/basal-tests/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Stop Basal Fasting Test
+         * @description Finish a run, or record that it broke and why.
+         */
+        patch: operations["stopBasalFastingTest"];
+        trace?: never;
+    };
     "/glucose/body-states": {
         parameters: {
             query?: never;
@@ -2288,6 +2335,81 @@ export interface components {
              * @default 0
              */
             usage_count: number;
+        };
+        /**
+         * BasalFastingTestOutcomeResponse
+         * @description What the trace did across a finished run, and whether it counts.
+         */
+        BasalFastingTestOutcomeResponse: {
+            /** Drift Mmol L Per Hour */
+            drift_mmol_l_per_hour?: number | null;
+            /** End Glucose Mmol L */
+            end_glucose_mmol_l?: number | null;
+            /** Fast Held */
+            fast_held: boolean;
+            /** Intervention Count */
+            intervention_count: number;
+            /** Measured Hours */
+            measured_hours: number;
+            /** Start Glucose Mmol L */
+            start_glucose_mmol_l?: number | null;
+        };
+        /**
+         * BasalFastingTestRunResponse
+         * @description One deliberately fasted stretch, with its outcome derived on read.
+         */
+        BasalFastingTestRunResponse: {
+            /** Abort Reason */
+            abort_reason?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            outcome?: components["schemas"]["BasalFastingTestOutcomeResponse"] | null;
+            /** Planned Hours */
+            planned_hours: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "aborted";
+            /** Window End Hour */
+            window_end_hour: number;
+            /** Window Start Hour */
+            window_start_hour: number;
+        };
+        /**
+         * BasalFastingTestStartRequest
+         * @description Begin a run over the stretch the suggestion named.
+         */
+        BasalFastingTestStartRequest: {
+            /** Planned Hours */
+            planned_hours: number;
+            /** Window End Hour */
+            window_end_hour: number;
+            /** Window Start Hour */
+            window_start_hour: number;
+        };
+        /**
+         * BasalFastingTestStopRequest
+         * @description Finish a run, or say it broke and why.
+         */
+        BasalFastingTestStopRequest: {
+            /** Abort Reason */
+            abort_reason?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "aborted";
         };
         /**
          * BiasCurvePoint
@@ -9060,6 +9182,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FingerstickReadingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listBasalFastingTests: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasalFastingTestRunResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startBasalFastingTest: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasalFastingTestStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasalFastingTestRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stopBasalFastingTest: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasalFastingTestStopRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasalFastingTestRunResponse"];
                 };
             };
             /** @description Validation Error */

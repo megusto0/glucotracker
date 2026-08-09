@@ -95,7 +95,7 @@ class GlucoFeatureSnapshotTest {
             kindColor = GT.colors.kindMeal,
             totals = "38,9 г · 493 ккал · 6,0 ЕД",
             meals = listOf(SittingMeal("11111111-1111-1111-1111-111111111111", eatenAt)),
-            firstAfterSleepWithInsulin = true,
+            firstAfterSleep = true,
         )
     }
 

@@ -116,7 +116,7 @@ def test_recommendation_scales_historical_episode_median_for_group(
     assert body["range_high_units"] == 6.2
     assert body["matched_episode_count"] == 4
     assert body["confidence"] == "low"
-    assert body["method_version"] == "historical-episode-median-v2"
+    assert body["method_version"] == "historical-episode-median-v3"
 
 
 def test_recommendation_reports_insufficient_history(api_client: TestClient) -> None:
@@ -401,7 +401,7 @@ def test_recommendation_reattributes_deferred_bolus_from_later_meal(
     assert body["recommended_units"] == 5.0
     assert body["matched_episode_count"] == 3
     assert body["matches"][0]["deferred_insulin_units"] == 5.0
-    assert body["method_version"] == "historical-episode-median-v2"
+    assert body["method_version"] == "historical-episode-median-v3"
 
 
 def test_recommendation_prefers_in_range_plus_2h_outcomes(
@@ -691,6 +691,48 @@ def test_the_first_meal_after_sleep_reports_the_tightened_ratio(
     assert body["icr_configured_g_per_unit"] == 9.3
     # Configured stays reportable next to what was actually applied.
     assert body["icr_g_per_unit"] == pytest.approx(9.3 * 7.1 / 8.7, abs=0.01)
+
+
+def test_first_after_sleep_uses_adjusted_icr_instead_of_generic_history(
+    api_client: TestClient,
+) -> None:
+    """The shown carbohydrate/ICR equation must equal the shown dose."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    target_utc = target_at.replace(tzinfo=UTC)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 40.0)
+        _meal(session, owner_id, target_at - timedelta(hours=11), 30.0)
+        for days_ago in (7, 14, 21, 28):
+            occurred_at = target_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 40.0)
+            _insulin(session, owner_id, occurred_at, 4.0)
+        _sleep(
+            session,
+            owner_id,
+            start=target_utc - timedelta(hours=9),
+            end=target_utc - timedelta(hours=1),
+        )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    body = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    ).json()
+
+    assert body["icr_after_sleep"] is True
+    assert body["matched_episode_count"] == 4
+    assert body["history_weight"] == 0.0
+    assert body["history_median_units"] is None
+    assert body["recommended_units"] == pytest.approx(
+        round(body["target_carbs_g"] / body["icr_g_per_unit"], 1),
+        abs=0.05,
+    )
+    assert body["recommended_units"] == body["icr_dose_units"]
 
 
 def test_recommendation_corrects_near_low_outcomes_downward(

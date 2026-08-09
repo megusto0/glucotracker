@@ -702,7 +702,7 @@ private fun DesktopPill() {
 }
 
 @Composable
-private fun SettingsSwitch(
+internal fun SettingsSwitch(
     checked: Boolean,
     accent: Color,
     onToggle: () -> Unit,

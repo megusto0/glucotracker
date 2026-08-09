@@ -64,7 +64,7 @@ from glucotracker.infra.db.repositories.twin import TwinRepository
 HISTORY_WINDOW = timedelta(days=180)
 MAX_MATCHES = 8
 MIN_MATCHES = 3
-METHOD_VERSION = "historical-episode-median-v2"
+METHOD_VERSION = "historical-episode-median-v3"
 CORRECTION_LOOKBACK = timedelta(minutes=20)
 CORRECTION_PROJECTION_MINUTES = 15
 MAX_PROJECTED_CHANGE_MMOL_L = 2.0
@@ -607,21 +607,42 @@ class HistoricalInsulinRecommendationService:
             ),
         )[:MAX_MATCHES]
 
+        after_sleep = self._is_first_meal_after_sleep(
+            target_at,
+            hours_since_previous_meal=_hours_since_previous_meal(
+                components,
+                target_at,
+                excluded_meal_ids=set(unique_ids),
+            ),
+        )
         icr_dose = _icr_dose(
             target_carbs,
             target_at,
             twin_params,
-            after_sleep=self._is_first_meal_after_sleep(
-                target_at,
-                hours_since_previous_meal=_hours_since_previous_meal(
-                    components,
-                    target_at,
-                    excluded_meal_ids=set(unique_ids),
-                ),
-            ),
+            after_sleep=after_sleep,
         )
 
         icr_fields = _icr_fields(icr_dose)
+
+        # The first-after-sleep ratio is a distinct, measured context. Generic
+        # similar meals are not filtered to that same context, so blending them
+        # here makes the displayed equation stop being true (for example,
+        # 77 g / 7.6 g/U was shown beside a 7.2 U result). Use the adjusted ICR
+        # directly; keep matches in the response as context, with zero weight.
+        if after_sleep and icr_dose is not None:
+            return HistoricalDoseEstimate(
+                status="ready",
+                meal_ids=unique_ids,
+                target_carbs_g=round(target_carbs, 1),
+                target_kcal=round(target_kcal, 1),
+                recommended_units=_round_dose(icr_dose.dose_units),
+                range_low_units=_round_dose(icr_dose.dose_units * 0.85),
+                range_high_units=_round_dose(icr_dose.dose_units * 1.15),
+                confidence="low",
+                matches=matches,
+                history_weight=0.0,
+                **icr_fields,
+            )
 
         if len(matches) < MIN_MATCHES:
             if icr_dose is not None:

@@ -505,6 +505,53 @@ class TherapyBasalCompressionResponse(BaseModel):
     slots: list[TherapyBasalCompressedSlotResponse]
 
 
+class BasalFastingTestOutcomeResponse(BaseModel):
+    """What the trace did across a finished run, and whether it counts."""
+
+    measured_hours: float
+    drift_mmol_l_per_hour: float | None = None
+    start_glucose_mmol_l: float | None = None
+    end_glucose_mmol_l: float | None = None
+    #: Food or a bolus inside the run does not invalidate the record, only the
+    #: measurement — and saying which is the difference between a log and a
+    #: result.
+    fast_held: bool
+    intervention_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BasalFastingTestRunResponse(BaseModel):
+    """One deliberately fasted stretch, with its outcome derived on read."""
+
+    id: UUID
+    started_at: datetime
+    ended_at: datetime | None = None
+    window_start_hour: int
+    window_end_hour: int
+    planned_hours: int
+    status: Literal["running", "completed", "aborted"]
+    abort_reason: str | None = None
+    outcome: BasalFastingTestOutcomeResponse | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BasalFastingTestStartRequest(BaseModel):
+    """Begin a run over the stretch the suggestion named."""
+
+    window_start_hour: int = Field(ge=0, le=23)
+    window_end_hour: int = Field(ge=0, le=24)
+    planned_hours: int = Field(ge=1, le=12)
+
+
+class BasalFastingTestStopRequest(BaseModel):
+    """Finish a run, or say it broke and why."""
+
+    status: Literal["completed", "aborted"]
+    abort_reason: str | None = None
+
+
 class TherapyBasalTestSuggestionResponse(BaseModel):
     """The one stretch worth measuring actively, and the segment to fast."""
 
