@@ -64,7 +64,7 @@ from glucotracker.infra.db.repositories.twin import TwinRepository
 HISTORY_WINDOW = timedelta(days=180)
 MAX_MATCHES = 8
 MIN_MATCHES = 3
-METHOD_VERSION = "historical-episode-median-v2"
+METHOD_VERSION = "historical-episode-median-v3"
 CORRECTION_LOOKBACK = timedelta(minutes=20)
 CORRECTION_PROJECTION_MINUTES = 15
 MAX_PROJECTED_CHANGE_MMOL_L = 2.0
@@ -607,18 +607,19 @@ class HistoricalInsulinRecommendationService:
             ),
         )[:MAX_MATCHES]
 
+        after_sleep = self._is_first_meal_after_sleep(
+            target_at,
+            hours_since_previous_meal=_hours_since_previous_meal(
+                components,
+                target_at,
+                excluded_meal_ids=set(unique_ids),
+            ),
+        )
         icr_dose = _icr_dose(
             target_carbs,
             target_at,
             twin_params,
-            after_sleep=self._is_first_meal_after_sleep(
-                target_at,
-                hours_since_previous_meal=_hours_since_previous_meal(
-                    components,
-                    target_at,
-                    excluded_meal_ids=set(unique_ids),
-                ),
-            ),
+            after_sleep=after_sleep,
         )
 
         icr_fields = _icr_fields(icr_dose)
@@ -655,6 +656,16 @@ class HistoricalInsulinRecommendationService:
         history_median = _round_dose(_weighted_median(scaled, weights))
         low = _round_dose(_weighted_percentile(scaled, weights, 0.25))
         high = _round_dose(_weighted_percentile(scaled, weights, 0.75))
+
+        # The measured first-after-sleep effect is a property of this sitting,
+        # not merely of the configured-ratio side of the blend. Leaving the
+        # historical side untouched let a strong match weight erase most of
+        # the +22.5% dose implied by 7.1 g/U versus 8.7 g/U. Put both candidate
+        # sources in the same after-sleep context before blending them.
+        if after_sleep:
+            history_median = _round_dose(history_median / FIRST_MEAL_ICR_FACTOR)
+            low = _round_dose(low / FIRST_MEAL_ICR_FACTOR)
+            high = _round_dose(high / FIRST_MEAL_ICR_FACTOR)
 
         recommendation = history_median
         history_weight = 1.0

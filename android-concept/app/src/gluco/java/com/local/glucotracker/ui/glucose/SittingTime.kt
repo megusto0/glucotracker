@@ -321,7 +321,7 @@ fun SittingHeader(
     totals: String,
     meals: List<SittingMeal>,
     modifier: Modifier = Modifier,
-    firstAfterSleepWithInsulin: Boolean = false,
+    firstAfterSleep: Boolean = false,
     // What this sitting is, on the server's terms, and the day it was listed
     // on. Both are needed to fetch its breakdown; null leaves the kind label
     // as plain text, which is what a queued record gets.
@@ -339,7 +339,7 @@ fun SittingHeader(
             .padding(top = 9.dp, bottom = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (firstAfterSleepWithInsulin) {
+        if (firstAfterSleep) {
             FirstAfterSleepGlyph(color = kindColor)
             Spacer(Modifier.width(6.dp))
         } else {

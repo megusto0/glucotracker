@@ -6,12 +6,11 @@ import kotlin.test.assertTrue
 
 class FirstAfterSleepGlyphTest {
     @Test
-    fun marker_requires_both_backend_context_and_insulin() {
+    fun marker_uses_backend_sleep_context_before_insulin_is_added() {
         val meal = "meal-1"
 
-        assertTrue(shouldShowFirstAfterSleepGlyph(listOf(meal), setOf(meal), 6.0))
-        assertFalse(shouldShowFirstAfterSleepGlyph(listOf(meal), setOf(meal), 0.0))
-        assertFalse(shouldShowFirstAfterSleepGlyph(listOf(meal), emptySet(), 6.0))
+        assertTrue(shouldShowFirstAfterSleepGlyph(listOf(meal), setOf(meal)))
+        assertFalse(shouldShowFirstAfterSleepGlyph(listOf(meal), emptySet()))
     }
 
     @Test
@@ -20,7 +19,6 @@ class FirstAfterSleepGlyphTest {
             shouldShowFirstAfterSleepGlyph(
                 mealIds = listOf("plate", "drink", "yoghurt"),
                 firstAfterSleepMealIds = setOf("drink"),
-                totalInsulinUnits = 6.0,
             ),
         )
     }
