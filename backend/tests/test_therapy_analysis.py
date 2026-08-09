@@ -8,6 +8,12 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from glucotracker.application.therapy_analysis import (
+    TherapyBasalSlot,
+    _basal_test_suggestion,
+    _discrepancy_is_confident,
+    _metric,
+)
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus
@@ -467,3 +473,61 @@ def test_analysis_rejects_unsupported_period(api_client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def _drift_slot(hour: int, drifts: list[float], days: int) -> TherapyBasalSlot:
+    metric = _metric(drifts)
+    return TherapyBasalSlot(
+        hour=hour,
+        label=f"{hour:02d}:00",
+        quiet_drift_mmol_l_per_hour=metric,
+        quiet_day_count=days,
+        discrepancy_confident=_discrepancy_is_confident(metric, days),
+        elevated_hr_drift_mmol_l_per_hour=_metric([]),
+        unknown_hr_drift_mmol_l_per_hour=_metric([]),
+        signal="stable",
+        configured_basal_u_per_hour=1.0,
+        autotuned_basal_u_per_hour=None,
+        basal_adjustment_u_per_hour=None,
+    )
+
+
+def test_the_suggested_test_window_is_the_one_the_evidence_supports() -> None:
+    """Adjacent confident hours drifting the same way are one finding.
+
+    The passive method sees an evening only when four hours passed without
+    food, so the stretches that matter most are the thinnest — which is the
+    argument for measuring one of them actively instead of waiting.
+    """
+    slots = []
+    for hour in range(24):
+        if hour in (20, 21):
+            slots.append(_drift_slot(hour, [-1.2, -1.0, -1.3, -0.9, -1.1, -1.4], 6))
+        else:
+            slots.append(_drift_slot(hour, [0.1, -0.1, 0.05, -0.05], 4))
+
+    suggestion = _basal_test_suggestion(slots, isf=3.6)
+
+    assert suggestion is not None
+    assert (suggestion.start_hour, suggestion.end_hour) == (20, 22)
+    # Glucose falls in quiet hours, so basal is doing more than the background
+    # needs — the direction the test is meant to confirm.
+    assert suggestion.direction == "high"
+    assert suggestion.day_count == 6
+    # Two hours tested, an hour of margin either side.
+    assert suggestion.fasting_hours == 4
+    assert suggestion.expected_change_u_per_hour < 0
+
+
+def test_one_extreme_night_does_not_become_a_test_suggestion() -> None:
+    """A median is not a finding: the middle half has to clear zero too.
+
+    Three windows over two days, one of them a −2.5 outlier, produce a
+    striking median and no evidence at all. This is the case that made the
+    printed table propose its largest change from its thinnest column.
+    """
+    slots = [_drift_slot(hour, [0.1, -0.1, 0.05, -0.05], 4) for hour in range(24)]
+    slots[4] = _drift_slot(4, [-2.5, 0.4, 0.1], 2)
+
+    assert slots[4].discrepancy_confident is False
+    assert _basal_test_suggestion(slots, isf=3.6) is None

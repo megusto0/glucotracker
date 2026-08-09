@@ -135,6 +135,14 @@ class TherapyBasalSlot:
     hour: int
     label: str
     quiet_drift_mmol_l_per_hour: TherapyAnalysisMetric
+    #: Distinct dates behind the quiet windows. Consecutive hours of one night
+    #: are one evening's behaviour, not several observations of it, so eleven
+    #: windows drawn from five evenings must not read as eleven samples.
+    quiet_day_count: int
+    #: The middle half of the quiet drifts sits entirely on one side of zero and
+    #: rests on enough separate days. This is what "a real discrepancy" means
+    #: here — a median alone says nothing about whether the sign would hold.
+    discrepancy_confident: bool
     elevated_hr_drift_mmol_l_per_hour: TherapyAnalysisMetric
     unknown_hr_drift_mmol_l_per_hour: TherapyAnalysisMetric
     signal: BasalSignal
@@ -168,6 +176,36 @@ class TherapyBasalCompression:
 
 
 @dataclass(frozen=True)
+class TherapyBasalTestSuggestion:
+    """The one stretch worth testing actively, and how to test it.
+
+    The passive method waits for a quiet hour to happen by itself, so the
+    stretches that matter most are the ones it sees least: an evening only
+    becomes eligible when you did not eat for four hours before it. The classic
+    answer to that is a fasting basal test, which produces in one segment the
+    clean observation thirty days of waiting could not.
+
+    Only ever one suggestion. A list of "periods worth testing" is a list
+    nobody runs; the point is to name the next single thing.
+    """
+
+    start_hour: int
+    end_hour: int
+    label: str
+    #: "high" when glucose falls in quiet hours — basal is doing more than the
+    #: background needs; "low" when it climbs.
+    direction: Literal["high", "low"]
+    drift_mmol_l_per_hour: float
+    #: The bound of the middle half nearest zero: the part of the drift the
+    #: observations support even at their weakest.
+    conservative_drift_mmol_l_per_hour: float
+    expected_change_u_per_hour: float
+    day_count: int
+    window_count: int
+    fasting_hours: int
+
+
+@dataclass(frozen=True)
 class TherapyBasalProfile:
     """Twenty-four-hour background drift profile with activity separated."""
 
@@ -184,6 +222,7 @@ class TherapyBasalProfile:
     autotuned_hour_count: int
     slots: list[TherapyBasalSlot]
     compressions: list[TherapyBasalCompression]
+    test_suggestion: TherapyBasalTestSuggestion | None
 
 
 @dataclass(frozen=True)
@@ -592,13 +631,11 @@ class TherapyAnalysisService:
             hour_windows = [
                 window for window in windows if window.timestamp.hour == hour
             ]
-            quiet = _metric(
-                [
-                    window.drift_mmol_l_per_hour
-                    for window in hour_windows
-                    if window.heart_rate_group == "quiet"
-                ]
-            )
+            quiet_windows = [
+                window for window in hour_windows if window.heart_rate_group == "quiet"
+            ]
+            quiet = _metric([window.drift_mmol_l_per_hour for window in quiet_windows])
+            quiet_days = len({window.timestamp.date() for window in quiet_windows})
             configured_rate = configured_rates[hour]
             adjustment, autotuned_rate = _basal_autotune_rate(
                 configured_rate=configured_rate,
@@ -610,6 +647,8 @@ class TherapyAnalysisService:
                     hour=hour,
                     label=f"{hour:02d}:00",
                     quiet_drift_mmol_l_per_hour=quiet,
+                    quiet_day_count=quiet_days,
+                    discrepancy_confident=_discrepancy_is_confident(quiet, quiet_days),
                     elevated_hr_drift_mmol_l_per_hour=_metric(
                         [
                             window.drift_mmol_l_per_hour
@@ -674,6 +713,7 @@ class TherapyAnalysisService:
                     MAX_BASAL_PROFILE_WINDOWS + 1,
                 )
             ],
+            test_suggestion=_basal_test_suggestion(slots, autotune_isf),
         )
 
     def _heart_rate_samples(
@@ -1142,6 +1182,88 @@ def _background_signal(metric: TherapyAnalysisMetric) -> BasalSignal:
     if metric.value < -BACKGROUND_SIGNAL_THRESHOLD:
         return "falling"
     return "stable"
+
+
+# A discrepancy has to survive both tests: the middle half of the observations
+# on one side of zero, and enough separate days behind them.
+MIN_CONFIDENT_DRIFT_DAYS = 3
+
+
+def _discrepancy_is_confident(drift: TherapyAnalysisMetric, days: int) -> bool:
+    """Whether this hour's drift is a finding rather than a median of noise."""
+    if drift.q1 is None or drift.q3 is None or days < MIN_CONFIDENT_DRIFT_DAYS:
+        return False
+    return (drift.q1 > 0 and drift.q3 > 0) or (drift.q1 < 0 and drift.q3 < 0)
+
+
+# The fasting segment is the tested stretch plus an hour either side, so the
+# drift is read away from the edges where a meal's tail or the next one's
+# anticipation could still reach.
+FASTING_TEST_MARGIN_HOURS = 1
+
+
+def _basal_test_suggestion(
+    slots: list[TherapyBasalSlot],
+    isf: float,
+) -> TherapyBasalTestSuggestion | None:
+    """Pick the single stretch whose discrepancy is worth measuring actively.
+
+    Adjacent confident hours drifting the same way are one finding, not several,
+    so they merge into one window. Candidates are then ranked by the excursion
+    the evidence supports at its *weakest* — the bound of the middle half
+    nearest zero, times the hours it lasts. Ranking on the median would put a
+    noisy hour with one extreme night above a steady stretch of six.
+    """
+    runs: list[list[TherapyBasalSlot]] = []
+    for slot in slots:
+        drift = slot.quiet_drift_mmol_l_per_hour.value
+        if not slot.discrepancy_confident or drift is None:
+            runs.append([])
+            continue
+        current = runs[-1] if runs else []
+        previous = current[-1].quiet_drift_mmol_l_per_hour.value if current else None
+        same_way = previous is not None and (previous > 0) == (drift > 0)
+        if current and same_way and current[-1].hour + 1 == slot.hour:
+            current.append(slot)
+        else:
+            runs.append([slot])
+
+    def conservative(slot: TherapyBasalSlot) -> float:
+        metric = slot.quiet_drift_mmol_l_per_hour
+        assert metric.q1 is not None and metric.q3 is not None
+        return metric.q1 if metric.q1 > 0 else metric.q3
+
+    best: list[TherapyBasalSlot] | None = None
+    best_excursion = 0.0
+    for run in runs:
+        if not run:
+            continue
+        excursion = abs(sum(conservative(slot) for slot in run))
+        if excursion > best_excursion:
+            best_excursion = excursion
+            best = run
+    if best is None:
+        return None
+
+    drifts = [slot.quiet_drift_mmol_l_per_hour.value or 0.0 for slot in best]
+    mean_drift = sum(drifts) / len(drifts)
+    mean_conservative = sum(conservative(slot) for slot in best) / len(best)
+    start_hour = best[0].hour
+    end_hour = (best[-1].hour + 1) % 24
+    return TherapyBasalTestSuggestion(
+        start_hour=start_hour,
+        end_hour=end_hour,
+        label=f"{start_hour:02d}:00—{end_hour:02d}:00",
+        direction="high" if mean_drift < 0 else "low",
+        drift_mmol_l_per_hour=round(mean_drift, 2),
+        conservative_drift_mmol_l_per_hour=round(mean_conservative, 2),
+        expected_change_u_per_hour=round(mean_drift / isf, 2),
+        day_count=max(slot.quiet_day_count for slot in best),
+        window_count=sum(
+            slot.quiet_drift_mmol_l_per_hour.sample_count for slot in best
+        ),
+        fasting_hours=len(best) + 2 * FASTING_TEST_MARGIN_HOURS,
+    )
 
 
 def _basal_autotune_rate(

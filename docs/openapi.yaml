@@ -8831,6 +8831,10 @@ components:
             $ref: '#/components/schemas/TherapyBasalSlotResponse'
           title: Slots
           type: array
+        test_suggestion:
+          anyOf:
+          - $ref: '#/components/schemas/TherapyBasalTestSuggestionResponse'
+          - type: 'null'
         unknown_hr_window_count:
           title: Unknown Hr Window Count
           type: integer
@@ -8869,6 +8873,10 @@ components:
         configured_basal_u_per_hour:
           title: Configured Basal U Per Hour
           type: number
+        discrepancy_confident:
+          default: false
+          title: Discrepancy Confident
+          type: boolean
         elevated_hr_drift_mmol_l_per_hour:
           $ref: '#/components/schemas/TherapyAnalysisMetricResponse'
         hour:
@@ -8877,6 +8885,10 @@ components:
         label:
           title: Label
           type: string
+        quiet_day_count:
+          default: 0
+          title: Quiet Day Count
+          type: integer
         quiet_drift_mmol_l_per_hour:
           $ref: '#/components/schemas/TherapyAnalysisMetricResponse'
         signal:
@@ -8898,6 +8910,55 @@ components:
       - signal
       - configured_basal_u_per_hour
       title: TherapyBasalSlotResponse
+      type: object
+    TherapyBasalTestSuggestionResponse:
+      description: The one stretch worth measuring actively, and the segment to fast.
+      properties:
+        conservative_drift_mmol_l_per_hour:
+          title: Conservative Drift Mmol L Per Hour
+          type: number
+        day_count:
+          title: Day Count
+          type: integer
+        direction:
+          enum:
+          - high
+          - low
+          title: Direction
+          type: string
+        drift_mmol_l_per_hour:
+          title: Drift Mmol L Per Hour
+          type: number
+        end_hour:
+          title: End Hour
+          type: integer
+        expected_change_u_per_hour:
+          title: Expected Change U Per Hour
+          type: number
+        fasting_hours:
+          title: Fasting Hours
+          type: integer
+        label:
+          title: Label
+          type: string
+        start_hour:
+          title: Start Hour
+          type: integer
+        window_count:
+          title: Window Count
+          type: integer
+      required:
+      - start_hour
+      - end_hour
+      - label
+      - direction
+      - drift_mmol_l_per_hour
+      - conservative_drift_mmol_l_per_hour
+      - expected_change_u_per_hour
+      - day_count
+      - window_count
+      - fasting_hours
+      title: TherapyBasalTestSuggestionResponse
       type: object
     TherapyEvidenceResponse:
       description: One named observation behind an episode's label.

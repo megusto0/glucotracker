@@ -7603,6 +7603,7 @@ export interface components {
             resting_reference_bpm?: number | null;
             /** Slots */
             slots: components["schemas"]["TherapyBasalSlotResponse"][];
+            test_suggestion?: components["schemas"]["TherapyBasalTestSuggestionResponse"] | null;
             /** Unknown Hr Window Count */
             unknown_hr_window_count: number;
             /** Washout Minutes */
@@ -7621,11 +7622,21 @@ export interface components {
             basal_adjustment_u_per_hour?: number | null;
             /** Configured Basal U Per Hour */
             configured_basal_u_per_hour: number;
+            /**
+             * Discrepancy Confident
+             * @default false
+             */
+            discrepancy_confident: boolean;
             elevated_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
             /** Hour */
             hour: number;
             /** Label */
             label: string;
+            /**
+             * Quiet Day Count
+             * @default 0
+             */
+            quiet_day_count: number;
             quiet_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
             /**
              * Signal
@@ -7633,6 +7644,35 @@ export interface components {
              */
             signal: "insufficient" | "stable" | "rising" | "falling";
             unknown_hr_drift_mmol_l_per_hour: components["schemas"]["TherapyAnalysisMetricResponse"];
+        };
+        /**
+         * TherapyBasalTestSuggestionResponse
+         * @description The one stretch worth measuring actively, and the segment to fast.
+         */
+        TherapyBasalTestSuggestionResponse: {
+            /** Conservative Drift Mmol L Per Hour */
+            conservative_drift_mmol_l_per_hour: number;
+            /** Day Count */
+            day_count: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "high" | "low";
+            /** Drift Mmol L Per Hour */
+            drift_mmol_l_per_hour: number;
+            /** End Hour */
+            end_hour: number;
+            /** Expected Change U Per Hour */
+            expected_change_u_per_hour: number;
+            /** Fasting Hours */
+            fasting_hours: number;
+            /** Label */
+            label: string;
+            /** Start Hour */
+            start_hour: number;
+            /** Window Count */
+            window_count: number;
         };
         /**
          * TherapyEvidenceResponse
