@@ -53,6 +53,15 @@ External sources consulted while building are recorded in
   follow evidence-weighted rate similarity while the projected daily dose is
   preserved.
 
+- **Desktop + Backend** — таблица автотюна называет один отрезок, который стоит
+  измерить активно, и предлагает базальный тест голодом на него. Отрезок
+  выбирается там, где межквартильный размах дрейфа целиком лежит по одну сторону
+  нуля и стоит минимум на трёх разных днях; соседние такие часы с одинаковым
+  знаком склеиваются, а кандидаты сравниваются по эффекту при слабейшем чтении
+  наблюдений, а не по медиане. Кнопка «Начать тест» закрыта, пока есть активный
+  инсулин: он исказил бы дрейф. Каждый час теперь сообщает число различных дней
+  — одиннадцать окон в 20:00–22:00 могут быть пятью вечерами.
+
 - **Backend** — `GET /glucose/episodes/breakdown` takes one episode apart into
   six blocks that are the same for every class: a −2 h/+4 h window of calibrated
   CGM sent point by point, the two or three readings the episode is read from,

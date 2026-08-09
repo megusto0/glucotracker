@@ -820,3 +820,84 @@
     border-left: 0;
   }
 }
+
+/* The one active measurement the passive table cannot make for itself. */
+.therapy-basal-test {
+  border: 1px solid var(--hairline, #e6e2d6);
+  border-left: 3px solid var(--accent, #5e6f3a);
+  padding: 14px 16px;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.therapy-basal-test > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.therapy-basal-test > header span {
+  display: block;
+  color: var(--ink-2, #4a4842);
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.therapy-basal-test > header small {
+  color: var(--muted, #8a857a);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.therapy-basal-test-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+
+.therapy-basal-test-evidence div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.therapy-basal-test-evidence dt {
+  color: var(--muted, #8a857a);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.therapy-basal-test-evidence dd {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.therapy-basal-test-running p,
+.therapy-basal-test-start p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--ink-2, #4a4842);
+}
+
+.therapy-basal-test button {
+  font-size: 13px;
+  padding: 5px 14px;
+  border: 1px solid var(--hairline-2, #d8d3c4);
+  background: var(--surface, #fbfaf6);
+  cursor: pointer;
+}
+
+.therapy-basal-test button:disabled {
+  color: var(--muted, #8a857a);
+  cursor: not-allowed;
+}

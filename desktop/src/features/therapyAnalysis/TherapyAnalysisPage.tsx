@@ -2,7 +2,10 @@ import { ArrowLeft, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TherapyAnalysisResponse } from "../../api/client";
-import { useGlucoseTherapyAnalysis } from "../glucose/useGlucoseDashboard";
+import {
+  useGlucoseTherapyAnalysis,
+  useTopUpDose,
+} from "../glucose/useGlucoseDashboard";
 import "../nightscoutView/nightscout-page.css";
 import "../therapyReview/therapy-review-page.css";
 import "./therapy-analysis-page.css";
@@ -15,6 +18,7 @@ type IcrComparison = NonNullable<
   TherapyAnalysisResponse["icr_proposals"]
 >[number];
 type IsfCase = NonNullable<TherapyAnalysisResponse["isf_cases"]>[number];
+type BasalTestSuggestion = NonNullable<BasalProfile["test_suggestion"]>;
 
 const REJECTION_LABELS: Record<string, string> = {
   not_isolated: "рядом была еда или другой болюс",
@@ -398,6 +402,140 @@ function lineSegments(
   return segments;
 }
 
+// Below this the remaining bolus is a rounding error rather than a confound.
+const FASTING_TEST_MAX_IOB_UNITS = 0.05;
+const RUNNING_TEST_KEY = "glucotracker.basalFastingTest";
+
+type RunningTest = { startedAt: number; label: string; hours: number };
+
+function readRunningTest(): RunningTest | null {
+  try {
+    const raw = window.localStorage.getItem(RUNNING_TEST_KEY);
+    return raw ? (JSON.parse(raw) as RunningTest) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clockText(value: Date) {
+  return value.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * The stretch the evidence says to measure, and the segment to fast.
+ *
+ * The passive table waits for a quiet hour to occur, and an evening only
+ * qualifies when four hours passed without food — so the intervals that matter
+ * most are the ones it observes least. Everything here exists to make the one
+ * active measurement easy to start at the moment it is actually possible,
+ * which is why readiness is live IOB and not a note in the protocol.
+ */
+function BasalTestSuggestionCard({
+  suggestion,
+}: {
+  suggestion: BasalTestSuggestion;
+}) {
+  const topUp = useTopUpDose(undefined, true);
+  const [running, setRunning] = useState<RunningTest | null>(() =>
+    readRunningTest(),
+  );
+
+  const iob = topUp.data?.iob_units ?? null;
+  const iobKnown = topUp.isSuccess && iob != null;
+  const clear = iobKnown && iob <= FASTING_TEST_MAX_IOB_UNITS;
+
+  const start = () => {
+    const next: RunningTest = {
+      hours: suggestion.fasting_hours,
+      label: suggestion.label,
+      startedAt: Date.now(),
+    };
+    window.localStorage.setItem(RUNNING_TEST_KEY, JSON.stringify(next));
+    setRunning(next);
+  };
+  const stop = () => {
+    window.localStorage.removeItem(RUNNING_TEST_KEY);
+    setRunning(null);
+  };
+
+  const finishesAt = running
+    ? new Date(running.startedAt + running.hours * 3600_000)
+    : null;
+
+  return (
+    <section aria-labelledby="basal-test-title" className="therapy-basal-test">
+      <header>
+        <div>
+          <strong id="basal-test-title">Базальный тест голодом</strong>
+          <span>
+            {suggestion.label} ·{" "}
+            {suggestion.direction === "high"
+              ? "в спокойные часы глюкоза снижается — базал делает больше, чем нужно фону"
+              : "в спокойные часы глюкоза растёт — базала не хватает"}
+          </span>
+        </div>
+        <small>{suggestion.fasting_hours} ч без еды и болюса</small>
+      </header>
+
+      <dl className="therapy-basal-test-evidence">
+        <div>
+          <dt>дрейф</dt>
+          <dd>{suggestion.drift_mmol_l_per_hour.toFixed(2)} ммоль/л/ч</dd>
+        </div>
+        <div>
+          <dt>при слабейшем чтении</dt>
+          <dd>
+            {suggestion.conservative_drift_mmol_l_per_hour.toFixed(2)} ммоль/л/ч
+          </dd>
+        </div>
+        <div>
+          <dt>ожидаемая правка</dt>
+          <dd>{suggestion.expected_change_u_per_hour.toFixed(2)} Ед/ч</dd>
+        </div>
+        <div>
+          <dt>основание</dt>
+          <dd>
+            {suggestion.day_count} дн · {suggestion.window_count} окон
+          </dd>
+        </div>
+      </dl>
+
+      {running ? (
+        <div className="therapy-basal-test-running">
+          <p>
+            Тест идёт с {clockText(new Date(running.startedAt))}
+            {finishesAt ? ` · до ${clockText(finishesAt)}` : ""}. Не есть и не
+            колоть до конца отрезка.
+          </p>
+          <p>
+            Прерывать при уходе вниз. Прерванный тест — тоже результат: значит,
+            базала в этом отрезке точно не мало.
+          </p>
+          <button onClick={stop} type="button">
+            Прервать
+          </button>
+        </div>
+      ) : (
+        <div className="therapy-basal-test-start">
+          <p>
+            {!iobKnown
+              ? "Активный инсулин сейчас неизвестен — готовность не проверить."
+              : clear
+                ? "Активного инсулина нет — отрезок можно начинать."
+                : `Активный инсулин ${iob.toFixed(2)} Ед исказит дрейф. Начинать, когда он отработает.`}
+          </p>
+          <button disabled={!clear} onClick={start} type="button">
+            Начать тест
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function BasalProfileChart({ profile }: { profile: BasalProfile }) {
   const [windowCount, setWindowCount] = useState(24);
   const values = profile.slots.flatMap((slot) =>
@@ -591,6 +729,10 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
           пульсом не формируют расчёт.
         </p>
       </section>
+
+      {profile.test_suggestion ? (
+        <BasalTestSuggestionCard suggestion={profile.test_suggestion} />
+      ) : null}
 
       {hasEvidence ? (
         <div className="therapy-basal-chart-scroll">

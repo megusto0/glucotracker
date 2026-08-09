@@ -2,14 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { TherapyAnalysisResponse } from "../../api/client";
-import { useGlucoseTherapyAnalysis } from "../glucose/useGlucoseDashboard";
+import {
+  useGlucoseTherapyAnalysis,
+  useTopUpDose,
+} from "../glucose/useGlucoseDashboard";
 import { TherapyAnalysisPage } from "./TherapyAnalysisPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
   useGlucoseTherapyAnalysis: vi.fn(),
+  useTopUpDose: vi.fn(),
 }));
 
 const mockedUseAnalysis = vi.mocked(useGlucoseTherapyAnalysis);
+const mockedUseTopUp = vi.mocked(useTopUpDose);
 
 const emptyMetric = {
   confidence: "none" as const,
@@ -98,10 +103,15 @@ const analysis: TherapyAnalysisResponse = {
               value: 0.1,
             }
           : emptyMetric,
+      quiet_day_count: hour === 2 ? 4 : 0,
+      // The middle half straddles zero here, so this hour is a median of noise
+      // rather than a finding, and no test is suggested from it.
+      discrepancy_confident: false,
       signal: hour === 2 ? ("stable" as const) : ("insufficient" as const),
       unknown_hr_drift_mmol_l_per_hour: emptyMetric,
     })),
     unknown_hr_window_count: 7,
+    test_suggestion: null,
     projected_daily_basal_units: 19.93,
     washout_minutes: 240,
     window_minutes: 60,
@@ -356,5 +366,69 @@ describe("TherapyAnalysisPage", () => {
     expect(
       screen.getByRole("button", { name: "180 дней" }),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("предложение базального теста", () => {
+  const suggestion = {
+    conservative_drift_mmol_l_per_hour: -1.02,
+    day_count: 6,
+    direction: "high" as const,
+    drift_mmol_l_per_hour: -1.1,
+    end_hour: 22,
+    expected_change_u_per_hour: -0.31,
+    fasting_hours: 4,
+    label: "20:00—22:00",
+    start_hour: 20,
+    window_count: 12,
+  };
+
+  const renderWithIob = (iobUnits: number | null) => {
+    mockedUseAnalysis.mockReturnValue({
+      data: {
+        ...analysis,
+        basal_profile: {
+          ...analysis.basal_profile,
+          test_suggestion: suggestion,
+        },
+      },
+      isError: false,
+      isLoading: false,
+    } as ReturnType<typeof useGlucoseTherapyAnalysis>);
+    mockedUseTopUp.mockReturnValue({
+      data: iobUnits == null ? undefined : { iob_units: iobUnits },
+      isSuccess: iobUnits != null,
+    } as ReturnType<typeof useTopUpDose>);
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+  };
+
+  test("называет отрезок и на чём он стоит", () => {
+    renderWithIob(0);
+
+    expect(screen.getByText("Базальный тест голодом")).toBeVisible();
+    expect(screen.getByText(/20:00—22:00/)).toBeVisible();
+    expect(screen.getByText("6 дн · 12 окон")).toBeVisible();
+    expect(screen.getByText("-0.31 Ед/ч")).toBeVisible();
+  });
+
+  test("активный инсулин закрывает кнопку", () => {
+    // The segment measures background drift, and a working bolus is exactly
+    // the thing that would drown it. Readiness is the live number, not a note
+    // in the protocol asking the reader to check.
+    renderWithIob(2.4);
+
+    expect(screen.getByText(/Активный инсулин 2\.40 Ед/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Начать тест" })).toBeDisabled();
+  });
+
+  test("без активного инсулина отрезок можно начать", () => {
+    renderWithIob(0);
+
+    expect(screen.getByText(/Активного инсулина нет/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Начать тест" })).toBeEnabled();
   });
 });
