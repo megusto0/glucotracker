@@ -157,6 +157,14 @@ External sources consulted while building are recorded in
 
 ### Fixed
 
+- **Backend, Android (gluco)** — разбор первого пищевого болюса снова берёт
+  исходный расчёт приёма: пищевая часть по ICR и личной истории остаётся видна
+  без CGM, а недоступной помечается только коррекция по глюкозе. Поправка первого
+  приёма после сна теперь применяется и к ICR, и к исторической части до их
+  смешивания, поэтому история больше не гасит прибавку около 22,5%; в листе явно
+  показано изменение ICR. Значок первого приёма после сна появляется до
+  добавления инсулина (`b6a9cbb`).
+
 - **Android (gluco)** — a malformed Health Connect changes page no longer
   leaves its record type permanently stuck on the same cursor. Glucotracker
   performs one recoverable full read, uploads the valid rows around unreadable
