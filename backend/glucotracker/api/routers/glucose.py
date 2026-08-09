@@ -12,6 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
+    BasalFastingTestRunResponse,
+    BasalFastingTestStartRequest,
+    BasalFastingTestStopRequest,
     BodyStateIntervalResponse,
     BodyStatesResponse,
     CgmCalibrationModelResponse,
@@ -52,6 +55,7 @@ from glucotracker.api.schemas import (
     TherapyReviewItemResponse,
     TopUpDoseResponse,
 )
+from glucotracker.application.basal_fasting_test import BasalFastingTestService
 from glucotracker.application.body_states import BodyStateService
 from glucotracker.application.episode_breakdown import (
     EpisodeBreakdownService,
@@ -476,6 +480,72 @@ def get_glucose_therapy_analysis(
             ),
         }
     )
+
+
+@router.get(
+    "/glucose/basal-tests",
+    response_model=list[BasalFastingTestRunResponse],
+    operation_id="listBasalFastingTests",
+)
+def list_basal_fasting_tests(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[BasalFastingTestRunResponse]:
+    """Return recorded fasted stretches, newest first, with their outcomes.
+
+    The drift is recomputed from CGM on every read rather than stored, so a run
+    can never disagree with the trace it was measured against.
+    """
+    runs = BasalFastingTestService(session, current_user.id).history(limit)
+    return [BasalFastingTestRunResponse.model_validate(run) for run in runs]
+
+
+@router.post(
+    "/glucose/basal-tests",
+    response_model=BasalFastingTestRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="startBasalFastingTest",
+)
+def start_basal_fasting_test(
+    payload: BasalFastingTestStartRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> BasalFastingTestRunResponse:
+    """Begin a fasted stretch, superseding any run left open."""
+    run = BasalFastingTestService(session, current_user.id).start(
+        window_start_hour=payload.window_start_hour,
+        window_end_hour=payload.window_end_hour,
+        planned_hours=payload.planned_hours,
+    )
+    session.commit()
+    return BasalFastingTestRunResponse.model_validate(run)
+
+
+@router.patch(
+    "/glucose/basal-tests/{run_id}",
+    response_model=BasalFastingTestRunResponse,
+    operation_id="stopBasalFastingTest",
+)
+def stop_basal_fasting_test(
+    run_id: UUID,
+    payload: BasalFastingTestStopRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> BasalFastingTestRunResponse:
+    """Finish a run, or record that it broke and why."""
+    run = BasalFastingTestService(session, current_user.id).stop(
+        run_id,
+        status=payload.status,
+        abort_reason=payload.abort_reason,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="basal fasting test not found",
+        )
+    session.commit()
+    return BasalFastingTestRunResponse.model_validate(run)
 
 
 @router.get(

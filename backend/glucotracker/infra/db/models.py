@@ -1839,6 +1839,44 @@ class NightscoutImportState(Base):
     owner: Mapped[User] = relationship()
 
 
+class BasalFastingTest(Base, TimestampMixin):
+    """One deliberately fasted stretch, run to measure background drift.
+
+    The passive autotune waits for a quiet hour to occur by itself, so the
+    stretches worth knowing about are the ones it observes least. This records
+    the active alternative: a segment the owner chose to fast through. Nothing
+    here stores a computed drift — the outcome is derived from CGM on read, so
+    a run can never disagree with the trace it was measured against.
+    """
+
+    __tablename__ = "basal_fasting_tests"
+    __table_args__ = (
+        Index("ix_basal_fasting_tests_owner_started", "owner_id", "started_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    #: App-local wall clock, the same convention as meals.
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    #: The stretch under test, as the suggestion named it.
+    window_start_hour: Mapped[int] = mapped_column(Integer, nullable=False)
+    window_end_hour: Mapped[int] = mapped_column(Integer, nullable=False)
+    planned_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: "running" until stopped; then "completed" or "aborted".
+    status: Mapped[str] = mapped_column(
+        String,
+        default="running",
+        server_default="running",
+        nullable=False,
+    )
+    abort_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class SensorSession(Base, TimestampMixin):
     """A user-defined CGM sensor wear session for display analytics."""
 

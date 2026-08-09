@@ -825,6 +825,57 @@ class TestGETIsolation:
             ("bob_headers", "alice_headers"),
         ],
     )
+    def test_basal_fasting_test_isolation(
+        self,
+        owner_headers_key: str,
+        other_headers_key: str,
+    ) -> None:
+        """A run belongs to whoever fasted through it, and only they can end it.
+
+        The interesting leak is not a stray row in a list: it is the other user
+        holding an id and stopping someone else's run, which would both destroy
+        a record and attach an outcome to the wrong person's trace.
+        """
+        owner_headers = self.env[owner_headers_key]
+        other_headers = self.env[other_headers_key]
+        created = self.client.post(
+            "/glucose/basal-tests",
+            json={
+                "window_start_hour": 20,
+                "window_end_hour": 22,
+                "planned_hours": 4,
+            },
+            headers=owner_headers,
+        )
+        assert created.status_code == 201
+        run_id = created.json()["id"]
+
+        mine = self.client.get("/glucose/basal-tests", headers=owner_headers)
+        theirs = self.client.get("/glucose/basal-tests", headers=other_headers)
+        assert run_id in _collect_ids(mine.json())
+        assert run_id not in _collect_ids(theirs.json())
+
+        stolen = self.client.patch(
+            f"/glucose/basal-tests/{run_id}",
+            json={"status": "aborted", "abort_reason": "ate"},
+            headers=other_headers,
+        )
+        assert stolen.status_code == 404
+
+        stopped = self.client.patch(
+            f"/glucose/basal-tests/{run_id}",
+            json={"status": "completed"},
+            headers=owner_headers,
+        )
+        assert stopped.status_code == 200
+
+    @pytest.mark.parametrize(
+        ("owner_headers_key", "other_headers_key"),
+        [
+            ("alice_headers", "bob_headers"),
+            ("bob_headers", "alice_headers"),
+        ],
+    )
     def test_episode_breakdown_isolation(
         self,
         owner_headers_key: str,

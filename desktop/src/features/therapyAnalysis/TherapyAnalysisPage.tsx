@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TherapyAnalysisResponse } from "../../api/client";
 import {
+  useBasalFastingTests,
   useGlucoseTherapyAnalysis,
+  useStartBasalFastingTest,
+  useStopBasalFastingTest,
   useTopUpDose,
 } from "../glucose/useGlucoseDashboard";
 import "../nightscoutView/nightscout-page.css";
@@ -404,24 +407,16 @@ function lineSegments(
 
 // Below this the remaining bolus is a rounding error rather than a confound.
 const FASTING_TEST_MAX_IOB_UNITS = 0.05;
-const RUNNING_TEST_KEY = "glucotracker.basalFastingTest";
 
-type RunningTest = { startedAt: number; label: string; hours: number };
-
-function readRunningTest(): RunningTest | null {
-  try {
-    const raw = window.localStorage.getItem(RUNNING_TEST_KEY);
-    return raw ? (JSON.parse(raw) as RunningTest) : null;
-  } catch {
-    return null;
-  }
-}
-
-function clockText(value: Date) {
-  return value.toLocaleTimeString("ru-RU", {
+function clockText(value: string | number) {
+  return new Date(value).toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function driftText(value: number) {
+  return `${value.toFixed(2)} ммоль/л/ч`;
 }
 
 /**
@@ -431,7 +426,11 @@ function clockText(value: Date) {
  * qualifies when four hours passed without food — so the intervals that matter
  * most are the ones it observes least. Everything here exists to make the one
  * active measurement easy to start at the moment it is actually possible,
- * which is why readiness is live IOB and not a note in the protocol.
+ * which is why readiness is live IOB rather than a note in the protocol.
+ *
+ * The run is a server record, not browser state: it outlives a reload, and the
+ * outcome is recomputed from CGM on every read so a stored drift can never
+ * disagree with the trace behind it.
  */
 function BasalTestSuggestionCard({
   suggestion,
@@ -439,30 +438,23 @@ function BasalTestSuggestionCard({
   suggestion: BasalTestSuggestion;
 }) {
   const topUp = useTopUpDose(undefined, true);
-  const [running, setRunning] = useState<RunningTest | null>(() =>
-    readRunningTest(),
-  );
+  const runs = useBasalFastingTests();
+  const startRun = useStartBasalFastingTest();
+  const stopRun = useStopBasalFastingTest();
 
   const iob = topUp.data?.iob_units ?? null;
   const iobKnown = topUp.isSuccess && iob != null;
   const clear = iobKnown && iob <= FASTING_TEST_MAX_IOB_UNITS;
 
-  const start = () => {
-    const next: RunningTest = {
-      hours: suggestion.fasting_hours,
-      label: suggestion.label,
-      startedAt: Date.now(),
-    };
-    window.localStorage.setItem(RUNNING_TEST_KEY, JSON.stringify(next));
-    setRunning(next);
-  };
-  const stop = () => {
-    window.localStorage.removeItem(RUNNING_TEST_KEY);
-    setRunning(null);
-  };
+  const running = runs.data?.find((run) => run.status === "running") ?? null;
+  const lastFinished =
+    runs.data?.find((run) => run.status !== "running" && run.outcome) ?? null;
 
   const finishesAt = running
-    ? new Date(running.startedAt + running.hours * 3600_000)
+    ? new Date(
+        new Date(running.started_at).getTime() +
+          running.planned_hours * 3600_000,
+      ).toISOString()
     : null;
 
   return (
@@ -483,13 +475,11 @@ function BasalTestSuggestionCard({
       <dl className="therapy-basal-test-evidence">
         <div>
           <dt>дрейф</dt>
-          <dd>{suggestion.drift_mmol_l_per_hour.toFixed(2)} ммоль/л/ч</dd>
+          <dd>{driftText(suggestion.drift_mmol_l_per_hour)}</dd>
         </div>
         <div>
           <dt>при слабейшем чтении</dt>
-          <dd>
-            {suggestion.conservative_drift_mmol_l_per_hour.toFixed(2)} ммоль/л/ч
-          </dd>
+          <dd>{driftText(suggestion.conservative_drift_mmol_l_per_hour)}</dd>
         </div>
         <div>
           <dt>ожидаемая правка</dt>
@@ -506,7 +496,7 @@ function BasalTestSuggestionCard({
       {running ? (
         <div className="therapy-basal-test-running">
           <p>
-            Тест идёт с {clockText(new Date(running.startedAt))}
+            Тест идёт с {clockText(running.started_at)}
             {finishesAt ? ` · до ${clockText(finishesAt)}` : ""}. Не есть и не
             колоть до конца отрезка.
           </p>
@@ -514,9 +504,32 @@ function BasalTestSuggestionCard({
             Прерывать при уходе вниз. Прерванный тест — тоже результат: значит,
             базала в этом отрезке точно не мало.
           </p>
-          <button onClick={stop} type="button">
-            Прервать
-          </button>
+          <div className="therapy-basal-test-actions">
+            <button
+              disabled={stopRun.isPending}
+              onClick={() =>
+                stopRun.mutate({
+                  body: { status: "completed" },
+                  runId: running.id,
+                })
+              }
+              type="button"
+            >
+              Завершить
+            </button>
+            <button
+              disabled={stopRun.isPending}
+              onClick={() =>
+                stopRun.mutate({
+                  body: { abort_reason: "ушёл вниз", status: "aborted" },
+                  runId: running.id,
+                })
+              }
+              type="button"
+            >
+              Прервать
+            </button>
+          </div>
         </div>
       ) : (
         <div className="therapy-basal-test-start">
@@ -527,11 +540,32 @@ function BasalTestSuggestionCard({
                 ? "Активного инсулина нет — отрезок можно начинать."
                 : `Активный инсулин ${iob.toFixed(2)} Ед исказит дрейф. Начинать, когда он отработает.`}
           </p>
-          <button disabled={!clear} onClick={start} type="button">
+          <button
+            disabled={!clear || startRun.isPending}
+            onClick={() =>
+              startRun.mutate({
+                planned_hours: suggestion.fasting_hours,
+                window_end_hour: suggestion.end_hour,
+                window_start_hour: suggestion.start_hour,
+              })
+            }
+            type="button"
+          >
             Начать тест
           </button>
         </div>
       )}
+
+      {lastFinished?.outcome ? (
+        <p className="therapy-basal-test-last">
+          Прошлый прогон {clockText(lastFinished.started_at)} ·{" "}
+          {lastFinished.outcome.fast_held
+            ? lastFinished.outcome.drift_mmol_l_per_hour != null
+              ? `дрейф ${driftText(lastFinished.outcome.drift_mmol_l_per_hour)} за ${lastFinished.outcome.measured_hours} ч`
+              : "слишком короткий, чтобы что-то измерить"
+            : `не засчитан: внутри было ${lastFinished.outcome.intervention_count} событий еды или инсулина`}
+        </p>
+      ) : null}
     </section>
   );
 }

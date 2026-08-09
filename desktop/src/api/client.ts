@@ -113,6 +113,12 @@ export type InsulinRecommendationRequest =
 export type InsulinRecommendationResponse =
   components["schemas"]["InsulinRecommendationResponse"];
 export type TopUpDoseResponse = components["schemas"]["TopUpDoseResponse"];
+export type BasalFastingTestRunResponse =
+  components["schemas"]["BasalFastingTestRunResponse"];
+export type BasalFastingTestStartRequest =
+  components["schemas"]["BasalFastingTestStartRequest"];
+export type BasalFastingTestStopRequest =
+  components["schemas"]["BasalFastingTestStopRequest"];
 export type GlucosePredictionMode = GlucosePredictionResponse["mode"];
 export type GlucoseMode = GlucoseDashboardResponse["mode"];
 export type NightscoutInsulinEntryCreate =
@@ -994,6 +1000,29 @@ export const apiClient = {
         ? "/glucose/top-up-dose"
         : `/glucose/top-up-dose?target_mmol_l=${encodeURIComponent(targetMmolL)}`,
       config,
+    ),
+
+  listBasalFastingTests: (config: ApiConfig) =>
+    apiRequest<BasalFastingTestRunResponse[]>("/glucose/basal-tests", config),
+
+  startBasalFastingTest: (
+    config: ApiConfig,
+    body: BasalFastingTestStartRequest,
+  ) =>
+    apiRequest<BasalFastingTestRunResponse>("/glucose/basal-tests", config, {
+      method: "POST",
+      body,
+    }),
+
+  stopBasalFastingTest: (
+    config: ApiConfig,
+    runId: string,
+    body: BasalFastingTestStopRequest,
+  ) =>
+    apiRequest<BasalFastingTestRunResponse>(
+      `/glucose/basal-tests/${runId}`,
+      config,
+      { method: "PATCH", body },
     ),
 
   getInsulinRecommendation: (
