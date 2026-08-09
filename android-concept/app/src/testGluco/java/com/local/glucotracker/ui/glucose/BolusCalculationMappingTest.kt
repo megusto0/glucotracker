@@ -55,7 +55,7 @@ class BolusCalculationMappingTest {
             confidence = InsulinRecommendationResponse.Confidence.LOW,
             matchedEpisodeCount = 0,
             matches = emptyList(),
-            methodVersion = "test",
+            methodVersion = "historical-episode-median-v3",
             correctionStatus = InsulinRecommendationResponse.CorrectionStatus.GLUCOSE_UNAVAILABLE,
             correctionTargetMmolL = BigDecimal("6.0"),
             icrGPerUnit = BigDecimal("9.3"),
@@ -67,6 +67,7 @@ class BolusCalculationMappingTest {
 
         assertEquals(9.8, result.suggestedUnits)
         assertEquals(9.8, result.terms.single().value)
+        assertEquals("91 г / 9,3", result.terms.single().formula)
         assertEquals(BolusCorrectionGap.Glucose, result.omittedCorrectionReason)
         assertEquals(9.3, result.state.icr)
         assertEquals(11.4, result.configuredIcr)

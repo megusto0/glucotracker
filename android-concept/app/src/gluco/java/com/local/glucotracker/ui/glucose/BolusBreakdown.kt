@@ -147,6 +147,9 @@ class BolusBreakdownViewModel @Inject constructor(
 /** The first food bolus belongs to the meal recommendation, not top-up math. */
 internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
     val mealUnits = recommendedUnits?.toDouble()
+    val effectiveIcr = icrGPerUnit?.toDouble()
+    val afterSleepIcrIsDirect = icrAfterSleep == true &&
+        methodVersion == "historical-episode-median-v3"
     val usableCorrection =
         correctionStatus == InsulinRecommendationResponse.CorrectionStatus.READY ||
             correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED
@@ -157,12 +160,24 @@ internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
             glucose = correctionGlucoseMmolL?.toDouble(),
             iob = correctionIobUnits?.toDouble(),
             cob = correctionPriorCobG?.toDouble(),
-            icr = icrGPerUnit?.toDouble(),
+            icr = effectiveIcr,
             isf = correctionIsfMmolLPerUnit?.toDouble(),
             target = correctionTargetMmolL?.toDouble(),
         ),
         terms = buildList {
-            mealUnits?.let { add(BolusTermUi(label = "meal", formula = null, value = it)) }
+            mealUnits?.let {
+                add(
+                    BolusTermUi(
+                        label = "meal",
+                        formula = if (afterSleepIcrIsDirect && effectiveIcr != null) {
+                            "${grams(targetCarbsG.toDouble())} / ${mmol(effectiveIcr)}"
+                        } else {
+                            null
+                        },
+                        value = it,
+                    ),
+                )
+            }
             correctionUnits?.let {
                 add(BolusTermUi(label = "correction", formula = null, value = it))
             }

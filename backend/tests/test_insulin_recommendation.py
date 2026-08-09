@@ -693,10 +693,10 @@ def test_the_first_meal_after_sleep_reports_the_tightened_ratio(
     assert body["icr_g_per_unit"] == pytest.approx(9.3 * 7.1 / 8.7, abs=0.01)
 
 
-def test_first_after_sleep_factor_survives_the_history_blend(
+def test_first_after_sleep_uses_adjusted_icr_instead_of_generic_history(
     api_client: TestClient,
 ) -> None:
-    """Personal matches must not cancel the measured after-sleep factor."""
+    """The shown carbohydrate/ICR equation must equal the shown dose."""
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]
     target_at = datetime(2026, 8, 3, 12, 41)
@@ -725,19 +725,14 @@ def test_first_after_sleep_factor_survives_the_history_blend(
     ).json()
 
     assert body["icr_after_sleep"] is True
-    assert body["history_median_units"] == pytest.approx(
-        round(4.0 / (7.1 / 8.7), 1),
-        abs=0.05,
-    )
+    assert body["matched_episode_count"] == 4
+    assert body["history_weight"] == 0.0
+    assert body["history_median_units"] is None
     assert body["recommended_units"] == pytest.approx(
-        round(
-            body["history_weight"] * body["history_median_units"]
-            + (1.0 - body["history_weight"]) * body["icr_dose_units"],
-            1,
-        ),
+        round(body["target_carbs_g"] / body["icr_g_per_unit"], 1),
         abs=0.05,
     )
-    assert body["recommended_units"] >= 4.8
+    assert body["recommended_units"] == body["icr_dose_units"]
 
 
 def test_recommendation_corrects_near_low_outcomes_downward(
