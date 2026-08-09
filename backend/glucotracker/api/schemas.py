@@ -469,6 +469,12 @@ class TherapyBasalSlotResponse(BaseModel):
     hour: int
     label: str
     quiet_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
+    #: Separate dates behind the quiet windows. Consecutive hours of one night
+    #: are one evening, so a window count alone overstates the evidence.
+    quiet_day_count: int = 0
+    #: The middle half of the drifts sits on one side of zero, over enough
+    #: separate days — the test for "a finding" rather than "a median".
+    discrepancy_confident: bool = False
     elevated_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
     unknown_hr_drift_mmol_l_per_hour: TherapyAnalysisMetricResponse
     signal: Literal["insufficient", "stable", "rising", "falling"]
@@ -499,6 +505,24 @@ class TherapyBasalCompressionResponse(BaseModel):
     slots: list[TherapyBasalCompressedSlotResponse]
 
 
+class TherapyBasalTestSuggestionResponse(BaseModel):
+    """The one stretch worth measuring actively, and the segment to fast."""
+
+    start_hour: int
+    end_hour: int
+    label: str
+    #: "high" when glucose falls in quiet hours, "low" when it climbs.
+    direction: Literal["high", "low"]
+    drift_mmol_l_per_hour: float
+    conservative_drift_mmol_l_per_hour: float
+    expected_change_u_per_hour: float
+    day_count: int
+    window_count: int
+    fasting_hours: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TherapyBasalProfileResponse(BaseModel):
     """Twenty-four-hour clean background glucose drift profile."""
 
@@ -515,6 +539,7 @@ class TherapyBasalProfileResponse(BaseModel):
     autotuned_hour_count: int
     slots: list[TherapyBasalSlotResponse]
     compressions: list[TherapyBasalCompressionResponse] = Field(default_factory=list)
+    test_suggestion: TherapyBasalTestSuggestionResponse | None = None
 
 
 class IsfCaseResponse(BaseModel):

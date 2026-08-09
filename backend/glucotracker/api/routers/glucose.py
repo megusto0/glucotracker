@@ -47,6 +47,7 @@ from glucotracker.api.schemas import (
     TherapyBasalCompressionResponse,
     TherapyBasalProfileResponse,
     TherapyBasalSlotResponse,
+    TherapyBasalTestSuggestionResponse,
     TherapyReviewDayResponse,
     TherapyReviewItemResponse,
     TopUpDoseResponse,
@@ -433,6 +434,8 @@ def get_glucose_therapy_analysis(
                                 **vars(slot.quiet_drift_mmol_l_per_hour)
                             )
                         ),
+                        quiet_day_count=slot.quiet_day_count,
+                        discrepancy_confident=slot.discrepancy_confident,
                         elevated_hr_drift_mmol_l_per_hour=(
                             TherapyAnalysisMetricResponse(
                                 **vars(slot.elevated_hr_drift_mmol_l_per_hour)
@@ -463,6 +466,13 @@ def get_glucose_therapy_analysis(
                     )
                     for compression in analysis.basal_profile.compressions
                 ],
+                test_suggestion=(
+                    TherapyBasalTestSuggestionResponse.model_validate(
+                        analysis.basal_profile.test_suggestion
+                    )
+                    if analysis.basal_profile.test_suggestion is not None
+                    else None
+                ),
             ),
         }
     )
