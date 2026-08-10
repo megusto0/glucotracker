@@ -27,6 +27,13 @@ External sources consulted while building are recorded in
 
 ### Added
 
+- **Android (gluco)** — sleep and activity breakdown sheets now follow the
+  Tour 10/11 editorial layouts: compact hero, stage/pulse and glucose timelines,
+  metric strip, evidence callout, and history footer. Night CGM receives heavy
+  display-only smoothing; raw readings and computed metrics remain unchanged.
+  When the bracelet provides no detailed stages, deep/REM/awakening values are
+  shown as unavailable instead of misleading zeroes (`e97c5b5`).
+
 - **Android (gluco) + Backend** — строки «Сон» и «Активность» на Today теперь
   открывают разбор на общей временной шкале с пульсом и нормализованной
   глюкозой. Для сна показаны стадии, TIR, минуты ниже диапазона и осторожные
