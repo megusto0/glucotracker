@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from glucotracker.config import get_settings
 from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db.models import (
     HealthConnectRecord,
@@ -205,6 +206,46 @@ def test_activity_without_step_records_suggests_cycling_and_shows_glucose(
     assert body["glucose_start"] == 9.2
     assert body["glucose_two_hour_minimum"] == 5.4
     assert body["glucose_delta_two_hours"] == -3.8
+
+
+def test_breakdown_converts_android_utc_instant_back_to_local_wall_time(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Android transports a local row as its UTC instant, not as naive text."""
+    monkeypatch.setenv("GLUCOTRACKER_APP_TIMEZONE", "Europe/Samara")
+    get_settings.cache_clear()
+    owner_id, session_factory = _owner(api_client)
+    start_utc = DAY + timedelta(minutes=40)
+    end_utc = start_utc + timedelta(hours=6)
+    with session_factory() as session:
+        _record(
+            session,
+            owner_id,
+            "SleepSessionRecord",
+            start_utc,
+            end_utc,
+            {
+                "startTime": start_utc.isoformat(),
+                "endTime": end_utc.isoformat(),
+            },
+        )
+        session.commit()
+
+    try:
+        response = api_client.get(
+            "/glucose/body-states/breakdown",
+            params={
+                "kind": "sleep",
+                "start": start_utc.isoformat(),
+                "end": end_utc.isoformat(),
+            },
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    assert response.json()["start_at"] == "2026-08-06T04:40:00"
 
 
 def test_activity_label_and_no_steps_rule_are_reused(api_client: TestClient) -> None:

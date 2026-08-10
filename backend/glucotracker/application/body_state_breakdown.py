@@ -482,7 +482,7 @@ class BodyStateBreakdownService:
 
 def _wall_clock(value: datetime) -> datetime:
     """Treat API body-state timestamps as the wall-clock identifiers they are."""
-    return value.replace(tzinfo=None)
+    return local_wall_time(value)
 
 
 def _number(value: Any) -> float | None:
