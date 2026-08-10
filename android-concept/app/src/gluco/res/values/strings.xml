@@ -511,4 +511,11 @@
         <item>НОЯБРЯ</item>
         <item>ДЕКАБРЯ</item>
     </string-array>
+    <string name="episode_breakdown_doses">ИНСУЛИН ПРИЁМА</string>
+    <plurals name="episode_breakdown_dose_count">
+        <item quantity="one">%1$s ЕД · %2$d болюс</item>
+        <item quantity="few">%1$s ЕД · %2$d болюса</item>
+        <item quantity="many">%1$s ЕД · %2$d болюсов</item>
+        <item quantity="other">%1$s ЕД · %2$d болюса</item>
+    </plurals>
 </resources>

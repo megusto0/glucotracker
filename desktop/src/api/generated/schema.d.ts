@@ -450,6 +450,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/glucose/body-states/activity-label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Activity Annotation
+         * @description Save a personal activity label without modifying raw health records.
+         */
+        put: operations["putActivityAnnotation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/glucose/body-states/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Body State Breakdown
+         * @description Align one sleep or activity span with wearable and glucose evidence.
+         */
+        get: operations["getBodyStateBreakdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/glucose/dashboard": {
         parameters: {
             query?: never;
@@ -2157,6 +2197,32 @@ export interface components {
             /** Status */
             status: string;
         };
+        /**
+         * ActivityAnnotationPutRequest
+         * @description Label one activity span and optionally remember its no-steps signature.
+         */
+        ActivityAnnotationPutRequest: {
+            /**
+             * Activity Type
+             * @enum {string}
+             */
+            activity_type: "cycling" | "gym" | "walking" | "other";
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /**
+             * Remember No Steps Rule
+             * @default false
+             */
+            remember_no_steps_rule: boolean;
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+        };
         /** ActivitySyncRequest */
         ActivitySyncRequest: {
             /**
@@ -2483,6 +2549,107 @@ export interface components {
             sensor_age_hours: number;
         };
         /**
+         * BodyStateBreakdownResponse
+         * @description Sleep or hard effort aligned with heart rate and normalized glucose.
+         */
+        BodyStateBreakdownResponse: {
+            /** Activity Type */
+            activity_type?: ("cycling" | "gym" | "walking" | "other") | null;
+            /**
+             * Activity Type Source
+             * @default none
+             * @enum {string}
+             */
+            activity_type_source: "user" | "recorded" | "rule" | "none";
+            /** Average Duration Minutes */
+            average_duration_minutes?: number | null;
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /**
+             * Frequency Count
+             * @default 0
+             */
+            frequency_count: number;
+            /**
+             * Frequency Days
+             * @default 30
+             */
+            frequency_days: number;
+            /** Glucose After */
+            glucose_after?: number | null;
+            /** Glucose Delta Two Hours */
+            glucose_delta_two_hours?: number | null;
+            /** Glucose Points */
+            glucose_points?: components["schemas"]["BodyStatePointResponse"][];
+            /** Glucose Start */
+            glucose_start?: number | null;
+            /** Glucose Two Hour Minimum */
+            glucose_two_hour_minimum?: number | null;
+            /** Heart Rate Points */
+            heart_rate_points?: components["schemas"]["BodyStatePointResponse"][];
+            /** Insight At */
+            insight_at?: string | null;
+            /** Insight Code */
+            insight_code: string;
+            /** Insight Comparison Minutes */
+            insight_comparison_minutes?: number | null;
+            /** Insight Value */
+            insight_value?: number | null;
+            /** Iob Start Units */
+            iob_start_units?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "sleep" | "activity";
+            /** Label */
+            label?: string | null;
+            /**
+             * Low Minutes
+             * @default 0
+             */
+            low_minutes: number;
+            /** Mean Bpm */
+            mean_bpm?: number | null;
+            /** Peak Bpm */
+            peak_bpm?: number | null;
+            /**
+             * Remember No Steps Rule
+             * @default false
+             */
+            remember_no_steps_rule: boolean;
+            /** Sleep Stages */
+            sleep_stages?: components["schemas"]["SleepStageResponse"][];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "recorded" | "heart_rate";
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Steady Percent */
+            steady_percent?: number | null;
+            /** Steps */
+            steps?: number | null;
+            /**
+             * Steps Available
+             * @default false
+             */
+            steps_available: boolean;
+            /** Suggested Activity Type */
+            suggested_activity_type?: ("cycling" | "gym" | "walking" | "other") | null;
+            /** Tir Percent */
+            tir_percent?: number | null;
+            /** Total Minutes */
+            total_minutes: number;
+        };
+        /**
          * BodyStateIntervalResponse
          * @description One sleep or hard-effort span, recorded or inferred from heart rate.
          */
@@ -2522,6 +2689,19 @@ export interface components {
             start_at: string;
             /** Total Minutes */
             total_minutes: number;
+        };
+        /**
+         * BodyStatePointResponse
+         * @description One heart-rate or normalized-glucose reading in a state breakdown.
+         */
+        BodyStatePointResponse: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Value */
+            value: number;
         };
         /**
          * BodyStatesResponse
@@ -3405,6 +3585,12 @@ export interface components {
             at: string;
             /** Detail */
             detail?: string | null;
+            /**
+             * Group
+             * @default neighbour
+             * @enum {string}
+             */
+            group: "dose" | "context" | "neighbour";
             /**
              * Kind
              * @enum {string}
@@ -4661,7 +4847,6 @@ export interface components {
         InsulinRecommendationRequest: {
             /**
              * Calculation At
-             * Format: date-time
              * @description Instant whose glucose, COB and IOB should be used. Omitted reconstructs the meal-time calculation.
              */
             calculation_at?: string | null;
@@ -4683,10 +4868,10 @@ export interface components {
              * @enum {string}
              */
             confidence: "none" | "low" | "medium" | "high";
+            /** Correction Calculated At */
+            correction_calculated_at?: string | null;
             /** Correction Excess Iob Units */
             correction_excess_iob_units?: number | null;
-            /** Format: date-time */
-            correction_calculated_at?: string | null;
             /** Correction Glucose Mmol L */
             correction_glucose_mmol_l?: number | null;
             /** Correction Iob Units */
@@ -7376,6 +7561,29 @@ export interface components {
             warmup_instability_score?: number | null;
         };
         /**
+         * SleepStageResponse
+         * @description One wearable-provided sleep stage clipped to the displayed night.
+         */
+        SleepStageResponse: {
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Minutes */
+            minutes: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "awake" | "light" | "deep" | "rem" | "unknown";
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+        };
+        /**
          * StatsInsightResponse
          * @description Server-rendered stats observation.
          */
@@ -9329,6 +9537,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BodyStatesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    putActivityAnnotation: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityAnnotationPutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyStateBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getBodyStateBreakdown: {
+        parameters: {
+            query: {
+                kind: "sleep" | "activity";
+                start: string;
+                end: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyStateBreakdownResponse"];
                 };
             };
             /** @description Validation Error */

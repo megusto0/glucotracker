@@ -294,6 +294,11 @@ class EpisodeBreakdownCrossingResponse(BaseModel):
     offset_minutes: int
     detail: str | None = None
     therapy_class: str | None = None
+    #: "dose" — this episode's own insulin, its treatment rather than its
+    #: neighbourhood. "context" — sleep or effort, background with nothing to
+    #: find on the curve. "neighbour" — another episode, the only kind that
+    #: bends this trace and so the only kind worth a letter on the chart.
+    group: Literal["dose", "context", "neighbour"] = "neighbour"
 
     model_config = ConfigDict(from_attributes=True)
 

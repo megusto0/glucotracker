@@ -1,5 +1,10 @@
 package com.local.glucotracker.ui.glucose
 
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -97,6 +103,14 @@ data class BreakdownDerivedUi(
     val perUnit: String?,
 )
 
+/**
+ * [group] decides both where a crossing is listed and whether it earns a letter.
+ *
+ * "dose" is the episode's own insulin: its treatment, not its neighbourhood,
+ * and the header already totals it. "context" is sleep or effort — background
+ * with nothing to find on the curve. Only "neighbour" bends this trace, so only
+ * it is worth a mark on a chart a centimetre tall.
+ */
 data class BreakdownCrossingUi(
     val kind: String,
     val therapyClass: String?,
@@ -104,6 +118,7 @@ data class BreakdownCrossingUi(
     val at: Instant,
     val offsetMinutes: Int,
     val detail: String?,
+    val group: String = "neighbour",
 )
 
 @HiltViewModel
@@ -171,6 +186,7 @@ class EpisodeBreakdownViewModel @Inject constructor(
                             at = it.at,
                             offsetMinutes = it.offsetMinutes,
                             detail = it.detail,
+                            group = it.group?.value ?: "neighbour",
                         )
                     },
                     causeText = response.cause?.text,
@@ -301,7 +317,9 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
             }
         }
 
-        if (breakdown.crossings.isNotEmpty()) {
+        EpisodeDoses(breakdown.crossings.filter { it.group == "dose" })
+
+        if (breakdown.crossings.any { it.group != "dose" }) {
             Text(
                 text = stringResource(R.string.episode_breakdown_crossings),
                 modifier = Modifier.padding(horizontal = 20.dp).padding(top = 9.dp, bottom = 4.dp),
@@ -309,14 +327,16 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                 style = GT.type.kicker,
             )
             val markedCrossings = breakdown.crossings.filter {
-                it.kind != "sleep" && it.kind != "insulin"
+                it.group == "neighbour"
             }
-            breakdown.crossings.forEach { crossing ->
-                CrossingRow(
-                    crossing = crossing,
-                    markerIndex = markedCrossings.indexOf(crossing).takeIf { it >= 0 },
-                )
-            }
+            breakdown.crossings
+                .filter { it.group != "dose" }
+                .forEach { crossing ->
+                    CrossingRow(
+                        crossing = crossing,
+                        markerIndex = markedCrossings.indexOf(crossing).takeIf { it >= 0 },
+                    )
+                }
         }
 
         breakdown.causeText?.let { text ->
@@ -424,7 +444,7 @@ private fun BreakdownChart(breakdown: EpisodeBreakdownUi) {
             )
         }
         crossings
-            .filter { it.kind != "sleep" && it.kind != "insulin" }
+            .filter { it.group == "neighbour" }
             .forEachIndexed { index, crossing ->
                 val rawX = x(crossing.at)
                 if (rawX < 0f || rawX > size.width) return@forEachIndexed
@@ -578,6 +598,97 @@ private fun DerivedRow(derived: BreakdownDerivedUi, kindColor: Color) {
         }
     }
 }
+
+/**
+ * The episode's own insulin, once, with the doses behind a tap.
+ *
+ * Four boluses of one sitting were four rows under «что ещё было рядом», three
+ * of them repeating «вместе с едой» — and they are not "else" at all: they are
+ * what the episode was treated with, which the header already totals.
+ */
+@Composable
+private fun EpisodeDoses(doses: List<BreakdownCrossingUi>) {
+    if (doses.isEmpty()) return
+    var expanded by remember(doses.map { it.at }) { mutableStateOf(false) }
+    val total = doses.sumOf { it.units() }
+    Text(
+        text = stringResource(R.string.episode_breakdown_doses),
+        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 9.dp, bottom = 2.dp),
+        color = GT.colors.muted,
+        style = GT.type.kicker,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = doses.size > 1, role = Role.Button) {
+                expanded = !expanded
+            }
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (doses.size == 1) {
+                doses.single().label
+            } else {
+                pluralStringResource(
+                    R.plurals.episode_breakdown_dose_count,
+                    doses.size,
+                    formatMmol(total),
+                    doses.size,
+                )
+            },
+            modifier = Modifier.weight(1f),
+            color = GT.colors.ink2,
+            style = GT.type.sansLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = if (doses.size == 1) {
+                doses.single().detail.orEmpty()
+            } else if (expanded) {
+                "⌄"
+            } else {
+                "›"
+            },
+            color = GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            maxLines = 1,
+        )
+    }
+    if (expanded) {
+        doses.forEach { dose ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = dose.label,
+                    modifier = Modifier.weight(1f),
+                    color = GT.colors.ink2,
+                    style = GT.type.sansLabel,
+                    maxLines = 1,
+                )
+                Text(
+                    text = dose.detail.orEmpty(),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** Units parsed back out of the label the backend already formatted. */
+private fun BreakdownCrossingUi.units(): Double =
+    label.filter { it.isDigit() || it == ',' || it == '.' }
+        .replace(',', '.')
+        .toDoubleOrNull()
+        ?: 0.0
 
 @Composable
 private fun CrossingRow(crossing: BreakdownCrossingUi, markerIndex: Int?) {

@@ -77,6 +77,9 @@ internal fun nightRescueBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
             at = at(18),
             offsetMinutes = -47,
             detail = null,
+            // Another episode's correction: it bends this trace, so it earns a
+            // letter — unlike the rescue's own doses, of which there are none.
+            group = "neighbour",
         ),
         BreakdownCrossingUi(
             kind = "episode",
@@ -85,6 +88,7 @@ internal fun nightRescueBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
             at = at(140),
             offsetMinutes = 75,
             detail = null,
+            group = "neighbour",
         ),
         BreakdownCrossingUi(
             kind = "sleep",
@@ -93,6 +97,8 @@ internal fun nightRescueBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
             at = at(40),
             offsetMinutes = -25,
             detail = "00:40—06:40",
+            // Background: nothing to find on the curve, so no letter.
+            group = "context",
         ),
     ),
     causeText = "Гипо через 47 мин после коррекции инсулином на активном IOB 2,4 ЕД." +
@@ -115,10 +121,35 @@ internal fun coveredMealBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
         BreakdownAnchorUi("peak", "Пик", at(123), 7.9, "через 58 мин"),
         BreakdownAnchorUi("settle", "Через 2 ч", at(185), 7.2, null),
     ),
-    derived = listOf(
-        BreakdownDerivedUi("Подъём на 78 г", 4.3, 0.06, "ммоль/л на г"),
-    ),
+    derived = emptyList(),
     crossings = listOf(
+        BreakdownCrossingUi(
+            kind = "insulin",
+            therapyClass = null,
+            label = "Инсулин 4,0 ЕД",
+            at = at(65),
+            offsetMinutes = 0,
+            detail = "вместе с едой",
+            group = "dose",
+        ),
+        BreakdownCrossingUi(
+            kind = "insulin",
+            therapyClass = null,
+            label = "Инсулин 2,0 ЕД",
+            at = at(65),
+            offsetMinutes = 0,
+            detail = "вместе с едой",
+            group = "dose",
+        ),
+        BreakdownCrossingUi(
+            kind = "insulin",
+            therapyClass = null,
+            label = "Инсулин 2,0 ЕД",
+            at = at(76),
+            offsetMinutes = 11,
+            detail = "через 11 мин после еды",
+            group = "dose",
+        ),
         BreakdownCrossingUi(
             kind = "episode",
             therapyClass = "snack",
@@ -126,8 +157,12 @@ internal fun coveredMealBreakdown(): EpisodeBreakdownUi = EpisodeBreakdownUi(
             at = at(140),
             offsetMinutes = 75,
             detail = null,
+            group = "neighbour",
         ),
     ),
-    causeText = "На фоне болюса 8,0 ЕД: 3,6 → 7,9 (+4,3) за 58 мин.",
+    // The verdict alone. Start, peak and settle are rows 1-3 and the total is
+    // in the header, so a sentence repeating them spent three lines saying
+    // what the two above it already said.
+    causeText = "Похоже на достаточное покрытие.",
     frequencyLabel = "Таких приёмов за 30 дней: 3",
 )

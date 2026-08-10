@@ -3433,6 +3433,16 @@
             ],
             "title": "Detail"
           },
+          "group": {
+            "default": "neighbour",
+            "enum": [
+              "dose",
+              "context",
+              "neighbour"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
           "kind": {
             "enum": [
               "insulin",

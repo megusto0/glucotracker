@@ -330,8 +330,10 @@ def test_food_breakdown_reports_observation_without_claiming_bolus_causality(
     assert body["title"] == "Печенье"
     assert body["subtitle"] == "53 г · 4,0 ЕД"
     assert body["cause"]["code"] == "bolus_late"
-    assert body["cause"]["text"].startswith("До пика болюса не было:")
-    assert "Первый введён через 53 мин после еды." in body["cause"]["text"]
+    # The sentence carries the verdict and nothing else. Which dose arrived
+    # when is a crossing row of its own, and start/peak/settle are rows 1-3, so
+    # reciting them here spent three lines repeating the two above it.
+    assert body["cause"]["text"] == "До пика болюса не было."
     assert "На фоне болюса" not in body["cause"]["text"]
     assert "удержал" not in body["cause"]["text"]
     assert "не удержал" not in body["cause"]["text"]
@@ -429,9 +431,9 @@ def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(
     anchors = {anchor["role"]: anchor for anchor in body["anchors"]}
     assert anchors["peak"]["value"] == 12.2
     assert anchors["peak"]["minutes_from_start"] == 190
-    assert body["cause"]["text"].startswith(
-        "Подъём начался без болюса: первый введён через 53 мин после еды."
-    )
+    # What the rows cannot say is that the rise had already started when the
+    # dose arrived; the offset itself is a row.
+    assert body["cause"]["text"] == "Подъём начался до болюса."
 
 
 def test_food_breakdown_does_not_claim_a_later_rise_after_the_peak_settled(

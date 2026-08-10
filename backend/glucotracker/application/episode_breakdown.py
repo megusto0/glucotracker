@@ -152,6 +152,12 @@ class BreakdownCrossing:
     offset_minutes: int
     detail: str | None = None
     therapy_class: TherapyClass | None = None
+    #: "dose" is this episode's own insulin — its treatment, not its
+    #: neighbourhood, and the header already totals it. "context" is sleep or
+    #: effort: background, and nothing to find on the curve. "neighbour" is
+    #: another episode, the only kind that bends this trace and so the only
+    #: kind worth a letter on the chart.
+    group: Literal["dose", "context", "neighbour"] = "neighbour"
 
 
 @dataclass(frozen=True)
@@ -753,7 +759,14 @@ def _derived(
         else by_role.get("start")
     )
     peak = by_role.get("peak")
-    if carbs > 0 and base is not None and peak is not None and peak.value > base.value:
+    dosed = any(float(event.insulin_units or 0) > 0 for event in component.insulin)
+    if (
+        carbs > 0
+        and not dosed
+        and base is not None
+        and peak is not None
+        and peak.value > base.value
+    ):
         rise = peak.value - base.value
         derived.append(
             BreakdownDerived(
@@ -828,6 +841,7 @@ def _crossings(
         crossings.append(
             BreakdownCrossing(
                 kind="insulin",
+                group="dose",
                 label=f"Инсулин {mmol(units)} ЕД",
                 at=at,
                 offset_minutes=offset_minutes,
@@ -860,6 +874,7 @@ def _crossings(
             BreakdownCrossing(
                 kind=state.kind,
                 label="Сон" if state.kind == "sleep" else (state.label or "Нагрузка"),
+                group="context",
                 at=state.start_at,
                 offset_minutes=int((state.start_at - start_at).total_seconds() / 60),
                 detail=f"{state.start_at:%H:%M}—{state.end_at:%H:%M}",
@@ -932,10 +947,7 @@ def _food_cause(
     settle = by_role.get("settle")
     settle_delta = settle.value - start.value if settle is not None else None
     units = sum(float(event.insulin_units or 0) for event in component.insulin)
-    trace = (
-        f"{mmol(start.value)} → {mmol(peak.value)}"
-        f" ({_signed_mmol(rise)}), пик через {peak.minutes_from_start} мин."
-    )
+    settle_label = settle.label.lower() if settle is not None else "через 2 ч"
     bolus_offsets: list[int] = []
     meal_by_id = {meal.id: meal for meal in component.meals}
     for event in component.insulin:
@@ -947,35 +959,21 @@ def _food_cause(
         bolus_offsets.append(round((at - meal.eaten_at).total_seconds() / 60))
 
     first_bolus_offset = min(bolus_offsets) if bolus_offsets else None
-    if first_bolus_offset is not None and first_bolus_offset > 5:
-        if first_bolus_offset >= peak.minutes_from_start:
-            observation = (
-                f"До пика болюса не было: {trace}"
-                f" Первый введён через {first_bolus_offset} мин после еды."
-            )
-        else:
-            observation = (
-                "Подъём начался без болюса: первый введён через"
-                f" {first_bolus_offset} мин после еды. {trace}"
-            )
-    elif first_bolus_offset is not None and first_bolus_offset < -5:
-        observation = (
-            f"Болюс {mmol(units)} ЕД: первый за {abs(first_bolus_offset)} мин"
-            f" до еды. {trace}"
-        )
-    elif units > 0:
-        observation = f"Болюс {mmol(units)} ЕД вместе с едой: {trace}"
-    else:
-        observation = f"Без болюса: {trace}"
 
     if first_bolus_offset is not None and first_bolus_offset > 5:
-        return BreakdownCause("bolus_late", observation)
+        # Which dose and how late is a row of its own; what the rows cannot say
+        # is that the rise had already started when it arrived.
+        return BreakdownCause(
+            "bolus_late",
+            "До пика болюса не было."
+            if first_bolus_offset >= peak.minutes_from_start
+            else "Подъём начался до болюса.",
+        )
     if units > 0:
         if settle is not None and settle.value < LOW_GLUCOSE_MMOL_L:
             return BreakdownCause(
                 "bolus_overcovered_low",
-                f"Вероятно избыточное покрытие: {observation} {settle.label} — "
-                f"{mmol(settle.value)}, ниже диапазона.",
+                f"Вероятно избыточное покрытие: {settle_label} ниже диапазона.",
             )
         if (
             settle_delta is not None
@@ -984,21 +982,15 @@ def _food_cause(
         ):
             return BreakdownCause(
                 "bolus_overcovered",
-                f"Вероятно избыточное покрытие: пик был небольшим "
-                f"({_signed_mmol(rise)}), а {settle.label.lower()} глюкоза была на "
-                f"{mmol(abs(settle_delta))} ниже исходной. Болюс — {mmol(units)} ЕД.",
+                f"Вероятно избыточное покрытие: небольшой пик, а {settle_label}"
+                f" глюкоза на {mmol(abs(settle_delta))} ниже исходной.",
             )
         if (
             settle_delta is not None
             and rise <= FOOD_SMALL_RISE_MMOL_L
             and abs(settle_delta) <= FOOD_SETTLE_TOLERANCE_MMOL_L
         ):
-            return BreakdownCause(
-                "bolus_matched",
-                f"Похоже на достаточное покрытие: подъём {_signed_mmol(rise)}, "
-                f"{settle.label.lower()} — {mmol(settle.value)}. "
-                f"Болюс — {mmol(units)} ЕД.",
-            )
+            return BreakdownCause("bolus_matched", "Похоже на достаточное покрытие.")
         if (
             settle_delta is not None
             and rise >= FOOD_LARGE_RISE_MMOL_L
@@ -1006,39 +998,32 @@ def _food_cause(
         ):
             return BreakdownCause(
                 "bolus_undercovered",
-                f"Покрытия, вероятно, не хватило: {observation} {settle.label} "
-                f"глюкоза оставалась на {_signed_mmol(settle_delta)} выше исходной.",
+                f"Покрытия, вероятно, не хватило: {settle_label} глюкоза"
+                f" оставалась на {_signed_mmol(settle_delta)} выше исходной.",
             )
         if peak.minutes_from_start >= int(PEAK_SEARCH.total_seconds() / 60):
             return BreakdownCause(
                 "delayed_absorption",
-                f"Поздний ответ: {observation} Такой профиль больше похож на "
-                "продолжительное усвоение, чем на быстрый подъём.",
+                "Поздний ответ: профиль больше похож на продолжительное"
+                " усвоение, чем на быстрый подъём.",
             )
-        return BreakdownCause("bolus_response", observation)
+        # Nothing stood out, and the rows already say what happened. An empty
+        # verdict is better than one that reads the numbers back.
+        return None
 
     if rise >= FOOD_SMALL_RISE_MMOL_L:
-        return BreakdownCause("uncovered_rise", observation)
+        return BreakdownCause("uncovered_rise", "Подъём без болюса.")
     if prior_active_units >= CAUSE_MIN_ACTIVE_UNITS:
-        ending = (
-            f" {settle.label} — {mmol(settle.value)} "
-            f"({_signed_mmol(settle_delta or 0.0)} от старта)."
-            if settle is not None
-            else ""
-        )
+        # The prior dose is the one fact here that no row carries: it belongs to
+        # an earlier episode, so nothing on this sheet would otherwise mention it.
         return BreakdownCause(
             "prior_insulin_covering",
-            f"Без нового болюса; на старте ещё действовало около "
-            f"{mmol(prior_active_units)} ЕД предыдущего инсулина. Он мог покрыть "
-            f"часть еды.{ending}",
+            f"Без нового болюса, но на старте ещё действовало около"
+            f" {mmol(prior_active_units)} ЕД предыдущего инсулина.",
         )
     if settle_delta is not None and abs(settle_delta) <= FOOD_SETTLE_TOLERANCE_MMOL_L:
-        return BreakdownCause(
-            "flat_response",
-            f"Заметного ответа не было: {observation} {settle.label} — "
-            f"{mmol(settle.value)}.",
-        )
-    return BreakdownCause("no_bolus_response", observation)
+        return BreakdownCause("flat_response", "Заметного ответа не было.")
+    return None
 
 
 def _covers(
