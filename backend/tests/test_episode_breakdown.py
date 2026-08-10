@@ -116,7 +116,7 @@ def _seed_night(session: Session, owner_id: UUID) -> None:
             owner_id=owner_id,
             source_key="breakdown-meal-bolus",
             nightscout_id="breakdown-meal-bolus",
-            timestamp=_at(140),
+            timestamp=_at(193),
             insulin_units=4.0,
             event_type="Meal Bolus",
             entered_by="Nightscout",
@@ -268,6 +268,13 @@ def test_food_breakdown_reports_observation_without_claiming_bolus_causality(
     assert "На фоне болюса 4,0 ЕД" in body["cause"]["text"]
     assert "удержал" not in body["cause"]["text"]
     assert "не удержал" not in body["cause"]["text"]
+    own_insulin = next(
+        crossing
+        for crossing in body["crossings"]
+        if crossing["label"] == "Инсулин 4,0 ЕД"
+    )
+    assert own_insulin["offset_minutes"] == 53
+    assert own_insulin["detail"] == "через 53 мин после еды"
 
 
 def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(

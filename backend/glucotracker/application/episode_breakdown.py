@@ -42,6 +42,7 @@ from glucotracker.application.episode_therapy import (
 from glucotracker.application.episodes import (
     EpisodeComponent,
     EpisodeQueryService,
+    anchor_meal_id,
     component_key,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
@@ -799,6 +800,32 @@ def _crossings(
     own = component_key(component)
     crossings: list[BreakdownCrossing] = []
 
+    # A linked bolus is part of the current component, so the component-level
+    # loop below deliberately skips it along with the meal. That is correct for
+    # avoiding a duplicate plate, but not for the breakdown: dose timing is one
+    # of the main facts needed to read a post-meal trace. Surface every own dose
+    # separately and measure it against the plate it was linked to.
+    meal_by_id = {meal.id: meal for meal in component.meals}
+    for event in component.insulin:
+        units = float(event.insulin_units or 0)
+        meal_id = anchor_meal_id(event, component)
+        meal = meal_by_id.get(meal_id) if meal_id is not None else None
+        if units <= 0 or meal is None:
+            continue
+        at = _local_wall_time(event.timestamp)
+        if not window_from <= at <= window_to:
+            continue
+        offset_minutes = round((at - meal.eaten_at).total_seconds() / 60)
+        crossings.append(
+            BreakdownCrossing(
+                kind="insulin",
+                label=f"Инсулин {mmol(units)} ЕД",
+                at=at,
+                offset_minutes=offset_minutes,
+                detail=_insulin_timing(offset_minutes),
+            )
+        )
+
     for other in components:
         if component_key(other) == own:
             continue
@@ -832,6 +859,15 @@ def _crossings(
 
     crossings.sort(key=lambda crossing: crossing.at)
     return crossings
+
+
+def _insulin_timing(offset_minutes: int) -> str:
+    """Describe a linked dose against its own plate, not the whole episode."""
+    if offset_minutes < -5:
+        return f"за {abs(offset_minutes)} мин до еды"
+    if offset_minutes > 5:
+        return f"через {offset_minutes} мин после еды"
+    return "вместе с едой"
 
 
 def _episode_label(component: EpisodeComponent) -> str:
