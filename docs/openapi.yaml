@@ -88,6 +88,35 @@ components:
       - created_at
       title: AIRunResponse
       type: object
+    ActivityAnnotationPutRequest:
+      description: Label one activity span and optionally remember its no-steps signature.
+      properties:
+        activity_type:
+          enum:
+          - cycling
+          - gym
+          - walking
+          - other
+          title: Activity Type
+          type: string
+        end_at:
+          format: date-time
+          title: End At
+          type: string
+        remember_no_steps_rule:
+          default: false
+          title: Remember No Steps Rule
+          type: boolean
+        start_at:
+          format: date-time
+          title: Start At
+          type: string
+      required:
+      - start_at
+      - end_at
+      - activity_type
+      title: ActivityAnnotationPutRequest
+      type: object
     ActivitySyncRequest:
       properties:
         active_minutes:
@@ -563,6 +592,184 @@ components:
       - included
       title: BiasResidualPoint
       type: object
+    BodyStateBreakdownResponse:
+      description: Sleep or hard effort aligned with heart rate and normalized glucose.
+      properties:
+        activity_type:
+          anyOf:
+          - enum:
+            - cycling
+            - gym
+            - walking
+            - other
+            type: string
+          - type: 'null'
+          title: Activity Type
+        activity_type_source:
+          default: none
+          enum:
+          - user
+          - recorded
+          - rule
+          - none
+          title: Activity Type Source
+          type: string
+        average_duration_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Average Duration Minutes
+        end_at:
+          format: date-time
+          title: End At
+          type: string
+        frequency_count:
+          default: 0
+          title: Frequency Count
+          type: integer
+        frequency_days:
+          default: 30
+          title: Frequency Days
+          type: integer
+        glucose_after:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Glucose After
+        glucose_delta_two_hours:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Glucose Delta Two Hours
+        glucose_points:
+          items:
+            $ref: '#/components/schemas/BodyStatePointResponse'
+          title: Glucose Points
+          type: array
+        glucose_start:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Glucose Start
+        glucose_two_hour_minimum:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Glucose Two Hour Minimum
+        heart_rate_points:
+          items:
+            $ref: '#/components/schemas/BodyStatePointResponse'
+          title: Heart Rate Points
+          type: array
+        insight_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Insight At
+        insight_code:
+          title: Insight Code
+          type: string
+        insight_comparison_minutes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Insight Comparison Minutes
+        insight_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Insight Value
+        iob_start_units:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Iob Start Units
+        kind:
+          enum:
+          - sleep
+          - activity
+          title: Kind
+          type: string
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Label
+        low_minutes:
+          default: 0
+          title: Low Minutes
+          type: integer
+        mean_bpm:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Mean Bpm
+        peak_bpm:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Peak Bpm
+        remember_no_steps_rule:
+          default: false
+          title: Remember No Steps Rule
+          type: boolean
+        sleep_stages:
+          items:
+            $ref: '#/components/schemas/SleepStageResponse'
+          title: Sleep Stages
+          type: array
+        source:
+          enum:
+          - recorded
+          - heart_rate
+          title: Source
+          type: string
+        start_at:
+          format: date-time
+          title: Start At
+          type: string
+        steady_percent:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Steady Percent
+        steps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Steps
+        steps_available:
+          default: false
+          title: Steps Available
+          type: boolean
+        suggested_activity_type:
+          anyOf:
+          - enum:
+            - cycling
+            - gym
+            - walking
+            - other
+            type: string
+          - type: 'null'
+          title: Suggested Activity Type
+        tir_percent:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Tir Percent
+        total_minutes:
+          title: Total Minutes
+          type: integer
+      required:
+      - kind
+      - source
+      - start_at
+      - end_at
+      - total_minutes
+      - insight_code
+      title: BodyStateBreakdownResponse
+      type: object
     BodyStateIntervalResponse:
       description: One sleep or hard-effort span, recorded or inferred from heart
         rate.
@@ -624,6 +831,21 @@ components:
       - total_minutes
       - confidence
       title: BodyStateIntervalResponse
+      type: object
+    BodyStatePointResponse:
+      description: One heart-rate or normalized-glucose reading in a state breakdown.
+      properties:
+        timestamp:
+          format: date-time
+          title: Timestamp
+          type: string
+        value:
+          title: Value
+          type: number
+      required:
+      - timestamp
+      - value
+      title: BodyStatePointResponse
       type: object
     BodyStatesResponse:
       description: Sleep and hard-effort context for a local wall-clock range.
@@ -8380,6 +8602,36 @@ components:
           title: Warmup Instability Score
       title: SensorWarmupMetricsResponse
       type: object
+    SleepStageResponse:
+      description: One wearable-provided sleep stage clipped to the displayed night.
+      properties:
+        end_at:
+          format: date-time
+          title: End At
+          type: string
+        minutes:
+          title: Minutes
+          type: integer
+        stage:
+          enum:
+          - awake
+          - light
+          - deep
+          - rem
+          - unknown
+          title: Stage
+          type: string
+        start_at:
+          format: date-time
+          title: Start At
+          type: string
+      required:
+      - stage
+      - start_at
+      - end_at
+      - minutes
+      title: SleepStageResponse
+      type: object
     StatsInsightResponse:
       description: Server-rendered stats observation.
       properties:
@@ -11413,6 +11665,103 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Glucose Body States
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/body-states/activity-label:
+    put:
+      description: Save a personal activity label without modifying raw health records.
+      operationId: putActivityAnnotation
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityAnnotationPutRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyStateBreakdownResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Put Activity Annotation
+      tags:
+      - glucose
+      x-glucotracker-required-feature: glucose
+      x-glucotracker-required-role: gluco
+      x-glucotracker-scoped: true
+  /glucose/body-states/breakdown:
+    get:
+      description: Align one sleep or activity span with wearable and glucose evidence.
+      operationId: getBodyStateBreakdown
+      parameters:
+      - in: query
+        name: kind
+        required: true
+        schema:
+          enum:
+          - sleep
+          - activity
+          title: Kind
+          type: string
+      - in: query
+        name: start
+        required: true
+        schema:
+          format: date-time
+          title: Start
+          type: string
+      - in: query
+        name: end
+        required: true
+        schema:
+          format: date-time
+          title: End
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BodyStateBreakdownResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Get Body State Breakdown
       tags:
       - glucose
       x-glucotracker-required-feature: glucose

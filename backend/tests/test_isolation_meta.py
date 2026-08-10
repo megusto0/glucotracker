@@ -66,6 +66,8 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "GET /glucose/therapy-review",
     "GET /glucose/therapy-analysis",
     "GET /glucose/body-states",
+    "GET /glucose/body-states/breakdown",
+    "PUT /glucose/body-states/activity-label",
     "GET /glucose/top-up-dose",
     "POST /glucose/insulin-recommendation",
     "POST /fingersticks",

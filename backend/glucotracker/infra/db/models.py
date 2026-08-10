@@ -2314,6 +2314,50 @@ class HealthConnectRecord(Base, TimestampMixin):
     owner: Mapped[User] = relationship()
 
 
+class ActivityAnnotation(Base, TimestampMixin):
+    """Owner-authored label for one immutable Health Connect activity span."""
+
+    __tablename__ = "activity_annotations"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "start_at",
+            "end_at",
+            name="uq_activity_annotations_owner_span",
+        ),
+        Index(
+            "ix_activity_annotations_owner_start",
+            "owner_id",
+            "start_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # Body-state timestamps are app-local wall clock, just like meal times.
+    # Keeping them naive makes the annotation key stable across UTC conversion.
+    start_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        nullable=False,
+    )
+    end_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        nullable=False,
+    )
+    activity_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    remember_no_steps_rule: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )
+    owner: Mapped[User] = relationship()
+
+
 class NonTypicalPeriod(Base):
     """Date range excluded from day-anchor calculation (vacation, illness)."""
 

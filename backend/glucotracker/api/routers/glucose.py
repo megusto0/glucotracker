@@ -12,9 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
 from glucotracker.api.schemas import (
+    ActivityAnnotationPutRequest,
     BasalFastingTestRunResponse,
     BasalFastingTestStartRequest,
     BasalFastingTestStopRequest,
+    BodyStateBreakdownResponse,
     BodyStateIntervalResponse,
     BodyStatesResponse,
     CgmCalibrationModelResponse,
@@ -56,6 +58,7 @@ from glucotracker.api.schemas import (
     TopUpDoseResponse,
 )
 from glucotracker.application.basal_fasting_test import BasalFastingTestService
+from glucotracker.application.body_state_breakdown import BodyStateBreakdownService
 from glucotracker.application.body_states import BodyStateService
 from glucotracker.application.episode_breakdown import (
     EpisodeBreakdownService,
@@ -352,6 +355,80 @@ def get_glucose_body_states(
         to_datetime=to_datetime,
         states=[BodyStateIntervalResponse(**vars(state)) for state in states],
     )
+
+
+@router.get(
+    "/glucose/body-states/breakdown",
+    response_model=BodyStateBreakdownResponse,
+    operation_id="getBodyStateBreakdown",
+)
+def get_body_state_breakdown(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    kind: Literal["sleep", "activity"],
+    start_at: Annotated[datetime, Query(alias="start")],
+    end_at: Annotated[datetime, Query(alias="end")],
+) -> BodyStateBreakdownResponse:
+    """Align one sleep or activity span with wearable and glucose evidence."""
+    if end_at <= start_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'end' must be after 'start'.",
+        )
+    breakdown = BodyStateBreakdownService(session, current_user.id).breakdown(
+        kind=kind,
+        start_at=start_at,
+        end_at=end_at,
+    )
+    if breakdown is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Body-state interval was not found.",
+        )
+    return BodyStateBreakdownResponse.model_validate(breakdown)
+
+
+@router.put(
+    "/glucose/body-states/activity-label",
+    response_model=BodyStateBreakdownResponse,
+    operation_id="putActivityAnnotation",
+)
+def put_activity_annotation(
+    payload: ActivityAnnotationPutRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> BodyStateBreakdownResponse:
+    """Save a personal activity label without modifying raw health records."""
+    if payload.end_at <= payload.start_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'end_at' must be after 'start_at'.",
+        )
+    service = BodyStateBreakdownService(session, current_user.id)
+    try:
+        service.save_activity_label(
+            start_at=payload.start_at,
+            end_at=payload.end_at,
+            activity_type=payload.activity_type,
+            remember_no_steps_rule=payload.remember_no_steps_rule,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    session.commit()
+    breakdown = service.breakdown(
+        kind="activity",
+        start_at=payload.start_at,
+        end_at=payload.end_at,
+    )
+    if breakdown is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Activity interval was not found after saving its label.",
+        )
+    return BodyStateBreakdownResponse.model_validate(breakdown)
 
 
 @router.get(

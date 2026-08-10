@@ -372,6 +372,76 @@ class BodyStatesResponse(BaseModel):
     states: list[BodyStateIntervalResponse]
 
 
+class BodyStatePointResponse(BaseModel):
+    """One heart-rate or normalized-glucose reading in a state breakdown."""
+
+    timestamp: datetime
+    value: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SleepStageResponse(BaseModel):
+    """One wearable-provided sleep stage clipped to the displayed night."""
+
+    stage: Literal["awake", "light", "deep", "rem", "unknown"]
+    start_at: datetime
+    end_at: datetime
+    minutes: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BodyStateBreakdownResponse(BaseModel):
+    """Sleep or hard effort aligned with heart rate and normalized glucose."""
+
+    kind: Literal["sleep", "activity"]
+    source: Literal["recorded", "heart_rate"]
+    start_at: datetime
+    end_at: datetime
+    total_minutes: int
+    label: str | None = None
+    heart_rate_points: list[BodyStatePointResponse] = Field(default_factory=list)
+    mean_bpm: float | None = None
+    peak_bpm: float | None = None
+    sleep_stages: list[SleepStageResponse] = Field(default_factory=list)
+    glucose_points: list[BodyStatePointResponse] = Field(default_factory=list)
+    tir_percent: int | None = None
+    low_minutes: int = 0
+    steps: int | None = None
+    steps_available: bool = False
+    steady_percent: int | None = None
+    glucose_start: float | None = None
+    glucose_after: float | None = None
+    glucose_two_hour_minimum: float | None = None
+    glucose_delta_two_hours: float | None = None
+    iob_start_units: float | None = None
+    activity_type: Literal["cycling", "gym", "walking", "other"] | None = None
+    activity_type_source: Literal["user", "recorded", "rule", "none"] = "none"
+    suggested_activity_type: (
+        Literal["cycling", "gym", "walking", "other"] | None
+    ) = None
+    remember_no_steps_rule: bool = False
+    frequency_count: int = 0
+    frequency_days: int = 30
+    average_duration_minutes: int | None = None
+    insight_code: str
+    insight_at: datetime | None = None
+    insight_value: float | None = None
+    insight_comparison_minutes: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActivityAnnotationPutRequest(BaseModel):
+    """Label one activity span and optionally remember its no-steps signature."""
+
+    start_at: datetime
+    end_at: datetime
+    activity_type: Literal["cycling", "gym", "walking", "other"]
+    remember_no_steps_rule: bool = False
+
+
 class TherapyReviewItemResponse(BaseModel):
     """One retrospective daily therapy row."""
 

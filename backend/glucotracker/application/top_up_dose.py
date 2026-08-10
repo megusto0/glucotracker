@@ -138,7 +138,7 @@ class TopUpDoseService:
             self.session,
             self.user_id,
         ).get_or_create_params(persist=False)
-        iob_units = _active_iob_units(
+        iob_units = active_iob_units(
             self.session,
             self.user_id,
             as_of=now,
@@ -247,7 +247,7 @@ def _minutes(value: int):
     return timedelta(minutes=value)
 
 
-def _active_iob_units(
+def active_iob_units(
     session: Session,
     user_id: UUID,
     *,

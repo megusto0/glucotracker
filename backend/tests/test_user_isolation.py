@@ -818,6 +818,34 @@ class TestGETIsolation:
         ] == ["sleep"]
         assert bob_response.json()["states"] == []
 
+    def test_glucose_body_state_breakdown(self):
+        start = datetime.combine(
+            self.ids["alice_day"],
+            datetime.min.time(),
+            tzinfo=UTC,
+        ) + timedelta(hours=1)
+        end = start + timedelta(hours=7)
+        params = {
+            "kind": "sleep",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        }
+
+        alice_response = self.client.get(
+            "/glucose/body-states/breakdown",
+            params=params,
+            headers=self.alice_headers,
+        )
+        bob_response = self.client.get(
+            "/glucose/body-states/breakdown",
+            params=params,
+            headers=self.bob_headers,
+        )
+
+        assert alice_response.status_code == 200
+        assert alice_response.json()["kind"] == "sleep"
+        assert bob_response.status_code == 404
+
     @pytest.mark.parametrize(
         ("owner_headers_key", "other_headers_key"),
         [
@@ -1298,6 +1326,48 @@ class TestMutationIsolation:
             headers=self.bob_headers,
         )
         assert r.status_code == 404
+
+    def test_activity_label_cannot_cross_users(self):
+        start = self.ids["now"] + timedelta(hours=4)
+        end = start + timedelta(minutes=45)
+        session_factory = self.env["session_factory"]
+        with session_factory() as session:
+            session.info["current_user_id"] = self.alice
+            session.add(
+                HealthConnectRecord(
+                    owner_id=self.alice,
+                    record_id="alice-activity-label-isolation",
+                    record_type="ExerciseSessionRecord",
+                    start_time=start,
+                    end_time=end,
+                    payload={
+                        "startTime": start.isoformat(),
+                        "endTime": end.isoformat(),
+                    },
+                )
+            )
+            session.commit()
+
+        payload = {
+            "activity_type": "cycling",
+            "start_at": start.isoformat(),
+            "end_at": end.isoformat(),
+            "remember_no_steps_rule": True,
+        }
+        bob_response = self.client.put(
+            "/glucose/body-states/activity-label",
+            json=payload,
+            headers=self.bob_headers,
+        )
+        alice_response = self.client.put(
+            "/glucose/body-states/activity-label",
+            json=payload,
+            headers=self.alice_headers,
+        )
+
+        assert bob_response.status_code == 404
+        assert alice_response.status_code == 200
+        assert alice_response.json()["activity_type"] == "cycling"
 
     def test_delete_meal_as_bob(self):
         r = self.client.delete(

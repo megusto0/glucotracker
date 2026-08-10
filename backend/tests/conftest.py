@@ -16,6 +16,7 @@ from glucotracker.domain.auth import UserRole
 from glucotracker.infra.db import models  # noqa: F401
 from glucotracker.infra.db.base import Base
 from glucotracker.infra.db.models import (
+    ActivityAnnotation,
     DailyActivity,
     DailyTotal,
     FingerstickReading,
@@ -84,6 +85,7 @@ def api_client(
         future=True,
     )
     private_owner_models = (
+        ActivityAnnotation,
         DailyActivity,
         DailyTotal,
         FingerstickReading,

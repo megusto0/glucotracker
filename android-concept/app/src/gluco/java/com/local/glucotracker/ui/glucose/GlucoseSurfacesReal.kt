@@ -511,6 +511,7 @@ private fun TodayEpisodeRows(
     bodyStates: List<BodyState> = emptyList(),
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
+    var breakdownBodyState by remember { mutableStateOf<BodyState?>(null) }
     val items = remember(context, rows, bodyStates) {
         buildTodayTimeline(context, rows, bodyStates)
     }
@@ -562,6 +563,7 @@ private fun TodayEpisodeRows(
             is TodayTimelineItem.Body -> BodyStateRow(
                 state = item.state,
                 modifier = Modifier.padding(horizontal = 18.dp),
+                onClick = { breakdownBodyState = item.state },
             )
         }
         if (index < items.lastIndex) Spacer(Modifier.height(14.dp))
@@ -571,6 +573,12 @@ private fun TodayEpisodeRows(
         CorrectionResponseSheet(
             event = event,
             onDismiss = { responseCardEvent = null },
+        )
+    }
+    breakdownBodyState?.let { bodyState ->
+        BodyStateBreakdownSheet(
+            bodyState = bodyState,
+            onDismiss = { breakdownBodyState = null },
         )
     }
 }
@@ -856,6 +864,7 @@ private fun <T> InsulinAwareRows(
     rowKcal: (T) -> Double? = { null },
 ) {
     var responseCardEvent by remember { mutableStateOf<InsulinEvent?>(null) }
+    var breakdownBodyState by remember { mutableStateOf<BodyState?>(null) }
     val timeline = remember(context, rows) {
         val rowIds = rows.map(rowId).toSet()
         val rowById = rows.associateBy(rowId)
@@ -955,7 +964,10 @@ private fun <T> InsulinAwareRows(
                 footer = context.footerByInsulinId[item.event.id],
                 date = date,
             )
-            is InsulinTimelineItem.Body -> BodyStateRow(state = item.state)
+            is InsulinTimelineItem.Body -> BodyStateRow(
+                state = item.state,
+                onClick = { breakdownBodyState = item.state },
+            )
         }
         if (index < timeline.lastIndex) separator()
     }
@@ -966,23 +978,40 @@ private fun <T> InsulinAwareRows(
             onDismiss = { responseCardEvent = null },
         )
     }
+    breakdownBodyState?.let { bodyState ->
+        BodyStateBreakdownSheet(
+            bodyState = bodyState,
+            onDismiss = { breakdownBodyState = null },
+        )
+    }
 }
 
 /**
  * The night and the hard hours of a day, stated once at the end of it.
  *
  * Read as reference, not as something to act on, so they carry no photo, no
- * action and no tap target — the weight of a plate would claim they are the
- * same kind of thing. An inferred state says so: half of these nights come
+ * action. A tap opens the contextual breakdown without making the row look
+ * like a meal card. An inferred state says so: half of these nights come
  * from reading heart rate, not from the watch recording a session, and a
  * medical screen must not present the two as equally certain.
  */
 @Composable
-private fun BodyStateRow(state: BodyState, modifier: Modifier = Modifier) {
+private fun BodyStateRow(
+    state: BodyState,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -3,6 +3,8 @@ package com.local.glucotracker.data.api
 import com.local.glucotracker.generated.api.GlucoseApi as GeneratedGlucoseApi
 import com.local.glucotracker.generated.api.NightscoutApi as GeneratedNightscoutApi
 import com.local.glucotracker.generated.model.BodyStatesResponse
+import com.local.glucotracker.generated.model.BodyStateBreakdownResponse
+import com.local.glucotracker.generated.model.ActivityAnnotationPutRequest
 import com.local.glucotracker.generated.model.DayEpisodesResponse
 import com.local.glucotracker.generated.model.EpisodeBreakdownResponse
 import com.local.glucotracker.generated.model.FingerstickReadingResponse
@@ -52,6 +54,18 @@ class GlucoseApi @Inject constructor(
 
     suspend fun bodyStates(from: Instant, to: Instant): BodyStatesResponse =
         glucoseApi.getGlucoseBodyStates(from = from, to = to).body()
+
+    suspend fun bodyStateBreakdown(
+        kind: String,
+        start: Instant,
+        end: Instant,
+    ): BodyStateBreakdownResponse =
+        glucoseApi.getBodyStateBreakdown(kind = kind, start = start, end = end).body()
+
+    suspend fun putActivityAnnotation(
+        request: ActivityAnnotationPutRequest,
+    ): BodyStateBreakdownResponse =
+        glucoseApi.putActivityAnnotation(request).body()
 
     /**
      * The follow-up arithmetic, optionally as of a past moment.
