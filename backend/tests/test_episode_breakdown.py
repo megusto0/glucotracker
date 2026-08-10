@@ -117,7 +117,18 @@ def _seed_night(session: Session, owner_id: UUID) -> None:
             source_key="breakdown-meal-bolus",
             nightscout_id="breakdown-meal-bolus",
             timestamp=_at(193),
-            insulin_units=4.0,
+            insulin_units=2.0,
+            event_type="Meal Bolus",
+            entered_by="Nightscout",
+        )
+    )
+    session.add(
+        NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key="breakdown-meal-catch-up",
+            nightscout_id="breakdown-meal-catch-up",
+            timestamp=_at(213),
+            insulin_units=2.0,
             event_type="Meal Bolus",
             entered_by="Nightscout",
         )
@@ -265,16 +276,22 @@ def test_food_breakdown_reports_observation_without_claiming_bolus_causality(
     body = response.json()
     assert body["title"] == "Печенье"
     assert body["subtitle"] == "53 г · 4,0 ЕД"
-    assert "На фоне болюса 4,0 ЕД" in body["cause"]["text"]
+    assert body["cause"]["code"] == "bolus_late"
+    assert body["cause"]["text"].startswith("До пика болюса не было:")
+    assert "Первый введён через 53 мин после еды." in body["cause"]["text"]
+    assert "На фоне болюса" not in body["cause"]["text"]
     assert "удержал" not in body["cause"]["text"]
     assert "не удержал" not in body["cause"]["text"]
-    own_insulin = next(
+    own_insulin = [
         crossing
         for crossing in body["crossings"]
-        if crossing["label"] == "Инсулин 4,0 ЕД"
-    )
-    assert own_insulin["offset_minutes"] == 53
-    assert own_insulin["detail"] == "через 53 мин после еды"
+        if crossing["label"] == "Инсулин 2,0 ЕД"
+    ]
+    assert [crossing["offset_minutes"] for crossing in own_insulin] == [53, 73]
+    assert [crossing["detail"] for crossing in own_insulin] == [
+        "через 53 мин после еды",
+        "через 73 мин после еды",
+    ]
 
 
 def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(
@@ -326,7 +343,7 @@ def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(
                 owner_id=owner_id,
                 source_key="delayed-peak-bolus",
                 nightscout_id="delayed-peak-bolus",
-                timestamp=start,
+                timestamp=start + timedelta(minutes=53),
                 insulin_units=11.6,
                 event_type="Meal Bolus",
                 entered_by="Nightscout",
@@ -355,9 +372,13 @@ def test_food_breakdown_follows_a_rise_past_the_standard_peak_window(
     )
 
     assert response.status_code == 200, response.text
-    anchors = {anchor["role"]: anchor for anchor in response.json()["anchors"]}
+    body = response.json()
+    anchors = {anchor["role"]: anchor for anchor in body["anchors"]}
     assert anchors["peak"]["value"] == 12.2
     assert anchors["peak"]["minutes_from_start"] == 190
+    assert body["cause"]["text"].startswith(
+        "Подъём начался без болюса: первый введён через 53 мин после еды."
+    )
 
 
 def test_food_breakdown_does_not_claim_a_later_rise_after_the_peak_settled(

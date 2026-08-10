@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -307,7 +308,9 @@ internal fun EpisodeBreakdownContent(breakdown: EpisodeBreakdownUi) {
                 color = GT.colors.muted,
                 style = GT.type.kicker,
             )
-            val markedCrossings = breakdown.crossings.filter { it.kind != "sleep" }
+            val markedCrossings = breakdown.crossings.filter {
+                it.kind != "sleep" && it.kind != "insulin"
+            }
             breakdown.crossings.forEach { crossing ->
                 CrossingRow(
                     crossing = crossing,
@@ -420,28 +423,32 @@ private fun BreakdownChart(breakdown: EpisodeBreakdownUi) {
                 ),
             )
         }
-        crossings.filter { it.kind != "sleep" }.forEachIndexed { index, crossing ->
-            val rawX = x(crossing.at)
-            if (rawX < 0f || rawX > size.width) return@forEachIndexed
-            val at = rawX.coerceIn(7.dp.toPx(), size.width - 7.dp.toPx())
-            val color = crossingColors[crossing] ?: inkColor
-            drawLine(
-                color = color.copy(alpha = 0.6f),
-                start = androidx.compose.ui.geometry.Offset(at, 14.dp.toPx()),
-                end = androidx.compose.ui.geometry.Offset(at, size.height),
-                strokeWidth = 1.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())),
-            )
-            drawNumberedMarker(
-                label = crossingMarker(index),
-                centerX = at,
-                centerY = 7.dp.toPx(),
-                color = color,
-                surfaceColor = surfaceColor,
-                radiusPx = 6.dp.toPx(),
-                textSizePx = 7.sp.toPx(),
-            )
-        }
+        crossings
+            .filter { it.kind != "sleep" && it.kind != "insulin" }
+            .forEachIndexed { index, crossing ->
+                val rawX = x(crossing.at)
+                if (rawX < 0f || rawX > size.width) return@forEachIndexed
+                val at = rawX.coerceIn(7.dp.toPx(), size.width - 7.dp.toPx())
+                val color = crossingColors[crossing] ?: inkColor
+                drawLine(
+                    color = color.copy(alpha = 0.6f),
+                    start = androidx.compose.ui.geometry.Offset(at, 14.dp.toPx()),
+                    end = androidx.compose.ui.geometry.Offset(at, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(2.dp.toPx(), 3.dp.toPx()),
+                    ),
+                )
+                drawNumberedMarker(
+                    label = crossingMarker(index),
+                    centerX = at,
+                    centerY = 7.dp.toPx(),
+                    color = color,
+                    surfaceColor = surfaceColor,
+                    radiusPx = 6.dp.toPx(),
+                    textSizePx = 7.sp.toPx(),
+                )
+            }
         // A faint segment is drawn only between adjacent sensor reports. This
         // makes the shape readable without bridging a real CGM gap — the reason
         // ADR-020 §4 rejected a single uninterrupted path here.
@@ -582,7 +589,14 @@ private fun CrossingRow(crossing: BreakdownCrossingUi, markerIndex: Int?) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (crossing.kind == "sleep") {
-            Box(modifier = Modifier.width(12.dp).height(4.dp).background(color.copy(alpha = 0.35f)))
+            Box(
+                modifier = Modifier
+                    .width(12.dp)
+                    .height(4.dp)
+                    .background(color.copy(alpha = 0.35f)),
+            )
+        } else if (crossing.kind == "insulin") {
+            InsulinMarker(color = color)
         } else {
             NumberedMarker(
                 label = crossingMarker(markerIndex ?: 0),
@@ -603,6 +617,41 @@ private fun CrossingRow(crossing: BreakdownCrossingUi, markerIndex: Int?) {
             color = if (crossing.offsetMinutes < 0) color else GT.colors.muted,
             style = GT.type.monoLabel.copy(fontSize = 10.sp),
             maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun InsulinMarker(color: Color) {
+    Canvas(modifier = Modifier.size(18.dp)) {
+        val stroke = 1.4.dp.toPx()
+        drawLine(
+            color = color,
+            start = Offset(5.dp.toPx(), 13.dp.toPx()),
+            end = Offset(12.dp.toPx(), 6.dp.toPx()),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(4.dp.toPx(), 11.dp.toPx()),
+            end = Offset(7.dp.toPx(), 14.dp.toPx()),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(10.dp.toPx(), 5.dp.toPx()),
+            end = Offset(13.dp.toPx(), 8.dp.toPx()),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(12.dp.toPx(), 6.dp.toPx()),
+            end = Offset(15.dp.toPx(), 3.dp.toPx()),
+            strokeWidth = 1.dp.toPx(),
+            cap = StrokeCap.Round,
         )
     }
 }

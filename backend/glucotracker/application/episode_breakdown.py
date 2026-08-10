@@ -919,14 +919,45 @@ def _food_cause(
         return None
     rise = peak.value - start.value
     units = sum(float(event.insulin_units or 0) for event in component.insulin)
-    context = f"На фоне болюса {mmol(units)} ЕД" if units > 0 else "Без болюса"
-    observation = (
-        f"{context}: {mmol(start.value)} → {mmol(peak.value)}"
-        f" ({_signed_mmol(rise)}) за {peak.minutes_from_start} мин."
+    trace = (
+        f"{mmol(start.value)} → {mmol(peak.value)}"
+        f" ({_signed_mmol(rise)}), пик через {peak.minutes_from_start} мин."
     )
+    bolus_offsets: list[int] = []
+    meal_by_id = {meal.id: meal for meal in component.meals}
+    for event in component.insulin:
+        meal_id = anchor_meal_id(event, component)
+        meal = meal_by_id.get(meal_id) if meal_id is not None else None
+        if meal is None or not event.insulin_units or event.insulin_units <= 0:
+            continue
+        at = _local_wall_time(event.timestamp)
+        bolus_offsets.append(round((at - meal.eaten_at).total_seconds() / 60))
+
+    first_bolus_offset = min(bolus_offsets) if bolus_offsets else None
+    if first_bolus_offset is not None and first_bolus_offset > 5:
+        if first_bolus_offset >= peak.minutes_from_start:
+            observation = (
+                f"До пика болюса не было: {trace}"
+                f" Первый введён через {first_bolus_offset} мин после еды."
+            )
+        else:
+            observation = (
+                "Подъём начался без болюса: первый введён через"
+                f" {first_bolus_offset} мин после еды. {trace}"
+            )
+    elif first_bolus_offset is not None and first_bolus_offset < -5:
+        observation = (
+            f"Болюс {mmol(units)} ЕД: первый за {abs(first_bolus_offset)} мин"
+            f" до еды. {trace}"
+        )
+    elif units > 0:
+        observation = f"Болюс {mmol(units)} ЕД вместе с едой: {trace}"
+    else:
+        observation = f"Без болюса: {trace}"
+
     if units <= 0 and rise >= 2.0:
         return BreakdownCause("uncovered_rise", observation)
-    if units > 0 and rise >= 3.0:
+    if first_bolus_offset is not None and first_bolus_offset > 5:
         return BreakdownCause("bolus_late", observation)
     if units > 0:
         return BreakdownCause("bolus_held", observation)
