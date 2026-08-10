@@ -26,8 +26,8 @@ from sqlalchemy.orm import Session
 
 from glucotracker.application.health_connect_samples import (
     METADATA_MARGIN,
-    as_utc,
     heart_rate_samples,
+    resolve_instant,
 )
 from glucotracker.application.time import (
     local_wall_time,
@@ -166,9 +166,7 @@ class BodyStateService:
                 for start, end in inferred_activity
             ),
         ]
-        clipped = [
-            _clip(interval, from_utc, to_utc) for interval in intervals
-        ]
+        clipped = [_clip(interval, from_utc, to_utc) for interval in intervals]
         return sorted(
             (
                 interval
@@ -197,8 +195,13 @@ class BodyStateService:
         )
         sessions: list[tuple[datetime, datetime, str | None]] = []
         for row in rows:
-            start = as_utc(row.start_time)
-            end = as_utc(row.end_time)
+            payload = row.payload or {}
+            start = resolve_instant(payload.get("startTime"), row)
+            end = resolve_instant(
+                payload.get("endTime"),
+                row,
+                fallback_to_end=True,
+            )
             if start is None or end is None or end - start < minimum:
                 continue
             if end <= from_utc or start >= to_utc:
@@ -375,9 +378,7 @@ def _inferred_interval(
     samples: list[tuple[datetime, float]],
 ) -> BodyStateInterval:
     confidence: BodyStateConfidence = (
-        "medium"
-        if kind == "sleep" or end - start >= CONFIDENT_ACTIVITY
-        else "low"
+        "medium" if kind == "sleep" or end - start >= CONFIDENT_ACTIVITY else "low"
     )
     return _interval(kind, "heart_rate", start, end, confidence, None, samples)
 

@@ -213,6 +213,36 @@ def test_a_sustained_climb_is_still_reported_as_effort(
     assert activity[0]["total_minutes"] == 40
 
 
+def test_recorded_sleep_reads_payload_times_over_shifted_columns(
+    api_client: TestClient,
+) -> None:
+    """Real rows embed the true instant and shift the columns by the offset."""
+    owner_id, session_factory = _owner(api_client)
+    with session_factory() as session:
+        _session(
+            session,
+            owner_id,
+            "SleepSessionRecord",
+            DAY + timedelta(hours=4),
+            DAY + timedelta(hours=11),
+            {
+                "startTime": DAY.isoformat().replace("+00:00", "Z"),
+                "endTime": (DAY + timedelta(hours=7))
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "startZoneOffset": "+04:00",
+            },
+        )
+        session.commit()
+
+    states = _states(api_client)
+    assert [(state["kind"], state["source"]) for state in states] == [
+        ("sleep", "recorded"),
+    ]
+    assert states[0]["start_at"] == DAY.replace(tzinfo=None).isoformat()
+    assert states[0]["total_minutes"] == 420
+
+
 def test_a_recorded_session_replaces_the_inferred_one_it_covers(
     api_client: TestClient,
 ) -> None:

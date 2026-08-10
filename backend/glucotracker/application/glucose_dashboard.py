@@ -61,26 +61,19 @@ from glucotracker.infra.db.repositories.twin import TwinRepository
 GlucoseMode = Literal["raw", "smoothed", "normalized"]
 Confidence = Literal["none", "low", "medium", "high"]
 SensorPhase = Literal["warmup", "stable", "end_of_life"]
-CalibrationStrategy = Literal["median_delta", "warmup_blend", "linear", "insufficient"]
+CalibrationStrategy = Literal["median_delta", "linear", "insufficient"]
 CalibrationBasis = Literal[
-    "stable_after_48h",
-    "warmup_after_12h_fallback",
-    "early_warmup_weighted",
+    "all_valid_fingersticks",
     "insufficient",
 ]
 
-MODEL_VERSION = "pointwise_weighted_median_v2"
+MODEL_VERSION = "pointwise_full_fingerstick_v3"
 MAX_OFFSET = 3.0
 MAX_DRIFT_PER_DAY = 0.5
 INITIAL_WARMUP_HOURS = 2.0
 EARLY_WARMUP_HOURS = 12.0
 WARMUP_HOURS = 48.0
-WARMUP_MEDIAN_WEIGHT = 0.65
-WARMUP_LINEAR_WEIGHT = 0.35
 STABLE_START_DAYS = WARMUP_HOURS / 24
-FALLBACK_START_DAYS = EARLY_WARMUP_HOURS / 24
-EARLY_WARMUP_MIN_WEIGHT = 0.2
-EARLY_WARMUP_MAX_WEIGHT = 0.6
 WARMUP_BIAS_BANDWIDTH_H = 9.0
 STABLE_BIAS_BANDWIDTH_H = 36.0
 END_OF_LIFE_BIAS_BANDWIDTH_H = 18.0
@@ -112,7 +105,6 @@ class CalibrationPoint:
     raw_cgm: float
     fingerstick: float
     residual: float
-    reliability_weight: float
 
 
 @dataclass(frozen=True)
@@ -730,12 +722,10 @@ class GlucoseDashboardService:
     ) -> CalibrationResult:
         matched = _valid_calibration_points(sensor, raw_points, fingersticks)
         warmup_metrics = _warmup_metrics(matched)
-        valid, basis = _stable_calibration_points(matched)
+        valid, basis = _calibration_points(matched)
         notes: list[str] = []
         if not valid:
-            notes.append(
-                "Недостаточно записей из пальца после 12 ч для оценки смещения."
-            )
+            notes.append("Недостаточно валидных записей из пальца для оценки смещения.")
             return CalibrationResult(
                 params={"can_normalize": False, "b0": 0, "b1": 0},
                 metrics=_calibration_metrics(
@@ -748,17 +738,6 @@ class GlucoseDashboardService:
                 confidence="none",
                 valid_points=valid,
                 notes=notes,
-            )
-
-        if basis == "warmup_after_12h_fallback":
-            notes.append(
-                "Стабильных записей после 48 ч мало; оценка смещения построена "
-                "по данным после 12 ч информационно."
-            )
-        elif basis == "early_warmup_weighted":
-            notes.append(
-                "Записи первых 12 ч учитываются с пониженным весом; "
-                "коррекция предварительная."
             )
 
         residuals = [point.residual for point in valid]
@@ -782,28 +761,13 @@ class GlucoseDashboardService:
             sensor,
             raw_points[-1].timestamp if raw_points else _now_local(),
         )
-        current_phase = _sensor_phase(current_age_days)
-        if basis == "early_warmup_weighted":
-            strategy = "median_delta"
-            b1 = 0.0
-            b0 = median_delta
-            notes.append(
-                "До 12 ч дрейф не оценивается; применяется ослабленная "
-                "медиана расхождения."
-            )
-        elif len(valid) < 3:
+        if len(valid) < 3:
             strategy: CalibrationStrategy = "median_delta"
             b1 = 0.0
             b0 = median_delta
             notes.append(
                 "Меньше 3 валидных записей из пальца; используется медиана "
                 "расхождения, без оценки дрейфа."
-            )
-        elif current_phase == "warmup":
-            strategy = "warmup_blend"
-            notes.append(
-                "Сенсор в первые 48 ч; нормализация предварительная и сильнее "
-                "опирается на медиану расхождений."
             )
         else:
             strategy = "linear"
@@ -864,11 +828,6 @@ class GlucoseDashboardService:
             confidence = "high"
         elif not capped and len(valid) >= 3:
             confidence = "medium"
-        if basis in {
-            "warmup_after_12h_fallback",
-            "early_warmup_weighted",
-        }:
-            confidence = "low"
         return CalibrationResult(
             params={
                 "can_normalize": True,
@@ -878,10 +837,6 @@ class GlucoseDashboardService:
                 "b1_capped": round(b1, 4),
                 "correction_strategy": strategy,
                 "median_delta_mmol_l": round(median_delta, 4),
-                "warmup_linear_weight": WARMUP_LINEAR_WEIGHT,
-                "warmup_median_weight": WARMUP_MEDIAN_WEIGHT,
-                "early_warmup_min_weight": EARLY_WARMUP_MIN_WEIGHT,
-                "early_warmup_max_weight": EARLY_WARMUP_MAX_WEIGHT,
                 "sensor_started_at": sensor.started_at.isoformat(),
                 "max_offset_mmol_l": MAX_OFFSET,
                 "max_drift_mmol_l_per_day": MAX_DRIFT_PER_DAY,
@@ -1260,43 +1215,19 @@ def _valid_calibration_points(
                 raw_cgm=raw_value,
                 fingerstick=row.glucose_mmol_l,
                 residual=row.glucose_mmol_l - raw_value,
-                reliability_weight=_calibration_reliability(
-                    _sensor_age_days(sensor, measured_at)
-                ),
             )
         )
         last_used = measured_at
     return valid
 
 
-def _stable_calibration_points(
+def _calibration_points(
     points: list[CalibrationPoint],
 ) -> tuple[list[CalibrationPoint], CalibrationBasis]:
-    stable = [point for point in points if point.sensor_age_days >= STABLE_START_DAYS]
-    if stable:
-        return stable, "stable_after_48h"
-
-    fallback = [
-        point for point in points if point.sensor_age_days >= FALLBACK_START_DAYS
-    ]
-    if fallback:
-        return fallback, "warmup_after_12h_fallback"
-
     if points:
-        return points, "early_warmup_weighted"
+        return points, "all_valid_fingersticks"
 
     return [], "insufficient"
-
-
-def _calibration_reliability(sensor_age_days: float) -> float:
-    """Return a conservative evidence weight for an early fingerstick."""
-    age_hours = max(sensor_age_days * 24, 0.0)
-    if age_hours >= EARLY_WARMUP_HOURS:
-        return 1.0
-    progress = age_hours / EARLY_WARMUP_HOURS
-    return EARLY_WARMUP_MIN_WEIGHT + progress * (
-        EARLY_WARMUP_MAX_WEIGHT - EARLY_WARMUP_MIN_WEIGHT
-    )
 
 
 def _weighted_residual(points: list[CalibrationPoint]) -> float:
@@ -1307,13 +1238,8 @@ def _weighted_point_value(
     points: list[CalibrationPoint],
     value: Callable[[CalibrationPoint], float],
 ) -> float:
-    """Estimate a value and shrink incomplete early evidence toward zero."""
-    if all(point.reliability_weight >= 1.0 for point in points):
-        return _median([value(point) for point in points])
-    pairs = [(value(point), point.reliability_weight) for point in points]
-    estimate = _weighted_median(pairs)
-    estimate *= min(sum(weight for _, weight in pairs), 1.0)
-    return estimate
+    """Estimate a value without discounting valid fingersticks by sensor age."""
+    return _median([value(point) for point in points])
 
 
 def _warmup_metrics(
@@ -1505,7 +1431,6 @@ def estimate_bias_at(
     bandwidth_s = bandwidth_h * 3600
 
     weighted: list[tuple[float, float]] = []
-    reduced_reliability = False
     nearest_distance_h: float | None = None
     for point in calibration_points:
         distance_s = abs((point.measured_at - target).total_seconds())
@@ -1515,8 +1440,7 @@ def estimate_bias_at(
         if distance_s > bandwidth_s:
             continue
         weight = 1.0 - (distance_s / bandwidth_s)
-        weight = weight * weight * point.reliability_weight
-        reduced_reliability = reduced_reliability or point.reliability_weight < 1.0
+        weight = weight * weight
         weighted.append((point.residual, weight))
 
     if not weighted:
@@ -1529,25 +1453,18 @@ def estimate_bias_at(
             if nearest_distance_h is None or distance_h < nearest_distance_h:
                 nearest_distance_h = distance_h
             weight = 1.0 - (distance_s / expanded_s)
-            weight = weight * weight * point.reliability_weight
-            reduced_reliability = reduced_reliability or point.reliability_weight < 1.0
+            weight = weight * weight
             weighted.append((point.residual, weight))
 
     if not weighted:
         return None
 
     bias = _weighted_median(weighted)
-    if reduced_reliability:
-        bias *= min(sum(weight for _, weight in weighted), 1.0)
     bias = max(min(bias, MAX_OFFSET), -MAX_OFFSET)
 
     count = len(weighted)
     confidence: Confidence
-    if reduced_reliability and count < 3:
-        confidence = "low"
-    elif reduced_reliability:
-        confidence = "medium"
-    elif count >= 4 and (nearest_distance_h or 999) <= bandwidth_h * 0.5:
+    if count >= 4 and (nearest_distance_h or 999) <= bandwidth_h * 0.5:
         confidence = "high"
     elif count >= 2:
         confidence = "medium"
@@ -1676,8 +1593,10 @@ def _correction_for_age(params: dict[str, Any], sensor_age_days: float) -> float
     if strategy == "median_delta":
         return median_delta
     if strategy == "warmup_blend":
-        median_weight = float(params.get("warmup_median_weight", WARMUP_MEDIAN_WEIGHT))
-        linear_weight = float(params.get("warmup_linear_weight", WARMUP_LINEAR_WEIGHT))
+        # Read compatibility for calibration models persisted before v3. New
+        # models never emit the warmup strategy or reduce fingerstick weight.
+        median_weight = float(params.get("warmup_median_weight", 0.65))
+        linear_weight = float(params.get("warmup_linear_weight", 0.35))
         return median_weight * median_delta + linear_weight * linear
     return linear
 

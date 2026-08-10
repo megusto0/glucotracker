@@ -2201,9 +2201,7 @@ class SensorQualityResponse(BaseModel):
     warmup_calibration_points: int = 0
     calibration_basis: (
         Literal[
-            "stable_after_48h",
-            "warmup_after_12h_fallback",
-            "early_warmup_weighted",
+            "all_valid_fingersticks",
             "insufficient",
         ]
         | None
@@ -2217,9 +2215,9 @@ class SensorQualityResponse(BaseModel):
     b1_raw_mmol_l_per_day: float | None = None
     b1_capped_mmol_l_per_day: float | None = None
     correction_now_mmol_l: float | None = None
-    calibration_strategy: (
-        Literal["median_delta", "warmup_blend", "linear", "insufficient"] | None
-    ) = None
+    calibration_strategy: Literal["median_delta", "linear", "insufficient"] | None = (
+        None
+    )
     mad_mmol_l: float | None = None
     mard_percent: float | None = None
     drift_mmol_l_per_day: float | None = None

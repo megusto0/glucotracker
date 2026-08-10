@@ -38,6 +38,7 @@ from glucotracker.application.glucose_trend_projection import (
     GlucoseTrendProjectionService,
 )
 from glucotracker.application.grouping import GROUPING_VERSION
+from glucotracker.application.health_connect_samples import resolve_instant
 from glucotracker.application.nightscout_context import (
     INSULIN_WINDOW_AFTER,
     _local_wall_time,
@@ -741,13 +742,18 @@ class HistoricalInsulinRecommendationService:
             select(HealthConnectRecord).where(
                 HealthConnectRecord.owner_id == self.repository.user_id,
                 HealthConnectRecord.record_type == "SleepSessionRecord",
-                HealthConnectRecord.start_time >= target_utc - timedelta(hours=24),
-                HealthConnectRecord.start_time <= target_utc,
+                HealthConnectRecord.start_time >= target_utc - timedelta(hours=48),
+                HealthConnectRecord.start_time <= target_utc + timedelta(hours=24),
             )
         ).all()
         for row in rows:
-            start = _as_utc(row.start_time) if row.start_time is not None else None
-            end = _as_utc(row.end_time) if row.end_time is not None else None
+            payload = row.payload or {}
+            start = resolve_instant(payload.get("startTime"), row)
+            end = resolve_instant(
+                payload.get("endTime"),
+                row,
+                fallback_to_end=True,
+            )
             if start is None or end is None or end <= start:
                 continue
             if end - start < MIN_SLEEP_FOR_FIRST_MEAL:
@@ -770,7 +776,7 @@ class HistoricalInsulinRecommendationService:
                 HealthConnectRecord.owner_id == self.repository.user_id,
                 HealthConnectRecord.record_type == "HeartRateRecord",
                 HealthConnectRecord.start_time >= target_utc - HR_SLEEP_LOOKBACK,
-                HealthConnectRecord.start_time <= target_utc,
+                HealthConnectRecord.start_time <= target_utc + timedelta(hours=24),
             )
         ).all()
         samples: list[tuple[datetime, int]] = []
@@ -1321,50 +1327,18 @@ def _hours_since_previous_meal(
     return (target_at - max(previous)).total_seconds() / 3600.0
 
 
-def _as_utc(value: datetime) -> datetime:
-    """Return a timezone-aware UTC instant, tolerating naive DB values.
-
-    PostgreSQL returns aware instants from tz columns, while the in-memory
-    SQLite used by the test suite returns naive ones; comparisons against the
-    aware target instant need both sides on the same footing.
-    """
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
-
-
-def _payload_zone_offset(payload: dict[str, Any]) -> timedelta | None:
-    """Return the wall-clock offset Health Connect attached to a payload."""
-    raw = payload.get("startZoneOffset") or payload.get("endZoneOffset")
-    if not isinstance(raw, str) or not raw.strip():
-        return None
-    try:
-        return datetime.fromisoformat(f"2026-01-01T00:00:00{raw}").utcoffset()
-    except ValueError:
-        return None
-
-
 def _hr_sample_instant(
     sample: dict[str, Any],
     row: HealthConnectRecord,
 ) -> datetime | None:
     """Return the true UTC instant of a heart-rate sample.
 
-    The wearable writes sample times as local wall-clock values tagged with a
-    misleading "Z" (the column start_time carries the corrected UTC). Reapply
-    the recorded zone offset; fall back to the row's own start_time.
+    Sample times arrive as the true UTC instant tagged with "Z"; the row's own
+    start_time is the same wall clock shifted by the recorded zone offset.
+    Resolve against the row span exactly as the health-connect reader does,
+    falling back to the row's start_time when no embedded time exists.
     """
-    raw = sample.get("time")
-    if isinstance(raw, str) and raw.strip():
-        try:
-            naive = datetime.fromisoformat(raw.replace("Z", ""))
-        except ValueError:
-            naive = None
-        if naive is not None and naive.tzinfo is None:
-            offset = _payload_zone_offset(row.payload or {})
-            if offset is not None:
-                return (naive + offset).replace(tzinfo=UTC)
-    return _as_utc(row.start_time) if row.start_time is not None else None
+    return resolve_instant(sample.get("time"), row)
 
 
 def _hr_trough_ended_within_window(

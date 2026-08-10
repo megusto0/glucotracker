@@ -229,7 +229,7 @@ const sensorPhaseCompact = (
 ) => {
   if (phase === "warmup") {
     const hours = Math.min(48, Math.max(0, Math.round((ageDays ?? 0) * 24)));
-    return `автокалибровка ${hours}ч из 48`;
+    return `сенсору ${hours}ч · замер из пальца без ослабления`;
   }
   if (phase === "stable") return "стабильная фаза";
   if (phase === "end_of_life") return "конец срока";

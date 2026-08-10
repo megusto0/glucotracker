@@ -599,6 +599,10 @@
 
 /* Context, not data: these sit behind the overview and must never compete
    with the glucose dots or the heart-rate bars for attention. */
+.ns-body-state {
+  pointer-events: none;
+}
+
 .ns-body-state--sleep {
   fill: #6f8dc0;
   opacity: 0.1;

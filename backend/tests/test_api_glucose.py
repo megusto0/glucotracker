@@ -425,10 +425,10 @@ def test_dashboard_smooths_normalized_series_when_available(
     assert body["points"][0]["display_value"] == 7.0
 
 
-def test_dashboard_models_warmup_separately_from_stable_calibration(
+def test_dashboard_keeps_warmup_fingersticks_as_full_local_anchors(
     api_client: TestClient,
 ) -> None:
-    """First 12h residuals are reported but do not drive stable offset."""
+    """Sensor age stays diagnostic and never discounts a valid fingerstick."""
     start = datetime.fromisoformat("2026-04-28T00:00:00")
     _seed_cgm(
         api_client,
@@ -486,29 +486,29 @@ def test_dashboard_models_warmup_separately_from_stable_calibration(
     assert response.status_code == 200
     body = response.json()
     quality = body["quality"]
-    assert quality["valid_calibration_points"] == 2
+    assert quality["valid_calibration_points"] == 5
     assert quality["matched_calibration_points"] == 5
     assert quality["stable_calibration_points"] == 0
     assert quality["warmup_calibration_points"] == 5
-    assert quality["calibration_basis"] == "warmup_after_12h_fallback"
+    assert quality["calibration_basis"] == "all_valid_fingersticks"
     assert quality["confidence"] == "low"
     assert quality["warmup_metrics"]["initial_residual_mmol_l"] == 0.1
     assert quality["warmup_metrics"]["max_warmup_residual_mmol_l"] == 3.0
     assert quality["warmup_metrics"]["plateau_residual_mmol_l"] == 1.0
     assert quality["warmup_metrics"]["residual_sequence_mmol_l"] == [0.1, 3.0, 0.7]
     assert body["points"][0]["raw_value"] == 6.0
-    assert body["points"][0]["normalized_value"] == 7.0
+    assert body["points"][0]["normalized_value"] == 6.1
 
 
-def test_dashboard_uses_early_fingerstick_with_reduced_weight(
+def test_dashboard_uses_early_fingerstick_at_full_weight(
     api_client: TestClient,
 ) -> None:
-    """A stable first-12h match nudges normalization without applying it fully."""
+    """A valid first-12h match anchors normalization without age shrinkage."""
     start = datetime.fromisoformat("2026-04-28T20:10:00")
     _seed_cgm(
         api_client,
         start=start,
-        prefix="early-weighted",
+        prefix="early-full-weight",
         values=[
             (100, 6.4),
             (105, 6.5),
@@ -538,13 +538,53 @@ def test_dashboard_uses_early_fingerstick_with_reduced_weight(
     nearest = body["points"][1]
     assert quality["matched_calibration_points"] == 1
     assert quality["valid_calibration_points"] == 1
-    assert quality["calibration_basis"] == "early_warmup_weighted"
+    assert quality["calibration_basis"] == "all_valid_fingersticks"
     assert quality["calibration_strategy"] == "median_delta"
     assert quality["confidence"] == "low"
-    assert 0 < quality["correction_now_mmol_l"] < 0.8
+    assert quality["correction_now_mmol_l"] == pytest.approx(1.7, abs=0.01)
     assert nearest["raw_value"] == 6.5
-    assert nearest["raw_value"] < nearest["normalized_value"] < 7.3
+    assert nearest["normalized_value"] == pytest.approx(8.2, abs=0.01)
     assert nearest["contributing_fingerstick_count"] == 1
+
+
+def test_later_fingersticks_do_not_weaken_an_early_local_anchor(
+    api_client: TestClient,
+) -> None:
+    """Later evidence owns its time range without rewriting an early match."""
+    start = datetime.fromisoformat("2026-05-01T00:00:00")
+    _seed_cgm(
+        api_client,
+        start=start,
+        prefix="persistent-local-anchor",
+        values=[
+            (60, 6.0),
+            (70, 6.0),
+            (3000, 6.0),
+            (3010, 6.0),
+            (3060, 6.0),
+            (3070, 6.0),
+        ],
+    )
+    _create_sensor(api_client, started_at="2026-05-01T00:00:00")
+    _create_fingerstick(api_client, measured_at="2026-05-01T01:05:00", value=7.5)
+    _create_fingerstick(api_client, measured_at="2026-05-03T02:05:00", value=6.3)
+    _create_fingerstick(api_client, measured_at="2026-05-03T03:05:00", value=6.3)
+
+    response = api_client.get(
+        "/glucose/dashboard",
+        params={
+            "from": "2026-05-01T01:00:00",
+            "to": "2026-05-03T03:10:00",
+            "mode": "normalized",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["quality"]["valid_calibration_points"] == 3
+    assert body["quality"]["calibration_basis"] == "all_valid_fingersticks"
+    assert body["points"][0]["normalized_value"] == pytest.approx(7.5, abs=0.01)
+    assert body["points"][-1]["normalized_value"] == pytest.approx(6.3, abs=0.01)
 
 
 def test_dashboard_recomputes_b0_after_capping_drift(api_client: TestClient) -> None:
@@ -583,15 +623,15 @@ def test_dashboard_recomputes_b0_after_capping_drift(api_client: TestClient) -> 
     assert quality["b0_mmol_l"] == pytest.approx(0.596, abs=0.01)
 
 
-def test_dashboard_warmup_blends_capped_linear_with_median_delta(
+def test_dashboard_sensor_age_does_not_change_linear_strategy(
     api_client: TestClient,
 ) -> None:
-    """Warmup normalization with 3 points is provisional and stays near the deltas."""
+    """Three valid points use one strategy regardless of sensor age."""
     start = datetime.fromisoformat("2026-04-30T00:00:00")
     _seed_cgm(
         api_client,
         start=start,
-        prefix="warmup-blend",
+        prefix="early-linear",
         values=[
             (810, 6.0),
             (846, 6.0),
@@ -618,12 +658,11 @@ def test_dashboard_warmup_blends_capped_linear_with_median_delta(
     quality = body["quality"]
     latest = body["points"][-1]
     assert quality["sensor_phase"] == "warmup"
-    assert quality["calibration_strategy"] == "warmup_blend"
+    assert quality["calibration_strategy"] == "linear"
     assert quality["confidence"] == "low"
     assert quality["median_delta_mmol_l"] == pytest.approx(0.89, abs=0.01)
-    assert quality["correction_now_mmol_l"] == pytest.approx(0.94, abs=0.02)
+    assert quality["correction_now_mmol_l"] == pytest.approx(1.02, abs=0.02)
     assert latest["correction_mmol_l"] == pytest.approx(1.1, abs=0.02)
-    assert abs(quality["correction_now_mmol_l"] - 0.89) < abs(0.619 - 0.89)
 
 
 def test_dashboard_uses_median_delta_with_fewer_than_three_valid_points(

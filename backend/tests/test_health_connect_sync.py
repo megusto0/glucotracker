@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from glucotracker.domain.auth import UserRole
-from glucotracker.infra.db.models import User
+from glucotracker.infra.db.models import HealthConnectRecord, User
 from glucotracker.infra.db.repositories.health_connect import (
     HealthConnectRepository,
     normalize_health_connect_record,
@@ -248,3 +248,70 @@ def test_food_user_cannot_sync_health_connect(api_client: TestClient) -> None:
     assert response.json() == {
         "detail": {"code": "feature_disabled", "feature": "glucose"}
     }
+
+
+def _hr_row(
+    start_time: datetime,
+    end_time: datetime,
+    offset: str,
+) -> HealthConnectRecord:
+    return HealthConnectRecord(
+        owner_id=UUID("00000000-0000-0000-0000-000000000000"),
+        record_id="resolve",
+        record_type="HeartRateRecord",
+        start_time=start_time,
+        end_time=end_time,
+        payload={"startZoneOffset": offset},
+    )
+
+
+def test_resolve_instant_keeps_the_embedded_true_utc(
+    api_client: TestClient,
+) -> None:
+    """Real rows embed the true instant and shift the columns by the offset."""
+    from glucotracker.application.health_connect_samples import resolve_instant
+
+    row = _hr_row(
+        datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        datetime(2026, 8, 3, 6, 1, tzinfo=UTC),
+        "+04:00",
+    )
+
+    assert resolve_instant("2026-08-03T02:00:00Z", row) == datetime(
+        2026, 8, 3, 2, 0, tzinfo=UTC
+    )
+
+
+def test_resolve_instant_pulls_back_a_local_wall_writer(
+    api_client: TestClient,
+) -> None:
+    """A hypothetical local-wall writer is corrected back onto the timeline."""
+    from glucotracker.application.health_connect_samples import resolve_instant
+
+    row = _hr_row(
+        datetime(2026, 8, 3, 2, 0, tzinfo=UTC),
+        datetime(2026, 8, 3, 2, 1, tzinfo=UTC),
+        "+04:00",
+    )
+
+    assert resolve_instant("2026-08-03T06:00:00Z", row) == datetime(
+        2026, 8, 3, 2, 0, tzinfo=UTC
+    )
+
+
+def test_resolve_instant_end_falls_back_to_the_end_column(
+    api_client: TestClient,
+) -> None:
+    """Without an embedded time each side falls back to its own column."""
+    from glucotracker.application.health_connect_samples import resolve_instant
+
+    row = _hr_row(
+        datetime(2026, 8, 3, 6, 0, tzinfo=UTC),
+        datetime(2026, 8, 3, 7, 30, tzinfo=UTC),
+        "+04:00",
+    )
+
+    assert resolve_instant(None, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
+    assert resolve_instant(None, row, fallback_to_end=True) == datetime(
+        2026, 8, 3, 7, 30, tzinfo=UTC
+    )

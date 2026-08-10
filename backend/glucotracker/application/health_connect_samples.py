@@ -69,29 +69,45 @@ def _distance_to_row(candidate: datetime, row: HealthConnectRecord) -> timedelta
     return start - candidate
 
 
-def resolve_sample_instant(
-    sample: dict[str, Any],
+def resolve_instant(
+    raw: Any,
     row: HealthConnectRecord,
+    *,
+    fallback_to_end: bool = False,
 ) -> datetime | None:
-    """Return the instant a single embedded sample was actually recorded.
+    """Return the true UTC instant a payload-embedded time refers to.
 
-    Without a declared zone offset the embedded time is taken at face value,
-    which is what the wearable's older exports meant. With one, both readings
-    are scored against the row's own span and the closer one wins, so a sample
-    written as local wall clock is pulled back onto the real timeline.
+    Real rows carry the sample or session time as the true UTC instant tagged
+    with "Z", while the row's own ``start_time``/``end_time`` columns are that
+    same wall clock shifted by the declared zone offset, stored as if UTC.
+    Both readings are scored against the row's own span and the closer one
+    wins, so whichever writer convention produced the row ends up on the same
+    timeline. When the payload carries no time, the matching column is the
+    fallback.
     """
-    naive = _parse_instant(sample.get("time"))
+    naive = _parse_instant(raw)
     if naive is None:
-        return as_utc(row.start_time)
+        column = row.end_time if fallback_to_end else row.start_time
+        return as_utc(column)
     offset = payload_zone_offset(row.payload or {})
     if offset is None or as_utc(row.start_time) is None:
         return naive
-    shifted = naive + offset
+    shifted = naive - offset
     return (
         shifted
         if _distance_to_row(shifted, row) < _distance_to_row(naive, row)
         else naive
     )
+
+
+def resolve_sample_instant(
+    sample: dict[str, Any],
+    row: HealthConnectRecord,
+) -> datetime | None:
+    """Return the instant a single embedded sample was actually recorded."""
+    if not isinstance(sample, dict):
+        return None
+    return resolve_instant(sample.get("time"), row)
 
 
 def heart_rate_samples(

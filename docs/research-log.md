@@ -59,6 +59,40 @@ Multiple sources for one question get one entry each, sharing the same
 
 ## Log
 
+### 2026-08-10 — Health Connect instants are independent of zone offsets
+
+- **URL:** https://developer.android.com/health-and-fitness/health-connect/write-data
+- **Consulted for:** deciding whether embedded sleep/session and heart-rate
+  sample timestamps should be interpreted as UTC instants or shifted by the
+  accompanying user-experienced zone offset.
+- **Used in:** `backend/glucotracker/application/health_connect_samples.py`,
+  `backend/glucotracker/application/body_states.py`, and
+  `backend/glucotracker/application/insulin_recommendation.py`.
+- **Takeaway:** Health Connect models record boundaries and series-sample times
+  as `Instant`; `startZoneOffset`/`endZoneOffset` are separate metadata about
+  the user's experienced zone. The official examples pass absolute instants to
+  both records and samples while calculating offsets independently.
+- **Verdict:** applied — payload timestamps are treated as candidate true UTC
+  instants, while a span-distance check still recovers legacy rows whose writer
+  placed local wall time in the instant field.
+
+### 2026-08-09 — Fingerstick calibration is a current reference, not weaker early evidence
+
+- **URL:** https://www.dexcom.com/faqs/bg-meter-vs-cgm-reading
+- **Consulted for:** whether a valid fingerstick entered early in a sensor session
+  should be mathematically weakened only because later calibrations may differ.
+- **Used in:** `backend/glucotracker/application/glucose_dashboard.py` and its
+  dashboard calibration tests.
+- **Takeaway:** Dexcom says an accepted calibration should bring CGM readings
+  closer to the contemporaneous meter value; it separately requires a clean,
+  timely fingerstick during stable glucose and rejects pressure-affected sensor
+  readings. Sensor age is not presented as a reason to scale an otherwise valid
+  meter value toward zero.
+- **Verdict:** applied — existing stability, timing, compression and jump checks
+  remain, but a fingerstick that passes them now has full weight at every sensor
+  age. Later readings influence their own nearby times instead of retroactively
+  making the earlier reference less true.
+
 ### 2026-08-08 — Current Zepp authentication-key extractor
 
 - **URL:** https://codeberg.org/argrento/huami-token

@@ -7150,9 +7150,9 @@ export interface components {
             /** B1 Raw Mmol L Per Day */
             b1_raw_mmol_l_per_day?: number | null;
             /** Calibration Basis */
-            calibration_basis?: ("stable_after_48h" | "warmup_after_12h_fallback" | "early_warmup_weighted" | "insufficient") | null;
+            calibration_basis?: ("all_valid_fingersticks" | "insufficient") | null;
             /** Calibration Strategy */
-            calibration_strategy?: ("median_delta" | "warmup_blend" | "linear" | "insufficient") | null;
+            calibration_strategy?: ("median_delta" | "linear" | "insufficient") | null;
             /**
              * Confidence
              * @enum {string}

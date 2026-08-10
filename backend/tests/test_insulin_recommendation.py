@@ -1150,6 +1150,52 @@ def test_a_long_gap_without_recorded_sleep_changes_nothing(
     assert abs(body["recommended_units"] - 62.0 / 9.3) < 0.2
 
 
+def test_first_meal_reads_payload_sleep_times_over_shifted_columns(
+    api_client: TestClient,
+) -> None:
+    """Real rows embed the true instant and shift the columns by the offset."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    target_at = datetime(2026, 8, 3, 12, 41)
+    target_utc = datetime(2026, 8, 3, 12, 41, tzinfo=UTC)
+    with session_factory() as session:
+        target = _meal(session, owner_id, target_at, 62.0, title="Панкейки")
+        _meal(session, owner_id, target_at - timedelta(hours=11), 30.0)
+        _insulin(session, owner_id, target_at - timedelta(hours=11), 3.0)
+        sleep_start = target_utc - timedelta(hours=9)
+        sleep_end = target_utc - timedelta(hours=1)
+        session.add(
+            HealthConnectRecord(
+                owner_id=owner_id,
+                record_id="sleep-shifted",
+                record_type="SleepSessionRecord",
+                start_time=sleep_start + timedelta(hours=4),
+                end_time=sleep_end + timedelta(hours=4),
+                payload={
+                    "startTime": sleep_start.isoformat().replace("+00:00", "Z"),
+                    "endTime": sleep_end.isoformat().replace("+00:00", "Z"),
+                    "startZoneOffset": "+04:00",
+                },
+            )
+        )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = 8.0
+        params.icr_day = 9.3
+        params.icr_evening = 10.0
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(target.id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["icr_after_sleep"] is True
+    assert 7.5 <= body["recommended_units"] <= 8.8
+
+
 def test_sleep_without_a_long_gap_changes_nothing(api_client: TestClient) -> None:
     body = _first_meal_case(api_client, with_sleep=True, gap_hours=3)
 
@@ -1281,7 +1327,7 @@ def test_hr_trough_rejects_a_monotone_window() -> None:
     assert not _hr_trough_ended_within_window(samples, target)
 
 
-def test_hr_sample_instant_reapplies_the_wall_clock_offset() -> None:
+def test_hr_sample_instant_resolves_the_embedded_true_utc() -> None:
     row = HealthConnectRecord(
         owner_id=uuid4(),
         record_id="hr-offset",
@@ -1292,7 +1338,7 @@ def test_hr_sample_instant_reapplies_the_wall_clock_offset() -> None:
     )
     sample = {"beatsPerMinute": 60, "time": "2026-08-03T02:00:00Z"}
 
-    assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
+    assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 2, 0, tzinfo=UTC)
 
 
 def test_hr_sample_instant_falls_back_to_row_start_time() -> None:

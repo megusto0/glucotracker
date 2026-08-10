@@ -7997,9 +7997,7 @@ components:
         calibration_basis:
           anyOf:
           - enum:
-            - stable_after_48h
-            - warmup_after_12h_fallback
-            - early_warmup_weighted
+            - all_valid_fingersticks
             - insufficient
             type: string
           - type: 'null'
@@ -8008,7 +8006,6 @@ components:
           anyOf:
           - enum:
             - median_delta
-            - warmup_blend
             - linear
             - insufficient
             type: string
