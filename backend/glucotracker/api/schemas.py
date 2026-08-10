@@ -658,6 +658,13 @@ class InsulinRecommendationRequest(BaseModel):
         le=10,
         description="Personal correction target; omitted uses 6.0 mmol/L.",
     )
+    calculation_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Instant whose glucose, COB and IOB should be used. Omitted "
+            "reconstructs the meal-time calculation."
+        ),
+    )
 
 
 class InsulinRecommendationMatchResponse(BaseModel):
@@ -700,8 +707,8 @@ class InsulinRecommendationResponse(BaseModel):
     implied_icr_g_per_unit: float | None = None
     history_median_units: float | None = None
     history_weight: float | None = Field(default=None, ge=0, le=1)
-    # The food half is stored and reused; the correction is always computed at
-    # the moment of asking, because it reads glucose and insulin on board now.
+    # The food half is stored and reused; the correction is computed for the
+    # requested instant because it reads glucose and insulin on board there.
     meal_from_cache: bool = False
     meal_computed_at: datetime | None = None
     correction_status: Literal[
@@ -731,6 +738,7 @@ class InsulinRecommendationResponse(BaseModel):
     # beyond what it needs. The surplus reduces the total.
     correction_prior_cob_g: float | None = None
     correction_excess_iob_units: float | None = None
+    correction_calculated_at: datetime | None = None
     total_recommended_units: float | None = None
     total_range_low_units: float | None = None
     total_range_high_units: float | None = None

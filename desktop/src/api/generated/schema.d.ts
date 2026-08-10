@@ -4660,6 +4660,12 @@ export interface components {
          */
         InsulinRecommendationRequest: {
             /**
+             * Calculation At
+             * Format: date-time
+             * @description Instant whose glucose, COB and IOB should be used. Omitted reconstructs the meal-time calculation.
+             */
+            calculation_at?: string | null;
+            /**
              * Correction Target Mmol L
              * @description Personal correction target; omitted uses 6.0 mmol/L.
              */
@@ -4679,6 +4685,8 @@ export interface components {
             confidence: "none" | "low" | "medium" | "high";
             /** Correction Excess Iob Units */
             correction_excess_iob_units?: number | null;
+            /** Format: date-time */
+            correction_calculated_at?: string | null;
             /** Correction Glucose Mmol L */
             correction_glucose_mmol_l?: number | null;
             /** Correction Iob Units */

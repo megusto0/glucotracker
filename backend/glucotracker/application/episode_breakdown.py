@@ -90,6 +90,11 @@ CAUSE_INSULIN_LOOKBACK = timedelta(hours=5)
 CAUSE_MIN_ACTIVE_UNITS = 0.5
 CAUSE_ACTIVITY_LOOKBACK = timedelta(hours=6)
 DEFAULT_DIA_MINUTES = 270
+# Descriptive response bands. They classify the observed trace; they are not
+# dosing thresholds and never feed a recommendation.
+FOOD_SMALL_RISE_MMOL_L = 2.0
+FOOD_LARGE_RISE_MMOL_L = 3.0
+FOOD_SETTLE_TOLERANCE_MMOL_L = 0.7
 
 # Two lows less than this apart are one event that wobbled, not two events.
 LOW_EXCURSION_GAP = timedelta(minutes=30)
@@ -346,7 +351,11 @@ class EpisodeBreakdownService:
             return self._rescue_cause(component, by_role, body_states)
         if therapy.classification == "insulin_correction":
             return _correction_cause(component, by_role)
-        return _food_cause(component, by_role)
+        own_insulin = {event.id for event in component.insulin}
+        prior_active_units = sum(
+            units for units, _ in self._active_units(component.start_at, own_insulin)
+        )
+        return _food_cause(component, by_role, prior_active_units=prior_active_units)
 
     def _rescue_cause(
         self,
@@ -912,12 +921,16 @@ def _correction_cause(
 def _food_cause(
     component: EpisodeComponent,
     by_role: dict[str, BreakdownAnchor],
+    *,
+    prior_active_units: float = 0.0,
 ) -> BreakdownCause | None:
     start = by_role.get("start")
     peak = by_role.get("peak")
     if start is None or peak is None:
         return None
     rise = peak.value - start.value
+    settle = by_role.get("settle")
+    settle_delta = settle.value - start.value if settle is not None else None
     units = sum(float(event.insulin_units or 0) for event in component.insulin)
     trace = (
         f"{mmol(start.value)} → {mmol(peak.value)}"
@@ -955,13 +968,77 @@ def _food_cause(
     else:
         observation = f"Без болюса: {trace}"
 
-    if units <= 0 and rise >= 2.0:
-        return BreakdownCause("uncovered_rise", observation)
     if first_bolus_offset is not None and first_bolus_offset > 5:
         return BreakdownCause("bolus_late", observation)
     if units > 0:
-        return BreakdownCause("bolus_held", observation)
-    return BreakdownCause("flat_response", observation)
+        if settle is not None and settle.value < LOW_GLUCOSE_MMOL_L:
+            return BreakdownCause(
+                "bolus_overcovered_low",
+                f"Вероятно избыточное покрытие: {observation} {settle.label} — "
+                f"{mmol(settle.value)}, ниже диапазона.",
+            )
+        if (
+            settle_delta is not None
+            and settle_delta <= -FOOD_SETTLE_TOLERANCE_MMOL_L
+            and rise <= FOOD_SMALL_RISE_MMOL_L
+        ):
+            return BreakdownCause(
+                "bolus_overcovered",
+                f"Вероятно избыточное покрытие: пик был небольшим "
+                f"({_signed_mmol(rise)}), а {settle.label.lower()} глюкоза была на "
+                f"{mmol(abs(settle_delta))} ниже исходной. Болюс — {mmol(units)} ЕД.",
+            )
+        if (
+            settle_delta is not None
+            and rise <= FOOD_SMALL_RISE_MMOL_L
+            and abs(settle_delta) <= FOOD_SETTLE_TOLERANCE_MMOL_L
+        ):
+            return BreakdownCause(
+                "bolus_matched",
+                f"Похоже на достаточное покрытие: подъём {_signed_mmol(rise)}, "
+                f"{settle.label.lower()} — {mmol(settle.value)}. "
+                f"Болюс — {mmol(units)} ЕД.",
+            )
+        if (
+            settle_delta is not None
+            and rise >= FOOD_LARGE_RISE_MMOL_L
+            and settle_delta >= FOOD_SETTLE_TOLERANCE_MMOL_L
+        ):
+            return BreakdownCause(
+                "bolus_undercovered",
+                f"Покрытия, вероятно, не хватило: {observation} {settle.label} "
+                f"глюкоза оставалась на {_signed_mmol(settle_delta)} выше исходной.",
+            )
+        if peak.minutes_from_start >= int(PEAK_SEARCH.total_seconds() / 60):
+            return BreakdownCause(
+                "delayed_absorption",
+                f"Поздний ответ: {observation} Такой профиль больше похож на "
+                "продолжительное усвоение, чем на быстрый подъём.",
+            )
+        return BreakdownCause("bolus_response", observation)
+
+    if rise >= FOOD_SMALL_RISE_MMOL_L:
+        return BreakdownCause("uncovered_rise", observation)
+    if prior_active_units >= CAUSE_MIN_ACTIVE_UNITS:
+        ending = (
+            f" {settle.label} — {mmol(settle.value)} "
+            f"({_signed_mmol(settle_delta or 0.0)} от старта)."
+            if settle is not None
+            else ""
+        )
+        return BreakdownCause(
+            "prior_insulin_covering",
+            f"Без нового болюса; на старте ещё действовало около "
+            f"{mmol(prior_active_units)} ЕД предыдущего инсулина. Он мог покрыть "
+            f"часть еды.{ending}",
+        )
+    if settle_delta is not None and abs(settle_delta) <= FOOD_SETTLE_TOLERANCE_MMOL_L:
+        return BreakdownCause(
+            "flat_response",
+            f"Заметного ответа не было: {observation} {settle.label} — "
+            f"{mmol(settle.value)}.",
+        )
+    return BreakdownCause("no_bolus_response", observation)
 
 
 def _covers(

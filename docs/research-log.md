@@ -185,6 +185,47 @@ Multiple sources for one question get one entry each, sharing the same
   её из owner-scoped пересчёта IOB на этот момент; параметры действия инсулина не
   менялись.
 
+### 2026-08-10 — Signed-коррекция по CGM и текущий итог болюса
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC7780381/
+- **Consulted for:** можно ли отрицательной поправкой по текущей/прогнозной CGM
+  уменьшать пищевой болюс вместо состояния «расчёт недоступен».
+- **Used in:** `backend/glucotracker/application/insulin_recommendation.py`,
+  `android-concept/app/src/gluco/java/com/local/glucotracker/ui/feature/insulin/HistoricalInsulinSheet.kt`.
+- **Takeaway:** при интерпретации стрелок тренда расчёт еды, коррекция, активный
+  инсулин и недавняя еда рассматриваются вместе; падающий тренд может уменьшать
+  дозу, но требует явного учёта риска гипогликемии.
+- **Verdict:** applied conservatively — поправка по прогнозу теперь signed, а
+  прогноз ниже 3,9 ограничивает числовой итог нулём. Значения ISF, ICR, DIA и
+  порог гипогликемии не менялись.
+
+### 2026-08-10 — Прозрачная формула `еда + коррекция − свободный IOB`
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC9294569/
+- **Consulted for:** базовую структуру современного калькулятора пищевого
+  болюса и место IOB в формуле.
+- **Used in:** `backend/glucotracker/application/insulin_recommendation.py`,
+  `android-concept/app/src/gluco/java/com/local/glucotracker/ui/glucose/BolusBreakdown.kt`.
+- **Takeaway:** опубликованная стандартная структура складывает углеводную и
+  глюкозную части и вычитает IOB; контекст активности может дополнительно
+  модифицировать результат.
+- **Verdict:** partially applied — Glucotracker вычитает не весь IOB, а только
+  остаток после обязательства перед прежним COB, и показывает его отдельной
+  строкой. Нагрузка остаётся явно неучтённым фактором, а не скрытой поправкой.
+
+### 2026-08-10 — Различия калькуляторов в обработке IOB
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC8655273/
+- **Consulted for:** допустимо ли считать одну конкретную схему вычета IOB
+  универсальной и скрывать промежуточные члены.
+- **Used in:** контракте `/glucose/insulin-recommendation` и пояснениях Android.
+- **Takeaway:** коммерческие калькуляторы существенно различаются именно в
+  обработке IOB, особенно ниже цели; промежуточные члены важны для проверки
+  результата пользователем.
+- **Verdict:** applied as a transparency constraint — backend остаётся
+  источником итогового числа, но API и UI отдельно раскрывают signed-коррекцию,
+  общий IOB, COB-обязательство и вычитаемый свободный IOB.
+
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model
 document._

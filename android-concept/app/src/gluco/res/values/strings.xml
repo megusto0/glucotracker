@@ -181,11 +181,13 @@
     <string name="insulin_history_why_correction_forecast">Коррекция: %1$s → %2$s по прогнозу, цель %3$s, ISF %4$s</string>
     <string name="insulin_history_why_iob">IOB до приёма: %1$s ЕД</string>
     <string name="insulin_history_why_committed_iob">Из него %1$s ЕД оставлено под прежний COB %2$s г</string>
-    <string name="insulin_history_why_excess_iob">Свободный IOB: %1$s ЕД учтён только в коррекции</string>
+    <string name="insulin_history_why_excess_iob">Свободный IOB: %1$s ЕД вычтен из итога</string>
+    <string name="insulin_history_why_low_cap">Прогноз ниже 3,9: итог ограничен 0,0 ЕД.</string>
     <string name="insulin_history_why_isf_default">ISF взят по умолчанию — задайте личный в двойнике.</string>
     <string name="insulin_history_insufficient">Недостаточно истории: найдено %1$d из 3 нужных приёмов.</string>
     <string name="insulin_history_no_carbs">В этом приёме нет углеводов для исторического расчёта.</string>
     <string name="insulin_history_low_or_falling">Глюкоза низкая или быстро снижается — итог не рассчитан.</string>
+    <string name="insulin_history_low_or_falling_zero">Прогноз ниже 3,9 — итог сейчас 0,0 ЕД.</string>
     <string name="insulin_history_error">Расчёт сейчас недоступен. Фактический инсулин можно записать ниже.</string>
     <string name="insulin_history_limits">Учтены еда, текущая глюкоза и активный инсулин. Не учтены нагрузка и болезнь.</string>
     <!-- Shown once the episode already has insulin: the calculation stops being
@@ -391,6 +393,7 @@
     <string name="bolus_term_correction">на отклонение</string>
     <string name="bolus_term_carbs">на остаток углеводов</string>
     <string name="bolus_term_iob">минус IOB до болюса</string>
+    <string name="bolus_term_free_iob">минус свободный IOB</string>
     <string name="bolus_term_total">итого расчётно</string>
     <string name="bolus_entered">%1$s ЕД введено</string>
     <string name="bolus_calc_was">расчёт был %1$s</string>

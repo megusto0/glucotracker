@@ -4,7 +4,7 @@ v2 meal component:
   - comparable personal episodes with deferred-bolus reattribution
   - outcome weights from +2h normalized CGM
   - optional ICR blend when twin ICR is configured
-  - low/falling pre-meal gate withholds the actionable total
+  - low/falling glucose caps the actionable total at zero
 
 Correction uses normalized CGM, personal ISF, trend, and prior IOB. A default
 target is applied when the client omits one. Nothing here creates an insulin
@@ -14,7 +14,7 @@ record.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import isfinite, log
 from statistics import median
@@ -212,7 +212,7 @@ ProjectionSource = Literal["linear_trend", "forecast"]
 
 @dataclass(frozen=True)
 class CorrectionEstimate:
-    """Correction component reconstructed at the selected meal time."""
+    """Signed glucose adjustment and free IOB at one calculation instant."""
 
     status: CorrectionStatus
     units: float | None = None
@@ -230,6 +230,7 @@ class CorrectionEstimate:
     # board beyond what that carbohydrate needs.
     prior_cob_g: float | None = None
     excess_iob_units: float | None = None
+    calculated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -343,12 +344,14 @@ class HistoricalInsulinRecommendationService:
                 self.repository.user_id,
             ).get_or_create_params(persist=False),
             excluded_insulin_ids=excluded_insulin_ids,
+            as_of=before_event,
         )
 
     def estimate(
         self,
         meal_ids: list[UUID],
         correction_target_mmol_l: float | None = None,
+        calculation_at: datetime | None = None,
     ) -> InsulinCalculation | None:
         """Return None when any requested meal is absent or not accepted."""
         unique_ids = list(dict.fromkeys(meal_ids))
@@ -372,6 +375,8 @@ class HistoricalInsulinRecommendationService:
             meals,
             effective_target,
             twin_params=twin_params,
+            as_of=calculation_at,
+            separate_iob=True,
         )
         # The food half costs a 180-day pass over episode history and does not
         # change minute to minute, so it is stored and reused.
@@ -381,37 +386,23 @@ class HistoricalInsulinRecommendationService:
             twin_params=twin_params,
         )
 
-        # Safety: no insulin amount is actionable when pre-meal glucose is
-        # low/falling. Keep only the historical matches for auditability; even
-        # a meal-only number is too easy to misread as a recommendation.
-        if correction.status == "low_or_falling":
-            meal_estimate = replace(
-                meal_estimate,
-                status="low_or_falling",
-                recommended_units=None,
-                range_low_units=None,
-                range_high_units=None,
-            )
-            return InsulinCalculation(
-                meal=meal_estimate,
-                correction=correction,
-                total_recommended_units=None,
-                total_range_low_units=None,
-                total_range_high_units=None,
-                meal_from_cache=meal_cached is not None,
-                meal_computed_at=meal_cached,
-            )
-
-        correction_is_usable = correction.status in {"ready", "not_needed"}
+        correction_is_usable = correction.status in {
+            "ready",
+            "not_needed",
+            "low_or_falling",
+        }
         correction_units = correction.units if correction_is_usable else None
+        free_iob_units = correction.excess_iob_units or 0.0
 
         def _total(base: float | None) -> float | None:
             if base is None or correction_units is None:
                 return None
-            # The food estimate is the insulin for this new plate. Prior IOB is
-            # correction context only: subtracting it here silently spends the
-            # same insulin a second time when it is already covering prior COB.
-            return _round_dose(max(0.0, base + correction_units))
+            # A projected low always has a numeric answer: zero now. Otherwise
+            # the calculation is transparent and signed: food + glucose
+            # adjustment - only the IOB left after earlier COB is covered.
+            if correction.status == "low_or_falling":
+                return 0.0
+            return _round_dose(max(0.0, base + correction_units - free_iob_units))
 
         total = _total(meal_estimate.recommended_units)
         total_low = _total(meal_estimate.range_low_units)
@@ -798,8 +789,10 @@ class HistoricalInsulinRecommendationService:
         *,
         twin_params: TwinParams | None = None,
         excluded_insulin_ids: set[UUID] | None = None,
+        as_of: datetime | None = None,
+        separate_iob: bool = False,
     ) -> CorrectionEstimate:
-        """Reconstruct a correction at meal time without counting its own bolus."""
+        """Calculate a signed correction without counting this meal's bolus."""
         if target_mmol_l is None:
             return CorrectionEstimate(status="target_required")
 
@@ -819,12 +812,15 @@ class HistoricalInsulinRecommendationService:
         )
 
         meal_at = min(meal.eaten_at for meal in meals)
+        calculation_at = (
+            _local_wall_time(as_of) if as_of is not None and as_of.tzinfo else as_of
+        ) or meal_at
         dashboard = GlucoseDashboardService(
             self.repository.session,
             self.repository.user_id,
         ).dashboard(
-            meal_at - CORRECTION_LOOKBACK,
-            meal_at,
+            calculation_at - CORRECTION_LOOKBACK,
+            calculation_at,
             "normalized",
         )
         points = dashboard.points
@@ -837,7 +833,7 @@ class HistoricalInsulinRecommendationService:
             )
         latest = points[-1]
         if (
-            meal_at - latest.timestamp > MAX_CGM_AGE
+            calculation_at - latest.timestamp > MAX_CGM_AGE
             or "compression_suspected" in latest.flags
             or "jump_suspected" in latest.flags
         ):
@@ -877,7 +873,7 @@ class HistoricalInsulinRecommendationService:
         trend_projection = GlucoseTrendProjectionService(
             self.repository.session,
             self.repository.user_id,
-        ).project(_utc_instant_from_local_wall(meal_at))
+        ).project(_utc_instant_from_local_wall(calculation_at))
         if trend_projection.is_usable:
             assert trend_projection.projected_mmol_l is not None
             forecast_move = trend_projection.move_mmol_l or 0.0
@@ -887,7 +883,7 @@ class HistoricalInsulinRecommendationService:
 
         iob_units = self._prior_iob_units(
             meals,
-            as_of=meal_at,
+            as_of=calculation_at,
             dia_minutes=twin_params.dia_minutes,
             additionally_excluded_ids=excluded_insulin_ids,
         )
@@ -896,7 +892,7 @@ class HistoricalInsulinRecommendationService:
         # surplus over that commitment should reduce the next dose.
         own_carbs = sum(float(meal.total_carbs_g or 0) for meal in meals)
         prior_cob = max(0.0, float(dashboard.summary.cob_g) - own_carbs)
-        _, icr_now = _icr_for_time(meal_at, twin_params)
+        _, icr_now = _icr_for_time(calculation_at, twin_params)
         committed = prior_cob / icr_now if icr_now and icr_now > 0 else 0.0
         excess_iob = max(0.0, iob_units - committed)
         context = {
@@ -916,6 +912,7 @@ class HistoricalInsulinRecommendationService:
             ),
             "prior_cob_g": round(prior_cob, 1),
             "excess_iob_units": round(excess_iob, 2),
+            "calculated_at": calculation_at,
         }
         # Triggering on rate alone hid the entire calculation - meal dose
         # included - at 8.8 mmol/L falling 4.0/h with 76 g about to be eaten,
@@ -933,18 +930,32 @@ class HistoricalInsulinRecommendationService:
             or projected < LOW_GLUCOSE_MMOL_L
             or fall_landing < LOW_GLUCOSE_MMOL_L
         ):
-            return CorrectionEstimate(status="low_or_falling", **context)
+            gross_units = (projected - target_mmol_l) / isf
+            if not separate_iob:
+                return CorrectionEstimate(status="low_or_falling", **context)
+            return CorrectionEstimate(
+                status="low_or_falling",
+                units=_round_dose(max(-100.0, gross_units)),
+                **context,
+            )
 
         gross_units = (projected - target_mmol_l) / isf
-        # Only IOB left after the earlier COB commitment can reduce a glucose
-        # correction. The committed part cannot cover old carbohydrate and the
-        # correction at the same time.
-        net_units = gross_units - excess_iob
-        if net_units <= 0:
+        if not separate_iob:
+            net_units = gross_units - excess_iob
+            if net_units <= 0:
+                return CorrectionEstimate(status="not_needed", units=0.0, **context)
+            return CorrectionEstimate(
+                status="ready",
+                units=_round_dose(min(net_units, 100.0)),
+                **context,
+            )
+        # Keep the glucose adjustment signed. Free IOB is a separate term in
+        # the meal total so the client can show exactly why the dose shrank.
+        if abs(gross_units) < 0.05:
             return CorrectionEstimate(status="not_needed", units=0.0, **context)
         return CorrectionEstimate(
             status="ready",
-            units=_round_dose(min(net_units, 100)),
+            units=_round_dose(max(-100.0, min(gross_units, 100.0))),
             **context,
         )
 

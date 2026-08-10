@@ -599,6 +599,7 @@ def get_insulin_recommendation(
     ).estimate(
         payload.meal_ids,
         payload.correction_target_mmol_l,
+        payload.calculation_at,
     )
     if calculation is None:
         raise HTTPException(
@@ -641,6 +642,7 @@ def get_insulin_recommendation(
         ),
         correction_prior_cob_g=correction.prior_cob_g,
         correction_excess_iob_units=correction.excess_iob_units,
+        correction_calculated_at=correction.calculated_at,
         total_recommended_units=calculation.total_recommended_units,
         total_range_low_units=calculation.total_range_low_units,
         total_range_high_units=calculation.total_range_high_units,

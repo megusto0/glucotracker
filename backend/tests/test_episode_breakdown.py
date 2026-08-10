@@ -8,6 +8,8 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from glucotracker.application.episode_breakdown import BreakdownAnchor, _food_cause
+from glucotracker.application.episodes import EpisodeComponent
 from glucotracker.domain.entities import MealSource, MealStatus
 from glucotracker.infra.db.models import (
     Meal,
@@ -40,6 +42,57 @@ CURVE: list[tuple[int, float]] = [
     (276, 6.1),
     (330, 5.8),
 ]
+
+
+def _anchor(role: str, value: float, minutes: int) -> BreakdownAnchor:
+    return BreakdownAnchor(
+        role=role,  # type: ignore[arg-type]
+        label="Через 2 ч" if role == "settle" else role,
+        at=NIGHT + timedelta(minutes=minutes),
+        value=value,
+        minutes_from_start=minutes,
+    )
+
+
+def test_food_pattern_names_probable_overcoverage() -> None:
+    meal = Meal(eaten_at=NIGHT, total_carbs_g=54.0, status=MealStatus.accepted)
+    bolus = NightscoutInsulinEvent(
+        timestamp=NIGHT - timedelta(minutes=12),
+        insulin_units=7.0,
+        owner_id=UUID(int=1),
+        source_key="pattern-overcoverage",
+    )
+    cause = _food_cause(
+        EpisodeComponent(meals=[meal], insulin=[bolus], pairs=[]),
+        {
+            "start": _anchor("start", 5.8, 0),
+            "peak": _anchor("peak", 7.0, 54),
+            "settle": _anchor("settle", 5.0, 120),
+        },
+    )
+
+    assert cause is not None
+    assert cause.code == "bolus_overcovered"
+    assert "избыточное покрытие" in cause.text
+    assert "0,8 ниже исходной" in cause.text
+
+
+def test_food_pattern_names_previous_insulin_without_new_bolus() -> None:
+    meal = Meal(eaten_at=NIGHT, total_carbs_g=31.0, status=MealStatus.accepted)
+    cause = _food_cause(
+        EpisodeComponent(meals=[meal], insulin=[], pairs=[]),
+        {
+            "start": _anchor("start", 5.0, 0),
+            "peak": _anchor("peak", 5.7, 35),
+            "settle": _anchor("settle", 4.8, 120),
+        },
+        prior_active_units=2.4,
+    )
+
+    assert cause is not None
+    assert cause.code == "prior_insulin_covering"
+    assert "Без нового болюса" in cause.text
+    assert "предыдущего инсулина" in cause.text
 
 
 def _at(minutes: int) -> datetime:

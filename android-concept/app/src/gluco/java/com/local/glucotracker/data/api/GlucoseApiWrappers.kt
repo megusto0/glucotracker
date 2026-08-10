@@ -73,9 +73,13 @@ class GlucoseApi @Inject constructor(
 
     suspend fun insulinRecommendation(
         mealIds: List<java.util.UUID>,
+        calculationAt: Instant? = null,
     ): InsulinRecommendationResponse =
         glucoseApi.getInsulinRecommendation(
-            InsulinRecommendationRequest(mealIds = mealIds),
+            InsulinRecommendationRequest(
+                mealIds = mealIds,
+                calculationAt = calculationAt,
+            ),
         ).body()
 
     suspend fun sensors(): List<SensorSessionResponse> =

@@ -126,6 +126,7 @@ class BolusBreakdownViewModel @Inject constructor(
                 if (event.eventType == InsulinEventType.Bolus && mealIds.isNotEmpty()) {
                     glucoseApi.insulinRecommendation(
                         mealIds.distinct().map(java.util.UUID::fromString),
+                        calculationAt = event.timestamp,
                     ).toMealBolusCalcUi()
                 } else {
                     glucoseApi.topUpDose(
@@ -152,7 +153,8 @@ internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
         methodVersion == "historical-episode-median-v3"
     val usableCorrection =
         correctionStatus == InsulinRecommendationResponse.CorrectionStatus.READY ||
-            correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED
+            correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED ||
+            correctionStatus == InsulinRecommendationResponse.CorrectionStatus.LOW_OR_FALLING
     val correctionUnits = correctionUnits?.toDouble().takeIf { usableCorrection }
     val total = totalRecommendedUnits?.toDouble().takeIf { usableCorrection } ?: mealUnits
     return BolusCalcUi(
@@ -180,6 +182,9 @@ internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
             }
             correctionUnits?.let {
                 add(BolusTermUi(label = "correction", formula = null, value = it))
+            }
+            correctionExcessIobUnits?.toDouble()?.takeIf { it > 0.0 }?.let {
+                add(BolusTermUi(label = "free_iob", formula = null, value = -it))
             }
         },
         suggestedUnits = total,
@@ -598,6 +603,7 @@ private fun TermRow(term: BolusTermUi) {
                     "carbs" -> R.string.bolus_term_carbs
                     "meal" -> R.string.insulin_term_meal
                     "iob" -> R.string.bolus_term_iob
+                    "free_iob" -> R.string.bolus_term_free_iob
                     else -> R.string.bolus_term_total
                 },
             ),

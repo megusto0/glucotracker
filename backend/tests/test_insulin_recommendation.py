@@ -504,12 +504,13 @@ def test_recommendation_zeros_dose_when_premeal_low(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "low_or_falling"
+    assert body["status"] == "ready"
     assert body["correction_status"] == "low_or_falling"
-    assert body["recommended_units"] is None
-    assert body["range_low_units"] is None
-    assert body["range_high_units"] is None
-    assert body["total_recommended_units"] is None
+    assert body["recommended_units"] is not None
+    assert body["range_low_units"] is not None
+    assert body["range_high_units"] is not None
+    assert body["correction_units"] < 0
+    assert body["total_recommended_units"] == 0.0
 
 
 def test_recommendation_falls_back_to_icr_without_history(
@@ -931,11 +932,11 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
     assert body["correction_trend_mmol_l_per_min"] == 0.0
     # Flat trend would have projected 8.0 and asked for (8.0-6.0)/2.0 = 1.0 U.
     assert body["correction_projected_glucose_mmol_l"] == 5.6
-    assert body["correction_status"] == "not_needed"
-    assert body["correction_units"] == 0.0
-    # Meal dose is unchanged; only the correction component responds.
+    assert body["correction_status"] == "ready"
+    assert body["correction_units"] == -0.2
+    # Meal dose is unchanged; the signed correction reduces the current total.
     assert body["recommended_units"] == 4.0
-    assert body["total_recommended_units"] == 4.0
+    assert body["total_recommended_units"] == 3.8
 
 
 def test_fast_fall_from_a_safe_level_does_not_hide_the_meal_dose(
@@ -1033,9 +1034,10 @@ def test_the_same_fall_from_a_low_level_still_withholds_everything(
     assert response.status_code == 200
     body = response.json()
     assert body["correction_status"] == "low_or_falling"
-    assert body["status"] == "low_or_falling"
-    assert body["recommended_units"] is None
-    assert body["total_recommended_units"] is None
+    assert body["status"] == "ready"
+    assert body["recommended_units"] is not None
+    assert body["correction_units"] < 0
+    assert body["total_recommended_units"] == 0.0
 
 
 def _sleep(session, owner_id, *, start, end) -> None:
@@ -1355,14 +1357,8 @@ def test_hr_sample_instant_falls_back_to_row_start_time() -> None:
     assert _hr_sample_instant(sample, row) == datetime(2026, 8, 3, 6, 0, tzinfo=UTC)
 
 
-def test_surplus_insulin_never_reduces_the_new_meal(api_client: TestClient) -> None:
-    """IOB may reduce a correction, but never the food half of a new bolus.
-
-    Reported twice in the UI: a perfectly ordinary new plate showed a non-zero
-    food estimate and a zero total because old IOB was silently subtracted from
-    the food. That IOB belongs to the earlier episode; without an explicit
-    correction need there is no justified deduction from the new plate.
-    """
+def test_only_free_iob_reduces_the_new_meal(api_client: TestClient) -> None:
+    """IOB beyond earlier COB is an explicit negative term in the total."""
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]
     target_at = datetime(2026, 8, 3, 17, 33)
@@ -1405,10 +1401,63 @@ def test_surplus_insulin_never_reduces_the_new_meal(api_client: TestClient) -> N
     body = response.json()
     assert body["correction_status"] == "not_needed"
     assert body["correction_excess_iob_units"] > 0
-    # The food half remains the food half. Free IOB is correction context, not a
-    # hidden negative meal term.
+    # The food half remains visible; only surplus IOB is subtracted from total.
     assert body["recommended_units"] is not None
-    assert body["total_recommended_units"] == body["recommended_units"]
+    expected = max(
+        0.0,
+        body["recommended_units"]
+        + body["correction_units"]
+        - body["correction_excess_iob_units"],
+    )
+    assert body["total_recommended_units"] == round(expected * 10) / 10
+
+
+def test_explicit_calculation_time_uses_current_cgm_not_meal_time(
+    api_client: TestClient,
+) -> None:
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    meal_at = datetime(2026, 8, 3, 17, 0)
+    calculation_at = meal_at + timedelta(minutes=30)
+    with session_factory() as session:
+        target = _meal(session, owner_id, meal_at, 31.0, title="Гранола")
+        for days_ago in (7, 14, 21):
+            occurred_at = meal_at - timedelta(days=days_ago)
+            _meal(session, owner_id, occurred_at, 31.0)
+            _insulin(session, owner_id, occurred_at, 3.3)
+        for index, value in enumerate((6.2, 5.9, 5.6, 5.3)):
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"current-cgm-{index}",
+                    timestamp=calculation_at - timedelta(minutes=15 - index * 5),
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 9.3
+        params.isf = 2.6
+        params.last_fit_method = "manual"
+        session.commit()
+
+    response = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={
+            "meal_ids": [str(target.id)],
+            "correction_target_mmol_l": 6.0,
+            # Shared API fixtures run in UTC; production converts the Android
+            # instant through the configured Europe/Samara timezone.
+            "calculation_at": "2026-08-03T17:30:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["correction_glucose_mmol_l"] == 5.3
+    assert body["correction_calculated_at"] == "2026-08-03T17:30:00"
+    assert body["total_recommended_units"] is not None
 
 
 def test_no_surplus_when_insulin_is_committed_to_carbs_still_absorbing(

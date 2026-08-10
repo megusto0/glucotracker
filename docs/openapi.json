@@ -6220,6 +6220,19 @@
       "InsulinRecommendationRequest": {
         "description": "Accepted meal or grouped-meal ids to estimate from personal history.",
         "properties": {
+          "calculation_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instant whose glucose, COB and IOB should be used. Omitted reconstructs the meal-time calculation.",
+            "title": "Calculation At"
+          },
           "correction_target_mmol_l": {
             "anyOf": [
               {
@@ -6263,6 +6276,18 @@
             ],
             "title": "Confidence",
             "type": "string"
+          },
+          "correction_calculated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Calculated At"
           },
           "correction_excess_iob_units": {
             "anyOf": [

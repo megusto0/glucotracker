@@ -8,10 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * The total is exactly food plus correction. IOB is context inside the
- * correction and must never become a third, hidden subtraction from food.
- */
+/** The total exposes food, signed correction, and only free IOB as terms. */
 class HistoricalInsulinUiStateTest {
 
     private fun response(
@@ -99,11 +96,11 @@ class HistoricalInsulinUiStateTest {
     }
 
     @Test
-    fun `prospective terms do not subtract iob a second time`() {
+    fun `prospective terms subtract only free iob`() {
         val terms = ready(response()).toBolusTerms()
 
-        assertEquals(listOf("meal", "correction"), terms.map { it.label })
-        assertEquals(listOf(5.2, 1.1), terms.map { it.value })
+        assertEquals(listOf("meal", "correction", "free_iob"), terms.map { it.label })
+        assertEquals(listOf(5.2, 1.1, -0.7), terms.map { it.value })
     }
 
     @Test
@@ -118,6 +115,21 @@ class HistoricalInsulinUiStateTest {
 
         assertTrue(state.includesCorrection)
         assertEquals(5.2, state.headlineUnits, 1e-9)
+    }
+
+    @Test
+    fun `low forecast remains a numeric zero calculation`() {
+        val state = ready(
+            response(
+                correctionStatus = InsulinRecommendationResponse.CorrectionStatus.LOW_OR_FALLING,
+                correctionUnits = BigDecimal("-0.4"),
+                totalRecommendedUnits = BigDecimal.ZERO,
+            ),
+        )
+
+        assertTrue(state.includesCorrection)
+        assertTrue(state.correction!!.isLowOrFalling)
+        assertEquals(0.0, state.headlineUnits, 1e-9)
     }
 
     @Test

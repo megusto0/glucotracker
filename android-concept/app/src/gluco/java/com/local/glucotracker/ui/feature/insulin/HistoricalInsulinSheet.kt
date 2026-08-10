@@ -92,6 +92,7 @@ data class CorrectionPart(
     val priorCobG: Double?,
     val excessIobUnits: Double?,
     val projectionIsForecast: Boolean,
+    val isLowOrFalling: Boolean,
 )
 
 /** Everything the meal half was derived from, so the sheet can show it. */
@@ -169,7 +170,9 @@ class HistoricalInsulinViewModel @Inject constructor(
                     }
                     return@launch
                 }
-            val loadedState = runCatching { glucoseApi.insulinRecommendation(ids) }
+            val loadedState = runCatching {
+                glucoseApi.insulinRecommendation(ids, calculationAt = Clock.System.now())
+            }
                 .fold(
                     onSuccess = { response -> response.toUiState() },
                     onFailure = { HistoricalInsulinUiState.Error },
@@ -198,13 +201,23 @@ internal fun InsulinRecommendationResponse.toUiState(): HistoricalInsulinUiState
     when (status) {
         InsulinRecommendationResponse.Status.READY -> {
             val meal = recommendedUnits?.toDouble()
-            val low = rangeLowUnits?.toDouble()
-            val high = rangeHighUnits?.toDouble()
-            if (meal == null || low == null || high == null) {
+            val mealLow = rangeLowUnits?.toDouble()
+            val mealHigh = rangeHighUnits?.toDouble()
+            if (meal == null || mealLow == null || mealHigh == null) {
                 HistoricalInsulinUiState.Error
             } else {
                 val correction = correctionPart()
                 val total = totalRecommendedUnits?.toDouble()
+                val low = if (correction != null) {
+                    totalRangeLowUnits?.toDouble() ?: mealLow
+                } else {
+                    mealLow
+                }
+                val high = if (correction != null) {
+                    totalRangeHighUnits?.toDouble() ?: mealHigh
+                } else {
+                    mealHigh
+                }
                 // The backend only produces a total when the correction is
                 // usable. Without one the meal figure still stands, but it must
                 // not be presented as if it accounted for glucose and IOB.
@@ -256,7 +269,8 @@ internal fun InsulinRecommendationResponse.toUiState(): HistoricalInsulinUiState
 
 private fun InsulinRecommendationResponse.correctionPart(): CorrectionPart? {
     val usable = correctionStatus == InsulinRecommendationResponse.CorrectionStatus.READY ||
-        correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED
+        correctionStatus == InsulinRecommendationResponse.CorrectionStatus.NOT_NEEDED ||
+        correctionStatus == InsulinRecommendationResponse.CorrectionStatus.LOW_OR_FALLING
     if (!usable) return null
     return CorrectionPart(
         units = correctionUnits?.toDouble() ?: 0.0,
@@ -271,6 +285,8 @@ private fun InsulinRecommendationResponse.correctionPart(): CorrectionPart? {
         excessIobUnits = correctionExcessIobUnits?.toDouble(),
         projectionIsForecast = correctionProjectionSource ==
             InsulinRecommendationResponse.CorrectionProjectionSource.FORECAST,
+        isLowOrFalling = correctionStatus ==
+            InsulinRecommendationResponse.CorrectionStatus.LOW_OR_FALLING,
     )
 }
 
@@ -509,6 +525,14 @@ private fun HistoricalEstimateBlock(
                     horizontalPadding = 0.dp,
                 )
                 CorrectionGapNotice(state.correctionGap)
+                if (state.correction?.isLowOrFalling == true) {
+                    Text(
+                        text = stringResource(R.string.insulin_history_low_or_falling_zero),
+                        modifier = Modifier.padding(top = 4.dp),
+                        color = GT.colors.warn,
+                        style = GT.type.sansLabel,
+                    )
+                }
                 IcrLine(state.basis)
                 Text(
                     text = stringResource(
@@ -564,11 +588,13 @@ internal fun HistoricalInsulinUiState.Ready.toBolusState() = BolusStateUi(
     target = correction?.targetMmolL,
 )
 
-/** IOB is context inside correction, never a second subtraction from food. */
 internal fun HistoricalInsulinUiState.Ready.toBolusTerms() = buildList {
     add(BolusTermUi(label = "meal", formula = null, value = mealUnits))
     correction?.let {
         add(BolusTermUi(label = "correction", formula = null, value = it.units))
+        it.excessIobUnits?.takeIf { units -> units > 0.0 }?.let { freeIob ->
+            add(BolusTermUi(label = "free_iob", formula = null, value = -freeIob))
+        }
     }
 }
 
@@ -742,6 +768,9 @@ private fun reasoningLines(state: HistoricalInsulinUiState.Ready): List<String> 
         }
         correction.excessIobUnits?.takeIf { it > 0.0 }?.let { excess ->
             lines += stringResource(R.string.insulin_history_why_excess_iob, formatDose(excess))
+        }
+        if (correction.isLowOrFalling) {
+            lines += stringResource(R.string.insulin_history_why_low_cap)
         }
         if (correction.isfIsDefault) {
             lines += stringResource(R.string.insulin_history_why_isf_default)
