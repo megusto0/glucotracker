@@ -226,6 +226,20 @@ Multiple sources for one question get one entry each, sharing the same
   источником итогового числа, но API и UI отдельно раскрывают signed-коррекцию,
   общий IOB, COB-обязательство и вычитаемый свободный IOB.
 
+### 2026-08-10 — Ночные артефакты сдавливания CGM
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC3879750/
+- **Consulted for:** можно ли считать резкие ночные провалы CGM следствием
+  давления на сенсор и безопасно ли скрывать их из расчётов разбора сна.
+- **Used in:** `android-concept/app/src/gluco/java/com/local/glucotracker/ui/glucose/BodyStateBreakdown.kt`.
+- **Takeaway:** в исследовании внезапные отклонения отдельных сенсоров во сне
+  коррелировали с положением тела и давлением на область сенсора, но один
+  график не позволяет доказать, что конкретная точка является артефактом.
+- **Verdict:** applied only to presentation — ночная линия получает явно
+  подписанное тяжёлое сглаживание, а исходные нормализованные точки продолжают
+  определять TIR, минуты ниже диапазона и текст вывода. Сглаживание не меняет
+  данные и не участвует в расчёте терапии.
+
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model
 document._

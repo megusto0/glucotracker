@@ -422,6 +422,12 @@
     <string name="episode_kind_mixed">· ЕДА И КОРРЕКЦИЯ</string>
     <string name="body_breakdown_sleep_title">Сон</string>
     <string name="body_breakdown_activity_title">Нагрузка</string>
+    <string name="body_breakdown_sleep_kicker_one_day">СОН · НОЧЬ %1$d %2$s</string>
+    <string name="body_breakdown_sleep_kicker_two_days">СОН · НОЧЬ %1$d→%2$d %3$s</string>
+    <string name="body_breakdown_activity_kicker">НАГРУЗКА · ТИП %1$s</string>
+    <string name="body_breakdown_type_unknown">?</string>
+    <string name="body_breakdown_duration_hours_minutes">%1$d ч %2$02d мин</string>
+    <string name="body_breakdown_duration_minutes_only">%1$d мин</string>
     <string name="body_breakdown_recorded">записана браслетом</string>
     <string name="body_breakdown_inferred">по пульсу</string>
     <string name="body_breakdown_duration">%1$s · %2$s—%3$s</string>
@@ -431,8 +437,13 @@
     <string name="body_breakdown_stage_light">ЛЁГКИЙ</string>
     <string name="body_breakdown_stage_deep">ГЛУБОКИЙ</string>
     <string name="body_breakdown_stages_missing">Браслет не передал стадии этой ночи</string>
+    <string name="body_breakdown_stages_compressed">Браслет передал только общее окно сна — разбивки по стадиям нет</string>
+    <string name="body_breakdown_not_available">—</string>
     <string name="body_breakdown_heart_rate">ПУЛЬС</string>
     <string name="body_breakdown_hr_steps">ПУЛЬС И ШАГИ</string>
+    <string name="body_breakdown_pulse">ПУЛЬС</string>
+    <string name="body_breakdown_steps_available">ШАГИ %1$d</string>
+    <string name="body_breakdown_steps_sensor_silent">ШАГОВ НЕТ · ДАТЧИК МОЛЧАЛ</string>
     <string name="body_breakdown_training_missing">тренировка не записана</string>
     <string name="body_breakdown_steps_missing">шагов нет в данных</string>
     <string name="body_breakdown_sleep_glucose">ГЛЮКОЗА ВО СНЕ</string>
@@ -441,6 +452,7 @@
     <string name="body_breakdown_peak">ПИК</string>
     <string name="body_breakdown_steps">ШАГИ</string>
     <string name="body_breakdown_steady">РОВНО</string>
+    <string name="body_breakdown_duration_metric">ВРЕМЯ</string>
     <string name="body_breakdown_tir">TIR</string>
     <string name="body_breakdown_low">ГИПО</string>
     <string name="body_breakdown_deep">ГЛУБОКИЙ</string>
@@ -461,6 +473,11 @@
     <string name="body_breakdown_type_other">ДРУГОЕ</string>
     <string name="body_breakdown_remember_rule">Запомнить: ровный пульс без шагов &gt; 40 мин = %1$s</string>
     <string name="body_breakdown_insight">ЧТО ЗАПОМНИТЬ</string>
+    <string name="body_breakdown_sleep_insight">СВЯЗЬ С ГЛИКЕМИЕЙ</string>
+    <string name="body_breakdown_sleep_glucose_summary">TIR %1$d%% · гипо %2$d мин · сглажено</string>
+    <string name="body_breakdown_sleep_tir_summary">TIR %1$d%% · сглажено</string>
+    <string name="body_breakdown_sleep_low_summary">гипо %1$d мин · сглажено</string>
+    <string name="body_breakdown_activity_delta_summary">%1$s за 2 ч</string>
     <string name="body_breakdown_sleep_low_wake">Пробуждение в %1$s совпало с глюкозой %2$s. Это совпадение по времени, а не доказанная причина пробуждения.</string>
     <string name="body_breakdown_sleep_low">Во сне было %1$d мин ниже 3,9; минимум %2$s в %3$s.</string>
     <string name="body_breakdown_sleep_shorter">Эта ночь на %1$d мин короче вашего среднего за 30 дней.</string>
@@ -473,5 +490,25 @@
     <string name="body_breakdown_activity_no_glucose">Для оценки отклика не хватает глюкозы до нагрузки или в следующие два часа.</string>
     <string name="body_breakdown_frequency_sleep">Ночей за %2$d дней: %1$d · обычно %3$s</string>
     <string name="body_breakdown_frequency_activity">Похожих нагрузок за %2$d дней: %1$d · обычно %3$s</string>
+    <string name="body_breakdown_footer_shorter">на %1$d мин меньше среднего за %2$d дней</string>
+    <string name="body_breakdown_footer_longer">на %1$d мин больше среднего за %2$d дней</string>
+    <string name="body_breakdown_footer_sleep_count">ночей за %2$d дней: %1$d</string>
+    <string name="body_breakdown_footer_activity_count">нагрузок за %2$d дней: %1$d</string>
+    <string name="body_breakdown_all_nights">ВСЕ НОЧИ ›</string>
+    <string name="body_breakdown_all_activity">ВСЕ НАГРУЗКИ ›</string>
     <string name="body_breakdown_unavailable">Разбор недоступен — данные ещё не синхронизированы или нет связи с сервером.</string>
+    <string-array name="body_breakdown_months_genitive">
+        <item>ЯНВАРЯ</item>
+        <item>ФЕВРАЛЯ</item>
+        <item>МАРТА</item>
+        <item>АПРЕЛЯ</item>
+        <item>МАЯ</item>
+        <item>ИЮНЯ</item>
+        <item>ИЮЛЯ</item>
+        <item>АВГУСТА</item>
+        <item>СЕНТЯБРЯ</item>
+        <item>ОКТЯБРЯ</item>
+        <item>НОЯБРЯ</item>
+        <item>ДЕКАБРЯ</item>
+    </string-array>
 </resources>
