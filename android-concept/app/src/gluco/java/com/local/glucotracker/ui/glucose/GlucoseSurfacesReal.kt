@@ -1355,13 +1355,6 @@ private fun EpisodeInsulinFooter(
                         ""
                     }
             },
-            action = if (!canOpenInsulin) {
-                null
-            } else if (retrospective) {
-                stringResource(R.string.insulin_footer_review)
-            } else {
-                stringResource(R.string.insulin_footer_suggest)
-            },
             onClick = if (canOpenInsulin) {
                 {
                     if (retrospective) showBreakdown = true else showSheet = true
@@ -1375,10 +1368,12 @@ private fun EpisodeInsulinFooter(
             Spacer(Modifier.width(8.dp))
             EpisodeFooterZone(
                 fact = episodeOutcomeText(footer),
-                action = stringResource(R.string.episode_footer_breakdown),
                 onClick = { showEpisodeBreakdown = true },
                 modifier = Modifier.weight(1f),
                 endAligned = true,
+                // The outcome is what the card is read for, and it sat at ten
+                // point in the corner while the date above it ran to thirty.
+                emphasised = true,
             )
         }
     }
@@ -1408,12 +1403,19 @@ private fun EpisodeInsulinFooter(
 @Composable
 private fun EpisodeFooterZone(
     fact: String,
-    action: String?,
     onClick: (() -> Unit)?,
     modifier: Modifier,
     endAligned: Boolean = false,
+    emphasised: Boolean = false,
 ) {
-    Column(
+    // One line, and the numbers are the target. The zone used to stack the fact
+    // over a word — «РАСЧЁТ ›», «РАЗБОР ›» — which put four texts in a card
+    // footer and truncated the fact to make room. Once left is always input and
+    // right is always outcome the words carry nothing: the mark is the dashed
+    // rule the sitting time already uses, and the memory is positional.
+    val head = fact.substringBefore(" · ")
+    val tail = fact.substringAfter(" · ", missingDelimiterValue = "")
+    Row(
         modifier = modifier
             .heightIn(min = 44.dp)
             .then(
@@ -1424,22 +1426,31 @@ private fun EpisodeFooterZone(
                 },
             )
             .padding(horizontal = 6.dp, vertical = 5.dp),
-        horizontalAlignment = if (endAligned) Alignment.End else Alignment.Start,
-        verticalArrangement = Arrangement.Center,
+        horizontalArrangement = if (endAligned) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Mono earns its place on the figures, where digits line up. On the
+        // phrase beside them it is the slowest setting in the app: monospaced,
+        // ten point, and Cyrillic.
         Text(
-            text = fact,
-            color = GT.colors.muted,
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
+            text = head,
+            color = if (emphasised) GT.colors.ink2 else GT.colors.muted,
+            style = GT.type.monoLabel.copy(fontSize = 12.sp),
+            modifier = if (onClick != null) {
+                Modifier.dashedUnderline(GT.colors.hairline2)
+            } else {
+                Modifier
+            },
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
-        action?.let {
+        if (tail.isNotEmpty()) {
+            Spacer(Modifier.width(5.dp))
             Text(
-                text = it,
-                color = GT.colors.accent,
-                style = GT.type.kicker.copy(fontSize = 9.sp),
+                text = tail,
+                color = GT.colors.muted,
+                style = GT.type.sansLabel.copy(fontSize = 12.sp),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

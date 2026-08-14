@@ -465,7 +465,7 @@ private fun FirstAfterSleepGlyph(color: Color) {
 }
 
 /** A dashed rule under a value that can be changed by pressing it. */
-private fun Modifier.dashedUnderline(color: Color): Modifier = drawBehind {
+internal fun Modifier.dashedUnderline(color: Color): Modifier = drawBehind {
     val y = size.height + 2.dp.toPx()
     drawLine(
         color = color,

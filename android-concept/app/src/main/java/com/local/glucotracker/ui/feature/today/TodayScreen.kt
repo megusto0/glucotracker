@@ -553,7 +553,10 @@ private fun TodayHeader(
                 style = if (foodBrand) {
                     GT.type.serifTitle.copy(fontSize = 32.sp)
                 } else {
-                    GT.type.serifTitle
+                    // Smaller than it was: the date was the largest thing on a
+                    // screen where it is the least actionable, while the
+                    // episode outcome sat at ten point in a corner.
+                    GT.type.serifTitle.copy(fontSize = 24.sp)
                 },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1671,7 +1674,7 @@ private fun primaryRightText(row: TodayMealRowUi, isOnline: Boolean): String =
         pendingStatusText(row, isOnline)
     } else {
         listOfNotNull(
-            row.totalKcal?.let { formatKcal(it) },
+            row.totalKcal?.let { stringResource(R.string.today_right_kcal, formatKcal(it)) },
             row.totalCarbsG?.let { stringResource(R.string.today_right_carbs, formatGrams(it)) },
         ).takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: "—"
     }
@@ -1832,7 +1835,7 @@ private fun weekdaySpoken(date: LocalDate): String =
     date.toJava().format(DateTimeFormatter.ofPattern("EEEE", Locale("ru")))
 
 private fun dateTitle(date: LocalDate): String =
-    date.toJava().format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+    date.toJava().format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru")))
 
 private fun foodDateTitle(date: LocalDate): String =
     date.toJava().format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
