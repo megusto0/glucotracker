@@ -1655,7 +1655,7 @@ private fun InlineInsulinLine(event: InsulinEvent, mealAt: Instant? = null) {
 }
 
 @Composable
-private fun OrphanInsulinRow(
+internal fun OrphanInsulinRow(
     event: InsulinEvent,
     onOpenResponse: (() -> Unit)? = null,
     // Today lays these out between cards, so the row needs a surface of its own
@@ -1673,6 +1673,25 @@ private fun OrphanInsulinRow(
             showTooltip = false
         }
     }
+    // A foodless episode has nothing between a header and a footer, and the
+    // card was printing its two facts twice: «1,0 ЕД» and «11:11» stood in the
+    // header and again in the footer's left zone forty pixels below. Collapsed
+    // to one row with the same two zones — left the dose, right the outcome —
+    // which is also how the sleep and activity rows beside it already read.
+    var showBreakdown by remember(footer?.episodeKey) { mutableStateOf(false) }
+    val kind = stringResource(R.string.insulin_correction).takeIf {
+        event.eventType == InsulinEventType.Correction
+    }
+    // Dose first, as in a meal card's footer: the zone sets its head in mono and
+    // marks it as the target, and the dose is the figure worth that treatment.
+    // The clock rides in the tail, where it reads as a detail of the dose rather
+    // than as a column — the neighbouring body-state rows have no time gutter
+    // either, and the list is already in order.
+    val fact = listOfNotNull(
+        "${formatInsulinDose(event.doseUnits)} ${stringResource(R.string.insulin_units_short)}",
+        kind,
+        event.timestamp.timeText(),
+    ).joinToString(" · ")
     Column(
         modifier = if (framed) {
             Modifier
@@ -1686,69 +1705,49 @@ private fun OrphanInsulinRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 44.dp)
-                .pointerInput(event.id, onOpenResponse, event.isReadOnly, event.isPending) {
-                    detectTapGestures(
-                        onTap = {
-                            if (!event.isReadOnly && !event.isPending) {
-                                showManagement = true
-                            } else {
-                                onOpenResponse?.invoke()
-                            }
-                        },
-                        onLongPress = { showTooltip = true },
-                    )
-                }
-                .padding(horizontal = 14.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = event.timestamp.timeText(),
-                modifier = Modifier.width(36.dp),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
-                maxLines = 1,
-            )
-            Text(
-                text = "+",
-                modifier = Modifier.width(32.dp),
-                color = GT.colors.ink2.copy(alpha = 0.7f),
-                style = GT.type.monoLabel.copy(fontSize = 12.sp),
-                maxLines = 1,
-            )
-            Text(
-                text = listOfNotNull(
-                    "${formatInsulinDose(event.doseUnits)} ${stringResource(R.string.insulin_units_short)}",
-                    stringResource(R.string.insulin_correction).takeIf {
-                        event.eventType == InsulinEventType.Correction
+            EpisodeFooterZone(
+                fact = fact,
+                onClick = {
+                    if (!event.isReadOnly && !event.isPending) {
+                        showManagement = true
+                    } else {
+                        onOpenResponse?.invoke()
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(event.id) {
+                        detectTapGestures(onLongPress = { showTooltip = true })
                     },
-                ).joinToString("  "),
-                modifier = Modifier.weight(1f),
-                color = GT.colors.ink2.copy(alpha = 0.72f),
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
-                maxLines = 1,
             )
-            Text(
-                text = event.displaySource(),
-                color = GT.colors.ink2.copy(alpha = 0.46f),
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
-                maxLines = 1,
-            )
+            if (footer != null && date != null) {
+                Spacer(Modifier.width(8.dp))
+                EpisodeFooterZone(
+                    fact = episodeOutcomeText(footer),
+                    onClick = { showBreakdown = true },
+                    modifier = Modifier.weight(1f),
+                    endAligned = true,
+                    emphasised = true,
+                )
+            }
         }
         if (showTooltip) {
+            // The source lives here now. «Nightscout» on every correction row
+            // was a fact about plumbing, printed at the weight of the dose.
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                 InsulinTooltip(event = event)
             }
         }
-        if (footer != null) {
-            EpisodeInsulinFooter(
-                events = listOf(event),
-                mealAt = null,
-                mealIds = emptyList(),
-                footer = footer,
-                date = date,
-            )
-        }
+    }
+    if (showBreakdown && footer != null && date != null) {
+        EpisodeBreakdownSheet(
+            episodeKey = footer.episodeKey,
+            date = date,
+            onDismiss = { showBreakdown = false },
+        )
     }
     if (showManagement) {
         InsulinManagementSheet(

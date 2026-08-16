@@ -8,6 +8,7 @@ import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.glucose.BolusBreakdownContent
 import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
+import com.local.glucotracker.ui.glucose.OrphanInsulinRow
 import com.local.glucotracker.ui.glucose.SittingHeader
 import com.local.glucotracker.ui.glucose.SittingMeal
 import com.local.glucotracker.ui.navigation.OfflineBannerUiState
@@ -163,6 +164,27 @@ class GlucoFeatureSnapshotTest {
 
     @Test fun episodeBreakdownMeal() = glucoSnapshot("gluco_episode_breakdown_meal") {
         EpisodeBreakdownContent(coveredMealBreakdown())
+    }
+
+    /**
+     * A foodless episode, the row Today draws between meal cards.
+     *
+     * It had no picture anywhere until now: the screen-level goldens all render
+     * the fake surface, so the real row was invisible to every diff — which is
+     * how it kept a header and a footer that printed the same dose and the same
+     * clock twice.
+     */
+    @Test fun orphanCorrection() = glucoSnapshot("gluco_orphan_correction") {
+        OrphanInsulinRow(
+            event = standaloneCorrection(),
+            footer = standaloneCorrectionFooter(),
+            date = standaloneCorrectionDate(),
+        )
+    }
+
+    /** The same row while the curve has no answer yet: the left zone alone. */
+    @Test fun orphanCorrectionBare() = glucoSnapshot("gluco_orphan_correction_bare") {
+        OrphanInsulinRow(event = standaloneCorrection())
     }
 
     /** Screen G: the chasing bolus of a four-dose sitting, and why it was 2,2. */
