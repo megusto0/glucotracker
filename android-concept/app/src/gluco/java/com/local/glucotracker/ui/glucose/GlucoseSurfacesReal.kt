@@ -688,10 +688,12 @@ private fun TodaySingleCard(
             firstAfterSleep = firstAfterSleep,
             kindLabel = episodeKindLabel(classification, 1),
             kindColor = kindColor,
-            totals = todayEpisodeSummary(
-                entry.row.totalCarbsG ?: 0.0,
-                entry.row.totalKcal ?: 0.0,
-            ),
+            // Nothing. On one plate the sitting's total is the plate's own
+            // figures, which the row below states twenty pixels down — and
+            // stated them in the other order, so the same two numbers read as
+            // «86,9 г · 685 ккал» and «685 ккал · 86,9 г» on one card. The
+            // total earns its line only when it sums more than one thing.
+            totals = "",
             meals = mealId?.let { listOf(SittingMeal(it, entry.row.eatenAt)) }.orEmpty(),
             episodeKey = episodeKey,
             date = date,
@@ -742,7 +744,11 @@ private fun TodayEpisodeCard(
             firstAfterSleep = firstAfterSleep,
             kindLabel = episodeKindLabel(classification, entries.size),
             kindColor = kindColor(entries.first().row.id),
-            totals = todayEpisodeSummary(totalCarbs, totalKcal),
+            totals = if (entries.size > 1) {
+                todayEpisodeSummary(totalCarbs, totalKcal)
+            } else {
+                ""
+            },
             meals = entries.mapNotNull { entry ->
                 entry.row.recordId?.let { SittingMeal(it, entry.row.eatenAt) }
             },
@@ -1227,10 +1233,14 @@ private fun <T> EpisodeCard(
             ),
             kindLabel = episodeKindLabel(context.classificationByMealId[rowId(first)], rows.size),
             kindColor = context.classificationByMealId[rowId(first)].kindColor(),
-            totals = todayEpisodeSummary(
-                rows.sumOf { rowCarbs(it) ?: 0.0 },
-                rows.sumOf { rowKcal(it) ?: 0.0 },
-            ),
+            totals = if (rows.size > 1) {
+                todayEpisodeSummary(
+                    rows.sumOf { rowCarbs(it) ?: 0.0 },
+                    rows.sumOf { rowKcal(it) ?: 0.0 },
+                )
+            } else {
+                ""
+            },
             meals = rows.mapNotNull { row ->
                 rowRecordId(row)?.let { SittingMeal(it, rowTime(row)) }
             },
@@ -1311,7 +1321,7 @@ private sealed interface InsulinTimelineItem<out T> {
  * history would have suggested, which is the moment that question is live.
  */
 @Composable
-private fun EpisodeInsulinFooter(
+internal fun EpisodeInsulinFooter(
     events: List<InsulinEvent>,
     mealAt: Instant?,
     mealIds: List<String>,
@@ -1369,7 +1379,12 @@ private fun EpisodeInsulinFooter(
             EpisodeFooterZone(
                 fact = episodeOutcomeText(footer),
                 onClick = { showEpisodeBreakdown = true },
-                modifier = Modifier.weight(1f),
+                // No weight. An even split gave "9,0 ЕД вместе с едой" half the
+                // card next to the word «наблюдение», and the long side was the
+                // one that got cut: «9,0 ЕД вместе с едо…». The outcome is short
+                // and bounded, so it takes what it needs and the variable side
+                // gets the remainder.
+                modifier = Modifier,
                 endAligned = true,
                 // The outcome is what the card is read for, and it sat at ten
                 // point in the corner while the date above it ran to thirty.
@@ -1728,7 +1743,9 @@ internal fun OrphanInsulinRow(
                 EpisodeFooterZone(
                     fact = episodeOutcomeText(footer),
                     onClick = { showBreakdown = true },
-                    modifier = Modifier.weight(1f),
+                    // Unweighted, as in the meal footer: the outcome is bounded
+                    // and the dose line is what varies.
+                    modifier = Modifier,
                     endAligned = true,
                     emphasised = true,
                 )

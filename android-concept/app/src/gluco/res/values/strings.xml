@@ -290,7 +290,11 @@
     <string name="episode_footer_recovery">%1$s → %2$s · %3$s</string>
     <string name="episode_footer_minimum">минимум %1$s · %2$s</string>
     <string name="episode_footer_minimum_low">минимум %1$s · гипо</string>
-    <string name="episode_footer_ongoing">наблюдение продолжается</string>
+    <!-- One word. In the outcome slot «продолжается» added nothing the tense
+         did not already carry, and twenty-three characters beside a dose line
+         is what pushed the footer past one line: on the phone it clipped to
+         «наблюдение» anyway, without even an ellipsis to say so. -->
+    <string name="episode_footer_ongoing">наблюдение</string>
     <string name="episode_footer_no_cgm">нет данных сенсора</string>
     <string name="body_state_sleep">Сон</string>
     <string name="body_state_activity">Активность</string>

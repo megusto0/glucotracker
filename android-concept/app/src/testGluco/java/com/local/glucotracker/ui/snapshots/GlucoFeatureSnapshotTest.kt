@@ -7,6 +7,7 @@ import app.cash.paparazzi.Paparazzi
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.glucose.BolusBreakdownContent
 import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
+import com.local.glucotracker.ui.glucose.EpisodeInsulinFooter
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.glucose.OrphanInsulinRow
 import com.local.glucotracker.ui.glucose.SittingHeader
@@ -164,6 +165,32 @@ class GlucoFeatureSnapshotTest {
 
     @Test fun episodeBreakdownMeal() = glucoSnapshot("gluco_episode_breakdown_meal") {
         EpisodeBreakdownContent(coveredMealBreakdown())
+    }
+
+    /**
+     * The meal footer at its widest: a long dose line and an unsettled outcome.
+     *
+     * Both sides used to be cut at once — the left with an ellipsis, the right
+     * silently — because each zone took half the card whatever it held.
+     */
+    @Test fun mealFooterOngoing() = glucoSnapshot("gluco_meal_footer_ongoing") {
+        EpisodeInsulinFooter(
+            events = footerMealBolus(),
+            mealAt = FOOTER_MEAL_AT,
+            mealIds = footerMealIds(),
+            footer = footerOngoing(),
+            date = standaloneCorrectionDate(),
+        )
+    }
+
+    @Test fun mealFooterPeak() = glucoSnapshot("gluco_meal_footer_peak") {
+        EpisodeInsulinFooter(
+            events = footerMealBolus(),
+            mealAt = FOOTER_MEAL_AT,
+            mealIds = footerMealIds(),
+            footer = footerPeak(),
+            date = standaloneCorrectionDate(),
+        )
     }
 
     /**
