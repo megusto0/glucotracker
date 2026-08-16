@@ -1616,6 +1616,12 @@ class TwinParams(Base, TimestampMixin):
         server_default="0",
         nullable=False,
     )
+    insulin_therapy: Mapped[list[Any]] = mapped_column(
+        JSON,
+        default=list,
+        server_default=text("'[]'"),
+        nullable=False,
+    )
     last_fit_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

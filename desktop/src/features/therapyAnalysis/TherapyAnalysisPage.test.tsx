@@ -387,6 +387,13 @@ describe("предложение базального теста", () => {
     end_hour: 22,
     expected_change_u_per_hour: -0.31,
     fasting_hours: 4,
+    preparation_start_minutes: 870,
+    test_start_minutes: 1140,
+    test_end_minutes: 1380,
+    last_bolus_minutes: 870,
+    last_meal_minutes: 960,
+    insulin_washout_minutes: 270,
+    carb_washout_minutes: 180,
     label: "20:00—22:00",
     start_hour: 20,
     window_count: 12,
@@ -410,7 +417,15 @@ describe("предложение базального теста", () => {
       isLoading: false,
     } as ReturnType<typeof useGlucoseTherapyAnalysis>);
     mockedUseTopUp.mockReturnValue({
-      data: iobUnits == null ? undefined : { iob_units: iobUnits },
+      data:
+        iobUnits == null
+          ? undefined
+          : {
+              cob_g: 0,
+              cob_minutes_remaining: 0,
+              iob_units: iobUnits,
+              iob_minutes_remaining: iobUnits > 0 ? 230 : 0,
+            },
       isSuccess: iobUnits != null,
     } as ReturnType<typeof useTopUpDose>);
     mockedUseRuns.mockReturnValue({ data: runs } as ReturnType<
@@ -435,9 +450,16 @@ describe("предложение базального теста", () => {
     renderWithIob(0);
 
     expect(screen.getByText("Базальный тест голодом")).toBeVisible();
-    expect(screen.getByText(/20:00—22:00/)).toBeVisible();
+    expect(screen.getAllByText(/20:00—22:00/)).toHaveLength(2);
     expect(screen.getByText("6 дн · 12 окон")).toBeVisible();
     expect(screen.getByText("-0.31 Ед/ч")).toBeVisible();
+    expect(screen.getByText("14:30")).toBeVisible();
+    expect(screen.getByText(/до 14:30 · DIA 4 ч 30 мин/)).toBeVisible();
+    expect(screen.getByText(/до 16:00 · усвоение 3 ч/)).toBeVisible();
+    expect(screen.getByText("19:00—23:00")).toBeVisible();
+    expect(
+      screen.getByText(/базальную подачу помпы не останавливать/i),
+    ).toBeVisible();
   });
 
   test("активный инсулин закрывает кнопку", () => {
@@ -446,14 +468,15 @@ describe("предложение базального теста", () => {
     // in the protocol asking the reader to check.
     renderWithIob(2.4);
 
-    expect(screen.getByText(/Активный инсулин 2\.40 Ед/)).toBeVisible();
+    expect(screen.getByText(/IOB 2\.40 Ед/)).toBeVisible();
+    expect(screen.getByText(/через 3 ч 50 мин/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Начать тест" })).toBeDisabled();
   });
 
   test("без активного инсулина отрезок можно начать", () => {
     renderWithIob(0);
 
-    expect(screen.getByText(/Активного инсулина нет/)).toBeVisible();
+    expect(screen.getByText(/IOB и COB сейчас нулевые/)).toBeVisible();
     const start = screen.getByRole("button", { name: "Начать тест" });
     expect(start).toBeEnabled();
 

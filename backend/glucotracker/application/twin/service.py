@@ -74,22 +74,24 @@ class TwinService:
     def patch_params(self, payload: TwinParamsPatch) -> TwinParamsRead:
         """Apply a manual twin parameter override and append a history row."""
         row = self.repository.get_or_create_params()
-        updates = payload.model_dump(exclude_unset=True)
+        updates = payload.model_dump(exclude_unset=True, mode="json")
         for field, value in updates.items():
             setattr(row, field, value)
         _validate_slot_order(row)
         now = utc_now()
         row.updated_at = now
-        row.last_fit_at = now
-        row.last_fit_method = "manual"
-        row.last_fit_converged = True
-        self.repository.add_fit_log(
-            params_snapshot=_params_snapshot(row),
-            method="manual",
-            converged=True,
-            fit_at=now,
-            notes="Ручное изменение параметров.",
-        )
+        parameter_updates = set(updates) - {"insulin_therapy"}
+        if parameter_updates:
+            row.last_fit_at = now
+            row.last_fit_method = "manual"
+            row.last_fit_converged = True
+            self.repository.add_fit_log(
+                params_snapshot=_params_snapshot(row),
+                method="manual",
+                converged=True,
+                fit_at=now,
+                notes="Ручное изменение параметров.",
+            )
         self.session.commit()
         self.session.refresh(row)
         return _params_read(row)
@@ -586,6 +588,7 @@ def _params_read(row: TwinParams) -> TwinParamsRead:
         dia_minutes=row.dia_minutes,
         carb_duration_minutes=row.carb_duration_minutes,
         baseline_drift_per_hour=row.baseline_drift_per_hour,
+        insulin_therapy=list(row.insulin_therapy or []),
         last_fit_at=row.last_fit_at,
         last_fit_data_from=row.last_fit_data_from,
         last_fit_data_to=row.last_fit_data_to,
@@ -613,6 +616,7 @@ def _params_snapshot(row: TwinParams) -> dict[str, object]:
         "evening_start_minutes": row.evening_start_minutes,
         "dia_minutes": row.dia_minutes,
         "carb_duration_minutes": row.carb_duration_minutes,
+        "insulin_therapy": list(row.insulin_therapy or []),
     }
 
 

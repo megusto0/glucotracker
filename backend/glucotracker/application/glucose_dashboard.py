@@ -705,11 +705,17 @@ class GlucoseDashboardService:
             seen.add(dedupe_key)
             events.append(
                 GlucoseDashboardInsulinEvent(
+                    id=row.id,
                     timestamp=_local_wall_from_utc(row.timestamp),
                     insulin_units=row.insulin_units,
                     event_type=row.event_type,
                     insulin_type=row.insulin_type,
                     notes=row.notes,
+                    editable=(
+                        row.source_key.startswith("manual_insulin:")
+                        and row.entered_by == "glucotracker"
+                        and bool(row.nightscout_id)
+                    ),
                 )
             )
         return events

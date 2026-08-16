@@ -142,6 +142,9 @@ def test_only_rapid_bolus_contributes_iob_but_all_events_remain_markers(
             marker="combo",
         ),
     ]
+    events[0].source_key = "manual_insulin:dashboard-editable"
+    events[0].entered_by = "glucotracker"
+    events[0].nightscout_id = "dashboard-editable"
 
     session_factory = api_client.app_state["session_factory"]
     with session_factory() as session:
@@ -163,7 +166,10 @@ def test_only_rapid_bolus_contributes_iob_but_all_events_remain_markers(
         "combo",
     }
     assert by_marker["legacy-rapid"]["insulin_type"] is None
+    assert by_marker["legacy-rapid"]["id"] == str(events[0].id)
+    assert by_marker["legacy-rapid"]["editable"] is True
     assert by_marker["temp-basal"]["insulin_type"] is None
+    assert by_marker["temp-basal"]["editable"] is False
     assert by_marker["long-acting"]["insulin_type"] == "Lantus"
     assert by_marker["combo"]["insulin_type"] == "NovoRapid"
     assert summary["iob_units"] == pytest.approx(2.0)

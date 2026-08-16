@@ -1982,6 +1982,14 @@ class TestMutationIsolation:
                 "icr_day": 33,
                 "icr_evening": 33,
                 "isf": 3,
+                "insulin_therapy": [
+                    {
+                        "role": "pump",
+                        "name": "РинФаст",
+                        "started_on": "2026-08-10",
+                        "units_per_day": 20,
+                    }
+                ],
             },
             headers=self.bob_headers,
         )
@@ -1992,7 +2000,9 @@ class TestMutationIsolation:
         alice_params = s.get(TwinParams, self.ids["alice_twin_params"])
         bob_params = s.get(TwinParams, self.ids["bob_twin_params"])
         assert alice_params.icr_morning == 11
+        assert alice_params.insulin_therapy == []
         assert bob_params.icr_morning == 33
+        assert bob_params.insulin_therapy[0]["name"] == "РинФаст"
         s.close()
 
     def test_reset_twin_params_updates_current_user_only(self):

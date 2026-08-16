@@ -4117,11 +4117,21 @@ export interface components {
         };
         /**
          * GlucoseDashboardInsulinEvent
-         * @description Read-only insulin marker for glucose dashboard overlays.
+         * @description Insulin marker for glucose dashboard overlays.
          */
         GlucoseDashboardInsulinEvent: {
+            /**
+             * Editable
+             * @default false
+             */
+            editable: boolean;
             /** Event Type */
             event_type?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /** Insulin Type */
             insulin_type?: string | null;
             /** Insulin Units */
@@ -4960,6 +4970,25 @@ export interface components {
             total_range_low_units?: number | null;
             /** Total Recommended Units */
             total_recommended_units?: number | null;
+        };
+        /**
+         * InsulinTherapyEntry
+         * @description One dated insulin product used by the current user.
+         */
+        InsulinTherapyEntry: {
+            /** Ended On */
+            ended_on?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "rapid" | "basal" | "pump";
+            /** Started On */
+            started_on?: string | null;
+            /** Units Per Day */
+            units_per_day?: number | null;
         };
         /**
          * IsfCaseResponse
@@ -7988,6 +8017,8 @@ export interface components {
          * @description The one stretch worth measuring actively, and the segment to fast.
          */
         TherapyBasalTestSuggestionResponse: {
+            /** Carb Washout Minutes */
+            carb_washout_minutes: number;
             /** Conservative Drift Mmol L Per Hour */
             conservative_drift_mmol_l_per_hour: number;
             /** Day Count */
@@ -8005,10 +8036,22 @@ export interface components {
             expected_change_u_per_hour: number;
             /** Fasting Hours */
             fasting_hours: number;
+            /** Insulin Washout Minutes */
+            insulin_washout_minutes: number;
             /** Label */
             label: string;
+            /** Last Bolus Minutes */
+            last_bolus_minutes: number;
+            /** Last Meal Minutes */
+            last_meal_minutes: number;
+            /** Preparation Start Minutes */
+            preparation_start_minutes: number;
             /** Start Hour */
             start_hour: number;
+            /** Test End Minutes */
+            test_end_minutes: number;
+            /** Test Start Minutes */
+            test_start_minutes: number;
             /** Window Count */
             window_count: number;
         };
@@ -8251,12 +8294,16 @@ export interface components {
             carb_units?: number | null;
             /** Cob G */
             cob_g?: number | null;
+            /** Cob Minutes Remaining */
+            cob_minutes_remaining?: number | null;
             /** Correction Units */
             correction_units?: number | null;
             /** Glucose Mmol L */
             glucose_mmol_l?: number | null;
             /** Icr G Per Unit */
             icr_g_per_unit?: number | null;
+            /** Iob Minutes Remaining */
+            iob_minutes_remaining?: number | null;
             /** Iob Units */
             iob_units?: number | null;
             /** Isf Mmol L Per Unit */
@@ -8554,6 +8601,8 @@ export interface components {
             icr_evening?: number | null;
             /** Icr Morning */
             icr_morning?: number | null;
+            /** Insulin Therapy */
+            insulin_therapy?: components["schemas"]["InsulinTherapyEntry"][] | null;
             /** Isf */
             isf?: number | null;
             /** Morning Start Minutes */
@@ -8590,6 +8639,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Insulin Therapy */
+            insulin_therapy?: components["schemas"]["InsulinTherapyEntry"][];
             /** Is Fitted */
             is_fitted: boolean;
             /** Isf */

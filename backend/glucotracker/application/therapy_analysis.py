@@ -64,7 +64,7 @@ BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 # ratio.
 # v3: measured ratios are compared against the configured slots, episodes near
 # effort are excluded, and ISF says how thin its evidence is.
-THERAPY_ANALYSIS_MODEL_VERSION = f"retrospective-therapy-analysis-v7+{GROUPING_VERSION}"
+THERAPY_ANALYSIS_MODEL_VERSION = f"retrospective-therapy-analysis-v8+{GROUPING_VERSION}"
 # Below this many isolated corrections the ISF median is an estimate rather
 # than a measurement, and the page must say so.
 MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
@@ -203,6 +203,16 @@ class TherapyBasalTestSuggestion:
     day_count: int
     window_count: int
     fasting_hours: int
+    #: Clock times are minutes since local midnight. Basal delivery continues;
+    #: these cutoffs apply only to meal boluses and food so both tails are gone
+    #: when the measured window begins.
+    preparation_start_minutes: int
+    test_start_minutes: int
+    test_end_minutes: int
+    last_bolus_minutes: int
+    last_meal_minutes: int
+    insulin_washout_minutes: int
+    carb_washout_minutes: int
 
 
 @dataclass(frozen=True)
@@ -415,6 +425,8 @@ class TherapyAnalysisService:
             components=components,
             configured_rates=TEST_BASAL_RATES_U_PER_HOUR,
             autotune_isf=TEST_BASAL_AUTOTUNE_ISF_MMOL_L_PER_UNIT,
+            dia_minutes=params.dia_minutes,
+            carb_duration_minutes=params.carb_duration_minutes,
         )
 
         slots = []
@@ -537,6 +549,8 @@ class TherapyAnalysisService:
         components: list[EpisodeComponent],
         configured_rates: tuple[float, ...],
         autotune_isf: float,
+        dia_minutes: int,
+        carb_duration_minutes: int,
     ) -> TherapyBasalProfile:
         """Summarize clean one-hour glucose drift by local clock hour."""
         if len(configured_rates) != 24:
@@ -713,7 +727,12 @@ class TherapyAnalysisService:
                     MAX_BASAL_PROFILE_WINDOWS + 1,
                 )
             ],
-            test_suggestion=_basal_test_suggestion(slots, autotune_isf),
+            test_suggestion=_basal_test_suggestion(
+                slots,
+                autotune_isf,
+                dia_minutes=dia_minutes,
+                carb_duration_minutes=carb_duration_minutes,
+            ),
         )
 
     def _heart_rate_samples(
@@ -1205,6 +1224,9 @@ FASTING_TEST_MARGIN_HOURS = 1
 def _basal_test_suggestion(
     slots: list[TherapyBasalSlot],
     isf: float,
+    *,
+    dia_minutes: int = 270,
+    carb_duration_minutes: int = 180,
 ) -> TherapyBasalTestSuggestion | None:
     """Pick the single stretch whose discrepancy is worth measuring actively.
 
@@ -1250,6 +1272,20 @@ def _basal_test_suggestion(
     mean_conservative = sum(conservative(slot) for slot in best) / len(best)
     start_hour = best[0].hour
     end_hour = (best[-1].hour + 1) % 24
+    fasting_hours = len(best) + 2 * FASTING_TEST_MARGIN_HOURS
+    test_start_minutes = (
+        start_hour - FASTING_TEST_MARGIN_HOURS
+    ) * 60 % (24 * 60)
+    test_end_minutes = (test_start_minutes + fasting_hours * 60) % (24 * 60)
+    last_bolus_minutes = (test_start_minutes - dia_minutes) % (24 * 60)
+    last_meal_minutes = (test_start_minutes - carb_duration_minutes) % (
+        24 * 60
+    )
+    preparation_start_minutes = (
+        last_bolus_minutes
+        if dia_minutes >= carb_duration_minutes
+        else last_meal_minutes
+    )
     return TherapyBasalTestSuggestion(
         start_hour=start_hour,
         end_hour=end_hour,
@@ -1262,7 +1298,14 @@ def _basal_test_suggestion(
         window_count=sum(
             slot.quiet_drift_mmol_l_per_hour.sample_count for slot in best
         ),
-        fasting_hours=len(best) + 2 * FASTING_TEST_MARGIN_HOURS,
+        fasting_hours=fasting_hours,
+        preparation_start_minutes=preparation_start_minutes,
+        test_start_minutes=test_start_minutes,
+        test_end_minutes=test_end_minutes,
+        last_bolus_minutes=last_bolus_minutes,
+        last_meal_minutes=last_meal_minutes,
+        insulin_washout_minutes=dia_minutes,
+        carb_washout_minutes=carb_duration_minutes,
     )
 
 

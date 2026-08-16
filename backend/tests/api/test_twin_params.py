@@ -34,6 +34,88 @@ def test_get_twin_params_clean_db_is_not_fitted(api_client: TestClient) -> None:
     assert data["hint"] == "not_fitted"
     assert data["dia_minutes"] == 270
     assert data["carb_duration_minutes"] == 180
+    assert data["insulin_therapy"] == []
+
+
+def test_patch_twin_params_round_trips_insulin_therapy_without_fit_log(
+    api_client: TestClient,
+) -> None:
+    response = api_client.patch(
+        "/twin/params",
+        json={
+            "insulin_therapy": [
+                {
+                    "role": "pump",
+                    "name": "Фиасп",
+                    "ended_on": "2026-08-09",
+                },
+                {
+                    "role": "pump",
+                    "name": "РинФаст",
+                    "started_on": "2026-08-10",
+                    "units_per_day": 20,
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["insulin_therapy"][1] == {
+        "role": "pump",
+        "name": "РинФаст",
+        "started_on": "2026-08-10",
+        "ended_on": None,
+        "units_per_day": 20.0,
+    }
+    assert api_client.get("/twin/fit/history").json() == []
+
+
+def test_patch_twin_params_rejects_overlapping_insulin_periods(
+    api_client: TestClient,
+) -> None:
+    response = api_client.patch(
+        "/twin/params",
+        json={
+            "insulin_therapy": [
+                {
+                    "role": "rapid",
+                    "name": "Фиасп",
+                    "started_on": "2026-08-01",
+                },
+                {
+                    "role": "rapid",
+                    "name": "РинФаст",
+                    "started_on": "2026-08-10",
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_patch_twin_params_rejects_pump_and_injection_overlap(
+    api_client: TestClient,
+) -> None:
+    response = api_client.patch(
+        "/twin/params",
+        json={
+            "insulin_therapy": [
+                {
+                    "role": "pump",
+                    "name": "РинФаст",
+                    "started_on": "2026-08-10",
+                },
+                {
+                    "role": "basal",
+                    "name": "Тресиба",
+                    "started_on": "2026-08-12",
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_twin_curve_on_clean_db_does_not_create_params_row(

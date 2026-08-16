@@ -525,6 +525,19 @@
   stroke: var(--ns-text);
 }
 
+.ns-treatment--insulin {
+  cursor: pointer;
+}
+
+.ns-treatment--insulin:hover circle,
+.ns-treatment--insulin:focus-visible circle {
+  stroke-width: 3px;
+}
+
+.ns-treatment--insulin:focus-visible {
+  outline: none;
+}
+
 .ns-treatment--therapy-insulin-correction circle {
   stroke: #ff6e6e;
 }
@@ -1086,6 +1099,59 @@
 
 .ns-insulin-error {
   color: #ef9a9a !important;
+}
+
+.ns-insulin-entry-panel {
+  gap: 14px;
+}
+
+.ns-insulin-entry-meta,
+.ns-insulin-read-only {
+  color: #aaa;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ns-insulin-entry-panel > .ns-insulin-delete-button,
+.ns-insulin-entry-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  color: #ddd;
+  background: #111;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ns-insulin-entry-panel > .ns-insulin-delete-button,
+.ns-insulin-entry-actions .ns-insulin-delete-button {
+  border-color: #ff6e6e;
+  color: #ff6e6e;
+}
+
+.ns-insulin-entry-panel button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ns-insulin-delete-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #ff6e6e;
+  border-radius: 4px;
+}
+
+.ns-insulin-delete-confirm small {
+  color: #999;
+}
+
+.ns-insulin-entry-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (orientation: portrait) and (min-width: 821px) {

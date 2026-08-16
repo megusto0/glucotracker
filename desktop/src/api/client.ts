@@ -125,6 +125,8 @@ export type NightscoutInsulinEntryCreate =
   components["schemas"]["NightscoutInsulinEntryCreate"];
 export type NightscoutInsulinEventResponse =
   components["schemas"]["NightscoutInsulinEventResponse"];
+export type NightscoutInsulinDeleteResponse =
+  components["schemas"]["NightscoutInsulinDeleteResponse"];
 export type FingerstickReadingCreate =
   components["schemas"]["FingerstickReadingCreate"];
 export type FingerstickReadingPatch =
@@ -156,6 +158,7 @@ export type TwinFitRequest = components["schemas"]["TwinFitRequest"];
 export type TwinFitResponse = components["schemas"]["TwinFitResponse"];
 export type TwinParamsPatch = components["schemas"]["TwinParamsPatch"];
 export type TwinParamsRead = components["schemas"]["TwinParamsRead"];
+export type InsulinTherapyEntry = components["schemas"]["InsulinTherapyEntry"];
 
 export type ApiConfig = {
   baseUrl: string;
@@ -1046,6 +1049,13 @@ export const apiClient = {
       method: "POST",
       body,
     }),
+
+  deleteNightscoutInsulin: (config: ApiConfig, eventId: string) =>
+    apiRequest<NightscoutInsulinDeleteResponse>(
+      `/nightscout/insulin/${eventId}`,
+      config,
+      { method: "DELETE" },
+    ),
 
   listFingersticks: (
     config: ApiConfig,

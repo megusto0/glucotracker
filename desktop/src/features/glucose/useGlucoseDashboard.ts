@@ -301,6 +301,7 @@ export function useTopUpDose(targetMmolL: number | undefined, enabled: boolean) 
     // now, so a stale one is worse than none.
     enabled: Boolean(config.token.trim()) && enabled,
     retry: 1,
+    refetchInterval: enabled ? 60_000 : false,
     gcTime: 0,
     staleTime: 0,
   });
@@ -333,6 +334,20 @@ export function useCreateNightscoutInsulin() {
   return useMutation({
     mutationFn: (body: NightscoutInsulinEntryCreate) =>
       apiClient.createNightscoutInsulin(config, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["glucose"] });
+      void queryClient.invalidateQueries({ queryKey: ["nightscout"] });
+    },
+  });
+}
+
+export function useDeleteNightscoutInsulin() {
+  const config = useApiConfig();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (eventId: string) =>
+      apiClient.deleteNightscoutInsulin(config, eventId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["glucose"] });
       void queryClient.invalidateQueries({ queryKey: ["nightscout"] });

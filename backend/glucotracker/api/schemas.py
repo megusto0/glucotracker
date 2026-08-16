@@ -641,6 +641,13 @@ class TherapyBasalTestSuggestionResponse(BaseModel):
     day_count: int
     window_count: int
     fasting_hours: int
+    preparation_start_minutes: int = Field(ge=0, lt=1440)
+    test_start_minutes: int = Field(ge=0, lt=1440)
+    test_end_minutes: int = Field(ge=0, lt=1440)
+    last_bolus_minutes: int = Field(ge=0, lt=1440)
+    last_meal_minutes: int = Field(ge=0, lt=1440)
+    insulin_washout_minutes: int = Field(ge=0, le=1440)
+    carb_washout_minutes: int = Field(ge=0, le=1440)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2358,13 +2365,15 @@ class GlucoseDashboardFoodEvent(BaseModel):
 
 
 class GlucoseDashboardInsulinEvent(BaseModel):
-    """Read-only insulin marker for glucose dashboard overlays."""
+    """Insulin marker for glucose dashboard overlays."""
 
+    id: UUID
     timestamp: datetime
     insulin_units: float | None = None
     event_type: str | None = None
     insulin_type: str | None = None
     notes: str | None = None
+    editable: bool = False
 
 
 class GlucoseArtifactInterval(BaseModel):
@@ -2419,6 +2428,8 @@ class TopUpDoseResponse(BaseModel):
     target_mmol_l: float | None = None
     cob_g: float | None = None
     iob_units: float | None = None
+    iob_minutes_remaining: int | None = None
+    cob_minutes_remaining: int | None = None
     carb_units: float | None = None
     correction_units: float | None = None
     icr_g_per_unit: float | None = None
@@ -2541,6 +2552,51 @@ class GlucosePredictionResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class InsulinTherapyEntry(BaseModel):
+    """One dated insulin product used by the current user."""
+
+    role: Literal["rapid", "basal", "pump"]
+    name: str = Field(min_length=1, max_length=80)
+    started_on: date_type | None = None
+    ended_on: date_type | None = None
+    units_per_day: float | None = Field(default=None, gt=0, le=200)
+
+    @model_validator(mode="after")
+    def validate_entry(self) -> InsulinTherapyEntry:
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValueError("insulin name must not be blank")
+        if (
+            self.started_on is not None
+            and self.ended_on is not None
+            and self.ended_on < self.started_on
+        ):
+            raise ValueError("ended_on must not be before started_on")
+        if self.role not in {"basal", "pump"} and self.units_per_day is not None:
+            raise ValueError(
+                "units_per_day is only valid for basal or pump insulin"
+            )
+        return self
+
+
+def _validate_insulin_therapy_history(entries: list[InsulinTherapyEntry]) -> None:
+    """Reject incompatible overlapping therapy periods."""
+    for index, first in enumerate(entries):
+        first_start = first.started_on or date_type.min
+        first_end = first.ended_on or date_type.max
+        for second in entries[index + 1 :]:
+            roles_overlap = first.role == second.role or "pump" in {
+                first.role,
+                second.role,
+            }
+            if not roles_overlap:
+                continue
+            second_start = second.started_on or date_type.min
+            second_end = second.ended_on or date_type.max
+            if first_start <= second_end and second_start <= first_end:
+                raise ValueError("overlapping insulin therapy periods")
+
+
 class TwinParamsRead(BaseModel):
     """Current per-user digital twin parameters."""
 
@@ -2555,6 +2611,7 @@ class TwinParamsRead(BaseModel):
     dia_minutes: int
     carb_duration_minutes: int
     baseline_drift_per_hour: float
+    insulin_therapy: list[InsulinTherapyEntry] = Field(default_factory=list)
     last_fit_at: datetime | None = None
     last_fit_data_from: datetime | None = None
     last_fit_data_to: datetime | None = None
@@ -2582,6 +2639,7 @@ class TwinParamsPatch(BaseModel):
     dia_minutes: int | None = Field(default=None, ge=120, le=480)
     carb_duration_minutes: int | None = Field(default=None, ge=60, le=360)
     baseline_drift_per_hour: float | None = Field(default=None, ge=-1, le=1)
+    insulin_therapy: list[InsulinTherapyEntry] | None = None
 
     @model_validator(mode="after")
     def validate_patch_slot_order(self) -> TwinParamsPatch:
@@ -2598,6 +2656,8 @@ class TwinParamsPatch(BaseModel):
                 "morning_start_minutes must be less than day_start_minutes "
                 "and day_start_minutes must be less than evening_start_minutes"
             )
+        if self.insulin_therapy is not None:
+            _validate_insulin_therapy_history(self.insulin_therapy)
         return self
 
 

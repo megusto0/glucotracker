@@ -9,6 +9,7 @@ import type {
 } from "../../api/client";
 import {
   useCreateNightscoutInsulin,
+  useDeleteNightscoutInsulin,
   useGlucoseBodyStates,
   useGlucoseDashboard,
   useGlucoseEpisodes,
@@ -21,6 +22,7 @@ import { NightscoutPage } from "./NightscoutPage";
 
 vi.mock("../glucose/useGlucoseDashboard", () => ({
   useCreateNightscoutInsulin: vi.fn(),
+  useDeleteNightscoutInsulin: vi.fn(),
   useGlucoseBodyStates: vi.fn(),
   useGlucoseDashboard: vi.fn(),
   useGlucoseEpisodes: vi.fn(),
@@ -37,8 +39,10 @@ const mockedUseHeartRate = vi.mocked(useHeartRateSeries);
 const mockedUseBodyStates = vi.mocked(useGlucoseBodyStates);
 const mockedUseRecommendation = vi.mocked(useInsulinRecommendation);
 const mockedUseCreateInsulin = vi.mocked(useCreateNightscoutInsulin);
+const mockedUseDeleteInsulin = vi.mocked(useDeleteNightscoutInsulin);
 const mockedUseTopUp = vi.mocked(useTopUpDose);
 const createInsulin = vi.fn();
+const deleteInsulin = vi.fn();
 
 function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
   const normalized = mode === "normalized";
@@ -58,7 +62,9 @@ function dashboard(mode: GlucoseMode): GlucoseDashboardResponse {
     from_datetime: "2026-07-12T04:00:00Z",
     insulin_events: [
       {
+        editable: true,
         event_type: "Meal Bolus",
+        id: "44444444-4444-4444-4444-444444444444",
         insulin_units: 3.5,
         notes: null,
         timestamp: "2026-07-12T07:00:00Z",
@@ -306,6 +312,14 @@ describe("NightscoutPage", () => {
       isPending: false,
       mutateAsync: createInsulin,
     } as unknown as ReturnType<typeof useCreateNightscoutInsulin>);
+    deleteInsulin.mockReset();
+    mockedUseDeleteInsulin.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isPending: false,
+      mutateAsync: deleteInsulin,
+    } as unknown as ReturnType<typeof useDeleteNightscoutInsulin>);
   });
 
   test("defaults to normalized and can switch to the standard series", () => {
@@ -489,13 +503,17 @@ describe("NightscoutPage", () => {
             ...dashboard(mode),
             insulin_events: [
               {
+                editable: false,
                 event_type: "Insulin",
+                id: "55555555-5555-5555-5555-555555555555",
                 insulin_units: 1.5,
                 notes: null,
                 timestamp: "2026-07-12T07:00:00.000Z",
               },
               {
+                editable: false,
                 event_type: "Insulin",
+                id: "66666666-6666-6666-6666-666666666666",
                 insulin_units: 1.5,
                 notes: null,
                 timestamp: "2026-07-12T07:00:00.774Z",
@@ -515,6 +533,40 @@ describe("NightscoutPage", () => {
 
     expect(container.querySelectorAll(".ns-treatment--insulin")).toHaveLength(
       1,
+    );
+  });
+
+  test("deletes an editable insulin entry from its chart marker", async () => {
+    deleteInsulin.mockResolvedValue({
+      deleted: true,
+      id: "44444444-4444-4444-4444-444444444444",
+      nightscout_id: "nightscout-insulin-1",
+    });
+
+    render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Инсулин: 3.50 единиц" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Запись инсулина" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Удалить запись" }));
+    fireEvent.click(screen.getByRole("button", { name: "Да, удалить" }));
+
+    await waitFor(() =>
+      expect(deleteInsulin).toHaveBeenCalledWith(
+        "44444444-4444-4444-4444-444444444444",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Запись инсулина" }),
+      ).not.toBeInTheDocument(),
     );
   });
 

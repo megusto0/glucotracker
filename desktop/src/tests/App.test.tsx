@@ -375,6 +375,74 @@ test("settings Nightscout block handles not configured", async () => {
   expect(await screen.findAllByText("не настроено")).not.toHaveLength(0);
 });
 
+test("glucose user can save insulin therapy history", async () => {
+  configureApi();
+  settingsRoute();
+  useSettingsStore.setState({
+    currentUser: {
+      id: "00000000-0000-0000-0000-000000000001",
+      username: "admin2",
+      role: "gluco",
+      created_at: "2026-08-01T00:00:00Z",
+      last_login_at: null,
+      features: ["glucose", "insulin"],
+      feature_flags: {},
+    },
+  });
+  let submitted: Record<string, unknown> | null = null;
+  server.use(
+    http.patch("http://api.test/twin/params", async ({ request }) => {
+      submitted = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: "twin-params-1",
+        icr_morning: null,
+        icr_day: null,
+        icr_evening: null,
+        morning_start_minutes: 360,
+        day_start_minutes: 660,
+        evening_start_minutes: 1080,
+        isf: null,
+        dia_minutes: 270,
+        carb_duration_minutes: 180,
+        baseline_drift_per_hour: 0,
+        insulin_therapy: submitted.insulin_therapy,
+        last_fit_at: null,
+        last_fit_method: null,
+        last_fit_converged: null,
+        updated_at: "2026-08-16T00:00:00Z",
+        is_fitted: false,
+        hint: "not_fitted",
+      });
+    }),
+  );
+
+  const user = userEvent.setup();
+  render(<App />);
+
+  expect(
+    await screen.findByRole("heading", { name: "Используемый инсулин" }),
+  ).toBeInTheDocument();
+  await user.click(
+    await screen.findByRole("button", { name: "+ Инсулин в помпе" }),
+  );
+  await user.type(screen.getByPlaceholderText("РинФаст"), "РинФаст");
+  await user.type(screen.getByPlaceholderText("20"), "20");
+  await user.click(screen.getByRole("button", { name: "Сохранить инсулин" }));
+
+  await screen.findByText("Сохранено");
+  expect(submitted).toEqual({
+    insulin_therapy: [
+      {
+        role: "pump",
+        name: "РинФаст",
+        started_on: null,
+        ended_on: null,
+        units_per_day: 20,
+      },
+    ],
+  });
+});
+
 test("white background token is applied", () => {
   render(<App />);
 

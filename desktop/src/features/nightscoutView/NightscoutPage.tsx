@@ -19,6 +19,7 @@ import type {
 } from "../../api/client";
 import {
   useCreateNightscoutInsulin,
+  useDeleteNightscoutInsulin,
   useGlucoseBodyStates,
   useGlucoseDashboard,
   useGlucoseEpisodes,
@@ -33,6 +34,7 @@ type DisplayMode = Extract<GlucoseMode, "raw" | "normalized">;
 type BodyState = BodyStatesResponse["states"][number];
 type DashboardPoint = GlucoseDashboardResponse["points"][number];
 type FoodEvent = GlucoseDashboardResponse["food_events"][number];
+type InsulinEvent = GlucoseDashboardResponse["insulin_events"][number];
 type SelectableFoodEvent = Omit<FoodEvent, "meal_id"> & {
   meal_id?: string;
 };
@@ -204,6 +206,9 @@ export function NightscoutPage() {
   const [selectedFood, setSelectedFood] = useState<SelectableFoodEvent | null>(
     null,
   );
+  const [selectedInsulin, setSelectedInsulin] = useState<InsulinEvent | null>(
+    null,
+  );
   const [customRange, setCustomRange] = useState<ChartRange | null>(null);
   const [followWindowMs, setFollowWindowMs] = useState<number | null>(null);
   const [refreshAnchor, setRefreshAnchor] = useState(() => new Date());
@@ -314,6 +319,14 @@ export function NightscoutPage() {
     },
     [refreshAnchor],
   );
+  const selectFood = useCallback((food: SelectableFoodEvent) => {
+    setSelectedInsulin(null);
+    setSelectedFood(food);
+  }, []);
+  const selectInsulin = useCallback((event: InsulinEvent) => {
+    setSelectedFood(null);
+    setSelectedInsulin(event);
+  }, []);
 
   return (
     <div className={`ns-page${isUrgent ? " ns-page--urgent" : ""}`}>
@@ -538,7 +551,8 @@ export function NightscoutPage() {
         bodyStates={bodyStates.data}
         prediction={prediction.data}
         predictionError={Boolean(prediction.error)}
-        onFoodSelect={setSelectedFood}
+        onFoodSelect={selectFood}
+        onInsulinSelect={selectInsulin}
         onRangeChange={selectChartRange}
       />
       {selectedFood && !selectedEpisode ? (
@@ -572,6 +586,14 @@ export function NightscoutPage() {
           onClose={() => setSelectedFood(null)}
         />
       ) : null}
+      {selectedInsulin ? (
+        <InsulinEntryPanel
+          event={selectedInsulin}
+          key={selectedInsulin.id}
+          onClose={() => setSelectedInsulin(null)}
+          onDeleted={() => setSelectedInsulin(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -600,6 +622,103 @@ function formatCarbs(value?: number | null) {
   return typeof value === "number" && Number.isFinite(value)
     ? `${value.toFixed(0)} г`
     : "—";
+}
+
+function InsulinEntryPanel({
+  event,
+  onClose,
+  onDeleted,
+}: {
+  event: InsulinEvent;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const deleteInsulin = useDeleteNightscoutInsulin();
+  const [confirming, setConfirming] = useState(false);
+  const recordedAt = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "long",
+  }).format(new Date(event.timestamp));
+
+  const remove = async () => {
+    if (!event.id || !event.editable) return;
+    try {
+      await deleteInsulin.mutateAsync(event.id);
+      onDeleted();
+    } catch {
+      // The mutation owns the visible error state; keep the dialog open to retry.
+    }
+  };
+
+  return (
+    <div
+      aria-label="Запись инсулина"
+      aria-modal="false"
+      className="ns-insulin-panel ns-insulin-entry-panel"
+      role="dialog"
+    >
+      <button
+        aria-label="Закрыть"
+        className="ns-insulin-panel-close"
+        onClick={onClose}
+        type="button"
+      >
+        <X size={18} />
+      </button>
+      <span className="ns-insulin-kicker">ИНСУЛИН</span>
+      <h2>{formatDose(event.insulin_units)} Ед</h2>
+      <p className="ns-insulin-entry-meta">
+        {recordedAt}
+        {event.insulin_type ? ` · ${event.insulin_type}` : ""}
+        {event.notes ? ` · ${event.notes}` : ""}
+      </p>
+      {event.editable && event.id ? (
+        confirming ? (
+          <div className="ns-insulin-delete-confirm" role="alert">
+            <p>Удалить эту запись из Glucotracker и Nightscout?</p>
+            <small>Это действие нельзя отменить.</small>
+            <div className="ns-insulin-entry-actions">
+              <button
+                className="ns-insulin-delete-button"
+                disabled={deleteInsulin.isPending}
+                onClick={() => void remove()}
+                type="button"
+              >
+                {deleteInsulin.isPending ? "Удаляю…" : "Да, удалить"}
+              </button>
+              <button
+                disabled={deleteInsulin.isPending}
+                onClick={() => setConfirming(false)}
+                type="button"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            className="ns-insulin-delete-button"
+            onClick={() => setConfirming(true)}
+            type="button"
+          >
+            Удалить запись
+          </button>
+        )
+      ) : (
+        <p className="ns-insulin-read-only">
+          Запись импортирована из Nightscout и доступна здесь только для
+          просмотра. Удалите её в исходном приложении.
+        </p>
+      )}
+      {deleteInsulin.isError ? (
+        <p className="ns-insulin-error" role="alert">
+          Не удалось удалить запись. Попробуйте ещё раз.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -1075,6 +1194,7 @@ function NightscoutChart({
   prediction,
   predictionError,
   onFoodSelect,
+  onInsulinSelect,
   onRangeChange,
 }: {
   data?: GlucoseDashboardResponse;
@@ -1088,6 +1208,7 @@ function NightscoutChart({
   prediction?: GlucosePredictionResponse;
   predictionError: boolean;
   onFoodSelect: (food: SelectableFoodEvent) => void;
+  onInsulinSelect: (event: InsulinEvent) => void;
   onRangeChange: (range: ChartRange) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -1370,7 +1491,8 @@ function NightscoutChart({
             detail: `Инсулин · ${event.insulin_units?.toFixed(2) ?? "—"} Ед${
               event.notes ? ` · ${event.notes}` : ""
             }`,
-            key: `insulin-${event.timestamp}-${index}`,
+            event,
+            key: `insulin-${event.id}-${index}`,
             kind: "insulin" as const,
             food: null,
             symbol: "I",
@@ -1703,7 +1825,12 @@ function NightscoutChart({
                       event.stopPropagation();
                       onFoodSelect(treatment.food);
                     }
-                  : undefined
+                  : treatment.kind === "insulin" && treatment.event
+                    ? (pointerEvent) => {
+                        pointerEvent.stopPropagation();
+                        onInsulinSelect(treatment.event);
+                      }
+                    : undefined
               }
               onKeyDown={
                 treatment.kind === "food" && treatment.food
@@ -1713,11 +1840,21 @@ function NightscoutChart({
                         onFoodSelect(treatment.food);
                       }
                     }
-                  : undefined
+                  : treatment.kind === "insulin" && treatment.event
+                    ? (keyboardEvent) => {
+                        if (
+                          keyboardEvent.key === "Enter" ||
+                          keyboardEvent.key === " "
+                        ) {
+                          keyboardEvent.preventDefault();
+                          onInsulinSelect(treatment.event);
+                        }
+                      }
+                    : undefined
               }
               key={treatment.key}
-              role={treatment.kind === "food" ? "button" : "img"}
-              tabIndex={treatment.kind === "food" ? 0 : undefined}
+              role="button"
+              tabIndex={0}
               transform={`translate(${anchorX + treatment.xOffset} ${markerY})`}
             >
               <title>{treatment.detail}</title>

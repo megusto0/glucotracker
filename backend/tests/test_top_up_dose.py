@@ -98,6 +98,8 @@ def test_suggests_a_top_up_from_carbs_left_minus_insulin_on_board(
     assert body["icr_g_per_unit"] == 10.0
     assert body["isf_mmol_l_per_unit"] == 2.0
     assert body["isf_source"] == "manual"
+    assert body["iob_minutes_remaining"] > 0
+    assert body["cob_minutes_remaining"] > 0
     expected = body["carb_units"] + body["correction_units"] - body["iob_units"]
     assert abs(body["units"] - round(expected * 10) / 10) < 0.15
 

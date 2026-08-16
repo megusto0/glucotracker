@@ -58,6 +58,7 @@ class TwinRepository:
             dia_minutes=270,
             carb_duration_minutes=180,
             baseline_drift_per_hour=0.0,
+            insulin_therapy=[],
             created_at=now,
             updated_at=now,
         )

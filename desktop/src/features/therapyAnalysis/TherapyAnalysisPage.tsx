@@ -407,6 +407,7 @@ function lineSegments(
 
 // Below this the remaining bolus is a rounding error rather than a confound.
 const FASTING_TEST_MAX_IOB_UNITS = 0.05;
+const FASTING_TEST_MAX_COB_G = 0.5;
 
 function clockText(value: string | number) {
   return new Date(value).toLocaleTimeString("ru-RU", {
@@ -417,6 +418,26 @@ function clockText(value: string | number) {
 
 function driftText(value: number) {
   return `${value.toFixed(2)} ммоль/л/ч`;
+}
+
+function minuteClockText(value: number) {
+  const minutes = ((value % 1440) + 1440) % 1440;
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+}
+
+function durationText(value: number) {
+  const hours = Math.floor(value / 60);
+  const minutes = value % 60;
+  return [hours ? `${hours} ч` : "", minutes ? `${minutes} мин` : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function clearAtText(minutesRemaining: number | null | undefined) {
+  if (!minutesRemaining || minutesRemaining <= 0) return "";
+  return `; ноль около ${clockText(Date.now() + minutesRemaining * 60_000)} (через ${durationText(minutesRemaining)})`;
 }
 
 /**
@@ -443,8 +464,22 @@ function BasalTestSuggestionCard({
   const stopRun = useStopBasalFastingTest();
 
   const iob = topUp.data?.iob_units ?? null;
+  const cob = topUp.data?.cob_g ?? null;
   const iobKnown = topUp.isSuccess && iob != null;
-  const clear = iobKnown && iob <= FASTING_TEST_MAX_IOB_UNITS;
+  const cobKnown = topUp.isSuccess && cob != null;
+  const clear =
+    iobKnown &&
+    cobKnown &&
+    iob <= FASTING_TEST_MAX_IOB_UNITS &&
+    cob <= FASTING_TEST_MAX_COB_G;
+  const activeParts = [
+    iobKnown && iob > FASTING_TEST_MAX_IOB_UNITS
+      ? `IOB ${iob.toFixed(2)} Ед${clearAtText(topUp.data?.iob_minutes_remaining)}`
+      : null,
+    cobKnown && cob > FASTING_TEST_MAX_COB_G
+      ? `COB ${cob.toFixed(1)} г${clearAtText(topUp.data?.cob_minutes_remaining)}`
+      : null,
+  ].filter((part): part is string => part != null);
 
   const running = runs.data?.find((run) => run.status === "running") ?? null;
   const lastFinished =
@@ -469,7 +504,9 @@ function BasalTestSuggestionCard({
               : "в спокойные часы глюкоза растёт — базала не хватает"}
           </span>
         </div>
-        <small>{suggestion.fasting_hours} ч без еды и болюса</small>
+        <small>
+          подготовка с {minuteClockText(suggestion.preparation_start_minutes)}
+        </small>
       </header>
 
       <dl className="therapy-basal-test-evidence">
@@ -491,7 +528,42 @@ function BasalTestSuggestionCard({
             {suggestion.day_count} дн · {suggestion.window_count} окон
           </dd>
         </div>
+        <div>
+          <dt>начать подготовку</dt>
+          <dd>{minuteClockText(suggestion.preparation_start_minutes)}</dd>
+        </div>
+        <div>
+          <dt>последний болюс</dt>
+          <dd>
+            до {minuteClockText(suggestion.last_bolus_minutes)} · DIA{" "}
+            {durationText(suggestion.insulin_washout_minutes)}
+          </dd>
+        </div>
+        <div>
+          <dt>последняя еда</dt>
+          <dd>
+            до {minuteClockText(suggestion.last_meal_minutes)} · усвоение{" "}
+            {durationText(suggestion.carb_washout_minutes)}
+          </dd>
+        </div>
+        <div>
+          <dt>начать тест</dt>
+          <dd>
+            {minuteClockText(suggestion.test_start_minutes)}—
+            {minuteClockText(suggestion.test_end_minutes)}
+          </dd>
+        </div>
+        <div>
+          <dt>проверяемый отрезок</dt>
+          <dd>{suggestion.label}</dd>
+        </div>
       </dl>
+
+      <p>
+        Так к {minuteClockText(suggestion.test_start_minutes)} болюсный IOB и
+        COB должны стать нулевыми. Час до и после проверяемого отрезка нужен для
+        чистых краёв; базальную подачу помпы не останавливать.
+      </p>
 
       {running ? (
         <div className="therapy-basal-test-running">
@@ -534,11 +606,11 @@ function BasalTestSuggestionCard({
       ) : (
         <div className="therapy-basal-test-start">
           <p>
-            {!iobKnown
-              ? "Активный инсулин сейчас неизвестен — готовность не проверить."
+            {!iobKnown || !cobKnown
+              ? "Текущие IOB или COB неизвестны — готовность не проверить."
               : clear
-                ? "Активного инсулина нет — отрезок можно начинать."
-                : `Активный инсулин ${iob.toFixed(2)} Ед исказит дрейф. Начинать, когда он отработает.`}
+                ? `IOB и COB сейчас нулевые. Тест начинать в ${minuteClockText(suggestion.test_start_minutes)}.`
+                : `${activeParts.join("; ")}. Они исказят дрейф — дождаться обнуления.`}
           </p>
           <button
             disabled={!clear || startRun.isPending}

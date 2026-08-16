@@ -1068,6 +1068,7 @@ class HistoricalInsulinRecommendationService:
         )
         events = [
             GlucoseDashboardInsulinEvent(
+                id=row.id,
                 timestamp=_local_wall_from_utc(row.timestamp),
                 insulin_units=row.insulin_units,
                 event_type=row.event_type,

@@ -232,7 +232,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     # cut the correction evidence short (ADR-019 §2.4).
     assert body["isf_horizon_minutes"] == 270
     assert body["bin_hours"] == 4
-    assert body["model_version"].startswith("retrospective-therapy-analysis-v7")
+    assert body["model_version"].startswith("retrospective-therapy-analysis-v8")
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,
@@ -516,6 +516,17 @@ def test_the_suggested_test_window_is_the_one_the_evidence_supports() -> None:
     assert suggestion.day_count == 6
     # Two hours tested, an hour of margin either side.
     assert suggestion.fasting_hours == 4
+    # The active test includes a one-hour margin around the 20:00–22:00 finding,
+    # so it starts at 19:00. With the configured/default 4.5 h DIA, the last
+    # bolus is 14:30 and IOB is zero at that actual start. Food can finish later
+    # because its modeled absorption duration is three hours.
+    assert suggestion.test_start_minutes == 19 * 60
+    assert suggestion.test_end_minutes == 23 * 60
+    assert suggestion.preparation_start_minutes == 14 * 60 + 30
+    assert suggestion.last_bolus_minutes == 14 * 60 + 30
+    assert suggestion.last_meal_minutes == 16 * 60
+    assert suggestion.insulin_washout_minutes == 270
+    assert suggestion.carb_washout_minutes == 180
     assert suggestion.expected_change_u_per_hour < 0
 
 

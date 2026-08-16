@@ -3177,13 +3177,21 @@ components:
       title: GlucoseDashboardFoodEvent
       type: object
     GlucoseDashboardInsulinEvent:
-      description: Read-only insulin marker for glucose dashboard overlays.
+      description: Insulin marker for glucose dashboard overlays.
       properties:
+        editable:
+          default: false
+          title: Editable
+          type: boolean
         event_type:
           anyOf:
           - type: string
           - type: 'null'
           title: Event Type
+        id:
+          format: uuid
+          title: Id
+          type: string
         insulin_type:
           anyOf:
           - type: string
@@ -3204,6 +3212,7 @@ components:
           title: Timestamp
           type: string
       required:
+      - id
       - timestamp
       title: GlucoseDashboardInsulinEvent
       type: object
@@ -4591,6 +4600,45 @@ components:
       - matches
       - method_version
       title: InsulinRecommendationResponse
+      type: object
+    InsulinTherapyEntry:
+      description: One dated insulin product used by the current user.
+      properties:
+        ended_on:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Ended On
+        name:
+          maxLength: 80
+          minLength: 1
+          title: Name
+          type: string
+        role:
+          enum:
+          - rapid
+          - basal
+          - pump
+          title: Role
+          type: string
+        started_on:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Started On
+        units_per_day:
+          anyOf:
+          - exclusiveMinimum: 0.0
+            maximum: 200.0
+            type: number
+          - type: 'null'
+          title: Units Per Day
+      required:
+      - role
+      - name
+      title: InsulinTherapyEntry
       type: object
     IsfCaseResponse:
       description: One isolated correction and the ratio it implies.
@@ -9311,6 +9359,11 @@ components:
     TherapyBasalTestSuggestionResponse:
       description: The one stretch worth measuring actively, and the segment to fast.
       properties:
+        carb_washout_minutes:
+          maximum: 1440.0
+          minimum: 0.0
+          title: Carb Washout Minutes
+          type: integer
         conservative_drift_mmol_l_per_hour:
           title: Conservative Drift Mmol L Per Hour
           type: number
@@ -9335,11 +9388,41 @@ components:
         fasting_hours:
           title: Fasting Hours
           type: integer
+        insulin_washout_minutes:
+          maximum: 1440.0
+          minimum: 0.0
+          title: Insulin Washout Minutes
+          type: integer
         label:
           title: Label
           type: string
+        last_bolus_minutes:
+          exclusiveMaximum: 1440.0
+          minimum: 0.0
+          title: Last Bolus Minutes
+          type: integer
+        last_meal_minutes:
+          exclusiveMaximum: 1440.0
+          minimum: 0.0
+          title: Last Meal Minutes
+          type: integer
+        preparation_start_minutes:
+          exclusiveMaximum: 1440.0
+          minimum: 0.0
+          title: Preparation Start Minutes
+          type: integer
         start_hour:
           title: Start Hour
+          type: integer
+        test_end_minutes:
+          exclusiveMaximum: 1440.0
+          minimum: 0.0
+          title: Test End Minutes
+          type: integer
+        test_start_minutes:
+          exclusiveMaximum: 1440.0
+          minimum: 0.0
+          title: Test Start Minutes
           type: integer
         window_count:
           title: Window Count
@@ -9355,6 +9438,13 @@ components:
       - day_count
       - window_count
       - fasting_hours
+      - preparation_start_minutes
+      - test_start_minutes
+      - test_end_minutes
+      - last_bolus_minutes
+      - last_meal_minutes
+      - insulin_washout_minutes
+      - carb_washout_minutes
       title: TherapyBasalTestSuggestionResponse
       type: object
     TherapyEvidenceResponse:
@@ -9747,6 +9837,11 @@ components:
           - type: number
           - type: 'null'
           title: Cob G
+        cob_minutes_remaining:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cob Minutes Remaining
         correction_units:
           anyOf:
           - type: number
@@ -9762,6 +9857,11 @@ components:
           - type: number
           - type: 'null'
           title: Icr G Per Unit
+        iob_minutes_remaining:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Iob Minutes Remaining
         iob_units:
           anyOf:
           - type: number
@@ -10305,6 +10405,13 @@ components:
             type: number
           - type: 'null'
           title: Icr Morning
+        insulin_therapy:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/InsulinTherapyEntry'
+            type: array
+          - type: 'null'
+          title: Insulin Therapy
         isf:
           anyOf:
           - maximum: 8.0
@@ -10365,6 +10472,11 @@ components:
           format: uuid
           title: Id
           type: string
+        insulin_therapy:
+          items:
+            $ref: '#/components/schemas/InsulinTherapyEntry'
+          title: Insulin Therapy
+          type: array
         is_fitted:
           title: Is Fitted
           type: boolean

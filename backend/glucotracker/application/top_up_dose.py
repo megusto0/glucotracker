@@ -88,6 +88,8 @@ class TopUpSuggestion:
     target_mmol_l: float | None = None
     cob_g: float | None = None
     iob_units: float | None = None
+    iob_minutes_remaining: int | None = None
+    cob_minutes_remaining: int | None = None
     carb_units: float | None = None
     correction_units: float | None = None
     icr_g_per_unit: float | None = None
@@ -132,6 +134,10 @@ class TopUpDoseService:
             return TopUpSuggestion(
                 status="glucose_unavailable",
                 target_mmol_l=round(target, 1),
+                cob_g=round(summary.cob_g, 1),
+                iob_units=round(summary.iob_units, 2),
+                iob_minutes_remaining=summary.iob_minutes_remaining,
+                cob_minutes_remaining=summary.cob_minutes_remaining,
             )
 
         twin_params = TwinRepository(
@@ -162,6 +168,8 @@ class TopUpDoseService:
                 target_mmol_l=round(target, 1),
                 iob_units=round(iob_units, 2),
                 cob_g=round(summary.cob_g, 1),
+                iob_minutes_remaining=summary.iob_minutes_remaining,
+                cob_minutes_remaining=summary.cob_minutes_remaining,
             )
 
         # Prefer where the curve is heading over where it currently sits; the
@@ -183,6 +191,8 @@ class TopUpDoseService:
             "target_mmol_l": round(target, 1),
             "cob_g": round(summary.cob_g, 1),
             "iob_units": round(iob_units, 2),
+            "iob_minutes_remaining": summary.iob_minutes_remaining,
+            "cob_minutes_remaining": summary.cob_minutes_remaining,
             "icr_g_per_unit": round(icr, 1),
             "isf_mmol_l_per_unit": round(isf, 2),
             "isf_source": isf_source,
@@ -283,6 +293,7 @@ def active_iob_units(
     )
     events = [
         GlucoseDashboardInsulinEvent(
+            id=row.id,
             timestamp=_local_wall_from_utc(row.timestamp),
             insulin_units=row.insulin_units,
             event_type=row.event_type,

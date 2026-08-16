@@ -18,6 +18,7 @@ import { StatusText } from "../../components/StatusText";
 import {
   apiClient,
   apiErrorMessage,
+  type InsulinTherapyEntry,
   type UserProfileUpdate,
 } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
@@ -36,6 +37,7 @@ import {
 import { EndocrinologistReportSection } from "./EndocrinologistReportSection";
 import { FoodDiaryExportSection } from "./FoodDiaryExportSection";
 import { type Theme, useSettingsStore } from "./settingsStore";
+import { usePatchTwinParams, useTwinParams } from "../twin/useTwin";
 
 const openApiHref = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, "") || defaultBackendUrl}/openapi.json`;
@@ -55,6 +57,7 @@ export function SettingsPage() {
   const setTheme = useSettingsStore((s) => s.setTheme);
   const setToken = useSettingsStore((s) => s.setToken);
   const theme = useSettingsStore((s) => s.theme);
+  const currentUser = useSettingsStore((s) => s.currentUser);
   const connection = useConnectionTest();
   const recalculate = useRecalculateTotals();
   const nightscout = useNightscoutSettings();
@@ -308,6 +311,19 @@ export function SettingsPage() {
 
           <RhythmSection />
 
+          {currentUser?.features.includes("glucose") ? (
+            <div className="card card-pad">
+              <div className="lbl">терапия</div>
+              <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 4px" }}>
+                Используемый инсулин
+              </h3>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 14 }}>
+                Для помпы один препарат одновременно относится к базалу и болюсам.
+              </div>
+              <InsulinTherapyForm />
+            </div>
+          ) : null}
+
           <div className="card card-pad">
             <div className="lbl">оформление</div>
             <h3 style={{ fontFamily: "var(--serif)", fontWeight: 500, fontSize: 16, margin: "4px 0 14px" }}>Тема</h3>
@@ -468,6 +484,177 @@ const themeOptions: { value: Theme; label: string; icon: typeof Sun | null }[] =
   { value: "dark", label: "Тёмная", icon: Moon },
   { value: "system", label: "Система", icon: null },
 ];
+
+const emptyInsulinEntry = (role: InsulinTherapyEntry["role"]): InsulinTherapyEntry => ({
+  role,
+  name: "",
+  started_on: null,
+  ended_on: null,
+  units_per_day: null,
+});
+
+function InsulinTherapyForm() {
+  const params = useTwinParams();
+  const patchParams = usePatchTwinParams();
+  const [entries, setEntries] = useState<InsulinTherapyEntry[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!params.data) return;
+    setEntries((params.data.insulin_therapy ?? []).map((entry) => ({ ...entry })));
+  }, [params.data]);
+
+  const updateEntry = (index: number, patch: Partial<InsulinTherapyEntry>) => {
+    setSaved(false);
+    setEntries((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry,
+      ),
+    );
+  };
+
+  const removeEntry = (index: number) => {
+    setSaved(false);
+    setEntries((current) => current.filter((_, entryIndex) => entryIndex !== index));
+  };
+
+  const save = () => {
+    const insulinTherapy = entries
+      .filter((entry) => entry.name.trim())
+      .map((entry) => ({ ...entry, name: entry.name.trim() }));
+    patchParams.mutate(
+      { insulin_therapy: insulinTherapy },
+      { onSuccess: () => setSaved(true) },
+    );
+  };
+
+  if (params.isLoading) {
+    return <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Загружаю…</div>;
+  }
+
+  return (
+    <>
+      {entries.map((entry, index) => (
+        <div
+          className="card"
+          key={`${entry.role}-${entry.started_on ?? "earlier"}-${index}`}
+          style={{ marginBottom: 8, padding: 10 }}
+        >
+          <div className="row gap-8">
+            <div className="field" style={{ width: 118 }}>
+              <label>роль</label>
+              <select
+                onChange={(event) =>
+                  updateEntry(index, {
+                    role: event.target.value as InsulinTherapyEntry["role"],
+                    units_per_day:
+                      event.target.value === "basal" || event.target.value === "pump"
+                        ? entry.units_per_day
+                        : null,
+                  })
+                }
+                value={entry.role}
+                style={{ height: 32, width: "100%" }}
+              >
+                <option value="rapid">болюсный</option>
+                <option value="basal">базальный</option>
+                <option value="pump">в помпе</option>
+              </select>
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>препарат</label>
+              <input
+                onChange={(event) => updateEntry(index, { name: event.target.value })}
+                placeholder={entry.role === "basal" ? "Тресиба" : "РинФаст"}
+                value={entry.name}
+              />
+            </div>
+            {entry.role === "basal" || entry.role === "pump" ? (
+              <div className="field" style={{ width: 92 }}>
+                <label>{entry.role === "pump" ? "базал, Ед/сут" : "Ед/сут"}</label>
+                <input
+                  inputMode="decimal"
+                  onChange={(event) => {
+                    const value = Number(event.target.value.replace(",", "."));
+                    updateEntry(index, {
+                      units_per_day: Number.isFinite(value) && value > 0 ? value : null,
+                    });
+                  }}
+                  placeholder="20"
+                  value={entry.units_per_day ?? ""}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="row gap-8" style={{ marginTop: 8 }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label>с даты</label>
+              <input
+                onChange={(event) =>
+                  updateEntry(index, { started_on: event.target.value || null })
+                }
+                type="date"
+                value={entry.started_on ?? ""}
+              />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>до даты</label>
+              <input
+                onChange={(event) =>
+                  updateEntry(index, { ended_on: event.target.value || null })
+                }
+                type="date"
+                value={entry.ended_on ?? ""}
+              />
+            </div>
+            <button
+              className="btn"
+              onClick={() => removeEntry(index)}
+              style={{ alignSelf: "end" }}
+              type="button"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      ))}
+      <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+        <button
+          className="btn"
+          onClick={() => setEntries((current) => [...current, emptyInsulinEntry("pump")])}
+          type="button"
+        >
+          + Инсулин в помпе
+        </button>
+        <button
+          className="btn"
+          onClick={() => setEntries((current) => [...current, emptyInsulinEntry("rapid")])}
+          type="button"
+        >
+          + Болюсный период
+        </button>
+        <button
+          className="btn"
+          onClick={() => setEntries((current) => [...current, emptyInsulinEntry("basal")])}
+          type="button"
+        >
+          + Базальный период
+        </button>
+        <button className="btn" disabled={patchParams.isPending} onClick={save} type="button">
+          {patchParams.isPending ? "Сохраняю…" : "Сохранить инсулин"}
+        </button>
+      </div>
+      {saved ? (
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>Сохранено</div>
+      ) : null}
+      {patchParams.error ? (
+        <div style={{ fontSize: 11, color: "var(--warn)", marginTop: 8 }}>
+          {apiErrorMessage(patchParams.error)}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 function UserProfileForm() {
   const config = useApiConfig();
