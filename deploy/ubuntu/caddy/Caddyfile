@@ -1,21 +1,67 @@
 {
-    email your-email@example.com
+	email ruslan00900@gmail.com
+	auto_https disable_redirects
 }
 
 megusto.duckdns.org:1338 {
-    tls {
-        dns duckdns {env.DUCKDNS_TOKEN}
-        propagation_delay 30s
-    }
+	bind 192.168.3.19
 
-    reverse_proxy 127.0.0.1:8000
+	tls {
+		dns duckdns {env.DUCKDNS_TOKEN}
+		propagation_delay 30s
+	}
 
-    request_body {
-        max_size 14MB
-    }
+	handle /app* {
+		reverse_proxy 127.0.0.1:4173
+	}
 
-    log {
-        output file /var/log/caddy/glucotracker-access.log
-        format json
-    }
+	# GlucoTracker meal-prep photo upload. Must stay above @fridge:
+	# otherwise POST /fridge/mealpreps* hits Fridge :8011, which has no such route.
+	@gtMealprepPhoto {
+		path /fridge/mealpreps*
+	}
+	handle @gtMealprepPhoto {
+		request_body {
+			max_size 25MB
+		}
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Fridge admin UI + Fridge API. /products* is GlucoTracker (Bearer),
+	# not Fridge — putting it here locked the mobile catalog behind Basic.
+	@fridge {
+		path /fridge* /inventory* /meal-prep* /receipts* /containers* /container-types* /media*
+	}
+	handle @fridge {
+		basic_auth {
+			megusto {$FRIDGE_BASIC_HASH}
+		}
+		reverse_proxy 127.0.0.1:8011
+	}
+
+	handle /uploaded-media* {
+		reverse_proxy 127.0.0.1:8011
+	}
+
+	handle {
+		request_body {
+			max_size 25MB
+		}
+
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	log {
+		output file /var/log/caddy/glucotracker-access.log
+		format json
+	}
+}
+
+glucoscope.ru, www.glucoscope.ru {
+	reverse_proxy 127.0.0.1:5173
+
+	log {
+		output file /var/log/caddy/glucoscope-access.log
+		format json
+	}
 }

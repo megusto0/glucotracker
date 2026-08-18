@@ -20,6 +20,13 @@ The Caddy DuckDNS token belongs in a systemd override for the `caddy` service:
 Environment="DUCKDNS_TOKEN=replace-with-token"
 ```
 
+Fridge admin Basic auth stays on `/fridge*`, `/inventory*`, `/meal-prep*`,
+`/receipts*`, `/containers*`, `/container-types*` and `/media*`. The bcrypt
+hash is inlined in the live `/etc/caddy/Caddyfile` (a `$2a$…` value cannot
+live in systemd `Environment=`). `/products*` must **not** be in that
+matcher: the Android app calls `GET /products` with Bearer, and Caddy Basic
+would reject it before GlucoTracker sees the token.
+
 The backend is expected at
 `/media/megusto/storage/glucotracker/project`, with a Python virtualenv at
 `/media/megusto/storage/glucotracker/project/venv`, Postgres listening only on
