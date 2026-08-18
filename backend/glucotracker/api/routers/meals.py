@@ -354,13 +354,9 @@ def _increment_usage_counters(
                 (Product.owner_id.is_(None)) | (Product.owner_id == user_id),
             )
         )
-        if product is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found.",
-            )
-        product.usage_count += 1
-        product.last_used_at = used_at
+        if product is not None:
+            product.usage_count += 1
+            product.last_used_at = used_at
 
     if item.pattern_id is not None:
         pattern = session.scalar(
@@ -655,7 +651,33 @@ def _build_item(
     user_id: UUID,
 ) -> MealItem:
     """Build a meal item ORM object from an API payload."""
-    item = MealItem(meal_id=meal_id, **payload.model_dump(exclude={"nutrients"}))
+    item_data = payload.model_dump(exclude={"nutrients"})
+
+    if payload.product_id is not None:
+        product = session.scalar(
+            select(Product).where(
+                Product.id == payload.product_id,
+                (Product.owner_id.is_(None)) | (Product.owner_id == user_id),
+            )
+        )
+        if product is None:
+            # It's an external fridge lot or mealprep container ID from mobile sync
+            item_data["product_id"] = None
+            evidence = dict(item_data.get("evidence") or {})
+            pid_str = str(payload.product_id)
+            if (
+                payload.source_kind == ItemSourceKind.meal_prep
+                or "милпреп" in (payload.name or "").casefold()
+                or (payload.brand and "GT:C:" in payload.brand)
+            ):
+                evidence["mealprep_container_id"] = pid_str
+                item_data["source_kind"] = ItemSourceKind.meal_prep
+            else:
+                evidence["fridge_lot_id"] = pid_str
+                item_data["source_kind"] = ItemSourceKind.fridge
+            item_data["evidence"] = evidence
+
+    item = MealItem(meal_id=meal_id, **item_data)
     _apply_product_database_values(session, user_id, item)
     _apply_label_database_values(item)
     item.warnings = list(payload.warnings) + _warning_payload(item)
