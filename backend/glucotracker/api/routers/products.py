@@ -137,6 +137,95 @@ def _find_product_for_label(
     return None
 
 
+from glucotracker.application.fridge_sync import FridgeIntegrationService, FridgeItem, MealPrepItem
+
+
+def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
+    """Convert an available fridge item into a ProductResponse for mobile client sync."""
+    try:
+        item_uuid = UUID(hex=item.lot_id.replace("-", ""))
+    except Exception:
+        item_uuid = UUID("00000000-0000-0000-0000-000000000000")
+
+    qty_str = (
+        f"{int(item.remaining_quantity)} {item.unit}"
+        if item.remaining_quantity.is_integer()
+        else f"{item.remaining_quantity:.1f} {item.unit}"
+    )
+    serving_text = f"❄️ Холодильник · {qty_str} в наличии"
+
+    return ProductResponse.model_validate(
+        {
+            "id": item_uuid,
+            "barcode": None,
+            "brand": item.brand,
+            "name": item.name,
+            "default_grams": item.weight_grams or 100.0,
+            "default_serving_text": serving_text,
+            "carbs_per_100g": item.carbs_per_100g,
+            "protein_per_100g": item.protein_per_100g,
+            "fat_per_100g": item.fat_per_100g,
+            "fiber_per_100g": 0.0,
+            "kcal_per_100g": item.kcal_per_100g,
+            "carbs_per_serving": item.carbs_per_100g,
+            "protein_per_serving": item.protein_per_100g,
+            "fat_per_serving": item.fat_per_100g,
+            "fiber_per_serving": 0.0,
+            "kcal_per_serving": item.kcal_per_100g,
+            "source_kind": "fridge",
+            "source_url": f"fridge:{item.lot_id}",
+            "image_url": item.image_url,
+            "nutrients_json": {},
+            "usage_count": 100,
+            "last_used_at": None,
+            "created_at": utc_now(),
+            "updated_at": utc_now(),
+            "aliases": ["холодильник", "fridge"],
+        }
+    )
+
+
+def _mealprep_item_to_product_response(item: MealPrepItem) -> ProductResponse:
+    """Convert an available meal prep container into a ProductResponse for mobile client sync."""
+    try:
+        cont_uuid = UUID(hex=item.container_id.replace("-", ""))
+    except Exception:
+        cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
+
+    serving_text = f"🍱 Милпреп · {int(item.remaining_weight_g)} г ({item.public_code})"
+    net_w = item.net_weight_g or item.remaining_weight_g or 100.0
+
+    return ProductResponse.model_validate(
+        {
+            "id": cont_uuid,
+            "barcode": None,
+            "brand": item.public_code,
+            "name": f"{item.dish_name} ({item.public_code})",
+            "default_grams": net_w,
+            "default_serving_text": serving_text,
+            "carbs_per_100g": round((item.carbs / net_w) * 100.0, 1) if net_w > 0 else item.carbs,
+            "protein_per_100g": round((item.protein / net_w) * 100.0, 1) if net_w > 0 else item.protein,
+            "fat_per_100g": round((item.fat / net_w) * 100.0, 1) if net_w > 0 else item.fat,
+            "fiber_per_100g": 0.0,
+            "kcal_per_100g": round((item.kcal / net_w) * 100.0, 1) if net_w > 0 else item.kcal,
+            "carbs_per_serving": item.carbs,
+            "protein_per_serving": item.protein,
+            "fat_per_serving": item.fat,
+            "fiber_per_serving": 0.0,
+            "kcal_per_serving": item.kcal,
+            "source_kind": "meal_prep",
+            "source_url": f"mp:{item.container_id}",
+            "image_url": item.image_url,
+            "nutrients_json": {},
+            "usage_count": 120,
+            "last_used_at": None,
+            "created_at": utc_now(),
+            "updated_at": utc_now(),
+            "aliases": ["милпреп", "mp", item.public_code],
+        }
+    )
+
+
 @router.get(
     "/products",
     response_model=ProductPageResponse,
@@ -146,10 +235,10 @@ def list_products(
     session: SessionDep,
     current_user: CurrentUserDep,
     q: str | None = None,
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> ProductPageResponse:
-    """List products, optionally searching brand, name, or barcode."""
+    """List products including live available fridge items and meal preps."""
     filters = []
     if q:
         term = f"%{q}%"
@@ -170,10 +259,37 @@ def list_products(
     ).all()
 
     products = collapse_duplicate_source_photo_products(products)
-    total = len(products)
-    products = products[offset : offset + limit]
+    product_responses = [_product_response(product) for product in products]
+
+    # Fetch live available items from Fridge
+    fridge_service = FridgeIntegrationService()
+    try:
+        fridge_items = fridge_service.fetch_available_inventory(current_user.id)
+        mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
+
+        fridge_responses = [_fridge_item_to_product_response(item) for item in fridge_items]
+        mealprep_responses = [_mealprep_item_to_product_response(item) for item in mealprep_items]
+
+        if q:
+            q_norm = q.casefold().strip()
+            fridge_responses = [
+                r for r in fridge_responses
+                if q_norm in r.name.casefold() or (r.brand and q_norm in r.brand.casefold())
+            ]
+            mealprep_responses = [
+                r for r in mealprep_responses
+                if q_norm in r.name.casefold() or (r.brand and q_norm in r.brand.casefold())
+            ]
+
+        # Prioritize ready mealpreps and fridge stock at the top of the list
+        all_items = mealprep_responses + fridge_responses + product_responses
+    except Exception:
+        all_items = product_responses
+
+    total = len(all_items)
+    paged = all_items[offset : offset + limit]
     return ProductPageResponse(
-        items=[_product_response(product) for product in products],
+        items=paged,
         total=total,
         limit=limit,
         offset=offset,
