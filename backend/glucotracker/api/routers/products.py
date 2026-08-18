@@ -264,7 +264,11 @@ def _mealprep_item_to_product_response(
     except Exception:
         cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
-    serving_text = f"{int(item.remaining_weight_g)} г в контейнере"
+    remaining_g = float(item.remaining_weight_g or item.net_weight_g or 0)
+    # The only number in this sentence must be grams. The installed client
+    # takes the last figure as the slider ceiling, so «ещё 3» locked every
+    # portion at 3 g even after stock_remaining was already the weight.
+    serving_text = f"{int(remaining_g)} г в контейнере"
     net_w = item.net_weight_g or item.remaining_weight_g or 100.0
 
     return ProductResponse.model_validate(
@@ -276,7 +280,7 @@ def _mealprep_item_to_product_response(
             # over is one dish in three containers, and the only part that told
             # them apart was truncated by every list that drew it.
             "name": item.dish_name,
-            "default_grams": net_w,
+            "default_grams": remaining_g or net_w,
             "default_serving_text": serving_text,
             "carbs_per_100g": round((item.carbs / net_w) * 100.0, 1) if net_w > 0 else item.carbs,
             "protein_per_100g": round((item.protein / net_w) * 100.0, 1) if net_w > 0 else item.protein,
@@ -292,14 +296,17 @@ def _mealprep_item_to_product_response(
             "source_url": f"mp:{item.container_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
-            "stock_remaining": containers_left,
-            "stock_unit": "контейнер",
+            # Grams left in THIS container. The slider reads stock_remaining as
+            # its max; sending the container count (3) pinned every portion at 3 g.
+            "stock_remaining": remaining_g,
+            "stock_unit": "г",
             "stock_code": item.public_code,
             "usage_count": 0,
             "last_used_at": None,
             "created_at": utc_now(),
             "updated_at": utc_now(),
-            "aliases": ["милпреп", "mp", item.public_code],
+            "aliases": ["милпреп", "mp", item.public_code]
+            + ([f"ещё {containers_left}"] if containers_left > 1 else []),
         }
     )
 

@@ -67,6 +67,12 @@ class BaseViewModel @Inject constructor(
             initialValue = BaseState.Loading,
         )
 
+    init {
+        viewModelScope.launch {
+            runCatching { productsRepository.refreshProducts() }
+        }
+    }
+
     fun setQuery(next: String) {
         query.value = next
     }

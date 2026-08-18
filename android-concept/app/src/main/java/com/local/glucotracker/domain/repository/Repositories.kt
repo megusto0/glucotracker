@@ -41,6 +41,7 @@ interface ProductsRepository {
     suspend fun searchLocal(query: String, limit: Int = 20, prefix: BrandPrefix? = null): List<Product>
     suspend fun searchTemplatesLocal(query: String, limit: Int = 20): List<Template>
     suspend fun refreshProducts()
+    suspend fun getProduct(id: String): Product?
 }
 
 interface MealRepository {

@@ -43,6 +43,12 @@ class CaptureViewModel @Inject constructor(
 ) : ViewModel() {
     val composeSheetOpenCount = settingsStore.composeSheetOpenCount
 
+    init {
+        viewModelScope.launch {
+            runCatching { productsRepository.refreshProducts() }
+        }
+    }
+
     fun enqueueCameraPhoto(tempFile: File, capturedAt: Instant, onQueued: (String) -> Unit) {
         viewModelScope.launch {
             val storedFile = withContext(Dispatchers.IO) {
@@ -157,6 +163,16 @@ class CaptureViewModel @Inject constructor(
             java.io.File(localPath).delete()
             if (message == null) productsRepository.refreshProducts()
             onResult(message)
+        }
+    }
+
+    fun openStockProduct(product: Product, onReady: (Product) -> Unit) {
+        viewModelScope.launch {
+            val fresh = runCatching {
+                productsRepository.refreshProducts()
+                productsRepository.getProduct(product.id)
+            }.getOrNull()
+            onReady(fresh ?: product)
         }
     }
 

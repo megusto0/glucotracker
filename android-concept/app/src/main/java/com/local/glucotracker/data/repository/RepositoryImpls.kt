@@ -499,6 +499,9 @@ class ProductsRepositoryImpl @Inject constructor(
         productDao.replaceAll(productsApi.products().map { it.toCachedEntity(fetchedAt) })
         templateDao.replaceAll(productsApi.templates().map { it.toCachedTemplateEntity(fetchedAt) })
     }
+
+    override suspend fun getProduct(id: String): Product? =
+        productDao.getById(id)?.toDomain()
 }
 
 private fun Product.matches(prefix: BrandPrefix?): Boolean =

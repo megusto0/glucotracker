@@ -316,6 +316,9 @@ abstract class CachedProductDao {
     @Query("SELECT * FROM cached_products ORDER BY usageCount DESC, name ASC LIMIT :limit")
     abstract suspend fun top(limit: Int): List<CachedProductEntity>
 
+    @Query("SELECT * FROM cached_products WHERE id = :id LIMIT 1")
+    abstract suspend fun getById(id: String): CachedProductEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun upsertProductsInternal(products: List<CachedProductEntity>)
 

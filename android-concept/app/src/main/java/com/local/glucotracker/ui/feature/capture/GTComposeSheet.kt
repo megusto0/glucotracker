@@ -233,6 +233,7 @@ fun ManualEntrySearchSheet(
                         },
                         searchProducts = viewModel::searchProducts,
                         searchTemplates = viewModel::searchTemplates,
+                        openStockProduct = viewModel::openStockProduct,
                         onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -255,6 +256,7 @@ fun ManualEntrySearchSheetContent(
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
+    openStockProduct: ((Product, (Product) -> Unit) -> Unit)? = null,
     onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
     initialText: String = "",
     initialProducts: List<Product> = emptyList(),
@@ -408,7 +410,11 @@ fun ManualEntrySearchSheetContent(
                         when (item) {
                             is ComposeSuggestion.ProductSuggestion -> {
                                 keyboardController?.hide()
-                                selectedProductForPortion = item.product
+                                if (item.product.isStock && openStockProduct != null) {
+                                    openStockProduct(item.product) { selectedProductForPortion = it }
+                                } else {
+                                    selectedProductForPortion = item.product
+                                }
                             }
                             is ComposeSuggestion.TemplateSuggestion -> onSubmitTemplate(item.template)
                             is ComposeSuggestion.RestaurantVariantsSuggestion -> {
@@ -1364,11 +1370,35 @@ private fun ProductPortionPicker(
             else -> 3.0
         }
     }
-    val maxGrams: Double = remember(product.stockRemaining, product.defaultGrams) {
-        if (product.isStock && !product.isPieces) {
-            product.stockRemaining ?: product.defaultGrams ?: 300.0
-        } else {
-            product.defaultGrams ?: 300.0
+    val maxGrams: Double = remember(
+        product.stockRemaining,
+        product.defaultGrams,
+        product.stockUnit,
+        isMealPrep,
+        product.isPieces,
+    ) {
+        when {
+            // A batch is weighed in grams. stockRemaining used to be the number
+            // of leftover containers, which made the gram slider's ceiling 3.
+            isMealPrep -> {
+                val remaining = product.stockRemaining
+                val unit = product.stockUnit.orEmpty()
+                val fromSubtitle = Regex("""(\d+(?:[.,]\d+)?)\s*г""")
+                    .find(product.subtitle.orEmpty())
+                    ?.groupValues
+                    ?.get(1)
+                    ?.replace(",", ".")
+                    ?.toDoubleOrNull()
+                val candidates = listOfNotNull(
+                    remaining?.takeIf { it > 20.0 && unit != "контейнер" },
+                    product.defaultGrams?.takeIf { it > 20.0 },
+                    fromSubtitle?.takeIf { it > 20.0 },
+                )
+                candidates.maxOrNull() ?: remaining ?: product.defaultGrams ?: 300.0
+            }
+            product.isStock && !product.isPieces ->
+                product.stockRemaining ?: product.defaultGrams ?: 300.0
+            else -> product.defaultGrams ?: 300.0
         }
     }
 

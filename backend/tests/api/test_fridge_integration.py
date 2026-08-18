@@ -114,6 +114,53 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     assert any(item["token"] == "mp:cont-333" for item in res_prefix_mp.json())
 
 
+def test_products_list_mealprep_slider_uses_grams_not_container_count(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The gram slider reads stock_remaining as its ceiling.
+
+    Three leftover containers used to be sent as stock_remaining=3, which
+    pinned «Вся» at 3 g. The count belongs nowhere near that field.
+    """
+    mock_mealpreps = [
+        MealPrepItem(
+            container_id=f"cont-{idx}",
+            batch_id="batch-smetannik",
+            dish_name="Сметанник",
+            public_code=f"GT:C:00{idx}",
+            net_weight_g=116.75,
+            remaining_weight_g=113.75 if idx == 1 else 116.75,
+            kcal=300.45,
+            protein=4.46,
+            fat=22.2,
+            carbs=20.84,
+            image_url=None,
+        )
+        for idx in range(1, 4)
+    ]
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_inventory",
+        lambda self, owner_id=None: [],
+    )
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_mealpreps",
+        lambda self, owner_id=None: mock_mealpreps,
+    )
+
+    res = api_client.get("/products")
+    assert res.status_code == 200
+    item = next(p for p in res.json()["items"] if p["name"] == "Сметанник")
+    assert item["source_kind"] == "meal_prep"
+    assert item["stock_unit"] == "г"
+    assert item["stock_remaining"] == 113.75
+    assert item["default_grams"] == 113.75
+    assert item["default_serving_text"] == "113 г в контейнере"
+    assert item["stock_remaining"] != 3
+
+
 def test_creating_meal_with_fridge_item_triggers_consumption(
     api_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
