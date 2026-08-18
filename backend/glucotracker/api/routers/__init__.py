@@ -6,6 +6,7 @@ from glucotracker.api.routers.auth import router as auth_router
 from glucotracker.api.routers.autocomplete import router as autocomplete_router
 from glucotracker.api.routers.dashboard import router as dashboard_router
 from glucotracker.api.routers.database import router as database_router
+from glucotracker.api.routers.fridge import router as fridge_router
 from glucotracker.api.routers.glucose import router as glucose_router
 from glucotracker.api.routers.goals import router as goals_router
 from glucotracker.api.routers.health_connect import router as health_connect_router
@@ -28,6 +29,7 @@ __all__ = [
     "autocomplete_router",
     "dashboard_router",
     "database_router",
+    "fridge_router",
     "glucose_router",
     "goals_router",
     "health_connect_router",

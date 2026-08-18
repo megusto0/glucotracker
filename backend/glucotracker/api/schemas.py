@@ -1007,6 +1007,9 @@ class MealItemBase(BaseModel):
     pattern_id: UUID | None = None
     product_id: UUID | None = None
     photo_id: UUID | None = None
+    # The picture the client already had. Fridge stock is not a catalogue row,
+    # so there is nothing for the server to inherit a picture from.
+    image_url: str | None = Field(default=None, examples=["https://…/apple.jpg"])
     position: int = Field(default=0, ge=0, examples=[0])
     nutrients: dict[str, NutrientInput | float | None] = Field(default_factory=dict)
 
@@ -1632,6 +1635,13 @@ class RememberProductRequest(BaseModel):
     """Persist an accepted label item into the product database."""
 
     aliases: list[str] = Field(default_factory=list, examples=[["сырок"]])
+
+
+class MealPrepPhotoResponse(BaseModel):
+    """Where a freshly attached meal-prep photograph now lives."""
+
+    batch_id: UUID
+    url: str
 
 
 class ProductPageResponse(BaseModel):

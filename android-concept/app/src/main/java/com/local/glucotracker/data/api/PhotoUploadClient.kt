@@ -108,7 +108,49 @@ class PhotoUploadClient @Inject constructor(
         }
         return response.body()
     }
+
+    /**
+     * A photograph of a cooked batch, taken at the counter.
+     *
+     * The id the phone holds is a container's, because that is what the code on
+     * a lid resolves to; the server maps it back to the batch, since the dish
+     * is what was photographed and every container of it is the same dish.
+     */
+    suspend fun uploadMealPrepPhoto(batchId: String, localPhotoPath: String): MealPrepPhotoUploadResponse {
+        val file = File(localPhotoPath)
+        val uploadBytes = file.bytesForUpload()
+        val response = client.post("$baseUrl/fridge/mealpreps/$batchId/photo") {
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append(
+                            key = "file",
+                            value = uploadBytes,
+                            headers = Headers.build {
+                                append(HttpHeaders.ContentType, "image/jpeg")
+                                append(
+                                    HttpHeaders.ContentDisposition,
+                                    "form-data; name=\"file\"; filename=\"${file.name}\"",
+                                )
+                            },
+                        )
+                    },
+                ),
+            )
+        }
+        if (response.status.value !in 200..299) {
+            throw OutboxHttpException(response.status.value, "HTTP ${response.status.value}")
+        }
+        return response.body()
+    }
 }
+
+@Serializable
+data class MealPrepPhotoUploadResponse(
+    @SerialName("batch_id")
+    val batchId: String,
+    val url: String,
+)
 
 private fun String.toPhotoCaptureSource(): String =
     when (this) {

@@ -22,6 +22,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
+import android.util.Log
+import com.local.glucotracker.data.api.PhotoUploadClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,6 +37,7 @@ class CaptureViewModel @Inject constructor(
     private val photoStorage: PhotoStorage,
     private val settingsStore: SettingsStore,
     private val photoTelemetryLogger: PhotoEstimateTelemetryLogger,
+    private val photoUploadClient: PhotoUploadClient,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     val composeSheetOpenCount = settingsStore.composeSheetOpenCount
@@ -131,6 +134,26 @@ class CaptureViewModel @Inject constructor(
     fun deletePendingCapture(outboxId: String) {
         viewModelScope.launch {
             outboxRepository.remove(outboxId)
+        }
+    }
+
+    /**
+     * Send a photograph of a cooked batch straight to the server.
+     *
+     * Not through the outbox: this is not a record of eating and it does not
+     * belong in the queue of things the day is waiting on. If it fails, the
+     * dish simply has no picture yet and the button can be pressed again.
+     */
+    fun uploadMealPrepPhoto(productId: String, localPath: String) {
+        viewModelScope.launch {
+            val file = File(localPath)
+            runCatching {
+                photoUploadClient.uploadMealPrepPhoto(productId, localPath)
+            }.onFailure { error ->
+                Log.w("CaptureViewModel", "Meal prep photo upload failed", error)
+            }
+            withContext(Dispatchers.IO) { file.delete() }
+            productsRepository.refreshProducts()
         }
     }
 

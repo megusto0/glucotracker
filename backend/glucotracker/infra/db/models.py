@@ -311,13 +311,6 @@ class Meal(Base, TimestampMixin):
                 return item.image_url
             if item.source_image_url:
                 return item.source_image_url
-            # The product's own picture, for rows entered from База rather than
-            # photographed. Without this a yoghurt logged by name showed the
-            # empty-photo glyph on Today while its picture sat in the catalogue
-            # one screen away. `MealItem.product` is eager-loaded by the meal
-            # endpoints, and `tags` below already walks it the same way.
-            if item.product is not None and item.product.image_url:
-                return item.product.image_url
         return None
 
     @property
@@ -420,6 +413,11 @@ class MealItem(Base, TimestampMixin):
         ForeignKey("products.id"),
         nullable=True,
     )
+    stored_image_url: Mapped[str | None] = mapped_column(
+        "image_url",
+        String,
+        nullable=True,
+    )
     photo_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("photos.id"),
@@ -445,8 +443,12 @@ class MealItem(Base, TimestampMixin):
 
     @property
     def image_url(self) -> str | None:
-        """Return the image inherited from the referenced source item."""
-        return self.source_image_url
+        """Return the item's own picture, or the one it inherits."""
+        # Stock from the fridge has no row in `products` — its id is
+        # synthesised — so `source_image_url` finds nothing to inherit and the
+        # entry showed the empty-photo glyph while its picture sat one screen
+        # away. A client that knows the picture can now send it.
+        return self.stored_image_url or self.source_image_url
 
     @property
     def image_cache_path(self) -> str | None:

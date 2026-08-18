@@ -29,6 +29,7 @@ internal fun Product.toProductMealKind(
         fiberG = fiberG?.let { it * ratio },
         sourceKind = "product_db",
         productId = id,
+        imageUrl = imageUrl,
     )
     return OutboxKind.CreateMeal(
         payload = MealDraft(

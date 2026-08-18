@@ -2,6 +2,12 @@ package com.local.glucotracker.ui.feature.capture
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -175,6 +181,7 @@ fun ManualEntrySearchSheet(
             },
             searchProducts = viewModel::searchProducts,
             searchTemplates = viewModel::searchTemplates,
+            onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 260.dp)
@@ -193,6 +200,7 @@ fun ManualEntrySearchSheetContent(
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
+    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
     initialText: String = "",
     initialProducts: List<Product> = emptyList(),
     initialTemplates: List<Template> = emptyList(),
@@ -277,6 +285,7 @@ fun ManualEntrySearchSheetContent(
                 onSubmitProduct(product, weightGrams, servingText)
             },
             modifier = modifier,
+            onPhotoTaken = onMealPrepPhoto,
         )
         return
     }
@@ -507,6 +516,64 @@ private fun SuggestionThumb(item: ComposeSuggestion) {
             )
         }
     }
+}
+
+/**
+ * Take a picture of a cooked batch.
+ *
+ * Straight to a cache file through a FileProvider rather than through the meal
+ * capture screen: that screen exists to create a meal, and this photograph
+ * creates nothing — it names a dish that already exists.
+ */
+@Composable
+private fun MealPrepPhotoButton(
+    hasPhoto: Boolean,
+    onCaptured: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var pendingPath by remember { mutableStateOf<String?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { saved ->
+        val path = pendingPath
+        pendingPath = null
+        if (saved && path != null) onCaptured(path)
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (!granted) pendingPath = null
+    }
+
+    Text(
+        text = if (hasPhoto) "Переснять блюдо" else "Сфотографировать блюдо",
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card)
+            .clickable {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    permissionLauncher.launch(Manifest.permission.CAMERA)
+                    return@clickable
+                }
+                val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+                val target = File(dir, "mealprep_${System.currentTimeMillis()}.jpg")
+                pendingPath = target.absolutePath
+                cameraLauncher.launch(
+                    FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        target,
+                    ),
+                )
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        color = GT.colors.ink,
+        style = GT.type.sansLabel,
+    )
 }
 
 @Composable
@@ -1267,6 +1334,10 @@ private fun ProductPortionPicker(
     onCancel: () -> Unit,
     onSubmit: (Product, Double?, String?) -> Unit,
     modifier: Modifier = Modifier,
+    // Null where nothing can upload. A meal prep is cooked once and looks the
+    // same in every container, so one photograph at the counter serves all of
+    // them — and until now there was no way to take it from the phone at all.
+    onPhotoTaken: ((productId: String, localPath: String) -> Unit)? = null,
 ) {
     // All four of these used to be read out of the serving sentence with
     // regular expressions — «🍱 Милпреп · 300 г (GT:C:…)», «❄️ Холодильник ·
@@ -1372,6 +1443,14 @@ private fun ProductPortionPicker(
                     .height(120.dp)
                     .background(GT.colors.surface, GT.shapes.card)
                     .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+
+        if (isMealPrep && onPhotoTaken != null) {
+            MealPrepPhotoButton(
+                hasPhoto = imageModel != null,
+                onCaptured = { path -> onPhotoTaken(product.id, path) },
             )
             Spacer(Modifier.height(10.dp))
         }

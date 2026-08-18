@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Where the camera writes a meal-prep photograph before it is uploaded.
+         Cache, not files: once the server has it the copy on the phone is
+         nobody's business and can be swept whenever the system likes. -->
+    <cache-path name="camera" path="camera/" />
+</paths>

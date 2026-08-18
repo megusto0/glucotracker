@@ -27,9 +27,9 @@ class ProductImageStorageError(ValueError):
     """Raised when a product image cannot be stored."""
 
 
-def _storage_root() -> Path:
-    """Return the local product image storage root."""
-    return get_settings().photo_storage_dir.parent / "product_images"
+def _storage_root(subdir: str = "product_images") -> Path:
+    """Return a local image storage root."""
+    return get_settings().photo_storage_dir.parent / subdir
 
 
 def _read_limited(file_obj: BinaryIO) -> bytes:
@@ -57,19 +57,23 @@ def _extension_for_upload(file: UploadFile) -> str:
     raise ProductImageStorageError(msg)
 
 
-def _candidate_paths(product_id: UUID) -> list[Path]:
+def _candidate_paths(product_id: UUID, subdir: str = "product_images") -> list[Path]:
     """Return possible stored paths for a product image."""
-    root = _storage_root()
+    root = _storage_root(subdir)
     return [
         root / f"{product_id}{extension}"
         for extension in {".jpg", ".png", ".webp"}
     ]
 
 
-def save_upload(product_id: UUID, file: UploadFile) -> Path:
+def save_upload(
+    product_id: UUID,
+    file: UploadFile,
+    subdir: str = "product_images",
+) -> Path:
     """Persist an uploaded product image and return the absolute path."""
     extension = _extension_for_upload(file)
-    root = _storage_root()
+    root = _storage_root(subdir)
     root.mkdir(parents=True, exist_ok=True)
     path = root / f"{product_id}{extension}"
 
@@ -79,7 +83,7 @@ def save_upload(product_id: UUID, file: UploadFile) -> Path:
         if not data:
             msg = "image file is empty"
             raise ProductImageStorageError(msg)
-        for candidate in _candidate_paths(product_id):
+        for candidate in _candidate_paths(product_id, subdir):
             if candidate != path:
                 candidate.unlink(missing_ok=True)
         path.write_bytes(data)
@@ -92,9 +96,9 @@ def save_upload(product_id: UUID, file: UploadFile) -> Path:
     return path
 
 
-def get_full_path(product_id: UUID) -> Path:
+def get_full_path(product_id: UUID, subdir: str = "product_images") -> Path:
     """Return the stored product image path or raise when missing."""
-    for path in _candidate_paths(product_id):
+    for path in _candidate_paths(product_id, subdir):
         if path.exists():
             return path
     msg = "product image file not found"

@@ -163,6 +163,7 @@ private fun MealItemPayload.toGenerated(): MealItemCreate =
         patternId = patternId?.toUuidOrNull(),
         productId = productId?.toUuidOrNull(),
         photoId = photoId?.toUuidOrNull(),
+        imageUrl = imageUrl,
         position = position,
     )
 

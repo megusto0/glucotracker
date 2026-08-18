@@ -402,6 +402,63 @@ class FridgeIntegrationService:
                         conn.close()
             return False
 
+    def set_batch_image(self, batch_id: str, image_url: str) -> bool:
+        """Attach a picture to a meal-prep batch, and to its containers.
+
+        A batch is cooked once and photographed once; every container of it is
+        the same food, so the picture belongs to all of them. Written straight
+        to the fridge database rather than through its HTTP API — the same path
+        `consume_item` already takes, and it works when the fridge service is
+        down while its file is not.
+        """
+        conn = self._open_db()
+        if not conn:
+            return False
+        try:
+            clean = str(batch_id).replace("-", "").lower().strip()
+            cursor = conn.execute(
+                "UPDATE meal_prep_batches SET image_url = ?"
+                " WHERE REPLACE(id, '-', '') = ?",
+                (image_url, clean),
+            )
+            if cursor.rowcount == 0:
+                return False
+            conn.execute(
+                "UPDATE meal_prep_containers SET image_url = ?"
+                " WHERE REPLACE(batch_id, '-', '') = ?",
+                (image_url, clean),
+            )
+            conn.commit()
+            return True
+        except Exception as exc:
+            logger.error("Failed to attach image to batch %s: %s", batch_id, exc)
+            return False
+        finally:
+            conn.close()
+
+    def find_batch_for_container(self, container_id: str) -> str | None:
+        """Return the batch a container belongs to.
+
+        The client holds container ids, because that is what a code on a lid
+        resolves to, but a photograph is of the dish, not of one box.
+        """
+        conn = self._open_db()
+        if not conn:
+            return None
+        try:
+            clean = str(container_id).replace("-", "").lower().strip()
+            row = conn.execute(
+                "SELECT batch_id FROM meal_prep_containers"
+                " WHERE REPLACE(id, '-', '') = ? LIMIT 1",
+                (clean,),
+            ).fetchone()
+            return str(row["batch_id"]) if row else None
+        except Exception as exc:
+            logger.warning("Could not resolve batch for container %s: %s", container_id, exc)
+            return None
+        finally:
+            conn.close()
+
     def get_image_for_item_id(self, item_id: str, owner_id: UUID | str | None = None) -> str | None:
         """Resolve image URL for a given product lot or mealprep container UUID/id."""
         clean_id = str(item_id).replace("fridge:", "").replace("mp:", "").replace("-", "").lower().strip()

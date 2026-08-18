@@ -311,6 +311,10 @@ data class MealItemPayload(
     val patternId: String? = null,
     val productId: String? = null,
     val photoId: String? = null,
+    // The picture the client already has. Fridge stock is not a catalogue row,
+    // so the server has nothing to inherit a picture from and the entry showed
+    // the empty-photo glyph on Today.
+    val imageUrl: String? = null,
     val position: Int? = 0,
 )
 

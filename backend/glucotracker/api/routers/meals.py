@@ -652,6 +652,10 @@ def _build_item(
 ) -> MealItem:
     """Build a meal item ORM object from an API payload."""
     item_data = payload.model_dump(exclude={"nutrients"})
+    # The column is `image_url`; the attribute is `stored_image_url`, because
+    # `image_url` is the property that falls back to the linked pattern or
+    # product when the item carries no picture of its own.
+    item_data["stored_image_url"] = item_data.pop("image_url", None)
 
     if payload.product_id is not None:
         product = session.scalar(
