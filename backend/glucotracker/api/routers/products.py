@@ -147,12 +147,30 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
     except Exception:
         item_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
+    unit_norm = (item.unit or "").lower().strip()
+    is_pcs = unit_norm in ("pcs", "шт", "pack", "уп")
+    unit_display = "шт" if is_pcs else item.unit
+
     qty_str = (
-        f"{int(item.remaining_quantity)} {item.unit}"
+        f"{int(item.remaining_quantity)} {unit_display}"
         if item.remaining_quantity.is_integer()
-        else f"{item.remaining_quantity:.1f} {item.unit}"
+        else f"{item.remaining_quantity:.1f} {unit_display}"
     )
     serving_text = f"❄️ Холодильник · {qty_str} в наличии"
+
+    if is_pcs:
+        if item.weight_grams and item.remaining_quantity > 0:
+            single_piece_grams = round(item.weight_grams / item.remaining_quantity, 1)
+        else:
+            single_piece_grams = 100.0
+        default_grams = single_piece_grams
+    else:
+        default_grams = min(100.0, item.weight_grams or 100.0)
+
+    kcal_100 = item.kcal_per_100g or 0.0
+    carbs_100 = item.carbs_per_100g or 0.0
+    protein_100 = item.protein_per_100g or 0.0
+    fat_100 = item.fat_per_100g or 0.0
 
     return ProductResponse.model_validate(
         {
@@ -160,18 +178,18 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "barcode": None,
             "brand": item.brand,
             "name": item.name,
-            "default_grams": item.weight_grams or 100.0,
+            "default_grams": default_grams,
             "default_serving_text": serving_text,
-            "carbs_per_100g": item.carbs_per_100g,
-            "protein_per_100g": item.protein_per_100g,
-            "fat_per_100g": item.fat_per_100g,
+            "carbs_per_100g": carbs_100,
+            "protein_per_100g": protein_100,
+            "fat_per_100g": fat_100,
             "fiber_per_100g": 0.0,
-            "kcal_per_100g": item.kcal_per_100g,
-            "carbs_per_serving": item.carbs_per_100g,
-            "protein_per_serving": item.protein_per_100g,
-            "fat_per_serving": item.fat_per_100g,
+            "kcal_per_100g": kcal_100,
+            "carbs_per_serving": round(carbs_100 * default_grams / 100.0, 1),
+            "protein_per_serving": round(protein_100 * default_grams / 100.0, 1),
+            "fat_per_serving": round(fat_100 * default_grams / 100.0, 1),
             "fiber_per_serving": 0.0,
-            "kcal_per_serving": item.kcal_per_100g,
+            "kcal_per_serving": round(kcal_100 * default_grams / 100.0, 1),
             "source_kind": "fridge",
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,

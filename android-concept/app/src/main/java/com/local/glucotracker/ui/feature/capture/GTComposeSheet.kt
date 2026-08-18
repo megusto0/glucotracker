@@ -1252,27 +1252,32 @@ private fun ProductPortionPicker(
     val isMealPrep = product.subtitle?.contains("Милпреп", ignoreCase = true) == true
     val isFridge = product.subtitle?.contains("Холодильник", ignoreCase = true) == true
     val isPcsItem = product.subtitle?.contains("pcs", ignoreCase = true) == true ||
-        product.subtitle?.contains("шт", ignoreCase = true) == true
+        product.subtitle?.contains("шт", ignoreCase = true) == true ||
+        product.name.contains("шт", ignoreCase = true) ||
+        (product.defaultGrams != null && product.defaultGrams!! <= 50.0 && !product.name.contains("масло", ignoreCase = true))
 
     val maxPcs: Double = remember(product.subtitle) {
         val sub = product.subtitle.orEmpty()
-        val match = Regex("""(\d+(\.\d+)?)\s*(pcs|шт)""").find(sub)
-        match?.groupValues?.get(1)?.toDoubleOrNull() ?: 4.0
+        val match = Regex("""(\d+(\.\d+)?)\s*(pcs|шт)""", RegexOption.IGNORE_CASE).find(sub)
+        match?.groupValues?.get(1)?.toDoubleOrNull() ?: 3.0
     }
     val maxGrams: Double = remember(product.subtitle, product.defaultGrams) {
         val sub = product.subtitle.orEmpty()
-        val match = Regex("""(\d+(\.\d+)?)\s*(g|г)""").find(sub)
+        val match = Regex("""(\d+(\.\d+)?)\s*(g|г)""", RegexOption.IGNORE_CASE).find(sub)
         match?.groupValues?.get(1)?.toDoubleOrNull() ?: product.defaultGrams ?: 300.0
     }
 
-    var quantityPcs by remember(product.id) { mutableStateOf(if (isPcsItem) 1.0 else 1.0) }
+    var quantityPcs by remember(product.id) { mutableStateOf(1.0) }
     var weightGrams by remember(product.id) {
-        mutableStateOf(if (isPcsItem) (product.defaultGrams ?: 100.0) else (product.defaultGrams ?: 100.0))
+        mutableStateOf(
+            if (isPcsItem) (product.defaultGrams ?: 12.0)
+            else minOf(product.defaultGrams ?: 100.0, maxGrams)
+        )
     }
 
-    val baseGrams = product.defaultGrams ?: 100.0
+    val baseGrams = (product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
     val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
-    val ratio = if (baseGrams > 0.0) effectiveGrams / baseGrams else 1.0
+    val ratio = effectiveGrams / baseGrams
 
     val currentKcal = (product.kcal ?: 0.0) * ratio
     val currentCarbs = (product.carbsG ?: 0.0) * ratio
@@ -1367,51 +1372,46 @@ private fun ProductPortionPicker(
                     style = GT.type.monoLabel,
                 )
             }
-            Slider(
-                value = quantityPcs.toFloat(),
-                onValueChange = { quantityPcs = (Math.round(it * 2.0) / 2.0).coerceAtLeast(0.5) },
-                valueRange = 0.5f..maxOf(maxPcs.toFloat(), 4f),
-                steps = ((maxOf(maxPcs.toFloat(), 4f) - 0.5f) / 0.5f).toInt() - 1,
-                colors = SliderDefaults.colors(
-                    thumbColor = GT.colors.ink,
-                    activeTrackColor = GT.colors.ink,
-                    inactiveTrackColor = GT.colors.hairline2,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val maxPcsFloat = maxOf(maxPcs.toFloat(), 1f)
+            if (maxPcsFloat > 1f) {
+                Slider(
+                    value = quantityPcs.toFloat(),
+                    onValueChange = { quantityPcs = (Math.round(it)).toDouble().coerceIn(1.0, maxPcs) },
+                    valueRange = 1f..maxPcsFloat,
+                    steps = (maxPcsFloat.toInt() - 2).coerceAtLeast(0),
+                    colors = SliderDefaults.colors(
+                        thumbColor = GT.colors.ink,
+                        activeTrackColor = GT.colors.ink,
+                        inactiveTrackColor = GT.colors.hairline2,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 2.dp),
+                    .padding(top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                listOf(0.5, 1.0, 2.0).forEach { q ->
+                val chipOptions = when {
+                    maxPcs <= 1.0 -> listOf(1.0)
+                    maxPcs == 2.0 -> listOf(1.0, 2.0)
+                    maxPcs == 3.0 -> listOf(1.0, 2.0, 3.0)
+                    else -> listOf(1.0, 2.0, maxPcs)
+                }.distinct()
+
+                chipOptions.forEach { q ->
                     val isSel = (quantityPcs == q)
+                    val label = if (q == maxPcs && maxPcs > 2.0) "Все (${q.toInt()} шт)" else "${q.toInt()} шт"
                     Box(
                         modifier = Modifier
                             .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
                             .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
                             .clickable { quantityPcs = q }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                     ) {
                         Text(
-                            text = "${if (q % 1.0 == 0.0) q.toInt() else q} шт",
-                            color = if (isSel) GT.colors.bg else GT.colors.ink,
-                            style = GT.type.monoLabel,
-                        )
-                    }
-                }
-                if (maxPcs > 2.0) {
-                    val isSel = (quantityPcs == maxPcs)
-                    Box(
-                        modifier = Modifier
-                            .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
-                            .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
-                            .clickable { quantityPcs = maxPcs }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text(
-                            text = "Все (${if (maxPcs % 1.0 == 0.0) maxPcs.toInt() else maxPcs} шт)",
+                            text = label,
                             color = if (isSel) GT.colors.bg else GT.colors.ink,
                             style = GT.type.monoLabel,
                         )
@@ -1435,11 +1435,13 @@ private fun ProductPortionPicker(
                     style = GT.type.monoLabel,
                 )
             }
+            val minGram = minOf(20f, maxGrams.toFloat())
+            val maxGram = maxOf(maxGrams.toFloat(), 200f)
             Slider(
                 value = weightGrams.toFloat(),
-                onValueChange = { weightGrams = (Math.round(it / 10.0) * 10.0).coerceAtLeast(10.0) },
-                valueRange = 20f..maxOf(maxGrams.toFloat(), 500f),
-                steps = ((maxOf(maxGrams.toFloat(), 500f) - 20f) / 10f).toInt() - 1,
+                onValueChange = { weightGrams = (Math.round(it / 10.0) * 10.0).coerceIn(minGram.toDouble(), maxGrams) },
+                valueRange = minGram..maxGram,
+                steps = ((maxGram - minGram) / 10f).toInt() - 1,
                 colors = SliderDefaults.colors(
                     thumbColor = GT.colors.ink,
                     activeTrackColor = GT.colors.ink,
@@ -1450,10 +1452,11 @@ private fun ProductPortionPicker(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 2.dp),
+                    .padding(top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                listOf(100.0, 150.0, 200.0).forEach { w ->
+                val gramChips = listOf(50.0, 100.0, 150.0, 200.0).filter { it <= maxGrams }
+                gramChips.forEach { w ->
                     val isSel = (weightGrams == w)
                     Box(
                         modifier = Modifier
@@ -1469,7 +1472,7 @@ private fun ProductPortionPicker(
                         )
                     }
                 }
-                if (maxGrams > 0 && maxGrams != 100.0 && maxGrams != 150.0 && maxGrams != 200.0) {
+                if (maxGrams > 0 && !gramChips.contains(maxGrams)) {
                     val isSel = (weightGrams == maxGrams)
                     Box(
                         modifier = Modifier
