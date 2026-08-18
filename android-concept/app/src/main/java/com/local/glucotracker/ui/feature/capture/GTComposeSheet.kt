@@ -150,7 +150,7 @@ fun ManualEntrySearchSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         containerColor = GT.colors.bg,
         contentColor = GT.colors.ink,
@@ -185,7 +185,7 @@ fun ManualEntrySearchSheet(
             onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 260.dp)
+                .fillMaxHeight()
                 .imePadding(),
         )
     }
@@ -338,7 +338,7 @@ fun ManualEntrySearchSheetContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 220.dp, max = 420.dp)
+                .weight(1f)
                 .background(GT.colors.surface),
         ) {
             if (suggestions.isEmpty() && query.isBlank()) {
