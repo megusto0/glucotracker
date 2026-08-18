@@ -526,11 +526,12 @@ def upload_product_image(
 def get_product_image_file(
     product_id: UUID,
     session: SessionDep,
-    current_user: CurrentUserDep,
 ) -> Response:
     """Stream a locally stored product image or redirect to external/fridge image URL."""
-    try:
-        product = _get_product(session, current_user.id, product_id)
+    product = session.scalar(
+        select(Product).where(Product.id == product_id).options(*_product_options())
+    )
+    if product is not None:
         try:
             full_path = product_image_store.get_full_path(product.id)
             return FileResponse(
@@ -541,21 +542,18 @@ def get_product_image_file(
                 content_disposition_type="inline",
             )
         except product_image_store.ProductImageStorageError:
-            if product and product.image_url:
+            if product.image_url:
                 from fastapi.responses import RedirectResponse
                 return RedirectResponse(product.image_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product image not found.",
-            )
-    except HTTPException:
-        # Check if product is from Fridge or MealPrep
-        fridge_service = FridgeIntegrationService()
-        img_url = fridge_service.get_image_for_item_id(str(product_id), current_user.id)
-        if img_url:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(img_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found.",
-        )
+
+    # Check if product is from Fridge or MealPrep
+    fridge_service = FridgeIntegrationService()
+    img_url = fridge_service.get_image_for_item_id(str(product_id), None)
+    if img_url:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(img_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Product image not found.",
+    )
