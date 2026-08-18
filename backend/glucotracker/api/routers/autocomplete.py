@@ -314,7 +314,9 @@ def _fridge_item_suggestion(
     search_values = [item.name, item.brand or "", "холодильник", "fridge"]
     match_rank = _text_match_rank(search_values, q)
     qty_str = f"{int(item.remaining_quantity)} {item.unit}" if item.remaining_quantity.is_integer() else f"{item.remaining_quantity:.1f} {item.unit}"
-    subtitle = f"❄️ Холодильник · {qty_str} в наличии"
+    # No snowflake and no word for the source: `kind` already says
+    # "fridge_product" and the client draws its own mark from it.
+    subtitle = f"{qty_str} в наличии"
     if item.days_to_expiry is not None and item.days_to_expiry <= 2:
         subtitle += f" · годен {item.days_to_expiry} дн."
 
@@ -335,7 +337,10 @@ def _fridge_item_suggestion(
             fat_g=item.fat_per_100g,
             kcal=item.kcal_per_100g,
             image_url=item.image_url,
-            usage_count=100,
+            # Not 100. Stock is already sorted ahead of the catalogue by the
+            # last element of this tuple; a fabricated count printed as
+            # «× 100 раз» — a claim about a history that never happened.
+            usage_count=0,
             matched_alias=None,
         ),
         100,
@@ -352,7 +357,7 @@ def _mealprep_item_suggestion(
     """Convert an available ready meal prep container into a top-priority suggestion."""
     search_values = [item.dish_name, item.public_code, "милпреп", "контейнер", "mp"]
     match_rank = _text_match_rank(search_values, q)
-    subtitle = f"🍱 Милпреп · {int(item.remaining_weight_g)} г · {int(item.kcal)} ккал ({item.public_code})"
+    subtitle = f"{int(item.remaining_weight_g)} г · {int(item.kcal)} ккал"
 
     try:
         cont_uuid = UUID(hex=item.container_id.replace("-", ""))
@@ -364,14 +369,18 @@ def _mealprep_item_suggestion(
             kind="meal_prep",
             id=cont_uuid,
             token=f"mp:{item.container_id}",
-            display_name=f"{item.dish_name} ({item.public_code})",
+            # The code left the name. This mapper is the one search uses, so
+            # picking a container here is what wrote «Азу с чечевицей
+            # (GT:C:16EC03A46F)» into a diary entry's title — and a title is
+            # copied at the moment of writing, so it outlives any later fix.
+            display_name=item.dish_name,
             subtitle=subtitle,
             carbs_g=item.carbs,
             protein_g=item.protein,
             fat_g=item.fat,
             kcal=item.kcal,
             image_url=item.image_url,
-            usage_count=120,
+            usage_count=0,
             matched_alias=None,
         ),
         120,

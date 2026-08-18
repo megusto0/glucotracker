@@ -85,6 +85,7 @@ import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
@@ -516,64 +517,6 @@ private fun SuggestionThumb(item: ComposeSuggestion) {
             )
         }
     }
-}
-
-/**
- * Take a picture of a cooked batch.
- *
- * Straight to a cache file through a FileProvider rather than through the meal
- * capture screen: that screen exists to create a meal, and this photograph
- * creates nothing — it names a dish that already exists.
- */
-@Composable
-private fun MealPrepPhotoButton(
-    hasPhoto: Boolean,
-    onCaptured: (String) -> Unit,
-) {
-    val context = LocalContext.current
-    var pendingPath by remember { mutableStateOf<String?>(null) }
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-    ) { saved ->
-        val path = pendingPath
-        pendingPath = null
-        if (saved && path != null) onCaptured(path)
-    }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (!granted) pendingPath = null
-    }
-
-    Text(
-        text = if (hasPhoto) "Переснять блюдо" else "Сфотографировать блюдо",
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card)
-            .clickable {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    permissionLauncher.launch(Manifest.permission.CAMERA)
-                    return@clickable
-                }
-                val dir = File(context.cacheDir, "camera").apply { mkdirs() }
-                val target = File(dir, "mealprep_${System.currentTimeMillis()}.jpg")
-                pendingPath = target.absolutePath
-                cameraLauncher.launch(
-                    FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        target,
-                    ),
-                )
-            }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        color = GT.colors.ink,
-        style = GT.type.sansLabel,
-    )
 }
 
 @Composable

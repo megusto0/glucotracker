@@ -1,5 +1,7 @@
 package com.local.glucotracker.ui.feature.base
 
+import android.util.Log
+import com.local.glucotracker.data.api.PhotoUploadClient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.domain.model.OutboxKind
@@ -43,6 +45,7 @@ fun dedupTags(tags: List<String>): List<String> {
 class BaseViewModel @Inject constructor(
     private val productsRepository: ProductsRepository,
     private val outboxRepository: OutboxRepository,
+    private val photoUploadClient: PhotoUploadClient,
 ) : ViewModel() {
 
     private val query = MutableStateFlow("")
@@ -69,6 +72,22 @@ class BaseViewModel @Inject constructor(
 
     fun setFilter(next: BaseFilter) {
         filter.value = next
+    }
+
+    /**
+     * A photograph of a cooked batch, from the card that opens on it.
+     *
+     * The search sheet has the same button; a meal prep is met from either
+     * screen, and a picture you can only take from one of them is a picture
+     * nobody takes.
+     */
+    fun uploadMealPrepPhoto(productId: String, localPath: String) {
+        viewModelScope.launch {
+            runCatching { photoUploadClient.uploadMealPrepPhoto(productId, localPath) }
+                .onFailure { error -> Log.w("BaseViewModel", "Meal prep photo failed", error) }
+            java.io.File(localPath).delete()
+            productsRepository.refreshProducts()
+        }
     }
 
     fun useInJournal(item: BaseItem, onQueued: (String) -> Unit) {

@@ -49,6 +49,7 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.image.rememberApiImageModel
+import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.stock.stockLabel
 
@@ -63,6 +64,7 @@ fun BaseRoute(
         onQueryChange = viewModel::setQuery,
         onFilterChange = viewModel::setFilter,
         onUseInJournal = { item -> viewModel.useInJournal(item, onOutboxQueued) },
+        onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
     )
 }
 
@@ -73,6 +75,7 @@ fun BaseScreen(
     onFilterChange: (BaseFilter) -> Unit,
     onUseInJournal: (BaseItem) -> Unit,
     modifier: Modifier = Modifier,
+    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
 ) {
     var detailItem by remember { mutableStateOf<BaseItem?>(null) }
 
@@ -187,6 +190,7 @@ fun BaseScreen(
     detailItem?.let { item ->
         DetailSheet(
             item = item,
+            onMealPrepPhoto = onMealPrepPhoto,
             onUseInJournal = { selectedItem ->
                 detailItem = null
                 onUseInJournal(selectedItem)
@@ -369,6 +373,7 @@ private fun DetailSheet(
     item: BaseItem,
     onUseInJournal: (BaseItem) -> Unit,
     onDismiss: () -> Unit,
+    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -384,7 +389,10 @@ private fun DetailSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when (item) {
-                is BaseItem.Product -> ProductDetail(product = item.product)
+                is BaseItem.Product -> ProductDetail(
+                    product = item.product,
+                    onMealPrepPhoto = onMealPrepPhoto,
+                )
                 is BaseItem.Template -> TemplateDetail(template = item.template)
             }
             GTPrimaryButton(
@@ -397,7 +405,10 @@ private fun DetailSheet(
 }
 
 @Composable
-private fun ProductDetail(product: com.local.glucotracker.domain.model.Product) {
+private fun ProductDetail(
+    product: Product,
+    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
+) {
     Text(
         text = product.name,
         color = GT.colors.ink,
@@ -418,6 +429,12 @@ private fun ProductDetail(product: com.local.glucotracker.domain.model.Product) 
     // basis is not a fact: «Б 9,1 · Ж 7,8 · У 5,5» means nothing until you know
     // whether that is a spoonful or the whole tub.
     StockTag(product)
+    if (product.sourceKind == "meal_prep" && onMealPrepPhoto != null) {
+        MealPrepPhotoButton(
+            hasPhoto = product.imageUrl != null,
+            onCaptured = { path -> onMealPrepPhoto(product.id, path) },
+        )
+    }
     Text(
         text = macrosWithBasis(product),
         color = GT.colors.ink2,

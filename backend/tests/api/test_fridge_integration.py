@@ -80,8 +80,12 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     data = res.json()
     assert any(item["token"] == "fridge:lot-111" for item in data)
     epica_item = next(item for item in data if item["token"] == "fridge:lot-111")
-    assert "Холодильник" in epica_item["subtitle"]
+    # The origin travels in `kind`, not in the prose: the client draws its own
+    # mark from it, and a snowflake in the middle of a sentence is something a
+    # client can print but cannot act on.
+    assert epica_item["kind"] == "fridge_product"
     assert "260 г" in epica_item["subtitle"]
+    assert "Холодильник" not in epica_item["subtitle"]
 
     # 2. Search for depleted "Гауда" -> should NOT be found because remaining_quantity == 0
     res_gauda = api_client.get("/autocomplete?q=гауда")
@@ -93,8 +97,12 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     assert res_mp.status_code == 200
     assert any(item["token"] == "mp:cont-333" for item in res_mp.json())
     mp_item = next(item for item in res_mp.json() if item["token"] == "mp:cont-333")
-    assert "Милпреп" in mp_item["subtitle"]
-    assert "MP01" in mp_item["subtitle"]
+    assert mp_item["kind"] == "meal_prep"
+    # The code is not part of the dish's name. A diary entry copies the name at
+    # the moment it is written, so a code in it outlives every later fix — see
+    # «Азу с чечевицей (GT:C:16EC03A46F)», which is what this guards against.
+    assert "MP01" not in mp_item["display_name"]
+    assert "GT:C" not in mp_item["display_name"]
 
     # 4. Search with prefix "fridge:" and "mp:"
     res_prefix_fridge = api_client.get("/autocomplete?q=fridge:йогурт")

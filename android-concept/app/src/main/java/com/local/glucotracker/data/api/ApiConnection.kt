@@ -25,6 +25,18 @@ object ApiConnection {
         }
     }
 
+    // Paths the server serves pictures from. A path outside this list is left
+    // as the literal string it is, so Coil asks for «/uploaded-media/x.jpg»
+    // against nothing and draws the empty-photo glyph — which is exactly what
+    // fridge stock and meal-prep photographs did, both being served from
+    // mounts that nobody had added here.
+    private val API_IMAGE_PREFIXES = listOf(
+        "/photos/",
+        "/products/",
+        "/uploaded-media/",
+        "/fridge/",
+    )
+
     fun isApiImageUrl(value: String): Boolean =
         isApiRelativeUrl(value) || isSameApiUrl(value)
 
@@ -39,7 +51,7 @@ object ApiConnection {
 
     fun isApiRelativeUrl(value: String): Boolean {
         val path = normalizeApiPath(value)
-        return path.startsWith("/photos/") || path.startsWith("/products/")
+        return API_IMAGE_PREFIXES.any { prefix -> path.startsWith(prefix) }
     }
 
     private fun normalizeApiPath(value: String): String =
