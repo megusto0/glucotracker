@@ -11,6 +11,7 @@ import kotlinx.datetime.Instant
 
 internal fun Product.toProductMealKind(
     weightGrams: Double? = null,
+    servingText: String? = null,
     now: Instant = Clock.System.now(),
     source: String = "manual",
 ): OutboxKind.CreateMeal {
@@ -20,6 +21,7 @@ internal fun Product.toProductMealKind(
         name = name,
         brand = brand,
         grams = grams,
+        servingText = servingText,
         kcal = kcal?.let { it * ratio },
         carbsG = carbsG?.let { it * ratio },
         proteinG = proteinG?.let { it * ratio },

@@ -133,6 +133,18 @@ app.include_router(reports_router)
 app.include_router(schedule_router)
 app.include_router(stats_router)
 app.include_router(twin_router)
+
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+_fridge_uploads = Path("/media/megusto/storage/fridge/data/uploads")
+if _fridge_uploads.is_dir():
+    app.mount(
+        "/uploaded-media",
+        StaticFiles(directory=str(_fridge_uploads)),
+        name="fridge-uploaded-media",
+    )
+
 app.openapi = lambda: build_openapi(app)
 
 

@@ -375,4 +375,38 @@ class FridgeIntegrationService:
                         conn.close()
             return False
 
-        return False
+    def get_image_for_item_id(self, item_id: str, owner_id: UUID | str | None = None) -> str | None:
+        """Resolve image URL for a given product lot or mealprep container UUID/id."""
+        clean_id = str(item_id).replace("fridge:", "").replace("mp:", "").replace("-", "").lower().strip()
+        conn = self._open_db()
+        if not conn:
+            return None
+        try:
+            row = conn.execute(
+                """
+                SELECT p.image_url FROM inventory_lots l
+                JOIN products p ON l.product_id = p.id
+                WHERE REPLACE(l.id, '-', '') = ? OR REPLACE(p.id, '-', '') = ?
+                LIMIT 1
+                """,
+                (clean_id, clean_id),
+            ).fetchone()
+            if row and row["image_url"]:
+                return row["image_url"]
+
+            row2 = conn.execute(
+                """
+                SELECT b.image_url FROM meal_prep_containers c
+                JOIN meal_prep_batches b ON c.batch_id = b.id
+                WHERE REPLACE(c.id, '-', '') = ? OR REPLACE(b.id, '-', '') = ?
+                LIMIT 1
+                """,
+                (clean_id, clean_id),
+            ).fetchone()
+            if row2 and row2["image_url"]:
+                return row2["image_url"]
+        except Exception as e:
+            logger.debug("Failed looking up image in Fridge SQLite: %s", e)
+        finally:
+            conn.close()
+        return None

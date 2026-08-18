@@ -107,9 +107,16 @@ class CaptureViewModel @Inject constructor(
         }
     }
 
-    fun enqueueProductMeal(product: Product, weightGrams: Double?, onQueued: (String) -> Unit = {}) {
+    fun enqueueProductMeal(
+        product: Product,
+        weightGrams: Double?,
+        servingText: String? = null,
+        onQueued: (String) -> Unit = {},
+    ) {
         viewModelScope.launch {
-            val item = outboxRepository.enqueue(product.toProductMealKind(weightGrams = weightGrams))
+            val item = outboxRepository.enqueue(
+                product.toProductMealKind(weightGrams = weightGrams, servingText = servingText)
+            )
             onQueued(item.id)
         }
     }

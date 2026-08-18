@@ -159,8 +159,8 @@ fun ManualEntrySearchSheet(
                     onOutboxQueued(outboxId)
                 }
             },
-            onSubmitProduct = { product ->
-                viewModel.enqueueProductMeal(product, product.defaultGrams) { outboxId ->
+            onSubmitProduct = { product, weightGrams, servingText ->
+                viewModel.enqueueProductMeal(product, weightGrams, servingText) { outboxId ->
                     onDismiss()
                     onOutboxQueued(outboxId)
                 }
@@ -186,7 +186,7 @@ fun ManualEntrySearchSheetContent(
     openCount: Int,
     onDismiss: () -> Unit,
     onSubmitText: (String) -> Unit,
-    onSubmitProduct: (Product) -> Unit,
+    onSubmitProduct: (Product, Double?, String?) -> Unit,
     onSubmitTemplate: (Template) -> Unit,
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
@@ -199,6 +199,7 @@ fun ManualEntrySearchSheetContent(
     var products by remember { mutableStateOf(initialProducts) }
     var templates by remember { mutableStateOf(initialTemplates) }
     var selectedRestaurantGroup by remember { mutableStateOf<RestaurantVariantGroup?>(null) }
+    var selectedProductForPortion by remember { mutableStateOf<Product?>(null) }
     var restoreSearchFocus by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -257,6 +258,22 @@ fun ManualEntrySearchSheetContent(
             },
             onCancel = onDismiss,
             onSubmit = onSubmitTemplate,
+            modifier = modifier,
+        )
+        return
+    }
+
+    selectedProductForPortion?.let { prod ->
+        ProductPortionPicker(
+            product = prod,
+            onBack = {
+                selectedProductForPortion = null
+                restoreSearchFocus = true
+            },
+            onCancel = onDismiss,
+            onSubmit = { product, weightGrams, servingText ->
+                onSubmitProduct(product, weightGrams, servingText)
+            },
             modifier = modifier,
         )
         return
@@ -323,7 +340,10 @@ fun ManualEntrySearchSheetContent(
                     query = query,
                     onClick = {
                         when (item) {
-                            is ComposeSuggestion.ProductSuggestion -> onSubmitProduct(item.product)
+                            is ComposeSuggestion.ProductSuggestion -> {
+                                keyboardController?.hide()
+                                selectedProductForPortion = item.product
+                            }
                             is ComposeSuggestion.TemplateSuggestion -> onSubmitTemplate(item.template)
                             is ComposeSuggestion.RestaurantVariantsSuggestion -> {
                                 keyboardController?.hide()
@@ -1218,5 +1238,302 @@ private fun CaptureGlyph(kind: CaptureGlyphKind) {
                 drawCircle(color = color, radius = 1.1.dp.toPx(), center = Offset(7.dp.toPx(), 7.dp.toPx()))
             }
         }
+    }
+}
+
+@Composable
+private fun ProductPortionPicker(
+    product: Product,
+    onBack: () -> Unit,
+    onCancel: () -> Unit,
+    onSubmit: (Product, Double?, String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isMealPrep = product.subtitle?.contains("Милпреп", ignoreCase = true) == true
+    val isFridge = product.subtitle?.contains("Холодильник", ignoreCase = true) == true
+    val isPcsItem = product.subtitle?.contains("pcs", ignoreCase = true) == true ||
+        product.subtitle?.contains("шт", ignoreCase = true) == true
+
+    val maxPcs: Double = remember(product.subtitle) {
+        val sub = product.subtitle.orEmpty()
+        val match = Regex("""(\d+(\.\d+)?)\s*(pcs|шт)""").find(sub)
+        match?.groupValues?.get(1)?.toDoubleOrNull() ?: 4.0
+    }
+    val maxGrams: Double = remember(product.subtitle, product.defaultGrams) {
+        val sub = product.subtitle.orEmpty()
+        val match = Regex("""(\d+(\.\d+)?)\s*(g|г)""").find(sub)
+        match?.groupValues?.get(1)?.toDoubleOrNull() ?: product.defaultGrams ?: 300.0
+    }
+
+    var quantityPcs by remember(product.id) { mutableStateOf(if (isPcsItem) 1.0 else 1.0) }
+    var weightGrams by remember(product.id) {
+        mutableStateOf(if (isPcsItem) (product.defaultGrams ?: 100.0) else (product.defaultGrams ?: 100.0))
+    }
+
+    val baseGrams = product.defaultGrams ?: 100.0
+    val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
+    val ratio = if (baseGrams > 0.0) effectiveGrams / baseGrams else 1.0
+
+    val currentKcal = (product.kcal ?: 0.0) * ratio
+    val currentCarbs = (product.carbsG ?: 0.0) * ratio
+    val currentProtein = (product.proteinG ?: 0.0) * ratio
+    val currentFat = (product.fatG ?: 0.0) * ratio
+
+    val imageModel = rememberApiImageModel(product.imageUrl)
+
+    Column(
+        modifier = modifier
+            .testTag("product-portion-picker")
+            .background(GT.colors.bg)
+            .padding(horizontal = 18.dp)
+            .navigationBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Назад к поиску",
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clickable(onClick = onBack)
+                    .padding(vertical = 14.dp),
+                color = GT.colors.ink2,
+                style = GT.type.sansLabel,
+            )
+            Text(
+                text = stringResource(R.string.manual_entry_cancel),
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clickable(onClick = onCancel)
+                    .padding(vertical = 14.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+        GTHairlineDivider()
+        Spacer(Modifier.height(12.dp))
+
+        if (imageModel != null) {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = product.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(GT.colors.surface, GT.shapes.card)
+                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+
+        Text(
+            text = product.name,
+            color = GT.colors.ink,
+            style = GT.type.serifSection,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        product.subtitle?.let { sub ->
+            Text(
+                text = sub,
+                modifier = Modifier.padding(top = 2.dp),
+                color = if (isMealPrep) GT.colors.good else if (isFridge) GT.colors.accent else GT.colors.muted,
+                style = GT.type.kicker,
+                maxLines = 1,
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        if (isPcsItem) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Количество:",
+                    color = GT.colors.muted,
+                    style = GT.type.kicker,
+                )
+                Text(
+                    text = "${if (quantityPcs % 1.0 == 0.0) quantityPcs.toInt().toString() else quantityPcs.toString()} шт (${effectiveGrams.roundToInt()} г)",
+                    color = GT.colors.ink,
+                    style = GT.type.monoLabel,
+                )
+            }
+            Slider(
+                value = quantityPcs.toFloat(),
+                onValueChange = { quantityPcs = (Math.round(it * 2.0) / 2.0).coerceAtLeast(0.5) },
+                valueRange = 0.5f..maxOf(maxPcs.toFloat(), 4f),
+                steps = ((maxOf(maxPcs.toFloat(), 4f) - 0.5f) / 0.5f).toInt() - 1,
+                colors = SliderDefaults.colors(
+                    thumbColor = GT.colors.ink,
+                    activeTrackColor = GT.colors.ink,
+                    inactiveTrackColor = GT.colors.hairline2,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(0.5, 1.0, 2.0).forEach { q ->
+                    val isSel = (quantityPcs == q)
+                    Box(
+                        modifier = Modifier
+                            .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
+                            .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
+                            .clickable { quantityPcs = q }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "${if (q % 1.0 == 0.0) q.toInt() else q} шт",
+                            color = if (isSel) GT.colors.bg else GT.colors.ink,
+                            style = GT.type.monoLabel,
+                        )
+                    }
+                }
+                if (maxPcs > 2.0) {
+                    val isSel = (quantityPcs == maxPcs)
+                    Box(
+                        modifier = Modifier
+                            .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
+                            .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
+                            .clickable { quantityPcs = maxPcs }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "Все (${if (maxPcs % 1.0 == 0.0) maxPcs.toInt() else maxPcs} шт)",
+                            color = if (isSel) GT.colors.bg else GT.colors.ink,
+                            style = GT.type.monoLabel,
+                        )
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Вес порции:",
+                    color = GT.colors.muted,
+                    style = GT.type.kicker,
+                )
+                Text(
+                    text = "${weightGrams.roundToInt()} г",
+                    color = GT.colors.ink,
+                    style = GT.type.monoLabel,
+                )
+            }
+            Slider(
+                value = weightGrams.toFloat(),
+                onValueChange = { weightGrams = (Math.round(it / 10.0) * 10.0).coerceAtLeast(10.0) },
+                valueRange = 20f..maxOf(maxGrams.toFloat(), 500f),
+                steps = ((maxOf(maxGrams.toFloat(), 500f) - 20f) / 10f).toInt() - 1,
+                colors = SliderDefaults.colors(
+                    thumbColor = GT.colors.ink,
+                    activeTrackColor = GT.colors.ink,
+                    inactiveTrackColor = GT.colors.hairline2,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(100.0, 150.0, 200.0).forEach { w ->
+                    val isSel = (weightGrams == w)
+                    Box(
+                        modifier = Modifier
+                            .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
+                            .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
+                            .clickable { weightGrams = w }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "${w.toInt()} г",
+                            color = if (isSel) GT.colors.bg else GT.colors.ink,
+                            style = GT.type.monoLabel,
+                        )
+                    }
+                }
+                if (maxGrams > 0 && maxGrams != 100.0 && maxGrams != 150.0 && maxGrams != 200.0) {
+                    val isSel = (weightGrams == maxGrams)
+                    Box(
+                        modifier = Modifier
+                            .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
+                            .border(GT.space.hairline, if (isSel) GT.colors.ink else GT.colors.hairline2, RoundedCornerShape(6.dp))
+                            .clickable { weightGrams = maxGrams }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "Вся (${maxGrams.roundToInt()} г)",
+                            color = if (isSel) GT.colors.bg else GT.colors.ink,
+                            style = GT.type.monoLabel,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(GT.colors.surface, RoundedCornerShape(8.dp))
+                .border(GT.space.hairline, GT.colors.hairline, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("ККАЛ", style = GT.type.kicker, color = GT.colors.muted)
+                Text(currentKcal.roundToInt().toString(), style = GT.type.monoNumeric, color = GT.colors.ink)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("УГЛЕВОДЫ", style = GT.type.kicker, color = GT.colors.muted)
+                Text("${(Math.round(currentCarbs * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("БЕЛКИ", style = GT.type.kicker, color = GT.colors.muted)
+                Text("${(Math.round(currentProtein * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("ЖИРЫ", style = GT.type.kicker, color = GT.colors.muted)
+                Text("${(Math.round(currentFat * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+
+        val servingLabel = if (isPcsItem) {
+            "${if (quantityPcs % 1.0 == 0.0) quantityPcs.toInt() else quantityPcs} шт"
+        } else {
+            "${effectiveGrams.roundToInt()} г"
+        }
+        val actionText = if (isFridge || isMealPrep) "Списать и записать · $servingLabel" else "Записать · $servingLabel"
+
+        GTOutlineButton(
+            text = "$actionText (${currentKcal.roundToInt()} ккал)",
+            onClick = {
+                onSubmit(product, effectiveGrams, servingLabel)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+        )
+        Spacer(Modifier.height(14.dp))
     }
 }

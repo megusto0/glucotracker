@@ -1413,6 +1413,157 @@ function SetRow({ label, value, hint, mono, last, toggle, on, action, chevron = 
 // EXTRA · Текстовый ввод (FAB → текст flow)
 // ───────────────────────────────────────────────────────────
 function ScreenTextInput() {
+  const [selectedItem, setSelectedItem] = React.useState({
+    name: 'Adrenaline Zero sugar',
+    brand: 'Adrenaline Rush',
+    tag: '❄️ Холодильник · 2 pcs в наличии',
+    unit: 'pcs',
+    maxQty: 2,
+    baseGrams: 449,
+    kcal: 0,
+    carbs: 0,
+    protein: 0,
+    fat: 0,
+    img: 'https://avatars.mds.yandex.net/get-bunker/60661/b2543d3d72f9e125d2dd98f9d4b3cd325e5aabad/orig',
+  });
+  const [quantity, setQuantity] = React.useState(1);
+
+  if (selectedItem) {
+    const isPcs = selectedItem.unit === 'pcs';
+    const grams = isPcs ? quantity * selectedItem.baseGrams : quantity;
+    const ratio = isPcs ? quantity : quantity / selectedItem.baseGrams;
+    const curKcal = Math.round(selectedItem.kcal * ratio);
+    const curCarbs = Math.round(selectedItem.carbs * ratio * 10) / 10;
+    const curProtein = Math.round(selectedItem.protein * ratio * 10) / 10;
+    const curFat = Math.round(selectedItem.fat * ratio * 10) / 10;
+
+    return (
+      <Phone showHome={false}>
+        <div style={{
+          padding: '8px 16px 10px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', flexShrink: 0,
+        }}>
+          <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 13, cursor: 'pointer', padding: '6px 0' }}>
+            ← Назад к поиску
+          </button>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: 'var(--muted)' }}>ВЫБОР ПОРЦИИ</div>
+          <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+            Отмена
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 16px' }}>
+          {selectedItem.img && (
+            <div style={{
+              width: '100%', height: 130, borderRadius: 10,
+              background: 'var(--surface)', border: '0.5px solid var(--hairline-2)',
+              overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <img src={selectedItem.img} alt={selectedItem.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+          )}
+
+          <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>{selectedItem.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--mono)', marginTop: 4 }}>{selectedItem.tag}</div>
+
+          {/* Slider Controls */}
+          <div style={{
+            background: 'var(--surface)', border: '0.5px solid var(--hairline)',
+            borderRadius: 10, padding: '14px', marginTop: 14,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.8 }}>КОЛИЧЕСТВО</span>
+              <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--ink)' }}>
+                {quantity} {isPcs ? 'шт' : 'г'} {isPcs && `(${Math.round(grams)} мл)`}
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min={isPcs ? "0.5" : "50"}
+              max={isPcs ? selectedItem.maxQty || 4 : selectedItem.baseGrams || 500}
+              step={isPcs ? "0.5" : "10"}
+              value={quantity}
+              onChange={(e) => setQuantity(parseFloat(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--ink)', cursor: 'pointer' }}
+            />
+
+            {/* Quick chips */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              {[0.5, 1, 2].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setQuantity(q)}
+                  style={{
+                    flex: 1, padding: '6px 0', borderRadius: 6,
+                    background: quantity === q ? 'var(--ink)' : 'var(--bg)',
+                    color: quantity === q ? '#f6f4ef' : 'var(--ink)',
+                    border: '0.5px solid var(--hairline-2)',
+                    fontSize: 12, fontFamily: 'var(--mono)', cursor: 'pointer',
+                  }}
+                >
+                  {q} шт
+                </button>
+              ))}
+              {selectedItem.maxQty > 2 && (
+                <button
+                  onClick={() => setQuantity(selectedItem.maxQty)}
+                  style={{
+                    flex: 1.2, padding: '6px 0', borderRadius: 6,
+                    background: quantity === selectedItem.maxQty ? 'var(--ink)' : 'var(--bg)',
+                    color: quantity === selectedItem.maxQty ? '#f6f4ef' : 'var(--ink)',
+                    border: '0.5px solid var(--hairline-2)',
+                    fontSize: 12, fontFamily: 'var(--mono)', cursor: 'pointer',
+                  }}
+                >
+                  Все ({selectedItem.maxQty} шт)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Macros preview */}
+          <div style={{
+            display: 'flex', background: 'var(--surface)', border: '0.5px solid var(--hairline)',
+            borderRadius: 10, padding: '12px 14px', marginTop: 12, justifyContent: 'space-around',
+            textAlign: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.8 }}>ККАЛ</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--ink)', marginTop: 2 }}>{curKcal}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.8 }}>УГЛЕВОДЫ</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--ink)', marginTop: 2 }}>{curCarbs} г</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.8 }}>БЕЛКИ</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--ink)', marginTop: 2 }}>{curProtein} г</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.8 }}>ЖИРЫ</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--ink)', marginTop: 2 }}>{curFat} г</div>
+            </div>
+          </div>
+
+          {/* Submit CTA */}
+          <button
+            onClick={() => setSelectedItem(null)}
+            style={{
+              width: '100%', height: 48, borderRadius: 10, marginTop: 18,
+              background: 'var(--ink)', color: '#f6f4ef',
+              border: 'none', fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            Списать из холодильника · {quantity} {isPcs ? 'шт' : 'г'}
+          </button>
+        </div>
+      </Phone>
+    );
+  }
+
   return (
     <Phone showHome={false}>
       <div style={{
@@ -1456,30 +1607,45 @@ function ScreenTextInput() {
         <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.2, color: 'var(--muted)', padding: '2px 6px 4px' }}>В НАЛИЧИИ В ХОЛОДИЛЬНИКЕ & МИЛПРЕП</div>
         <div style={{ background: 'var(--surface)', border: '0.5px solid var(--hairline)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
           <Suggest
-            name="Гречка с индейкой"
-            code="MP01"
-            tag="🍱 Милпреп · 320 г · 1 порция"
-            m="55у 35б 12ж 480к"
+            name="Adrenaline Zero sugar"
+            tag="❄️ Холодильник · 2 pcs в наличии"
+            m="0у 0б 0ж 0к"
+            badge="❄️ 2 шт"
+            badgeColor="rgba(20,90,160,0.1)"
+            badgeText="#0f528a"
+            img="https://avatars.mds.yandex.net/get-bunker/60661/b2543d3d72f9e125d2dd98f9d4b3cd325e5aabad/orig"
+            highlight
+            onClick={() => setSelectedItem({
+              name: 'Adrenaline Zero sugar',
+              brand: 'Adrenaline Rush',
+              tag: '❄️ Холодильник · 2 pcs в наличии',
+              unit: 'pcs',
+              maxQty: 2,
+              baseGrams: 449,
+              kcal: 0,
+              carbs: 0,
+              protein: 0,
+              fat: 0,
+              img: 'https://avatars.mds.yandex.net/get-bunker/60661/b2543d3d72f9e125d2dd98f9d4b3cd325e5aabad/orig',
+            })}
+          />
+          <Suggest
+            name="Сметанник"
+            code="GT:C:751C"
+            tag="🍱 Милпреп · 116 г · 1 порция"
+            m="34у 8б 18ж 330к"
             badge="🍱 Милпреп"
             badgeColor="rgba(40,120,60,0.12)"
             badgeText="#1b602e"
-            highlight
           />
           <Suggest
             name="Йогурт Epica с ананасом"
-            tag="❄️ В наличии · 260 г · годен 5 дн."
+            tag="❄️ Холодильник · 1 pcs в наличии"
             m="14у 6б 5ж 120к"
-            badge="❄️ 260 г"
+            badge="❄️ 1 шт"
             badgeColor="rgba(20,90,160,0.1)"
             badgeText="#0f528a"
-          />
-          <Suggest
-            name="Напиток соевый Planto Карамель"
-            tag="❄️ В наличии · 1000 мл"
-            m="7у 1б 1ж 37к"
-            badge="❄️ 1 л"
-            badgeColor="rgba(20,90,160,0.1)"
-            badgeText="#0f528a"
+            img="https://avatars.mds.yandex.net/get-eda/3806023/eb1c707088e6e6ef1bc24029c4c972f1/400x400nocrop?v=1787042466625"
             last
           />
         </div>
@@ -1496,21 +1662,29 @@ function ScreenTextInput() {
   );
 }
 
-function Suggest({ name, code, tag, m, highlight, badge, badgeColor, badgeText, last }) {
+function Suggest({ name, code, tag, m, highlight, badge, badgeColor, badgeText, img, onClick, last }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '9px 12px',
-      background: highlight ? 'var(--bg)' : 'transparent',
-      borderBottom: last ? 'none' : '0.5px solid var(--hairline)',
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px',
+        background: highlight ? 'var(--bg)' : 'transparent',
+        borderBottom: last ? 'none' : '0.5px solid var(--hairline)',
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+    >
       <div style={{
-        width: 32, height: 32, borderRadius: 6,
-        background: 'linear-gradient(160deg,#d2a87a 0%, #8f6a48 100%)',
+        width: 34, height: 34, borderRadius: 6,
+        background: 'var(--surface)', border: '0.5px solid var(--hairline-2)',
         flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14,
+        overflow: 'hidden', fontSize: 14,
       }}>
-        {badge ? (badge.includes('🍱') ? '🍱' : '❄️') : '🍽️'}
+        {img ? (
+          <img src={img} alt={name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        ) : (
+          badge ? (badge.includes('🍱') ? '🍱' : '❄️') : '🍽️'
+        )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
