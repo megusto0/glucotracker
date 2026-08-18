@@ -264,7 +264,18 @@ data class Product(
     val defaultGrams: Double?,
     val usageCount: Int,
     val lastUsedAt: Instant?,
-)
+    // "fridge" or "meal_prep" when this entry is stock rather than a catalogue
+    // product. Null for everything the user has entered themselves.
+    val sourceKind: String? = null,
+    val stockRemaining: Double? = null,
+    val stockUnit: String? = null,
+    val pieceWeightG: Double? = null,
+    val stockCode: String? = null,
+    val stockExpiresInDays: Int? = null,
+) {
+    val isStock: Boolean get() = sourceKind == "fridge" || sourceKind == "meal_prep"
+    val isPieces: Boolean get() = stockUnit == "шт"
+}
 
 data class Template(
     val id: String,

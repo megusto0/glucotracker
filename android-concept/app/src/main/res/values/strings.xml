@@ -389,10 +389,21 @@
     <string name="base_title">База</string>
     <string name="base_search_hint">Поиск продукта</string>
     <string name="base_filter_frequent">Частые</string>
-    <string name="base_filter_restaurants">Рестораны</string>
-    <string name="base_filter_products">Продукты</string>
+    <!-- «Рестораны» matched `kind == "restaurant" || subtitle != null`, and
+         kind is hardcoded to "product" on every row, so it showed everything
+         that had any subtitle at all. «Продукты» was the whole list minus
+         templates, which is what the default tab already shows. -->
+    <string name="base_filter_stock">В холодильнике</string>
     <string name="base_filter_templates">Шаблоны</string>
     <string name="base_filter_needs_review">Требуют проверки</string>
+    <string name="base_stock_fridge">холодильник</string>
+    <string name="base_stock_mealprep">милпреп</string>
+    <string name="base_stock_left">осталось %1$s</string>
+    <string name="base_stock_pieces">%1$s шт</string>
+    <string name="base_stock_grams">%1$s г</string>
+    <string name="base_stock_containers">%1$d конт.</string>
+    <string name="base_stock_expiring">съесть за %1$d дн.</string>
+    <string name="base_stock_empty">В холодильнике сейчас ничего нет</string>
     <string name="base_empty">Нет результатов</string>
     <string name="base_desktop_hint">Импорт и добавление — в десктоп-версии</string>
     <string name="base_usage_count">× %1$d раз</string>

@@ -127,6 +127,15 @@ data class CachedProductEntity(
     val defaultGrams: Double?,
     val usageCount: Int,
     val lastUsedAt: Instant?,
+    // Live stock behind an entry that came from the fridge rather than the
+    // product catalogue. Nullable: a catalogue product has no stock, and the
+    // absence is the signal the list reads to decide whether to mark the row.
+    val sourceKind: String? = null,
+    val stockRemaining: Double? = null,
+    val stockUnit: String? = null,
+    val pieceWeightG: Double? = null,
+    val stockCode: String? = null,
+    val stockExpiresInDays: Int? = null,
     val fetchedAt: Instant,
 )
 

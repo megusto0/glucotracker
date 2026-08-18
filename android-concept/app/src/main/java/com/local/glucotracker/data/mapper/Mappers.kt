@@ -266,6 +266,12 @@ fun ProductResponse.toCachedEntity(fetchedAt: Instant): CachedProductEntity =
         defaultGrams = defaultGrams.asDouble(),
         usageCount = usageCount,
         lastUsedAt = lastUsedAt,
+        sourceKind = sourceKind,
+        stockRemaining = stockRemaining.asDouble(),
+        stockUnit = stockUnit,
+        pieceWeightG = pieceWeightG.asDouble(),
+        stockCode = stockCode,
+        stockExpiresInDays = stockExpiresInDays,
         fetchedAt = fetchedAt,
     )
 
@@ -306,6 +312,12 @@ fun CachedProductEntity.toDomain(): Product =
         defaultGrams = defaultGrams,
         usageCount = usageCount,
         lastUsedAt = lastUsedAt,
+        sourceKind = sourceKind,
+        stockRemaining = stockRemaining,
+        stockUnit = stockUnit,
+        pieceWeightG = pieceWeightG,
+        stockCode = stockCode,
+        stockExpiresInDays = stockExpiresInDays,
     )
 
 fun PatternResponse.toCachedTemplateEntity(fetchedAt: Instant): CachedTemplateEntity =

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.local.glucotracker.R
+import com.local.glucotracker.domain.model.Product
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTHintBox
@@ -48,6 +49,7 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.image.rememberApiImageModel
+import com.local.glucotracker.ui.stock.stockLabel
 
 @Composable
 fun BaseRoute(
@@ -195,7 +197,7 @@ fun BaseScreen(
 
 @Composable
 private fun ProductCard(
-    product: com.local.glucotracker.domain.model.Product,
+    product: Product,
     onClick: () -> Unit,
 ) {
     Row(
@@ -213,19 +215,30 @@ private fun ProductCard(
                 .weight(1f)
                 .padding(start = 10.dp),
         ) {
-            Text(
-                text = product.name,
-                color = GT.colors.ink,
-                style = GT.type.sansLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // The mark rides with the name, not with the numbers. The tag used
+            // to print `kind` — hardcoded to "product" by the mapper, an
+            // English word on every row saying what the screen is a list of —
+            // and it sat in front of the macros, which is why they read
+            // «Б 58,7 · Ж 11,9 · У 7…». A row's figures should not pay for a
+            // label about where the row came from.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = product.name,
+                    modifier = Modifier.weight(1f, fill = false),
+                    color = GT.colors.ink,
+                    style = GT.type.sansLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                stockLabel(product)?.let { label ->
+                    Spacer(Modifier.width(6.dp))
+                    GTTag(text = label)
+                }
+            }
             Row(
                 modifier = Modifier.padding(top = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GTTag(text = product.kind)
-                Spacer(Modifier.width(6.dp))
                 Text(
                     text = stringResource(
                         R.string.base_product_macros,
@@ -249,15 +262,48 @@ private fun ProductCard(
                     maxLines = 1,
                 )
             }
-            Text(
-                text = stringResource(R.string.base_usage_count, product.usageCount),
-                modifier = Modifier.padding(top = 1.dp),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-                maxLines = 1,
-            )
+            // What is left, until it is gone. For a catalogue product the same
+            // slot keeps the usage count — but only when there is one: every
+            // row said «× 0 раз» otherwise, and stock said «× 100 раз» about a
+            // history that never happened.
+            secondaryRight(product)?.let { text ->
+                Text(
+                    text = text,
+                    modifier = Modifier.padding(top = 1.dp),
+                    color = if (product.isExpiringSoon) GT.colors.warn else GT.colors.muted,
+                    style = GT.type.monoLabel,
+                    maxLines = 1,
+                )
+            }
         }
     }
+}
+
+private val Product.isExpiringSoon: Boolean
+    get() = (stockExpiresInDays ?: Int.MAX_VALUE) <= 2
+
+@Composable
+private fun secondaryRight(product: Product): String? {
+    val days = product.stockExpiresInDays
+    if (product.isStock && days != null && days <= 2) {
+        return stringResource(R.string.base_stock_expiring, days)
+    }
+    val remaining = product.stockRemaining
+    if (product.isStock && remaining != null && remaining > 0) {
+        val amount = when {
+            product.isPieces -> stringResource(R.string.base_stock_pieces, formatGrams(remaining))
+            product.stockUnit == "контейнер" -> stringResource(
+                R.string.base_stock_containers,
+                remaining.toInt(),
+            )
+            else -> stringResource(R.string.base_stock_grams, formatGrams(remaining))
+        }
+        return stringResource(R.string.base_stock_left, amount)
+    }
+    if (product.usageCount > 0) {
+        return stringResource(R.string.base_usage_count, product.usageCount)
+    }
+    return null
 }
 
 @Composable
@@ -430,8 +476,7 @@ private fun TemplateDetail(template: com.local.glucotracker.domain.model.Templat
 @Composable
 private fun filterLabel(filter: BaseFilter): String = when (filter) {
     BaseFilter.Frequent -> stringResource(R.string.base_filter_frequent)
-    BaseFilter.Restaurants -> stringResource(R.string.base_filter_restaurants)
-    BaseFilter.Products -> stringResource(R.string.base_filter_products)
+    BaseFilter.Stock -> stringResource(R.string.base_filter_stock)
     BaseFilter.Templates -> stringResource(R.string.base_filter_templates)
     BaseFilter.NeedsReview -> stringResource(R.string.base_filter_needs_review)
 }

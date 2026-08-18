@@ -79,6 +79,7 @@ import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -433,10 +434,21 @@ private fun ManualSuggestionRow(
         SuggestionThumb(item = item)
         Spacer(Modifier.width(11.dp))
         Column(modifier = Modifier.weight(1f)) {
-            HighlightedName(
-                name = item.name,
-                queryPrefix = query,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                HighlightedName(
+                    name = item.name,
+                    queryPrefix = query,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                // Same mark as База. Search is where a fridge item is usually
+                // met first, and there it looked like any other product.
+                (item as? ComposeSuggestion.ProductSuggestion)?.product?.let { product ->
+                    if (product.isStock) {
+                        Spacer(Modifier.width(6.dp))
+                        StockTag(product)
+                    }
+                }
+            }
             Text(
                 text = item.restaurantPrefix?.let { restaurantPrefix ->
                     restaurantMeta(item, restaurantPrefix)
@@ -497,10 +509,15 @@ private fun SuggestionThumb(item: ComposeSuggestion) {
 }
 
 @Composable
-private fun HighlightedName(name: String, queryPrefix: String) {
+private fun HighlightedName(
+    name: String,
+    queryPrefix: String,
+    modifier: Modifier = Modifier,
+) {
     if (queryPrefix.isBlank() || !name.startsWith(queryPrefix, ignoreCase = true)) {
         Text(
             text = name,
+            modifier = modifier,
             color = GT.colors.ink,
             style = GT.type.sansLabel,
             maxLines = 1,
@@ -516,6 +533,7 @@ private fun HighlightedName(name: String, queryPrefix: String) {
             pop()
             append(name.substring(safeLength))
         },
+        modifier = modifier,
         color = GT.colors.ink,
         style = GT.type.sansLabel,
         maxLines = 1,
@@ -1249,22 +1267,30 @@ private fun ProductPortionPicker(
     onSubmit: (Product, Double?, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isMealPrep = product.subtitle?.contains("Милпреп", ignoreCase = true) == true
-    val isFridge = product.subtitle?.contains("Холодильник", ignoreCase = true) == true
-    val isPcsItem = product.subtitle?.contains("pcs", ignoreCase = true) == true ||
-        product.subtitle?.contains("шт", ignoreCase = true) == true ||
-        product.name.contains("шт", ignoreCase = true) ||
-        (product.defaultGrams != null && product.defaultGrams!! <= 50.0 && !product.name.contains("масло", ignoreCase = true))
-
-    val maxPcs: Double = remember(product.subtitle) {
-        val sub = product.subtitle.orEmpty()
-        val match = Regex("""(\d+(\.\d+)?)\s*(pcs|шт)""", RegexOption.IGNORE_CASE).find(sub)
-        match?.groupValues?.get(1)?.toDoubleOrNull() ?: 3.0
+    // All four of these used to be read out of the serving sentence with
+    // regular expressions — «🍱 Милпреп · 300 г (GT:C:…)», «❄️ Холодильник ·
+    // 4 шт в наличии». That made the wording load-bearing: reword the sentence
+    // and a piece item silently became a gram item, and «шт» anywhere in a
+    // product's own name turned it into one. The server sends the facts now.
+    val isMealPrep = product.sourceKind == "meal_prep"
+    val isFridge = product.sourceKind == "fridge"
+    val isPcsItem = if (product.isStock) {
+        product.isPieces
+    } else {
+        // Catalogue products carry no stock, and rows cached before the fields
+        // existed carry no sourceKind. Both keep the old guess.
+        product.name.contains("шт", ignoreCase = true)
     }
-    val maxGrams: Double = remember(product.subtitle, product.defaultGrams) {
-        val sub = product.subtitle.orEmpty()
-        val match = Regex("""(\d+(\.\d+)?)\s*(g|г)""", RegexOption.IGNORE_CASE).find(sub)
-        match?.groupValues?.get(1)?.toDoubleOrNull() ?: product.defaultGrams ?: 300.0
+
+    val maxPcs: Double = remember(product.stockRemaining) {
+        product.stockRemaining?.takeIf { it > 0 } ?: 3.0
+    }
+    val maxGrams: Double = remember(product.stockRemaining, product.defaultGrams) {
+        if (product.isStock && !product.isPieces) {
+            product.stockRemaining ?: product.defaultGrams ?: 300.0
+        } else {
+            product.defaultGrams ?: 300.0
+        }
     }
 
     var quantityPcs by remember(product.id) { mutableStateOf(1.0) }
@@ -1275,7 +1301,10 @@ private fun ProductPortionPicker(
         )
     }
 
-    val baseGrams = (product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
+    // One piece as the fridge estimated it. defaultGrams agrees for stock, but
+    // for a piece item it is the only figure that means «one», so say so.
+    val baseGrams = (product.pieceWeightG.takeIf { isPcsItem }
+        ?: product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
     val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
     val ratio = effectiveGrams / baseGrams
 
@@ -1503,19 +1532,19 @@ private fun ProductPortionPicker(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("ККАЛ", style = GT.type.kicker, color = GT.colors.muted)
-                Text(currentKcal.roundToInt().toString(), style = GT.type.monoNumeric, color = GT.colors.ink)
+                Text(currentKcal.roundToInt().toString(), style = GT.type.monoNumber, color = GT.colors.ink)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("УГЛЕВОДЫ", style = GT.type.kicker, color = GT.colors.muted)
-                Text("${(Math.round(currentCarbs * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+                Text("${(Math.round(currentCarbs * 10.0) / 10.0)} г", style = GT.type.monoNumber, color = GT.colors.ink)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("БЕЛКИ", style = GT.type.kicker, color = GT.colors.muted)
-                Text("${(Math.round(currentProtein * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+                Text("${(Math.round(currentProtein * 10.0) / 10.0)} г", style = GT.type.monoNumber, color = GT.colors.ink)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("ЖИРЫ", style = GT.type.kicker, color = GT.colors.muted)
-                Text("${(Math.round(currentFat * 10.0) / 10.0)} г", style = GT.type.monoNumeric, color = GT.colors.ink)
+                Text("${(Math.round(currentFat * 10.0) / 10.0)} г", style = GT.type.monoNumber, color = GT.colors.ink)
             }
         }
 

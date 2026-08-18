@@ -29,8 +29,7 @@ sealed interface BaseItem {
 
 enum class BaseFilter {
     Frequent,
-    Restaurants,
-    Products,
+    Stock,
     Templates,
     NeedsReview,
 }
@@ -91,14 +90,22 @@ internal fun buildItems(
     val templateItems = templates.map { BaseItem.Template(it) }
     val allItems = productItems + templateItems
     val filtered = when (filter) {
-        BaseFilter.Frequent -> allItems.sortedByDescending { it.usageCount }
-        BaseFilter.Restaurants ->
-            productItems.filter { item ->
-                item.product.kind.lowercase().contains("restaurant") || item.product.subtitle != null
-            } + templateItems.filter { item ->
-                item.template.prefix.lowercase() in RestaurantTemplatePrefixes
-            }
-        BaseFilter.Products -> productItems
+        // Stock first inside «Частые» too: it is the only part of this list
+        // that spoils, and a usage count cannot outrank a thing going off.
+        BaseFilter.Frequent -> allItems.sortedWith(
+            compareByDescending<BaseItem> { it.isStock }.thenByDescending { it.usageCount },
+        )
+        BaseFilter.Stock -> productItems
+            .filter { item -> item.product.isStock }
+            .sortedWith(
+                compareBy(
+                    // Nulls last: an unknown shelf life is not urgent, it is
+                    // unknown, and sorting it as zero puts it above the milk
+                    // that actually goes off tomorrow.
+                    { item -> item.product.stockExpiresInDays ?: Int.MAX_VALUE },
+                    { item -> item.product.name },
+                ),
+            )
         BaseFilter.Templates -> templateItems
         BaseFilter.NeedsReview -> productItems.filter { item ->
             item.product.imageUrl == null || item.product.kcal == null || item.product.kcal == 0.0
@@ -113,13 +120,14 @@ internal fun buildItems(
     }
 }
 
-private val RestaurantTemplatePrefixes = setOf("bk", "mc", "kfc", "rostics", "vit")
-
 private val BaseItem.usageCount: Int
     get() = when (this) {
         is BaseItem.Product -> product.usageCount
         is BaseItem.Template -> template.usageCount
     }
+
+private val BaseItem.isStock: Boolean
+    get() = this is BaseItem.Product && product.isStock
 
 private fun BaseItem.toCreateMealKind(): OutboxKind.CreateMeal =
     when (this) {
