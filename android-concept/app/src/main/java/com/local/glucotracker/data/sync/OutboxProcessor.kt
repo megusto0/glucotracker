@@ -6,6 +6,8 @@ import com.local.glucotracker.data.error.ErrorTranslator
 import com.local.glucotracker.data.local.GlucotrackerDatabase
 import com.local.glucotracker.data.local.OutboxDao
 import com.local.glucotracker.data.mapper.toDomain
+import com.local.glucotracker.domain.model.OutboxState
+import com.local.glucotracker.data.mapper.toDomainOrNull
 import com.local.glucotracker.data.telemetry.PhotoEstimateFailedException
 import com.local.glucotracker.data.telemetry.PhotoEstimateTelemetryLogger
 import com.local.glucotracker.data.telemetry.PhotoEstimateVisibilityTracker
@@ -233,7 +235,24 @@ class RoomOutboxQueueStore @Inject constructor(
                 staleBefore = now - InFlightRecoveryDelay,
             )
         }
-            .map { it.toDomain() }
+            .mapNotNull { entity ->
+                entity.toDomainOrNull() ?: run {
+                    // Park it rather than die on it, and say so: a row nobody
+                    // can read is one entry's problem, not the queue's.
+                    outboxDao.updateState(
+                        id = entity.id,
+                        state = OutboxState.Stuck,
+                        lastAttemptAt = Clock.System.now(),
+                        nextAttemptAt = null,
+                        attemptDelta = 1,
+                        errorMessage = UnreadableRowMessage,
+                        stateChangedAt = Clock.System.now(),
+                        lastErrorCode = UnreadableRowCode,
+                        lastErrorMessage = UnreadableRowMessage,
+                    )
+                    null
+                }
+            }
             .sortedWith(compareBy<OutboxItem> { it.kind.queuePriority() }.thenBy { it.createdAt })
 
     override suspend fun requeue(
@@ -275,6 +294,9 @@ private enum class ItemProcessResult {
 private val InFlightRecoveryDelay = 2.minutes
 private val ActiveRowWatchdogDelay = 12.minutes
 private const val WatchdogErrorCode = "sync_timeout"
+private const val UnreadableRowCode = "outbox_unreadable"
+private const val UnreadableRowMessage = "Запись очереди не читается · удалите её"
+
 private const val MaxAttempts = 5
 
 private fun backoffFor(attempts: Int) =

@@ -19,6 +19,7 @@ import com.local.glucotracker.data.mapper.toCachedEntity
 import com.local.glucotracker.data.mapper.toCachedTemplateEntity
 import com.local.glucotracker.data.mapper.toDayTotals
 import com.local.glucotracker.data.mapper.toDomain
+import com.local.glucotracker.data.mapper.toDomainOrNull
 import com.local.glucotracker.data.mapper.toEntity
 import com.local.glucotracker.data.mapper.toJson
 import com.local.glucotracker.data.mapper.toTotalsEntity
@@ -554,7 +555,7 @@ class OutboxRepositoryImpl @Inject constructor(
     private val flushScheduler: OutboxFlushScheduler,
 ) : OutboxRepository {
     override fun observe(): Flow<List<OutboxItem>> =
-        outboxDao.observeAll().map { items -> items.map { it.toDomain() } }
+        outboxDao.observeAll().map { items -> items.mapNotNull { it.toDomainOrNull() } }
 
     override fun observeActiveCount(): Flow<Int> =
         outboxDao.observeQueueDepth()

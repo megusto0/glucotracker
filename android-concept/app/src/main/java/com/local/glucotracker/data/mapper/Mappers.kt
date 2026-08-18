@@ -355,6 +355,18 @@ fun CachedTemplateEntity.toDomain(): Template =
         lastUsedAt = lastUsedAt,
     )
 
+/**
+ * The same mapping, for callers that must survive a row they cannot read.
+ *
+ * `toDomain` decodes kindJson and throws when it cannot. A queue read maps
+ * every row through it, so one entry written by an older build — a kind that
+ * no longer exists, a field that became required — took the whole queue down
+ * with it: nothing was processed, nothing recorded an attempt, and because the
+ * watchdog only marks rows stuck after an attempt, nothing ever came out of
+ * «в очереди» either. Restarting did not help, because the row is on disk.
+ */
+fun OutboxEntity.toDomainOrNull(): OutboxItem? = runCatching { toDomain() }.getOrNull()
+
 fun OutboxEntity.toDomain(): OutboxItem =
     OutboxItem(
         id = id,
