@@ -36,7 +36,13 @@ internal fun Product.toProductMealKind(
             eatenAt = now,
             title = name,
             note = null,
-            localPhotoPath = imageUrl,
+            // A path, not a URL. PhotoUploadClient does File(localPhotoPath),
+            // so a product's «https://…» became a file that does not exist and
+            // the entry sat in the queue retrying an upload of nothing. The
+            // product's own picture reaches the row from the server instead.
+            localPhotoPath = imageUrl?.takeIf { url ->
+                !url.startsWith("http://") && !url.startsWith("https://")
+            },
             totalKcal = item.kcal ?: 0.0,
             totalCarbsG = item.carbsG ?: 0.0,
             totalProteinG = item.proteinG ?: 0.0,
@@ -74,7 +80,10 @@ internal fun Template.toTemplateMealKind(
             eatenAt = now,
             title = name,
             note = null,
-            localPhotoPath = imageUrl,
+            // Same trap as the product path above.
+            localPhotoPath = imageUrl?.takeIf { url ->
+                !url.startsWith("http://") && !url.startsWith("https://")
+            },
             totalKcal = item.kcal ?: 0.0,
             totalCarbsG = item.carbsG ?: 0.0,
             totalProteinG = item.proteinG ?: 0.0,

@@ -82,6 +82,7 @@ import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 private sealed interface ComposeSuggestion {
@@ -1274,16 +1275,26 @@ private fun ProductPortionPicker(
     // product's own name turned it into one. The server sends the facts now.
     val isMealPrep = product.sourceKind == "meal_prep"
     val isFridge = product.sourceKind == "fridge"
+    // Pieces whenever the fridge knows what one weighs — not only when the lot
+    // happens to be counted in pieces. A 0,9 kg bag of apples is still eaten
+    // one apple at a time, and «50 г / 100 г» is not how anyone thinks about it.
+    val pieceGrams = product.pieceWeightG?.takeIf { it > 0 }
     val isPcsItem = if (product.isStock) {
-        product.isPieces
+        product.isPieces || pieceGrams != null
     } else {
         // Catalogue products carry no stock, and rows cached before the fields
         // existed carry no sourceKind. Both keep the old guess.
         product.name.contains("шт", ignoreCase = true)
     }
 
-    val maxPcs: Double = remember(product.stockRemaining) {
-        product.stockRemaining?.takeIf { it > 0 } ?: 3.0
+    val maxPcs: Double = remember(product.stockRemaining, pieceGrams, product.isPieces) {
+        val remaining = product.stockRemaining?.takeIf { it > 0 } ?: return@remember 3.0
+        when {
+            product.isPieces -> remaining
+            // A weighed lot: how many whole pieces are left in it.
+            pieceGrams != null -> floor(remaining / pieceGrams).coerceAtLeast(1.0)
+            else -> 3.0
+        }
     }
     val maxGrams: Double = remember(product.stockRemaining, product.defaultGrams) {
         if (product.isStock && !product.isPieces) {
@@ -1303,7 +1314,7 @@ private fun ProductPortionPicker(
 
     // One piece as the fridge estimated it. defaultGrams agrees for stock, but
     // for a piece item it is the only figure that means «one», so say so.
-    val baseGrams = (product.pieceWeightG.takeIf { isPcsItem }
+    val baseGrams = (pieceGrams.takeIf { isPcsItem }
         ?: product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
     val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
     val ratio = effectiveGrams / baseGrams

@@ -311,6 +311,13 @@ class Meal(Base, TimestampMixin):
                 return item.image_url
             if item.source_image_url:
                 return item.source_image_url
+            # The product's own picture, for rows entered from База rather than
+            # photographed. Without this a yoghurt logged by name showed the
+            # empty-photo glyph on Today while its picture sat in the catalogue
+            # one screen away. `MealItem.product` is eager-loaded by the meal
+            # endpoints, and `tags` below already walks it the same way.
+            if item.product is not None and item.product.image_url:
+                return item.product.image_url
         return None
 
     @property

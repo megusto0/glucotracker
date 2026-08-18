@@ -49,6 +49,7 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.image.rememberApiImageModel
+import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.stock.stockLabel
 
 @Composable
@@ -240,12 +241,7 @@ private fun ProductCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(
-                        R.string.base_product_macros,
-                        formatGrams(product.proteinG ?: 0.0),
-                        formatGrams(product.fatG ?: 0.0),
-                        formatGrams(product.carbsG ?: 0.0),
-                    ),
+                    text = macrosWithBasis(product),
                     color = GT.colors.ink2,
                     style = GT.type.monoLabel,
                     maxLines = 1,
@@ -417,14 +413,13 @@ private fun ProductDetail(product: com.local.glucotracker.domain.model.Product) 
             contentScale = ContentScale.Crop,
         )
     }
-    GTTag(text = product.kind)
+    // The sheet kept printing `kind` — «product» — long after the list stopped,
+    // and it never said what portion its numbers describe. A macro line with no
+    // basis is not a fact: «Б 9,1 · Ж 7,8 · У 5,5» means nothing until you know
+    // whether that is a spoonful or the whole tub.
+    StockTag(product)
     Text(
-        text = stringResource(
-            R.string.base_product_macros,
-            formatGrams(product.proteinG ?: 0.0),
-            formatGrams(product.fatG ?: 0.0),
-            formatGrams(product.carbsG ?: 0.0),
-        ),
+        text = macrosWithBasis(product),
         color = GT.colors.ink2,
         style = GT.type.monoLabel,
     )
@@ -435,6 +430,31 @@ private fun ProductDetail(product: com.local.glucotracker.domain.model.Product) 
             style = GT.type.monoLabel,
         )
     }
+    secondaryRight(product)?.takeIf { product.isStock }?.let { stock ->
+        Text(
+            text = stock,
+            color = if (product.isExpiringSoon) GT.colors.warn else GT.colors.muted,
+            style = GT.type.monoLabel,
+        )
+    }
+}
+
+/**
+ * The macros with the weight they are for.
+ *
+ * defaultGrams is the serving the server priced the numbers at, so it is the
+ * only thing that turns them into a statement about food.
+ */
+@Composable
+private fun macrosWithBasis(product: Product): String {
+    val macros = stringResource(
+        R.string.base_product_macros,
+        formatGrams(product.proteinG ?: 0.0),
+        formatGrams(product.fatG ?: 0.0),
+        formatGrams(product.carbsG ?: 0.0),
+    )
+    val grams = product.defaultGrams?.takeIf { it > 0 } ?: return macros
+    return stringResource(R.string.base_product_basis, formatGrams(grams), macros)
 }
 
 @Composable

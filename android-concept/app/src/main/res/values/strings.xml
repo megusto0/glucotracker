@@ -408,6 +408,8 @@
     <string name="base_desktop_hint">Импорт и добавление — в десктоп-версии</string>
     <string name="base_usage_count">× %1$d раз</string>
     <string name="base_product_macros">Б %1$s · Ж %2$s · У %3$s</string>
+    <!-- Macros are meaningless without the portion they are for. -->
+    <string name="base_product_basis">%1$s г · %2$s</string>
     <string name="base_product_kcal">%1$s ккал</string>
     <string name="base_use_in_journal">Использовать в журнале</string>
     <string name="more_base_open">Открыть</string>

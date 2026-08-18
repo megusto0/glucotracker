@@ -149,23 +149,42 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
 
     unit_norm = (item.unit or "").lower().strip()
     is_pcs = unit_norm in ("pcs", "шт", "pack", "уп")
-    unit_display = "шт" if is_pcs else item.unit
+
+    # Normalised to the unit the client actually computes in. A lot held in
+    # kilograms reported `0.9 kg`, and the client reads stock_remaining as the
+    # ceiling for its gram slider — which pinned an entire kilogram of apples
+    # at nought point nine grams.
+    remaining = item.remaining_quantity
+    if is_pcs:
+        unit_display = "шт"
+    elif unit_norm in ("kg", "кг"):
+        remaining *= 1000.0
+        unit_display = "г"
+    elif unit_norm in ("l", "л"):
+        remaining *= 1000.0
+        unit_display = "мл"
+    elif unit_norm in ("g", "г"):
+        unit_display = "г"
+    elif unit_norm in ("ml", "мл"):
+        unit_display = "мл"
+    else:
+        unit_display = item.unit
 
     qty_str = (
-        f"{int(item.remaining_quantity)} {unit_display}"
-        if item.remaining_quantity.is_integer()
-        else f"{item.remaining_quantity:.1f} {unit_display}"
+        f"{int(remaining)} {unit_display}"
+        if float(remaining).is_integer()
+        else f"{remaining:.1f} {unit_display}"
     )
     # Plain text. The origin travels in `source_kind` and the amount in
     # `stock_remaining`, so the client can draw its own mark rather than
     # inherit a snowflake from the middle of a sentence.
     serving_text = f"{qty_str} в наличии"
 
-    single_piece_grams: float | None = None
+    # Independent of how the lot is measured. Apples bought by weight still
+    # come one apple at a time, and the fridge's estimate of one is the only
+    # thing that lets the portion sheet offer «1 шт» for a 0,9 kg bag.
+    single_piece_grams: float | None = item.piece_weight_g
     if is_pcs:
-        # The fridge's own estimate first. Dividing the lot's total weight by
-        # the count gives the same answer only while nothing has been eaten.
-        single_piece_grams = item.piece_weight_g
         if not single_piece_grams and item.weight_grams and item.remaining_quantity > 0:
             single_piece_grams = round(item.weight_grams / item.remaining_quantity, 1)
         default_grams = single_piece_grams or 100.0
@@ -199,9 +218,9 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
-            "stock_remaining": item.remaining_quantity,
+            "stock_remaining": remaining,
             "stock_unit": unit_display,
-            "piece_weight_g": single_piece_grams if is_pcs else None,
+            "piece_weight_g": single_piece_grams,
             "stock_expires_in_days": item.days_to_expiry,
             # Not 100. Stock is already put at the head of the list by the
             # endpoint, and a fabricated count rendered as «× 100 раз» — a
