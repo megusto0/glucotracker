@@ -944,6 +944,20 @@ class DeleteResponse(BaseModel):
     deleted: bool = Field(examples=[True])
 
 
+class MealDeleteResponse(DeleteResponse):
+    """Deleting a meal, and whether its Nightscout twin went with it.
+
+    Its own model rather than a field on the generic one: every other delete in
+    the API has no mirror, and widening the shared response changes a contract
+    for endpoints that gain nothing from it.
+    """
+
+    # Set when the meal was deleted here but its Nightscout twin was not.
+    # Deleting your own entry cannot be conditional on another service being
+    # reachable, so the mirror failing is reported rather than raised.
+    mirror_error: str | None = Field(default=None, examples=[None])
+
+
 class NutrientInput(BaseModel):
     """Optional nutrient input attached to a meal item or seed record."""
 

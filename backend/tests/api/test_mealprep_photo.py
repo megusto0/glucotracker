@@ -100,3 +100,40 @@ def test_unknown_batch_is_a_404(api_client, fridge_db):
     )
 
     assert response.status_code == 404
+
+
+def test_delete_survives_a_mirror_that_will_not_answer(api_client, monkeypatch):
+    """Deleting your own entry cannot depend on Nightscout being reachable.
+
+    It used to raise out of the endpoint, so the phone's outbox saw a failed
+    request, retried it, and the entry stayed on screen in the queue.
+    """
+    from glucotracker.api.routers import meals as meals_router
+
+    created = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-08-18T12:00:00",
+            "source": "manual",
+            "title": "Азу с чечевицей",
+            "items": [{"name": "Азу с чечевицей", "grams": 300, "carbs_g": 40}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    meal_id = created.json()["id"]
+
+    async def exploding_mirror(service, meal, *, commit=False):
+        raise RuntimeError("Nightscout unreachable")
+
+    monkeypatch.setattr(
+        meals_router.NightscoutSyncService,
+        "mirror_meal_delete",
+        exploding_mirror,
+        raising=False,
+    )
+
+    response = api_client.delete(f"/meals/{meal_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["deleted"] is True
+    assert api_client.get(f"/meals/{meal_id}").status_code == 404

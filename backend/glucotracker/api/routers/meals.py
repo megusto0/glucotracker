@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Literal
@@ -15,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import (
     DeleteResponse,
+    MealDeleteResponse,
     MealAcceptRequest,
     MealCreate,
     MealItemCreate,
@@ -63,6 +66,8 @@ from glucotracker.infra.nightscout.client import (
     NightscoutClient,
     get_nightscout_client,
 )
+
+logger = logging.getLogger("glucotracker.meals")
 
 router = APIRouter(tags=["meals"])
 LOW_CONFIDENCE_THRESHOLD = 0.60
@@ -216,11 +221,26 @@ async def _mirror_meal_update(
 async def _mirror_meal_delete(
     service: NightscoutSyncService | None,
     meal: Meal,
-) -> None:
-    """Mirror deletion for already-synced meals before deleting locally."""
+) -> str | None:
+    """Mirror deletion for already-synced meals, and report it if it fails.
+
+    It used to raise, which made deleting your own entry conditional on
+    Nightscout being reachable: the whole DELETE returned an error, the phone's
+    outbox treated it as a transient failure, and the entry sat in the queue
+    being retried while the record it was trying to remove stayed on screen.
+    A mirror that cannot be reached leaves an orphan treatment over there —
+    worth telling the caller about, not worth refusing the deletion for.
+    """
     if service is None:
-        return
-    await service.mirror_meal_delete(meal, commit=False)
+        return None
+    try:
+        await service.mirror_meal_delete(meal, commit=False)
+    except Exception as exc:
+        logger.warning(
+            "Nightscout mirror delete failed for meal %s: %s", meal.id, exc
+        )
+        return str(exc) or exc.__class__.__name__
+    return None
 
 
 def _warning_payload(item: MealItem) -> list[dict[str, str | None]]:
@@ -1239,7 +1259,7 @@ async def patch_meal(
 
 @router.delete(
     "/meals/{meal_id}",
-    response_model=DeleteResponse,
+    response_model=MealDeleteResponse,
     operation_id="deleteMeal",
 )
 async def delete_meal(
@@ -1248,12 +1268,12 @@ async def delete_meal(
     session: SessionDep,
     current_user: CurrentUserDep,
     client: NightscoutDep,
-) -> DeleteResponse:
+) -> MealDeleteResponse:
     """Delete a meal and cascade its items and photos."""
     nightscout_sync = _nightscout_sync_service(session, current_user, client)
     meal = _get_meal(session, current_user.id, meal_id)
     eaten_at = meal.eaten_at
-    await _mirror_meal_delete(nightscout_sync, meal)
+    mirror_error = await _mirror_meal_delete(nightscout_sync, meal)
     _audit_meal(
         session,
         current_user.id,
@@ -1265,7 +1285,7 @@ async def delete_meal(
     session.flush()
     DailyTotalsService(session, current_user.id).schedule_for_meal_times([eaten_at])
     session.commit()
-    return DeleteResponse(deleted=True)
+    return MealDeleteResponse(deleted=True, mirror_error=mirror_error)
 
 
 @router.post(

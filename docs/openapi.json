@@ -7596,6 +7596,37 @@
         "title": "MealCreate",
         "type": "object"
       },
+      "MealDeleteResponse": {
+        "description": "Deleting a meal, and whether its Nightscout twin went with it.\n\nIts own model rather than a field on the generic one: every other delete in\nthe API has no mirror, and widening the shared response changes a contract\nfor endpoints that gain nothing from it.",
+        "properties": {
+          "deleted": {
+            "examples": [
+              true
+            ],
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "mirror_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              null
+            ],
+            "title": "Mirror Error"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "MealDeleteResponse",
+        "type": "object"
+      },
       "MealInsulinLinkItem": {
         "description": "One reviewed many-to-many food/insulin link.",
         "properties": {
@@ -21657,7 +21688,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
+                  "$ref": "#/components/schemas/MealDeleteResponse"
                 }
               }
             },
