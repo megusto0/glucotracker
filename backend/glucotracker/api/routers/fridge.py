@@ -54,10 +54,19 @@ def upload_mealprep_photo(
         ) from exc
 
     url = f"/fridge/mealpreps/{resolved}/photo"
-    if not service.set_batch_image(resolved, url):
+    outcome = service.set_batch_image(resolved, url)
+    if outcome == "not_found":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Meal prep batch not found.",
+            detail="Такой партии нет в холодильнике.",
+        )
+    if outcome in ("readonly", "unreachable", "error"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "База холодильника недоступна для записи"
+                f" ({outcome}). Файл: {service.db_path}"
+            ),
         )
     return MealPrepPhotoResponse(batch_id=UUID(resolved.replace("-", "")), url=url)
 

@@ -201,7 +201,7 @@ fun ManualEntrySearchSheetContent(
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
-    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
+    onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
     initialText: String = "",
     initialProducts: List<Product> = emptyList(),
     initialTemplates: List<Template> = emptyList(),
@@ -1280,7 +1280,7 @@ private fun ProductPortionPicker(
     // Null where nothing can upload. A meal prep is cooked once and looks the
     // same in every container, so one photograph at the counter serves all of
     // them — and until now there was no way to take it from the phone at all.
-    onPhotoTaken: ((productId: String, localPath: String) -> Unit)? = null,
+    onPhotoTaken: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
 ) {
     // All four of these used to be read out of the serving sentence with
     // regular expressions — «🍱 Милпреп · 300 г (GT:C:…)», «❄️ Холодильник ·
@@ -1393,7 +1393,7 @@ private fun ProductPortionPicker(
         if (isMealPrep && onPhotoTaken != null) {
             MealPrepPhotoButton(
                 hasPhoto = imageModel != null,
-                onCaptured = { path -> onPhotoTaken(product.id, path) },
+                onCaptured = { path, onResult -> onPhotoTaken(product.id, path, onResult) },
             )
             Spacer(Modifier.height(10.dp))
         }

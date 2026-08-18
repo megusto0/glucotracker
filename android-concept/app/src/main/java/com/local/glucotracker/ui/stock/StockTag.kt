@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -57,16 +58,27 @@ fun StockTag(product: Product) {
 @Composable
 fun MealPrepPhotoButton(
     hasPhoto: Boolean,
-    onCaptured: (String) -> Unit,
+    onCaptured: (path: String, onResult: (String?) -> Unit) -> Unit,
 ) {
     val context = LocalContext.current
     var pendingPath by remember { mutableStateOf<String?>(null) }
+    // The upload used to fail into a log line. From the counter that looks
+    // exactly like nothing happening, which is what it looked like.
+    var status by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
     ) { saved ->
         val path = pendingPath
         pendingPath = null
-        if (saved && path != null) onCaptured(path)
+        if (saved && path != null) {
+            busy = true
+            status = null
+            onCaptured(path) { error ->
+                busy = false
+                status = error ?: "Фото сохранено"
+            }
+        }
     }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -74,8 +86,13 @@ fun MealPrepPhotoButton(
         if (!granted) pendingPath = null
     }
 
+    Column(modifier = Modifier.fillMaxWidth()) {
     Text(
-        text = if (hasPhoto) "Переснять блюдо" else "Сфотографировать блюдо",
+        text = when {
+            busy -> "Отправляем…"
+            hasPhoto -> "Переснять блюдо"
+            else -> "Сфотографировать блюдо"
+        },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp)
@@ -103,4 +120,13 @@ fun MealPrepPhotoButton(
         color = GT.colors.ink,
         style = GT.type.sansLabel,
     )
+    status?.let { text ->
+        Text(
+            text = text,
+            modifier = Modifier.padding(top = 6.dp),
+            color = if (text == "Фото сохранено") GT.colors.muted else GT.colors.warn,
+            style = GT.type.kicker,
+        )
+    }
+    }
 }

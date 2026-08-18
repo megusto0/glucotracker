@@ -24,6 +24,7 @@ import java.util.UUID
 import javax.inject.Inject
 import android.util.Log
 import com.local.glucotracker.data.api.PhotoUploadClient
+import com.local.glucotracker.data.api.userMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -144,16 +145,18 @@ class CaptureViewModel @Inject constructor(
      * belong in the queue of things the day is waiting on. If it fails, the
      * dish simply has no picture yet and the button can be pressed again.
      */
-    fun uploadMealPrepPhoto(productId: String, localPath: String) {
+    fun uploadMealPrepPhoto(productId: String, localPath: String, onResult: (String?) -> Unit) {
         viewModelScope.launch {
-            val file = File(localPath)
-            runCatching {
+            val message = runCatching {
                 photoUploadClient.uploadMealPrepPhoto(productId, localPath)
-            }.onFailure { error ->
-                Log.w("CaptureViewModel", "Meal prep photo upload failed", error)
+                null
+            }.getOrElse { error ->
+                Log.w("CaptureViewModel", "Meal prep photo failed", error)
+                error.userMessage()
             }
-            withContext(Dispatchers.IO) { file.delete() }
-            productsRepository.refreshProducts()
+            java.io.File(localPath).delete()
+            if (message == null) productsRepository.refreshProducts()
+            onResult(message)
         }
     }
 

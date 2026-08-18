@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.feature.base
 
 import android.util.Log
 import com.local.glucotracker.data.api.PhotoUploadClient
+import com.local.glucotracker.data.api.userMessage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.domain.model.OutboxKind
@@ -81,12 +82,18 @@ class BaseViewModel @Inject constructor(
      * screen, and a picture you can only take from one of them is a picture
      * nobody takes.
      */
-    fun uploadMealPrepPhoto(productId: String, localPath: String) {
+    fun uploadMealPrepPhoto(productId: String, localPath: String, onResult: (String?) -> Unit) {
         viewModelScope.launch {
-            runCatching { photoUploadClient.uploadMealPrepPhoto(productId, localPath) }
-                .onFailure { error -> Log.w("BaseViewModel", "Meal prep photo failed", error) }
+            val message = runCatching {
+                photoUploadClient.uploadMealPrepPhoto(productId, localPath)
+                null
+            }.getOrElse { error ->
+                Log.w("BaseViewModel", "Meal prep photo failed", error)
+                error.userMessage()
+            }
             java.io.File(localPath).delete()
-            productsRepository.refreshProducts()
+            if (message == null) productsRepository.refreshProducts()
+            onResult(message)
         }
     }
 

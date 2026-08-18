@@ -402,7 +402,7 @@ class FridgeIntegrationService:
                         conn.close()
             return False
 
-    def set_batch_image(self, batch_id: str, image_url: str) -> bool:
+    def set_batch_image(self, batch_id: str, image_url: str) -> str:
         """Attach a picture to a meal-prep batch, and to its containers.
 
         A batch is cooked once and photographed once; every container of it is
@@ -410,10 +410,17 @@ class FridgeIntegrationService:
         to the fridge database rather than through its HTTP API — the same path
         `consume_item` already takes, and it works when the fridge service is
         down while its file is not.
+
+        Returns why it failed rather than just that it did: «no such batch» and
+        «the file is not writable by this process» are different problems with
+        different fixes, and reporting both as a 404 sends you looking in the
+        wrong place. Reading the fridge needs only read permission, so this is
+        the first call that can fail on a database everything else can use.
         """
         conn = self._open_db()
         if not conn:
-            return False
+            logger.error("Fridge database not reachable at %s", self.db_path)
+            return "unreachable"
         try:
             clean = str(batch_id).replace("-", "").lower().strip()
             cursor = conn.execute(
@@ -422,17 +429,22 @@ class FridgeIntegrationService:
                 (image_url, clean),
             )
             if cursor.rowcount == 0:
-                return False
+                return "not_found"
             conn.execute(
                 "UPDATE meal_prep_containers SET image_url = ?"
                 " WHERE REPLACE(batch_id, '-', '') = ?",
                 (image_url, clean),
             )
             conn.commit()
-            return True
+            return "ok"
+        except sqlite3.OperationalError as exc:
+            # «attempt to write a readonly database» lands here when the file
+            # belongs to the fridge service and this process only reads it.
+            logger.error("Cannot write to fridge database %s: %s", self.db_path, exc)
+            return "readonly"
         except Exception as exc:
             logger.error("Failed to attach image to batch %s: %s", batch_id, exc)
-            return False
+            return "error"
         finally:
             conn.close()
 

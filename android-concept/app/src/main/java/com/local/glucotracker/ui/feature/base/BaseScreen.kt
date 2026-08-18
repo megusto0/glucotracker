@@ -75,7 +75,7 @@ fun BaseScreen(
     onFilterChange: (BaseFilter) -> Unit,
     onUseInJournal: (BaseItem) -> Unit,
     modifier: Modifier = Modifier,
-    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
+    onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
 ) {
     var detailItem by remember { mutableStateOf<BaseItem?>(null) }
 
@@ -373,7 +373,7 @@ private fun DetailSheet(
     item: BaseItem,
     onUseInJournal: (BaseItem) -> Unit,
     onDismiss: () -> Unit,
-    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
+    onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -407,7 +407,7 @@ private fun DetailSheet(
 @Composable
 private fun ProductDetail(
     product: Product,
-    onMealPrepPhoto: ((productId: String, localPath: String) -> Unit)? = null,
+    onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
 ) {
     Text(
         text = product.name,
@@ -432,7 +432,7 @@ private fun ProductDetail(
     if (product.sourceKind == "meal_prep" && onMealPrepPhoto != null) {
         MealPrepPhotoButton(
             hasPhoto = product.imageUrl != null,
-            onCaptured = { path -> onMealPrepPhoto(product.id, path) },
+            onCaptured = { path, onResult -> onMealPrepPhoto(product.id, path, onResult) },
         )
     }
     Text(

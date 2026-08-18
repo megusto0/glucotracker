@@ -178,3 +178,21 @@ private fun File.bytesForUpload(): ByteArray {
             "${PhotoStorage.ServerMultipartPhotoByteLimit / 1024}KB server multipart limit",
     )
 }
+
+/**
+ * What to put on screen when an upload fails.
+ *
+ * The server distinguishes «no such batch» from «the fridge database is not
+ * writable by this process», because those need different fixes and reporting
+ * both as one number sends you looking in the wrong place.
+ */
+fun Throwable.userMessage(): String = when (this) {
+    is OutboxHttpException -> when (status) {
+        404 -> "Партия не найдена на сервере"
+        503 -> "Холодильник недоступен для записи"
+        401, 403 -> "Нужно войти заново"
+        else -> "Не отправилось · HTTP $status"
+    }
+    is IOException -> "Нет связи с сервером"
+    else -> "Не отправилось"
+}
