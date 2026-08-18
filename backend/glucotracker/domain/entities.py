@@ -28,6 +28,8 @@ class ItemSourceKind(StrEnum):
     label_calc = "label_calc"
     restaurant_db = "restaurant_db"
     product_db = "product_db"
+    fridge = "fridge"
+    meal_prep = "meal_prep"
     pattern = "pattern"
     manual = "manual"
 

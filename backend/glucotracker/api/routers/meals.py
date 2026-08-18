@@ -946,6 +946,47 @@ def _as_float(value: object) -> float | None:
         return None
 
 
+def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
+    """If meal items were chosen from Fridge or MealPrep, consume them in Fridge service."""
+    from glucotracker.application.fridge_sync import FridgeIntegrationService
+
+    fridge_service = FridgeIntegrationService()
+    for item in meal.items:
+        evidence = item.evidence if isinstance(item.evidence, dict) else {}
+        fridge_lot_id = (
+            evidence.get("fridge_lot_id")
+            or evidence.get("lot_id")
+            or evidence.get("inventory_lot_id")
+        )
+        mealprep_container_id = (
+            evidence.get("mealprep_container_id")
+            or evidence.get("container_id")
+        )
+
+        name_val = item.name or ""
+        if not fridge_lot_id and not mealprep_container_id:
+            if name_val.startswith("fridge:"):
+                fridge_lot_id = name_val.split(":", 1)[1].strip()
+            elif name_val.startswith("mp:"):
+                mealprep_container_id = name_val.split(":", 1)[1].strip()
+
+        if mealprep_container_id:
+            fridge_service.consume_item(
+                container_id=mealprep_container_id,
+                quantity=item.grams,
+                meal_id=meal.id,
+                owner_id=owner_id,
+            )
+        elif fridge_lot_id:
+            fridge_service.consume_item(
+                lot_id=fridge_lot_id,
+                quantity=item.grams or 1,
+                unit="g" if (item.grams and item.grams > 0) else "pcs",
+                meal_id=meal.id,
+                owner_id=owner_id,
+            )
+
+
 @router.post(
     "/meals",
     response_model=MealResponse,
@@ -1019,6 +1060,7 @@ async def create_meal(
         return existing
 
     if meal.status == MealStatus.accepted:
+        _sync_fridge_consumption_for_meal(meal, current_user.id)
         await _autosync_new_meal(nightscout_sync, meal.id)
     return _meal_response(session, current_user.id, meal.id)
 
@@ -1433,6 +1475,7 @@ async def accept_meal(
             latest_run = max(estimate_runs, key=lambda run: run.created_at)
             meal.model_used = latest_run.model_used or latest_run.model
     _audit_meal(session, current_user.id, "accepted", meal, {"via": "accept_meal"})
+    _sync_fridge_consumption_for_meal(meal, current_user.id)
 
     session.commit()
     await _autosync_new_meal(nightscout_sync, meal.id)

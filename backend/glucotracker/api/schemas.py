@@ -1812,7 +1812,7 @@ class DatabaseItemPageResponse(BaseModel):
 class AutocompleteSuggestion(BaseModel):
     """Unified autocomplete suggestion for frontend command palettes."""
 
-    kind: Literal["pattern", "product", "command"]
+    kind: Literal["pattern", "product", "command", "fridge_product", "meal_prep"]
     id: UUID | None = None
     token: str
     display_name: str

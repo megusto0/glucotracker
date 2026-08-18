@@ -240,6 +240,28 @@ Multiple sources for one question get one entry each, sharing the same
   определять TIR, минуты ниже диапазона и текст вывода. Сглаживание не меняет
   данные и не участвует в расчёте терапии.
 
+### 2026-08-16 — Импорт покупок по фискальному QR
+
+- **URL:** https://www.nalog.gov.ru/rn07/news/tax_doc_news/16632899/
+- **Consulted for:** какие реквизиты требуются для получения и проверки
+  электронного кассового чека вместо OCR бумажного текста.
+- **Used in:** `docs/fridge-mealprep-concept.md`.
+- **Takeaway:** ФН, ФД, ФП, дата и итог идентифицируют фискальный документ, а
+  сервис проверки возвращает подробную информацию о покупке.
+- **Verdict:** applied — фискальный QR выбран основным способом импорта, OCR
+  оставлен только fallback.
+
+### 2026-08-16 — Принтер этикеток для контейнеров
+
+- **URLs:** https://www.xprinter.net/product/495.html,
+  https://www.xprintertech.com/sdk.html
+- **Consulted for:** пригодность Xprinter XP-365B для домашних этикеток с
+  DataMatrix и интеграции с Android.
+- **Used in:** `docs/fridge-mealprep-concept.md`.
+- **Takeaway:** модель поддерживает прямую термопечать, DataMatrix, носители до
+  80 мм и имеет SDK производителя.
+- **Verdict:** applied — USB + Bluetooth версия XP-365B рекомендована для MVP.
+
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model
 document._

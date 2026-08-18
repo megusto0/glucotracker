@@ -1427,37 +1427,66 @@ function ScreenTextInput() {
       </div>
 
       {/* Search input */}
-      <div style={{ padding: '0 18px 10px', flexShrink: 0 }}>
+      <div style={{ padding: '0 18px 8px', flexShrink: 0 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'var(--surface)', border: '1px solid var(--ink)',
-          borderRadius: 10, padding: '12px 14px',
+          borderRadius: 10, padding: '10px 14px',
         }}>
           <svg width="14" height="14" viewBox="0 0 14 14" style={{ color: 'var(--muted)' }}>
             <path d="M2 4h10M2 7h10M2 10h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontSize: 14, color: 'var(--ink)' }}>воппе</span>
+          <span style={{ fontSize: 14, color: 'var(--ink)' }}>холод</span>
           <span style={{
             width: 1.5, height: 16, background: 'var(--ink)', marginLeft: -2,
             animation: 'caret 1s steps(2) infinite',
           }} />
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', letterSpacing: 0.3 }}>4 совпадения</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', letterSpacing: 0.3 }}>3 в наличии</span>
         </div>
-        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 6, padding: '0 4px' }}>
-          Команды: <span style={{ fontFamily: 'var(--mono)', color: 'var(--ink-2)' }}>bk:</span> завтрак · <span style={{ fontFamily: 'var(--mono)', color: 'var(--ink-2)' }}>bc:</span> последний
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto', paddingBottom: 2 }}>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--surface)', border: '0.5px solid var(--hairline-2)', color: 'var(--ink)', fontFamily: 'var(--mono)' }}>❄️ Холодильник</span>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--surface)', border: '0.5px solid var(--hairline-2)', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>🍱 Милпреп</span>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--surface)', border: '0.5px solid var(--hairline-2)', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>bk: завтрак</span>
         </div>
       </div>
 
       {/* Suggestions */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 14px' }}>
-        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.2, color: 'var(--muted)', padding: '4px 6px 6px' }}>ЧАСТЫЕ</div>
+        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.2, color: 'var(--muted)', padding: '2px 6px 4px' }}>В НАЛИЧИИ В ХОЛОДИЛЬНИКЕ & МИЛПРЕП</div>
+        <div style={{ background: 'var(--surface)', border: '0.5px solid var(--hairline)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+          <Suggest
+            name="Гречка с индейкой"
+            code="MP01"
+            tag="🍱 Милпреп · 320 г · 1 порция"
+            m="55у 35б 12ж 480к"
+            badge="🍱 Милпреп"
+            badgeColor="rgba(40,120,60,0.12)"
+            badgeText="#1b602e"
+            highlight
+          />
+          <Suggest
+            name="Йогурт Epica с ананасом"
+            tag="❄️ В наличии · 260 г · годен 5 дн."
+            m="14у 6б 5ж 120к"
+            badge="❄️ 260 г"
+            badgeColor="rgba(20,90,160,0.1)"
+            badgeText="#0f528a"
+          />
+          <Suggest
+            name="Напиток соевый Planto Карамель"
+            tag="❄️ В наличии · 1000 мл"
+            m="7у 1б 1ж 37к"
+            badge="❄️ 1 л"
+            badgeColor="rgba(20,90,160,0.1)"
+            badgeText="#0f528a"
+            last
+          />
+        </div>
+
+        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.2, color: 'var(--muted)', padding: '2px 6px 4px' }}>ЧАСТЫЕ ШАБЛОНЫ</div>
         <div style={{ background: 'var(--surface)', border: '0.5px solid var(--hairline)', borderRadius: 10, overflow: 'hidden' }}>
-          <Suggest name="Воппер" tag="Ресторан · blkwhopper" m="53у 27б 44ж 720к" />
-          <Suggest name="Воппер Ролл" tag="Ресторан · blkvopper_roll" m="34у 21б 36ж 540к" highlight />
-          <Suggest name="Воппер Джуниор" tag="Ресторан · blkvopper_dzhunior" m="33у 13б 21ж 370к" />
-          <Suggest name="Воппер По-итальянски" tag="Ресторан · blkvopper_po_italyanski" m="56у 29б 45ж 750к" />
-          <Suggest name="Воппер с Сыром" tag="Ресторан · blkwhopper_cheese" m="54у 31б 50ж 790к" last />
+          <Suggest name="Воппер Ролл" tag="Ресторан · blkvopper_roll" m="34у 21б 36ж 540к" last />
         </div>
       </div>
 
@@ -1467,19 +1496,28 @@ function ScreenTextInput() {
   );
 }
 
-function Suggest({ name, tag, m, highlight, last }) {
+function Suggest({ name, code, tag, m, highlight, badge, badgeColor, badgeText, last }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '11px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '9px 12px',
       background: highlight ? 'var(--bg)' : 'transparent',
       borderBottom: last ? 'none' : '0.5px solid var(--hairline)',
     }}>
-      <div style={{ width: 32, height: 32, borderRadius: 5, background: 'linear-gradient(160deg,#d2a87a 0%, #8f6a48 100%)', flexShrink: 0 }} />
+      <div style={{
+        width: 32, height: 32, borderRadius: 6,
+        background: 'linear-gradient(160deg,#d2a87a 0%, #8f6a48 100%)',
+        flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14,
+      }}>
+        {badge ? (badge.includes('🍱') ? '🍱' : '❄️') : '🍽️'}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
-          <span style={{ background: highlight ? '#f0e6c4' : 'transparent', padding: highlight ? '0 1px' : 0 }}>Воппе</span>
-          {name.replace('Воппе', '')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{name}</span>
+          {code && (
+            <span style={{ fontSize: 9.5, padding: '1px 4px', borderRadius: 3, background: 'var(--bg)', border: '0.5px solid var(--hairline-2)', fontFamily: 'var(--mono)', color: 'var(--ink-2)' }}>{code}</span>
+          )}
         </div>
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', marginTop: 2 }}>{tag}</div>
       </div>

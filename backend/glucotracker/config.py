@@ -286,6 +286,14 @@ class Settings(BaseSettings):
         ),
         validation_alias=AliasChoices("CORS_ORIGINS", "GLUCOTRACKER_CORS_ORIGINS"),
     )
+    fridge_api_url: str = Field(
+        default="http://127.0.0.1:8011",
+        validation_alias=AliasChoices("FRIDGE_API_URL", "GLUCOTRACKER_FRIDGE_API_URL"),
+    )
+    fridge_db_path: str = Field(
+        default="/media/megusto/storage/fridge/data/fridge.db",
+        validation_alias=AliasChoices("FRIDGE_DB_PATH", "GLUCOTRACKER_FRIDGE_DB_PATH"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=(BACKEND_DIR / ".env", ".env"),

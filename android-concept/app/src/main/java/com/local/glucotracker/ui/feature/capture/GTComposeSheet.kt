@@ -1,4 +1,4 @@
-﻿package com.local.glucotracker.ui.feature.capture
+package com.local.glucotracker.ui.feature.capture
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -420,7 +420,8 @@ private fun ManualSuggestionRow(
             Text(
                 text = item.restaurantPrefix?.let { restaurantPrefix ->
                     restaurantMeta(item, restaurantPrefix)
-                } ?: stringResource(R.string.manual_entry_suggestion_meta, item.usageCount),
+                } ?: (item as? ComposeSuggestion.ProductSuggestion)?.product?.subtitle?.takeIf { it.isNotBlank() }
+                  ?: stringResource(R.string.manual_entry_suggestion_meta, item.usageCount),
                 color = GT.colors.muted,
                 style = GT.type.monoLabel,
                 maxLines = 1,

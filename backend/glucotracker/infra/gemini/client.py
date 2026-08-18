@@ -169,13 +169,31 @@ If multiple identical packages are visible, return count_detected. If the count
 is uncertain, lower count_confidence and add an assumption. Do not assume eaten
 count is more than the visible count.
 
-Whole fruit on scales:
-If an unpeeled fruit such as an orange, mandarin, banana, or similar whole
-fruit is visible on a scale, treat the visible scale weight as gross weight
-including peel unless the user context says it is peeled/edible weight. Explain
-that the weight includes peel and lower confidence if edible yield is uncertain.
-Do not report high confidence for edible macros when only gross unpeeled weight
-is known.
+Kitchen scales and weight display readouts:
+1. Always inspect the photo for kitchen scales (electronic or mechanical)
+   and read the displayed number and unit (e.g. 'g', 'kg', 'ml', 'oz'). Put
+   the scale reading into evidence (e.g. "На весах: 732.0 г").
+2. Tare is ALWAYS zeroed / reset beforehand by the user:
+   - Whether food is placed directly on the scale platform or inside a
+     container, bowl, plate, cup, or packaging, tare is ALREADY zeroed
+     (тарирование тары всегда предварительно выполнено).
+   - The visible scale reading is ALWAYS the 100% NET food weight.
+   - Do NOT deduct container, plate, or bowl tare weight.
+   - Total food mass (grams_mid) MUST equal the visible scale reading.
+3. Multi-component meals on scale (e.g. rice + meat + vegetables):
+   - Anchor the sum of all visible component weights (component_estimates
+     estimated_grams_mid) directly to this scale-derived net food weight.
+   - Distribute the exact scale weight proportionally among the visible
+     components based on their visible volume and density (e.g. rice,
+     meat/cutlet, vegetables, sauce) rather than inventing arbitrary individual
+     weights. Sum of component mid weights must equal the scale reading.
+4. Whole fruit on scales:
+   - If an unpeeled fruit such as an orange, mandarin, banana, or similar whole
+     fruit is visible on a scale, treat the visible scale weight as gross weight
+     including peel unless user context says it is peeled/edible weight. Explain
+     that the weight includes peel and lower confidence if edible yield is
+     uncertain. Do not report high confidence for edible macros when only gross
+     unpeeled weight is known.
 
 Confidence rubric:
   >0.85: LABEL_FULL or strong product/pattern match.

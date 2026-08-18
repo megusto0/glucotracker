@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime
 from uuid import UUID
@@ -17,6 +18,7 @@ from glucotracker.domain.nutrition import calculate_item_from_per_100g
 from glucotracker.infra.db.models import Product
 from glucotracker.infra.db.product_merge import collapse_duplicate_source_photo_products
 
+logger = logging.getLogger("glucotracker.autocomplete")
 router = APIRouter(tags=["autocomplete"])
 
 PRODUCT_PREFIXES = {"product", "products", "prod", "my"}
@@ -298,6 +300,87 @@ def _suggestion_sort_key(
     )
 
 
+from glucotracker.application.fridge_sync import FridgeIntegrationService, FridgeItem, MealPrepItem
+
+FRIDGE_PREFIXES = {"fridge", "холодильник", "х"}
+MEALPREP_PREFIXES = {"mp", "милпреп"}
+
+
+def _fridge_item_suggestion(
+    item: FridgeItem,
+    q: str,
+) -> tuple[AutocompleteSuggestion, int, datetime | None, int, int]:
+    """Convert an available fridge item into a top-priority autocomplete suggestion."""
+    search_values = [item.name, item.brand or "", "холодильник", "fridge"]
+    match_rank = _text_match_rank(search_values, q)
+    qty_str = f"{int(item.remaining_quantity)} {item.unit}" if item.remaining_quantity.is_integer() else f"{item.remaining_quantity:.1f} {item.unit}"
+    subtitle = f"❄️ Холодильник · {qty_str} в наличии"
+    if item.days_to_expiry is not None and item.days_to_expiry <= 2:
+        subtitle += f" · годен {item.days_to_expiry} дн."
+
+    try:
+        item_uuid = UUID(hex=item.lot_id.replace("-", ""))
+    except Exception:
+        item_uuid = UUID("00000000-0000-0000-0000-000000000000")
+
+    return (
+        AutocompleteSuggestion(
+            kind="fridge_product",
+            id=item_uuid,
+            token=f"fridge:{item.lot_id}",
+            display_name=item.name,
+            subtitle=subtitle,
+            carbs_g=item.carbs_per_100g,
+            protein_g=item.protein_per_100g,
+            fat_g=item.fat_per_100g,
+            kcal=item.kcal_per_100g,
+            image_url=item.image_url,
+            usage_count=100,
+            matched_alias=None,
+        ),
+        100,
+        None,
+        match_rank,
+        -1,  # Precedes regular catalog products
+    )
+
+
+def _mealprep_item_suggestion(
+    item: MealPrepItem,
+    q: str,
+) -> tuple[AutocompleteSuggestion, int, datetime | None, int, int]:
+    """Convert an available ready meal prep container into a top-priority suggestion."""
+    search_values = [item.dish_name, item.public_code, "милпреп", "контейнер", "mp"]
+    match_rank = _text_match_rank(search_values, q)
+    subtitle = f"🍱 Милпреп · {int(item.remaining_weight_g)} г · {int(item.kcal)} ккал ({item.public_code})"
+
+    try:
+        cont_uuid = UUID(hex=item.container_id.replace("-", ""))
+    except Exception:
+        cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
+
+    return (
+        AutocompleteSuggestion(
+            kind="meal_prep",
+            id=cont_uuid,
+            token=f"mp:{item.container_id}",
+            display_name=f"{item.dish_name} ({item.public_code})",
+            subtitle=subtitle,
+            carbs_g=item.carbs,
+            protein_g=item.protein,
+            fat_g=item.fat,
+            kcal=item.kcal,
+            image_url=item.image_url,
+            usage_count=120,
+            matched_alias=None,
+        ),
+        120,
+        None,
+        match_rank,
+        -2,  # Highest priority
+    )
+
+
 @router.get(
     "/autocomplete",
     response_model=list[AutocompleteSuggestion],
@@ -309,13 +392,35 @@ def autocomplete(
     q: str = "",
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[AutocompleteSuggestion]:
-    """Return unified pattern and product suggestions for frontends."""
+    """Return unified pattern, product, fridge, and meal prep suggestions for frontends."""
     prefix = ""
     suffix = q
     if ":" in q:
         raw_prefix, raw_suffix = q.split(":", 1)
         prefix = raw_prefix.strip().casefold()
         suffix = raw_suffix.strip()
+
+    fridge_service = FridgeIntegrationService()
+
+    if prefix in FRIDGE_PREFIXES:
+        fridge_items = fridge_service.fetch_available_inventory(current_user.id)
+        rows = [
+            _fridge_item_suggestion(item, suffix)
+            for item in fridge_items
+        ]
+        rows = [r for r in rows if r[3] < 9]  # Match rank < 9
+        rows.sort(key=_suggestion_sort_key)
+        return [row[0] for row in rows[:limit]]
+
+    if prefix in MEALPREP_PREFIXES:
+        mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
+        rows = [
+            _mealprep_item_suggestion(item, suffix)
+            for item in mealprep_items
+        ]
+        rows = [r for r in rows if r[3] < 9]
+        rows.sort(key=_suggestion_sort_key)
+        return [row[0] for row in rows[:limit]]
 
     if prefix in PRODUCT_PREFIXES:
         rows = [
@@ -357,6 +462,24 @@ def autocomplete(
 
     source_limit = min(max(limit * 3, limit), 100)
     rows: list[tuple[AutocompleteSuggestion, int, datetime | None, int, int]] = []
+
+    # 1. Available MealPreps in fridge (highest relevance for eating)
+    try:
+        mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
+        mp_rows = [_mealprep_item_suggestion(item, q) for item in mealprep_items]
+        rows.extend(r for r in mp_rows if r[3] < 9)
+    except Exception as e:
+        logger.debug("Could not fetch mealprep items for autocomplete: %s", e)
+
+    # 2. Available Fridge products in fridge
+    try:
+        fridge_items = fridge_service.fetch_available_inventory(current_user.id)
+        fridge_rows = [_fridge_item_suggestion(item, q) for item in fridge_items]
+        rows.extend(r for r in fridge_rows if r[3] < 9)
+    except Exception as e:
+        logger.debug("Could not fetch fridge items for autocomplete: %s", e)
+
+    # 3. Patterns & Saved templates
     rows.extend(
         _pattern_suggestion(pattern_row, q)
         for pattern_row in search_pattern_rows(
@@ -366,6 +489,8 @@ def autocomplete(
             limit=source_limit,
         )
     )
+
+    # 4. Standard catalog products
     rows.extend(
         _product_suggestion(product, q)
         for product in _product_rows(
@@ -375,5 +500,6 @@ def autocomplete(
             limit=source_limit,
         )
     )
+
     rows.sort(key=_suggestion_sort_key)
     return [row[0] for row in rows[:limit]]

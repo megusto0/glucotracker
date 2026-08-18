@@ -325,6 +325,8 @@ components:
           - pattern
           - product
           - command
+          - fridge_product
+          - meal_prep
           title: Kind
           type: string
         matched_alias:
@@ -4707,6 +4709,8 @@ components:
       - label_calc
       - restaurant_db
       - product_db
+      - fridge
+      - meal_prep
       - pattern
       - manual
       title: ItemSourceKind
@@ -11036,7 +11040,8 @@ paths:
       - auth
   /autocomplete:
     get:
-      description: Return unified pattern and product suggestions for frontends.
+      description: Return unified pattern, product, fridge, and meal prep suggestions
+        for frontends.
       operationId: autocomplete
       parameters:
       - in: query
