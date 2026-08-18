@@ -37,6 +37,10 @@ class FridgeItem:
         carbs_per_100g: float | None,
         image_url: str | None,
         days_to_expiry: int | None = None,
+        # Grams of one piece, for lots counted in pieces. The fridge's
+        # enrichment estimates it per product — an egg is not an apple is not a
+        # head of garlic — and without it every piece was assumed to weigh 100 g.
+        piece_weight_g: float | None = None,
     ):
         self.id = id
         self.lot_id = lot_id
@@ -51,6 +55,7 @@ class FridgeItem:
         self.carbs_per_100g = carbs_per_100g
         self.image_url = image_url
         self.days_to_expiry = days_to_expiry
+        self.piece_weight_g = piece_weight_g
 
 
 class MealPrepItem:
@@ -133,6 +138,11 @@ class FridgeIntegrationService:
                             carbs_per_100g=float(p["carbs_per_100"]) if p.get("carbs_per_100") is not None else None,
                             image_url=p.get("image_url"),
                             days_to_expiry=lot.get("days_to_expiry"),
+                            piece_weight_g=(
+                                float(p["piece_weight_g"])
+                                if p.get("piece_weight_g")
+                                else None
+                            ),
                         )
                     )
                 return items
@@ -177,6 +187,22 @@ class FridgeIntegrationService:
                 name = r["canonical_name"] or r["display_name"]
                 if r["brand"] and r["brand"].lower() not in name.lower():
                     name = f"{r['brand']} {name}"
+                # These three columns were selected and then thrown away, which
+                # is why every piece item came back weighing 100 g: the mapper
+                # divided a None total by the count and fell to its default.
+                piece_weight = (
+                    float(r["piece_weight_g"]) if r["piece_weight_g"] is not None else None
+                )
+                net_quantity = (
+                    float(r["net_quantity"]) if r["net_quantity"] is not None else None
+                )
+                net_unit = (r["net_unit"] or "").lower().strip()
+                if piece_weight:
+                    total_grams: float | None = piece_weight * rem
+                elif net_quantity and net_unit in ("g", "г", "ml", "мл"):
+                    total_grams = net_quantity
+                else:
+                    total_grams = None
                 items.append(
                     FridgeItem(
                         id=str(r["lot_id"]),
@@ -185,7 +211,8 @@ class FridgeIntegrationService:
                         brand=r["brand"],
                         unit=r["unit"] or "г",
                         remaining_quantity=rem,
-                        weight_grams=None,
+                        weight_grams=total_grams,
+                        piece_weight_g=piece_weight,
                         kcal_per_100g=float(r["kcal_per_100"]) if r["kcal_per_100"] is not None else None,
                         protein_per_100g=float(r["protein_per_100"]) if r["protein_per_100"] is not None else None,
                         fat_per_100g=float(r["fat_per_100"]) if r["fat_per_100"] is not None else None,

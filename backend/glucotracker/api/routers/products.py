@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
@@ -156,14 +156,19 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
         if item.remaining_quantity.is_integer()
         else f"{item.remaining_quantity:.1f} {unit_display}"
     )
-    serving_text = f"❄️ Холодильник · {qty_str} в наличии"
+    # Plain text. The origin travels in `source_kind` and the amount in
+    # `stock_remaining`, so the client can draw its own mark rather than
+    # inherit a snowflake from the middle of a sentence.
+    serving_text = f"{qty_str} в наличии"
 
+    single_piece_grams: float | None = None
     if is_pcs:
-        if item.weight_grams and item.remaining_quantity > 0:
+        # The fridge's own estimate first. Dividing the lot's total weight by
+        # the count gives the same answer only while nothing has been eaten.
+        single_piece_grams = item.piece_weight_g
+        if not single_piece_grams and item.weight_grams and item.remaining_quantity > 0:
             single_piece_grams = round(item.weight_grams / item.remaining_quantity, 1)
-        else:
-            single_piece_grams = 100.0
-        default_grams = single_piece_grams
+        default_grams = single_piece_grams or 100.0
     else:
         default_grams = min(100.0, item.weight_grams or 100.0)
 
@@ -194,7 +199,14 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
-            "usage_count": 100,
+            "stock_remaining": item.remaining_quantity,
+            "stock_unit": unit_display,
+            "piece_weight_g": single_piece_grams if is_pcs else None,
+            "stock_expires_in_days": item.days_to_expiry,
+            # Not 100. Stock is already put at the head of the list by the
+            # endpoint, and a fabricated count rendered as «× 100 раз» — a
+            # claim about the user's history that never happened.
+            "usage_count": 0,
             "last_used_at": None,
             "created_at": utc_now(),
             "updated_at": utc_now(),
@@ -203,14 +215,37 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
     )
 
 
-def _mealprep_item_to_product_response(item: MealPrepItem) -> ProductResponse:
+def _collapse_mealpreps(items: list[MealPrepItem]) -> list[tuple[MealPrepItem, int]]:
+    """Group a batch's containers into one entry carrying how many are left.
+
+    Six containers of one cook are one dish, not six products. Each was
+    arriving as its own row whose name differed only by a code the list then
+    truncated, so the search offered «Сметанник» three times and gave no way to
+    tell which was which. The oldest remaining container stands for the batch —
+    recording one still consumes a real container, and first in, first out is
+    what you want from a fridge anyway.
+    """
+    by_batch: dict[str, list[MealPrepItem]] = {}
+    for item in items:
+        by_batch.setdefault(item.batch_id, []).append(item)
+    collapsed: list[tuple[MealPrepItem, int]] = []
+    for containers in by_batch.values():
+        oldest = min(containers, key=lambda c: c.public_code)
+        collapsed.append((oldest, len(containers)))
+    return collapsed
+
+
+def _mealprep_item_to_product_response(
+    item: MealPrepItem,
+    containers_left: int = 1,
+) -> ProductResponse:
     """Convert an available meal prep container into a ProductResponse for mobile client sync."""
     try:
         cont_uuid = UUID(hex=item.container_id.replace("-", ""))
     except Exception:
         cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
-    serving_text = f"🍱 Милпреп · {int(item.remaining_weight_g)} г ({item.public_code})"
+    serving_text = f"{int(item.remaining_weight_g)} г в контейнере"
     net_w = item.net_weight_g or item.remaining_weight_g or 100.0
 
     return ProductResponse.model_validate(
@@ -218,7 +253,10 @@ def _mealprep_item_to_product_response(item: MealPrepItem) -> ProductResponse:
             "id": cont_uuid,
             "barcode": None,
             "brand": item.public_code,
-            "name": f"{item.dish_name} ({item.public_code})",
+            # The code left the name. «Сметанник (GT:C:1793F419F0)» three times
+            # over is one dish in three containers, and the only part that told
+            # them apart was truncated by every list that drew it.
+            "name": item.dish_name,
             "default_grams": net_w,
             "default_serving_text": serving_text,
             "carbs_per_100g": round((item.carbs / net_w) * 100.0, 1) if net_w > 0 else item.carbs,
@@ -235,7 +273,10 @@ def _mealprep_item_to_product_response(item: MealPrepItem) -> ProductResponse:
             "source_url": f"mp:{item.container_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
-            "usage_count": 120,
+            "stock_remaining": containers_left,
+            "stock_unit": "контейнер",
+            "stock_code": item.public_code,
+            "usage_count": 0,
             "last_used_at": None,
             "created_at": utc_now(),
             "updated_at": utc_now(),
@@ -286,7 +327,10 @@ def list_products(
         mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
 
         fridge_responses = [_fridge_item_to_product_response(item) for item in fridge_items]
-        mealprep_responses = [_mealprep_item_to_product_response(item) for item in mealprep_items]
+        mealprep_responses = [
+            _mealprep_item_to_product_response(item, containers_left)
+            for item, containers_left in _collapse_mealpreps(mealprep_items)
+        ]
 
         if q:
             q_norm = q.casefold().strip()

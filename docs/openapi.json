@@ -12662,6 +12662,20 @@
             "title": "Nutrients Json",
             "type": "object"
           },
+          "piece_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              180.0
+            ],
+            "title": "Piece Weight G"
+          },
           "protein_per_100g": {
             "anyOf": [
               {
@@ -12713,6 +12727,62 @@
               "https://example.test"
             ],
             "title": "Source Url"
+          },
+          "stock_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "GT:C:8F4K2M"
+            ],
+            "title": "Stock Code"
+          },
+          "stock_expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              2
+            ],
+            "title": "Stock Expires In Days"
+          },
+          "stock_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              3
+            ],
+            "title": "Stock Remaining"
+          },
+          "stock_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "\u0448\u0442"
+            ],
+            "title": "Stock Unit"
           },
           "updated_at": {
             "format": "date-time",
@@ -24074,7 +24144,7 @@
     },
     "/products": {
       "get": {
-        "description": "List products, optionally searching brand, name, or barcode.",
+        "description": "List products including live available fridge items and meal preps.",
         "operationId": "listProducts",
         "parameters": [
           {
@@ -24099,7 +24169,7 @@
             "required": false,
             "schema": {
               "default": 50,
-              "maximum": 100,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -24660,7 +24730,7 @@
     },
     "/products/{product_id}/image/file": {
       "get": {
-        "description": "Stream a locally stored product image.",
+        "description": "Stream a locally stored product image or redirect to external/fridge image URL.",
         "operationId": "getProductImageFile",
         "parameters": [
           {
@@ -24671,22 +24741,6 @@
               "format": "uuid",
               "title": "Product Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],

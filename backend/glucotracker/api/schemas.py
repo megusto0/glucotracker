@@ -1609,6 +1609,16 @@ class ProductResponse(ProductBase):
     """Product response."""
 
     id: UUID
+    # Live stock, present only for entries backed by the fridge rather than the
+    # product catalogue. These used to be written into `default_serving_text`
+    # as a sentence with an emoji in front, which meant a client could render
+    # them but could not act on them — it could not offer two pieces, or refuse
+    # a third when only two are left.
+    stock_remaining: float | None = Field(default=None, examples=[3])
+    stock_unit: str | None = Field(default=None, examples=["шт"])
+    piece_weight_g: float | None = Field(default=None, examples=[180.0])
+    stock_code: str | None = Field(default=None, examples=["GT:C:8F4K2M"])
+    stock_expires_in_days: int | None = Field(default=None, examples=[2])
     usage_count: int
     last_used_at: datetime | None = None
     created_at: datetime
