@@ -2,6 +2,7 @@ package com.local.glucotracker.ui.feature.capture
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.BackHandler
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
@@ -9,6 +10,11 @@ import androidx.core.content.FileProvider
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,8 +24,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,8 +42,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,8 +69,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.alpha
-import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -79,6 +80,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.local.glucotracker.R
@@ -149,65 +152,96 @@ fun ManualEntrySearchSheet(
     viewModel: CaptureViewModel = hiltViewModel(),
 ) {
     val openCount by viewModel.composeSheetOpenCount.collectAsStateWithLifecycle(initialValue = 0)
-    var sheetContentShown by remember { mutableStateOf(false) }
-    val sheetContentOffset by animateDpAsState(
-        targetValue = if (sheetContentShown) 0.dp else 10.dp,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "manual-entry-sheet-offset",
-    )
-    val sheetContentAlpha by animateFloatAsState(
-        targetValue = if (sheetContentShown) 1f else 0f,
-        animationSpec = tween(durationMillis = 140),
-        label = "manual-entry-sheet-alpha",
-    )
+    var sheetVisible by remember { mutableStateOf(false) }
+    var dismissRequested by remember { mutableStateOf(false) }
+
+    fun requestDismiss() {
+        if (!dismissRequested) {
+            dismissRequested = true
+            sheetVisible = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.onComposeSheetOpened()
-        sheetContentShown = true
+        sheetVisible = true
+    }
+    LaunchedEffect(dismissRequested) {
+        if (dismissRequested) {
+            delay(180)
+            onDismiss()
+        }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = GT.colors.bg,
-        contentColor = GT.colors.ink,
-        tonalElevation = 0.dp,
-        scrimColor = GT.colors.ink.copy(alpha = 0.55f),
-        dragHandle = { JournalDragHandle() },
-        contentWindowInsets = { WindowInsets.ime.add(WindowInsets.navigationBars) },
+    BackHandler(onBack = ::requestDismiss)
+    Dialog(
+        onDismissRequest = ::requestDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        ManualEntrySearchSheetContent(
-            openCount = openCount,
-            onDismiss = onDismiss,
-            onSubmitText = { text ->
-                viewModel.enqueueTextMeal(text) { outboxId ->
-                    onDismiss()
-                    onOutboxQueued(outboxId)
-                }
-            },
-            onSubmitProduct = { product, weightGrams, servingText ->
-                viewModel.enqueueProductMeal(product, weightGrams, servingText) { outboxId ->
-                    onDismiss()
-                    onOutboxQueued(outboxId)
-                }
-            },
-            onSubmitTemplate = { template ->
-                viewModel.enqueueFromTemplate(template, template.defaultGrams) { outboxId ->
-                    onDismiss()
-                    onOutboxQueued(outboxId)
-                }
-            },
-            searchProducts = viewModel::searchProducts,
-            searchTemplates = viewModel::searchTemplates,
-            onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .offset(y = sheetContentOffset)
-                .alpha(sheetContentAlpha)
-                .imePadding(),
+        val scrimAlpha by animateFloatAsState(
+            targetValue = if (sheetVisible) 0.55f else 0f,
+            animationSpec = tween(durationMillis = 180),
+            label = "manual-entry-sheet-scrim",
         )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(GT.colors.ink.copy(alpha = scrimAlpha)),
+            )
+            AnimatedVisibility(
+                visible = sheetVisible,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxSize(),
+                enter = slideInVertically(
+                    initialOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 240),
+                ) + fadeIn(animationSpec = tween(durationMillis = 120)),
+                exit = slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 180),
+                ) + fadeOut(animationSpec = tween(durationMillis = 100)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .background(GT.colors.bg),
+                ) {
+                    JournalDragHandle()
+                    ManualEntrySearchSheetContent(
+                        openCount = openCount,
+                        onDismiss = ::requestDismiss,
+                        onSubmitText = { text ->
+                            viewModel.enqueueTextMeal(text) { outboxId ->
+                                requestDismiss()
+                                onOutboxQueued(outboxId)
+                            }
+                        },
+                        onSubmitProduct = { product, weightGrams, servingText ->
+                            viewModel.enqueueProductMeal(product, weightGrams, servingText) { outboxId ->
+                                requestDismiss()
+                                onOutboxQueued(outboxId)
+                            }
+                        },
+                        onSubmitTemplate = { template ->
+                            viewModel.enqueueFromTemplate(template, template.defaultGrams) { outboxId ->
+                                requestDismiss()
+                                onOutboxQueued(outboxId)
+                            }
+                        },
+                        searchProducts = viewModel::searchProducts,
+                        searchTemplates = viewModel::searchTemplates,
+                        onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .imePadding(),
+                    )
+                }
+            }
+        }
     }
 }
 
