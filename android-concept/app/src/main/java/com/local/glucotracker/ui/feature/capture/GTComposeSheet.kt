@@ -38,6 +38,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -63,6 +67,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -143,9 +149,21 @@ fun ManualEntrySearchSheet(
     viewModel: CaptureViewModel = hiltViewModel(),
 ) {
     val openCount by viewModel.composeSheetOpenCount.collectAsStateWithLifecycle(initialValue = 0)
+    var sheetContentShown by remember { mutableStateOf(false) }
+    val sheetContentOffset by animateDpAsState(
+        targetValue = if (sheetContentShown) 0.dp else 10.dp,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "manual-entry-sheet-offset",
+    )
+    val sheetContentAlpha by animateFloatAsState(
+        targetValue = if (sheetContentShown) 1f else 0f,
+        animationSpec = tween(durationMillis = 140),
+        label = "manual-entry-sheet-alpha",
+    )
 
     LaunchedEffect(Unit) {
         viewModel.onComposeSheetOpened()
+        sheetContentShown = true
     }
 
     ModalBottomSheet(
@@ -186,6 +204,8 @@ fun ManualEntrySearchSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
+                .offset(y = sheetContentOffset)
+                .alpha(sheetContentAlpha)
                 .imePadding(),
         )
     }

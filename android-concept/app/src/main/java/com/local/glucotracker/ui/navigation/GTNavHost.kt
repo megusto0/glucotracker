@@ -271,7 +271,7 @@ fun MainScaffold(
                 onPenTap = {
                     actionOptionsOpen = false
                     scope.launch {
-                        kotlinx.coroutines.delay(200)
+                        kotlinx.coroutines.delay(120)
                         manualEntrySheetVisible = true
                     }
                 },
