@@ -137,3 +137,71 @@ def test_delete_survives_a_mirror_that_will_not_answer(api_client, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.json()["deleted"] is True
     assert api_client.get(f"/meals/{meal_id}").status_code == 404
+
+
+def test_deleting_a_fridge_entry_asks_the_fridge_for_its_stock_back(
+    api_client, monkeypatch
+):
+    """An entry added by mistake must not take its stock with it."""
+    from glucotracker.application import fridge_sync
+
+    asked: list[str] = []
+
+    def fake_revert(self, meal_id, owner_id=None):
+        asked.append(str(meal_id))
+        return ""
+
+    monkeypatch.setattr(
+        fridge_sync.FridgeIntegrationService, "revert_consumption", fake_revert
+    )
+
+    created = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-08-18T21:09:00",
+            "source": "manual",
+            "title": "Яблоки свежие",
+            "items": [
+                {
+                    "name": "Яблоки свежие",
+                    "grams": 180,
+                    "carbs_g": 18,
+                    "evidence": {"fridge_lot_id": "lot-111"},
+                }
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    meal_id = created.json()["id"]
+
+    response = api_client.delete(f"/meals/{meal_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["fridge_error"] is None
+    assert asked == [meal_id]
+
+
+def test_an_ordinary_meal_does_not_touch_the_fridge(api_client, monkeypatch):
+    from glucotracker.application import fridge_sync
+
+    asked: list[str] = []
+    monkeypatch.setattr(
+        fridge_sync.FridgeIntegrationService,
+        "revert_consumption",
+        lambda self, meal_id, owner_id=None: asked.append(str(meal_id)) or "",
+    )
+
+    created = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-08-18T20:02:00",
+            "source": "manual",
+            "title": "Карамель",
+            "items": [{"name": "Карамель", "grams": 12, "carbs_g": 11}],
+        },
+    )
+    meal_id = created.json()["id"]
+
+    api_client.delete(f"/meals/{meal_id}")
+
+    assert asked == []

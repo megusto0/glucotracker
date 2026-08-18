@@ -956,6 +956,10 @@ class MealDeleteResponse(DeleteResponse):
     # Deleting your own entry cannot be conditional on another service being
     # reachable, so the mirror failing is reported rather than raised.
     mirror_error: str | None = Field(default=None, examples=[None])
+    # Set when the entry came from fridge stock and the stock could not be put
+    # back. The meal is deleted either way; the fridge is then short by exactly
+    # what this entry claimed, which is worth saying out loud.
+    fridge_error: str | None = Field(default=None, examples=[None])
 
 
 class NutrientInput(BaseModel):

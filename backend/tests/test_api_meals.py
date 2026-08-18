@@ -103,7 +103,11 @@ def test_full_crud_lifecycle_for_meals(api_client: TestClient) -> None:
     # mirror_error names a Nightscout twin that outlived its meal. None here
     # because nothing was mirrored — and the deletion no longer waits on that
     # answer either way, which is why the field exists.
-    assert delete_response.json() == {"deleted": True, "mirror_error": None}
+    assert delete_response.json() == {
+        "deleted": True,
+        "mirror_error": None,
+        "fridge_error": None,
+    }
     assert api_client.get(f"/meals/{meal_id}").status_code == 404
 
 

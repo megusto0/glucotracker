@@ -1257,6 +1257,29 @@ async def patch_meal(
     return _meal_response(session, current_user.id, meal.id)
 
 
+def _return_fridge_stock_for_meal(meal: Meal, owner_id: UUID) -> str | None:
+    """Give the fridge back what a deleted meal took, when it took anything.
+
+    Only for entries that came from stock — an ordinary meal has nothing to
+    return. Like the Nightscout mirror above, a failure is reported rather than
+    raised: deleting your own entry cannot wait on another service.
+    """
+    from glucotracker.application.fridge_sync import FridgeIntegrationService
+
+    came_from_stock = any(
+        isinstance(item.evidence, dict)
+        and (
+            item.evidence.get("fridge_lot_id")
+            or item.evidence.get("mealprep_container_id")
+        )
+        for item in meal.items
+    )
+    if not came_from_stock:
+        return None
+    error = FridgeIntegrationService().revert_consumption(meal.id, owner_id)
+    return error or None
+
+
 @router.delete(
     "/meals/{meal_id}",
     response_model=MealDeleteResponse,
@@ -1274,6 +1297,7 @@ async def delete_meal(
     meal = _get_meal(session, current_user.id, meal_id)
     eaten_at = meal.eaten_at
     mirror_error = await _mirror_meal_delete(nightscout_sync, meal)
+    fridge_error = _return_fridge_stock_for_meal(meal, current_user.id)
     _audit_meal(
         session,
         current_user.id,
@@ -1285,7 +1309,11 @@ async def delete_meal(
     session.flush()
     DailyTotalsService(session, current_user.id).schedule_for_meal_times([eaten_at])
     session.commit()
-    return MealDeleteResponse(deleted=True, mirror_error=mirror_error)
+    return MealDeleteResponse(
+        deleted=True,
+        mirror_error=mirror_error,
+        fridge_error=fridge_error,
+    )
 
 
 @router.post(

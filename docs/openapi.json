@@ -7606,6 +7606,20 @@
             "title": "Deleted",
             "type": "boolean"
           },
+          "fridge_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              null
+            ],
+            "title": "Fridge Error"
+          },
           "mirror_error": {
             "anyOf": [
               {

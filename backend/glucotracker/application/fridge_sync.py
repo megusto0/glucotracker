@@ -374,6 +374,11 @@ class FridgeIntegrationService:
                     "items": [{"lot_id": lid, "quantity": qty, "unit": u}],
                     "reason": "consumed",
                 }
+                # So deleting the meal can find this movement again. Without it
+                # the fridge records what left the shelf but not why, and an
+                # entry added by mistake takes its stock with it for good.
+                if meal_id:
+                    payload["glucotracker_meal_id"] = str(meal_id)
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
                     f"{self.api_url}/inventory/consume",
@@ -401,6 +406,43 @@ class FridgeIntegrationService:
                     finally:
                         conn.close()
             return False
+
+    def revert_consumption(
+        self,
+        meal_id: UUID | str,
+        owner_id: UUID | str | None = None,
+    ) -> str:
+        """Put back what one deleted meal took out of the fridge.
+
+        Whole, not partial: an entry from GlucoTracker is either the whole
+        container or a mistake, and it is the mistakes that get deleted.
+
+        HTTP only, deliberately. The direct-SQLite fallback that `consume_item`
+        keeps is a single UPDATE; putting stock back means restoring quantities,
+        clearing a depleted flag, resurrecting a container and writing the
+        compensating movement, and half of that applied by hand is worse than
+        none of it. If the fridge is down the caller is told and the meal is
+        deleted anyway.
+        """
+        try:
+            headers = {"Content-Type": "application/json"}
+            if owner_id:
+                headers["X-User-Id"] = str(owner_id)
+            data = json.dumps({"glucotracker_meal_id": str(meal_id)}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.api_url}/inventory/consume/revert",
+                data=data,
+                headers=headers,
+                method="POST",
+            )
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(req, timeout=2.0) as resp:
+                if resp.status != 200:
+                    return f"HTTP {resp.status}"
+            return ""
+        except Exception as exc:
+            logger.warning("Could not return stock for meal %s: %s", meal_id, exc)
+            return str(exc) or exc.__class__.__name__
 
     def set_batch_image(self, batch_id: str, image_url: str) -> str:
         """Attach a picture to a meal-prep batch, and to its containers.
