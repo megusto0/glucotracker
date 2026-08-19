@@ -20,6 +20,57 @@ from glucotracker.config import Settings, get_settings
 
 logger = logging.getLogger("glucotracker.fridge")
 
+#: Addresses that only mean anything on the machine the two services share.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "0.0.0.0", "::1", "[::1]"})
+
+
+def _row_value(row: Any, column: str) -> Any:
+    """A column that may not exist yet on an older fridge database."""
+    try:
+        return row[column]
+    except (IndexError, KeyError):
+        return None
+
+
+def _shared_media_url(raw: Any, api_url: str) -> str | None:
+    """Turn a Fridge picture address into one a phone can actually fetch.
+
+    The Fridge stamps its own base into the address it hands out, and that base
+    is `http://127.0.0.1:8011` — the loopback of the machine it shares with
+    GlucoTracker. A browser on that machine loads the picture; a phone resolves
+    127.0.0.1 to itself and gets nothing, which is why a meal prep photographed
+    in the Fridge showed an empty frame here while lots whose picture happened
+    to be stored as a bare path showed up fine.
+
+    Both services read the same directory — GlucoTracker mounts it at
+    `/uploaded-media` — so the path is the whole of what is worth keeping. A
+    picture that genuinely lives elsewhere, on a shop's CDN, is passed through
+    untouched: it is reachable from anywhere already.
+    """
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    if not value:
+        return None
+    if value.startswith("/"):
+        return value
+
+    parts = urllib.parse.urlsplit(value)
+    if not parts.scheme or not parts.netloc:
+        return value
+
+    fridge_host = urllib.parse.urlsplit(api_url).hostname
+    is_ours = parts.hostname in _LOOPBACK_HOSTS or (
+        fridge_host is not None and parts.hostname == fridge_host
+    )
+    if not is_ours:
+        return value
+
+    path = parts.path or ""
+    if not path:
+        return None
+    return f"{path}?{parts.query}" if parts.query else path
+
 
 class FridgeItem:
     def __init__(
@@ -41,6 +92,13 @@ class FridgeItem:
         # enrichment estimates it per product — an egg is not an apple is not a
         # head of garlic — and without it every piece was assumed to weigh 100 g.
         piece_weight_g: float | None = None,
+        # "pcs", "g", or None while nobody has said. Whether a piece is what
+        # you eat is not something the weight of one can answer: an apple and a
+        # jar of sweetener both weigh 180 g apiece.
+        serving_unit: str | None = None,
+        # The fridge's product this lot is of. The serving unit is answered
+        # once for the product, not again for every jar of it bought since.
+        product_id: str | None = None,
     ):
         self.id = id
         self.lot_id = lot_id
@@ -56,6 +114,8 @@ class FridgeItem:
         self.image_url = image_url
         self.days_to_expiry = days_to_expiry
         self.piece_weight_g = piece_weight_g
+        self.serving_unit = serving_unit
+        self.product_id = product_id
 
 
 class MealPrepItem:
@@ -105,6 +165,10 @@ class FridgeIntegrationService:
                 logger.warning("Could not connect directly to Fridge SQLite: %s", e)
         return None
 
+    def _media_url(self, raw: Any) -> str | None:
+        """This service's Fridge base, applied to :func:`_shared_media_url`."""
+        return _shared_media_url(raw, self.api_url)
+
     def fetch_available_inventory(self, owner_id: UUID | str | None = None) -> list[FridgeItem]:
         """Fetch available (non-empty) inventory lots from Fridge API or local database."""
         # 1. Try Fridge HTTP API
@@ -136,7 +200,9 @@ class FridgeIntegrationService:
                             protein_per_100g=float(p["protein_per_100"]) if p.get("protein_per_100") is not None else None,
                             fat_per_100g=float(p["fat_per_100"]) if p.get("fat_per_100") is not None else None,
                             carbs_per_100g=float(p["carbs_per_100"]) if p.get("carbs_per_100") is not None else None,
-                            image_url=p.get("image_url"),
+                            image_url=self._media_url(p.get("image_url")),
+                            serving_unit=p.get("serving_unit"),
+                            product_id=str(p["id"]) if p.get("id") else None,
                             days_to_expiry=lot.get("days_to_expiry"),
                             piece_weight_g=(
                                 float(p["piece_weight_g"])
@@ -171,6 +237,7 @@ class FridgeIntegrationService:
                     p.carbs_per_100,
                     p.image_url,
                     p.piece_weight_g,
+                    p.serving_unit,
                     p.net_quantity,
                     p.net_unit
                 FROM inventory_lots l
@@ -217,7 +284,11 @@ class FridgeIntegrationService:
                         protein_per_100g=float(r["protein_per_100"]) if r["protein_per_100"] is not None else None,
                         fat_per_100g=float(r["fat_per_100"]) if r["fat_per_100"] is not None else None,
                         carbs_per_100g=float(r["carbs_per_100"]) if r["carbs_per_100"] is not None else None,
-                        image_url=r["image_url"],
+                        image_url=self._media_url(r["image_url"]),
+                        serving_unit=_row_value(r, "serving_unit"),
+                        product_id=(
+                            str(r["product_id"]) if _row_value(r, "product_id") else None
+                        ),
                     )
                 )
             return items
@@ -238,7 +309,7 @@ class FridgeIntegrationService:
                 items = []
                 for b in batches:
                     dish_name = b.get("name") or "Милпреп"
-                    img = b.get("image_url")
+                    img = self._media_url(b.get("image_url"))
                     for c in b.get("containers", []):
                         rem_w = float(c.get("remaining_weight_g") or c.get("net_weight_g") or 0)
                         if rem_w <= 0 or c.get("status") == "consumed":
@@ -255,7 +326,7 @@ class FridgeIntegrationService:
                                 protein=float(c.get("protein") or 0),
                                 fat=float(c.get("fat") or 0),
                                 carbs=float(c.get("carbs") or 0),
-                                image_url=img or c.get("image_url"),
+                                image_url=img or self._media_url(c.get("image_url")),
                             )
                         )
                 return items
@@ -307,7 +378,7 @@ class FridgeIntegrationService:
                         protein=float(r["protein"] or 0),
                         fat=float(r["fat"] or 0),
                         carbs=float(r["carbs"] or 0),
-                        image_url=r["batch_img"] or r["container_img"],
+                        image_url=self._media_url(r["batch_img"] or r["container_img"]),
                     )
                 )
             return items
@@ -444,6 +515,51 @@ class FridgeIntegrationService:
             logger.warning("Could not return stock for meal %s: %s", meal_id, exc)
             return str(exc) or exc.__class__.__name__
 
+    def set_serving_unit(
+        self,
+        lot_id: str,
+        unit: str,
+        owner_id: UUID | str | None = None,
+    ) -> str:
+        """Tell the fridge how one of its products is eaten.
+
+        Addressed by lot, because a lot is what a client holds — the code on a
+        jar resolves to the jar, not to the idea of the jar. The answer is
+        stored against the product, so the next jar of the same thing arrives
+        already knowing.
+
+        HTTP only. This writes a field the fridge's own screens read, and a
+        half-applied write by hand is worse than a failure that says so.
+        """
+        wanted = str(lot_id).replace("fridge:", "").strip()
+        product_id = next(
+            (
+                item.product_id
+                for item in self.fetch_available_inventory(owner_id)
+                if str(item.lot_id).strip() == wanted and item.product_id
+            ),
+            None,
+        )
+        if not product_id:
+            return "not_found"
+        try:
+            headers = {"Content-Type": "application/json"}
+            if owner_id:
+                headers["X-User-Id"] = str(owner_id)
+            data = json.dumps({"serving_unit": unit}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.api_url}/products/{product_id}/serving-unit",
+                data=data,
+                headers=headers,
+                method="PATCH",
+            )
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(req, timeout=2.0) as resp:
+                return "ok" if resp.status == 200 else f"HTTP {resp.status}"
+        except Exception as exc:
+            logger.warning("Could not set serving unit for lot %s: %s", wanted, exc)
+            return str(exc) or exc.__class__.__name__
+
     def set_batch_image(self, batch_id: str, image_url: str) -> str:
         """Attach a picture to a meal-prep batch, and to its containers.
 
@@ -490,6 +606,53 @@ class FridgeIntegrationService:
         finally:
             conn.close()
 
+    def containers_for_batch(
+        self,
+        container_id: str,
+        count: int,
+        owner_id: UUID | str | None = None,
+    ) -> list[str]:
+        """The oldest `count` containers still standing in one batch.
+
+        Two containers means two real lids, not one lid holding twice as much:
+        consuming a container empties it whole, so a portion of «two» that
+        wrote off a single box would leave the fridge counting stock nobody
+        has. `_collapse_mealpreps` shows a batch through its oldest container
+        and this walks the same order onwards, so what gets written off is what
+        the list said was there.
+
+        Never returns more than it was asked for, and never fewer than the one
+        container the client named — if the batch cannot be read at all, that
+        one is still consumable.
+        """
+        wanted = str(container_id).replace("mp:", "").strip()
+        if count <= 1:
+            return [wanted]
+        try:
+            items = self.fetch_available_mealpreps(owner_id)
+        except Exception as exc:
+            logger.warning("Could not list the batch holding %s: %s", wanted, exc)
+            return [wanted]
+        batch = next(
+            (i.batch_id for i in items if str(i.container_id).strip() == wanted),
+            None,
+        )
+        if not batch:
+            return [wanted]
+        ordered = [
+            str(i.container_id).strip()
+            for i in sorted(
+                (i for i in items if i.batch_id == batch),
+                key=lambda i: i.public_code,
+            )
+        ]
+        # The named container goes first whatever the sort thinks: it is the
+        # one whose code the person was looking at when they picked.
+        if wanted in ordered:
+            ordered.remove(wanted)
+        ordered.insert(0, wanted)
+        return ordered[:count]
+
     def find_batch_for_container(self, container_id: str) -> str | None:
         """Return the batch a container belongs to.
 
@@ -530,7 +693,7 @@ class FridgeIntegrationService:
                 (clean_id, clean_id),
             ).fetchone()
             if row and row["image_url"]:
-                return row["image_url"]
+                return self._media_url(row["image_url"])
 
             row2 = conn.execute(
                 """
@@ -542,7 +705,7 @@ class FridgeIntegrationService:
                 (clean_id, clean_id),
             ).fetchone()
             if row2 and row2["image_url"]:
-                return row2["image_url"]
+                return self._media_url(row2["image_url"])
         except Exception as e:
             logger.debug("Failed looking up image in Fridge SQLite: %s", e)
         finally:

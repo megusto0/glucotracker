@@ -313,7 +313,19 @@ abstract class CachedProductDao {
     @Query("SELECT * FROM cached_products ORDER BY usageCount DESC, name ASC")
     abstract fun observeAll(): Flow<List<CachedProductEntity>>
 
-    @Query("SELECT * FROM cached_products ORDER BY usageCount DESC, name ASC LIMIT :limit")
+    // Stock leads, and it has to lead here rather than only in the sheet: the
+    // caller takes the first N rows, so a fridge item ranked below thirty
+    // catalogue rows was cut before anything could reorder it.
+    @Query(
+        """
+        SELECT * FROM cached_products
+        ORDER BY
+            CASE sourceKind WHEN 'meal_prep' THEN 0 WHEN 'fridge' THEN 1 ELSE 2 END,
+            usageCount DESC,
+            name ASC
+        LIMIT :limit
+        """,
+    )
     abstract suspend fun top(limit: Int): List<CachedProductEntity>
 
     @Query("SELECT * FROM cached_products WHERE id = :id LIMIT 1")
@@ -357,7 +369,10 @@ abstract class CachedProductDao {
         SELECT p.* FROM cached_products p
         JOIN cached_product_fts f ON p.id = f.productId
         WHERE cached_product_fts MATCH :query
-        ORDER BY p.usageCount DESC, p.name ASC
+        ORDER BY
+            CASE p.sourceKind WHEN 'meal_prep' THEN 0 WHEN 'fridge' THEN 1 ELSE 2 END,
+            p.usageCount DESC,
+            p.name ASC
         LIMIT :limit
         """,
     )
@@ -449,7 +464,7 @@ abstract class CachedTemplateDao {
         OutboxEntity::class,
         PhotoEstimateLogEntity::class,
     ],
-    version = 16,
+    version = 18,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)

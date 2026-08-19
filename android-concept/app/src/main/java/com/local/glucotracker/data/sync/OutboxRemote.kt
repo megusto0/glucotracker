@@ -21,6 +21,7 @@ import java.math.BigDecimal
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.json.JsonPrimitive
 
 class OutboxConflictException(message: String? = null) : IOException(message ?: "Conflict")
 class OutboxAlreadySyncedException(val serverId: String) : IOException("Already synced")
@@ -165,6 +166,11 @@ private fun MealItemPayload.toGenerated(): MealItemCreate =
         photoId = photoId?.toUuidOrNull(),
         imageUrl = imageUrl,
         position = position,
+        // Only when there is something to say. An empty map would overwrite
+        // the evidence the server builds for itself from the product id.
+        evidence = mealprepContainers
+            ?.takeIf { it > 1 }
+            ?.let { mapOf("mealprep_containers" to JsonPrimitive(it)) },
     )
 
 private fun String.toMealSource(): MealSource =

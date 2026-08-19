@@ -51,6 +51,8 @@ object DatabaseModule {
             Migration13To14,
             Migration14To15,
             Migration15To16,
+            Migration16To17,
+            Migration17To18,
         )
             // OutboxWorker deliberately opens its own Room instance. Keep the
             // UI instance informed when the worker changes queue/meal rows so
@@ -221,6 +223,18 @@ object DatabaseModule {
             db.execSQL("ALTER TABLE cached_products ADD COLUMN pieceWeightG REAL")
             db.execSQL("ALTER TABLE cached_products ADD COLUMN stockCode TEXT")
             db.execSQL("ALTER TABLE cached_products ADD COLUMN stockExpiresInDays INTEGER")
+        }
+    }
+
+    private val Migration16To17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cached_products ADD COLUMN containersLeft INTEGER")
+        }
+    }
+
+    private val Migration17To18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cached_products ADD COLUMN servingUnit TEXT")
         }
     }
 

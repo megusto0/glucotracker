@@ -42,6 +42,9 @@ interface ProductsRepository {
     suspend fun searchTemplatesLocal(query: String, limit: Int = 20): List<Template>
     suspend fun refreshProducts()
     suspend fun getProduct(id: String): Product?
+
+    /** Tell the fridge whether this stock is eaten by pieces or by grams. */
+    suspend fun setServingUnit(id: String, unit: String)
 }
 
 interface MealRepository {

@@ -272,6 +272,8 @@ fun ProductResponse.toCachedEntity(fetchedAt: Instant): CachedProductEntity =
         pieceWeightG = pieceWeightG.asDouble(),
         stockCode = stockCode,
         stockExpiresInDays = stockExpiresInDays,
+        containersLeft = stockContainersLeft,
+        servingUnit = servingUnit,
         fetchedAt = fetchedAt,
     )
 
@@ -318,6 +320,8 @@ fun CachedProductEntity.toDomain(): Product =
         pieceWeightG = pieceWeightG,
         stockCode = stockCode,
         stockExpiresInDays = stockExpiresInDays,
+        containersLeft = containersLeft,
+        servingUnit = servingUnit,
     )
 
 fun PatternResponse.toCachedTemplateEntity(fetchedAt: Instant): CachedTemplateEntity =

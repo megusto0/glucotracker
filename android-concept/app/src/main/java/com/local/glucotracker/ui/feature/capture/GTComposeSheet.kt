@@ -8,19 +8,18 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import java.io.File
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +32,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,8 +42,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -57,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +86,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -88,6 +96,7 @@ import com.local.glucotracker.R
 import com.local.glucotracker.data.repository.BrandPrefix
 import com.local.glucotracker.data.repository.parsePrefix
 import com.local.glucotracker.domain.model.Product
+import com.local.glucotracker.domain.model.ServingUnits
 import com.local.glucotracker.domain.model.Template
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
@@ -98,16 +107,27 @@ import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-private sealed interface ComposeSuggestion {
+internal sealed interface ComposeSuggestion {
     val id: String
     val name: String
     val kcal: Double?
     val usageCount: Int
     val imageUrl: String?
     val restaurantPrefix: String?
+
+    /**
+     * Which block of the list this belongs to: cooked batches first, then what
+     * is in the fridge, then the catalogue.
+     *
+     * Stock is the part of the list that spoils. A yoghurt you own and a
+     * yoghurt the catalogue has heard of are not equally useful answers to
+     * «что я ем» — one of them is in the kitchen and going off.
+     */
+    val stockRank: Int
 
     data class ProductSuggestion(val product: Product) : ComposeSuggestion {
         override val id = "product:${product.id}"
@@ -118,6 +138,11 @@ private sealed interface ComposeSuggestion {
         override val restaurantPrefix = product.brand?.takeIf {
             product.kind.equals("restaurant", ignoreCase = true)
         }
+        override val stockRank = when (product.sourceKind) {
+            "meal_prep" -> 0
+            "fridge" -> 1
+            else -> 2
+        }
     }
 
     data class TemplateSuggestion(val template: Template) : ComposeSuggestion {
@@ -127,6 +152,7 @@ private sealed interface ComposeSuggestion {
         override val usageCount = template.usageCount
         override val imageUrl = template.imageUrl
         override val restaurantPrefix = template.prefix.takeIf(::isRestaurantPrefix)
+        override val stockRank = 2
     }
 
     data class RestaurantVariantsSuggestion(
@@ -138,13 +164,50 @@ private sealed interface ComposeSuggestion {
         override val usageCount = group.variants.sumOf { variant -> variant.usageCount }
         override val imageUrl = group.imageUrl
         override val restaurantPrefix = group.prefix
+        override val stockRank = 2
     }
 }
+
+/**
+ * Meal preps, then the fridge, then everything else — and inside each block the
+ * order the list always had: what the query starts, then what gets eaten most,
+ * then alphabetical.
+ *
+ * Both sheets sort through here. They carried a comparator each, which is
+ * exactly how two lists of the same food end up in two different orders.
+ */
+internal fun List<ComposeSuggestion>.rankedFor(query: String): List<ComposeSuggestion> =
+    sortedWith(
+        compareBy<ComposeSuggestion> { it.stockRank }
+            .thenByDescending { it.name.startsWith(query, ignoreCase = true) }
+            .thenByDescending { it.usageCount }
+            .thenBy { it.name },
+    )
 
 private fun isRestaurantPrefix(prefix: String): Boolean =
     prefix.lowercase() in setOf("bk", "rostics", "vit", "mc", "kfc")
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The curtain's own motion. Critically damped on purpose: a spring with any
+ * bounce left in it overshoots past the top edge, and on a sheet that covers
+ * the whole screen the overshoot reads as a strip of scrim tearing off the
+ * bottom rather than as liveliness.
+ */
+private val SheetSpring = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMedium,
+)
+
+/** Leaving is a decision, not a settling, so it goes at a fixed pace. */
+private val SheetExit = tween<Float>(durationMillis = 170, easing = FastOutLinearInEasing)
+
+/** A flick this fast closes the sheet wherever it happens to be. */
+private const val SheetFlingToClose = 1400f
+
+/** Below a third of the way down, letting go puts it back. */
+private const val SheetCloseFraction = 0.33f
+
 @Composable
 fun ManualEntrySearchSheet(
     onDismiss: () -> Unit,
@@ -152,25 +215,14 @@ fun ManualEntrySearchSheet(
     viewModel: CaptureViewModel = hiltViewModel(),
 ) {
     val openCount by viewModel.composeSheetOpenCount.collectAsStateWithLifecycle(initialValue = 0)
-    var sheetVisible by remember { mutableStateOf(false) }
     var dismissRequested by remember { mutableStateOf(false) }
 
     fun requestDismiss() {
-        if (!dismissRequested) {
-            dismissRequested = true
-            sheetVisible = false
-        }
+        dismissRequested = true
     }
 
     LaunchedEffect(Unit) {
         viewModel.onComposeSheetOpened()
-        sheetVisible = true
-    }
-    LaunchedEffect(dismissRequested) {
-        if (dismissRequested) {
-            delay(180)
-            onDismiss()
-        }
     }
 
     BackHandler(onBack = ::requestDismiss)
@@ -178,69 +230,95 @@ fun ManualEntrySearchSheet(
         onDismissRequest = ::requestDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        val scrimAlpha by animateFloatAsState(
-            targetValue = if (sheetVisible) 0.55f else 0f,
-            animationSpec = tween(durationMillis = 180),
-            label = "manual-entry-sheet-scrim",
-        )
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val fullHeight = with(LocalDensity.current) { maxHeight.toPx() }
+            // How far down the sheet sits: full height is off the bottom edge,
+            // zero is open. One value drives the slide, the drag and the scrim,
+            // so a half-dragged sheet cannot disagree with the dark behind it.
+            val offsetY = remember { Animatable(fullHeight) }
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                offsetY.animateTo(0f, SheetSpring)
+            }
+            LaunchedEffect(dismissRequested) {
+                if (dismissRequested) {
+                    offsetY.animateTo(fullHeight, SheetExit)
+                    onDismiss()
+                }
+            }
+
+            val openFraction = (1f - offsetY.value / fullHeight).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(GT.colors.ink.copy(alpha = scrimAlpha)),
+                    .background(GT.colors.ink.copy(alpha = 0.55f * openFraction)),
             )
-            AnimatedVisibility(
-                visible = sheetVisible,
+            Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxSize(),
-                enter = slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 240),
-                ) + fadeIn(animationSpec = tween(durationMillis = 120)),
-                exit = slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 180),
-                ) + fadeOut(animationSpec = tween(durationMillis = 100)),
+                    .fillMaxSize()
+                    // Clamped, so a stray negative never lifts the sheet off
+                    // the top and shows daylight under it.
+                    .offset { IntOffset(0, offsetY.value.coerceAtLeast(0f).roundToInt()) }
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(GT.colors.bg),
             ) {
-                Column(
+                JournalDragHandle(
+                    modifier = Modifier.draggable(
+                        orientation = Orientation.Vertical,
+                        state = rememberDraggableState { delta ->
+                            scope.launch {
+                                // Downwards only. The sheet is already at the
+                                // ceiling; dragging up has nothing to reveal.
+                                offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f))
+                            }
+                        },
+                        onDragStopped = { velocity ->
+                            val flung = velocity > SheetFlingToClose
+                            val pulledFarEnough = offsetY.value > fullHeight * SheetCloseFraction
+                            if (flung || pulledFarEnough) {
+                                requestDismiss()
+                            } else {
+                                offsetY.animateTo(0f, SheetSpring)
+                            }
+                        },
+                    ),
+                )
+                ManualEntrySearchSheetContent(
+                    openCount = openCount,
+                    onDismiss = ::requestDismiss,
+                    onSubmitText = { text ->
+                        viewModel.enqueueTextMeal(text) { outboxId ->
+                            requestDismiss()
+                            onOutboxQueued(outboxId)
+                        }
+                    },
+                    onSubmitProduct = { product, weightGrams, servingText, containers ->
+                        viewModel.enqueueProductMeal(
+                            product,
+                            weightGrams,
+                            servingText,
+                            mealprepContainers = containers,
+                        ) { outboxId ->
+                            requestDismiss()
+                            onOutboxQueued(outboxId)
+                        }
+                    },
+                    onSubmitTemplate = { template ->
+                        viewModel.enqueueFromTemplate(template, template.defaultGrams) { outboxId ->
+                            requestDismiss()
+                            onOutboxQueued(outboxId)
+                        }
+                    },
+                    searchProducts = viewModel::searchProducts,
+                    searchTemplates = viewModel::searchTemplates,
+                    openStockProduct = viewModel::openStockProduct,
+                    onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                        .background(GT.colors.bg),
-                ) {
-                    JournalDragHandle()
-                    ManualEntrySearchSheetContent(
-                        openCount = openCount,
-                        onDismiss = ::requestDismiss,
-                        onSubmitText = { text ->
-                            viewModel.enqueueTextMeal(text) { outboxId ->
-                                requestDismiss()
-                                onOutboxQueued(outboxId)
-                            }
-                        },
-                        onSubmitProduct = { product, weightGrams, servingText ->
-                            viewModel.enqueueProductMeal(product, weightGrams, servingText) { outboxId ->
-                                requestDismiss()
-                                onOutboxQueued(outboxId)
-                            }
-                        },
-                        onSubmitTemplate = { template ->
-                            viewModel.enqueueFromTemplate(template, template.defaultGrams) { outboxId ->
-                                requestDismiss()
-                                onOutboxQueued(outboxId)
-                            }
-                        },
-                        searchProducts = viewModel::searchProducts,
-                        searchTemplates = viewModel::searchTemplates,
-                        openStockProduct = viewModel::openStockProduct,
-                        onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .imePadding(),
-                    )
-                }
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .imePadding(),
+                )
             }
         }
     }
@@ -251,12 +329,13 @@ fun ManualEntrySearchSheetContent(
     openCount: Int,
     onDismiss: () -> Unit,
     onSubmitText: (String) -> Unit,
-    onSubmitProduct: (Product, Double?, String?) -> Unit,
+    onSubmitProduct: (Product, Double?, String?, Int?) -> Unit,
     onSubmitTemplate: (Template) -> Unit,
     searchProducts: (String, BrandPrefix?, (List<Product>) -> Unit) -> Unit,
     searchTemplates: (String, (List<Template>) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
     openStockProduct: ((Product, (Product) -> Unit) -> Unit)? = null,
+    onServingUnitChosen: ((productId: String, unit: String) -> Unit)? = null,
     onMealPrepPhoto: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
     initialText: String = "",
     initialProducts: List<Product> = emptyList(),
@@ -307,11 +386,7 @@ fun ManualEntrySearchSheetContent(
                         ComposeSuggestion.RestaurantVariantsSuggestion(choice.group)
                 }
             })
-            .sortedWith(
-                compareByDescending<ComposeSuggestion> { it.name.startsWith(query, ignoreCase = true) }
-                    .thenByDescending { it.usageCount }
-                    .thenBy { it.name },
-            )
+            .rankedFor(query)
     }
     val canSubmitFreeform = query.isNotBlank() &&
         suggestions.none { it.name.equals(query, ignoreCase = true) }
@@ -338,11 +413,12 @@ fun ManualEntrySearchSheetContent(
                 restoreSearchFocus = true
             },
             onCancel = onDismiss,
-            onSubmit = { product, weightGrams, servingText ->
-                onSubmitProduct(product, weightGrams, servingText)
+            onSubmit = { product, weightGrams, servingText, containers ->
+                onSubmitProduct(product, weightGrams, servingText, containers)
             },
             modifier = modifier,
             onPhotoTaken = onMealPrepPhoto,
+            onServingUnitChosen = onServingUnitChosen,
         )
         return
     }
@@ -661,11 +737,13 @@ private fun manualListHeader(query: String, count: Int): String =
     }
 
 @Composable
-private fun JournalDragHandle() {
+private fun JournalDragHandle(modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 6.dp),
+            // The bar is 4 dp tall; the strip around it is what a thumb
+            // actually lands on, so the grab area is padded well past it.
+            .padding(top = 14.dp, bottom = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -818,11 +896,7 @@ fun GTComposeSheetContent(
             }
         } +
             products.map { ComposeSuggestion.ProductSuggestion(it) })
-            .sortedWith(
-                compareByDescending<ComposeSuggestion> { it.name.startsWith(query, ignoreCase = true) }
-                    .thenByDescending { it.usageCount }
-                    .thenBy { it.name },
-            )
+            .rankedFor(query)
     }
     val hasExactMatch = suggestions.any { it.name.equals(query, ignoreCase = true) }
     val canSubmitFreeform = query.isNotBlank() && !hasExactMatch
@@ -1330,17 +1404,111 @@ private fun CaptureGlyph(kind: CaptureGlyphKind) {
     }
 }
 
+/**
+ * The one question the app cannot answer for itself.
+ *
+ * Asked once per product and kept in the fridge, because the answer belongs to
+ * the food: a tub of ice cream is eaten by the spoonful wherever it is shown.
+ * There is no «later» here on purpose — a default would be a guess wearing the
+ * clothes of an answer, and nobody would ever be asked to correct it.
+ */
+@Composable
+private fun ServingUnitQuestion(
+    pieceGrams: Double?,
+    onAnswer: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Как это едят?",
+            color = GT.colors.ink,
+            style = GT.type.sansLabel,
+        )
+        Text(
+            text = "Спросим один раз — дальше запомним",
+            modifier = Modifier.padding(top = 2.dp),
+            color = GT.colors.muted,
+            style = GT.type.kicker,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // The piece weight is the whole point of the choice: «целиком» is
+            // only a sensible answer when you can see what one weighs.
+            ServingUnitChoice(
+                title = "Целиком",
+                detail = pieceGrams?.let { "${it.roundToInt()} г за штуку" } ?: "по штукам",
+                modifier = Modifier.weight(1f),
+                onClick = { onAnswer(ServingUnits.Pieces) },
+            )
+            ServingUnitChoice(
+                title = "По весу",
+                detail = "граммами",
+                modifier = Modifier.weight(1f),
+                onClick = { onAnswer(ServingUnits.Grams) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServingUnitChoice(
+    title: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .background(GT.colors.surface, RoundedCornerShape(8.dp))
+            .border(GT.space.hairline, GT.colors.hairline2, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(text = title, color = GT.colors.ink, style = GT.type.monoLabel)
+        Text(
+            text = detail,
+            modifier = Modifier.padding(top = 2.dp),
+            color = GT.colors.muted,
+            style = GT.type.kicker,
+        )
+    }
+}
+
+/**
+ * «1 контейнер», «2 контейнера», «5 контейнеров» — a count with its noun.
+ *
+ * «шт» is left alone: it is an abbreviation and does not decline, which is
+ * exactly why the picker could get away with never thinking about this before.
+ */
+internal fun countLabel(count: Int, containers: Boolean): String {
+    if (!containers) return "$count шт"
+    val teens = count % 100 in 11..14
+    val ones = count % 10
+    val noun = when {
+        teens -> "контейнеров"
+        ones == 1 -> "контейнер"
+        ones in 2..4 -> "контейнера"
+        else -> "контейнеров"
+    }
+    return "$count $noun"
+}
+
 @Composable
 private fun ProductPortionPicker(
     product: Product,
     onBack: () -> Unit,
     onCancel: () -> Unit,
-    onSubmit: (Product, Double?, String?) -> Unit,
+    onSubmit: (Product, Double?, String?, Int?) -> Unit,
     modifier: Modifier = Modifier,
     // Null where nothing can upload. A meal prep is cooked once and looks the
     // same in every container, so one photograph at the counter serves all of
     // them — and until now there was no way to take it from the phone at all.
     onPhotoTaken: ((productId: String, localPath: String, onResult: (String?) -> Unit) -> Unit)? = null,
+    // Where the answer goes. Null in previews and in sheets with no fridge
+    // behind them; the choice still applies on screen, it just is not kept.
+    onServingUnitChosen: ((productId: String, unit: String) -> Unit)? = null,
 ) {
     // All four of these used to be read out of the serving sentence with
     // regular expressions — «🍱 Милпреп · 300 г (GT:C:…)», «❄️ Холодильник ·
@@ -1353,15 +1521,34 @@ private fun ProductPortionPicker(
     // happens to be counted in pieces. A 0,9 kg bag of apples is still eaten
     // one apple at a time, and «50 г / 100 г» is not how anyone thinks about it.
     val pieceGrams = product.pieceWeightG?.takeIf { it > 0 }
-    val isPcsItem = if (product.isStock) {
-        product.isPieces || pieceGrams != null
-    } else {
+    // What the fridge was told, or what was just chosen on this screen. Held
+    // locally too so the sheet answers the moment it is tapped, without
+    // waiting for the round trip that stores it.
+    var chosenUnit by remember(product.id) { mutableStateOf(product.servingUnit) }
+    val isPcsItem = when {
+        // A batch is portioned into containers once and eaten a container at
+        // a time. Consuming one empties it whole whatever weight is recorded
+        // against it, so grams were never a choice the fridge could honour —
+        // «две трети контейнера» left stock on the shelf that nobody had.
+        isMealPrep -> true
+        // The fridge holds the answer for its own stock. Nothing here could
+        // work it out: an apple and a jar of sweetener both weigh 180 g
+        // apiece, and guessing offered «1 шт» for a 520 g tub of ice cream.
+        product.isStock && chosenUnit != null -> chosenUnit == ServingUnits.Pieces
+        product.isStock -> product.isPieces || pieceGrams != null
         // Catalogue products carry no stock, and rows cached before the fields
         // existed carry no sourceKind. Both keep the old guess.
-        product.name.contains("шт", ignoreCase = true)
+        else -> product.name.contains("шт", ignoreCase = true)
     }
 
-    val maxPcs: Double = remember(product.stockRemaining, pieceGrams, product.isPieces) {
+    val maxPcs: Double = remember(
+        product.stockRemaining,
+        pieceGrams,
+        product.isPieces,
+        product.containersLeft,
+        isMealPrep,
+    ) {
+        if (isMealPrep) return@remember product.containerCount.toDouble()
         val remaining = product.stockRemaining?.takeIf { it > 0 } ?: return@remember 3.0
         when {
             product.isPieces -> remaining
@@ -1412,7 +1599,9 @@ private fun ProductPortionPicker(
 
     // One piece as the fridge estimated it. defaultGrams agrees for stock, but
     // for a piece item it is the only figure that means «one», so say so.
-    val baseGrams = (pieceGrams.takeIf { isPcsItem }
+    // For a meal prep this is one container, which is what defaultGrams already
+    // holds; a batch has no piece weight and must not borrow one.
+    val baseGrams = (pieceGrams.takeIf { isPcsItem && !isMealPrep }
         ?: product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
     val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
     val ratio = effectiveGrams / baseGrams
@@ -1501,7 +1690,16 @@ private fun ProductPortionPicker(
 
         Spacer(Modifier.height(16.dp))
 
-        if (isPcsItem) {
+        val unanswered = product.needsServingUnit && chosenUnit == null
+        if (unanswered) {
+            ServingUnitQuestion(
+                pieceGrams = pieceGrams,
+                onAnswer = { unit ->
+                    chosenUnit = unit
+                    onServingUnitChosen?.invoke(product.id, unit)
+                },
+            )
+        } else if (isPcsItem) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1513,7 +1711,11 @@ private fun ProductPortionPicker(
                     style = GT.type.kicker,
                 )
                 Text(
-                    text = "${if (quantityPcs % 1.0 == 0.0) quantityPcs.toInt().toString() else quantityPcs.toString()} шт (${effectiveGrams.roundToInt()} г)",
+                    text = if (quantityPcs % 1.0 == 0.0) {
+                        "${countLabel(quantityPcs.toInt(), isMealPrep)} (${effectiveGrams.roundToInt()} г)"
+                    } else {
+                        "$quantityPcs шт (${effectiveGrams.roundToInt()} г)"
+                    },
                     color = GT.colors.ink,
                     style = GT.type.monoLabel,
                 )
@@ -1536,7 +1738,11 @@ private fun ProductPortionPicker(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 6.dp),
+                    .padding(top = 6.dp)
+                    // «2 контейнера» is three times the width of «2 шт», and
+                    // three of them do not fit a phone. Let the row slide
+                    // rather than clip the last choice off the screen.
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val chipOptions = when {
@@ -1548,7 +1754,11 @@ private fun ProductPortionPicker(
 
                 chipOptions.forEach { q ->
                     val isSel = (quantityPcs == q)
-                    val label = if (q == maxPcs && maxPcs > 2.0) "Все (${q.toInt()} шт)" else "${q.toInt()} шт"
+                    val label = if (q == maxPcs && maxPcs > 2.0) {
+                        "Все (${countLabel(q.toInt(), isMealPrep)})"
+                    } else {
+                        countLabel(q.toInt(), isMealPrep)
+                    }
                     Box(
                         modifier = Modifier
                             .background(if (isSel) GT.colors.ink else GT.colors.surface, RoundedCornerShape(6.dp))
@@ -1667,17 +1877,27 @@ private fun ProductPortionPicker(
 
         Spacer(Modifier.height(18.dp))
 
-        val servingLabel = if (isPcsItem) {
-            "${if (quantityPcs % 1.0 == 0.0) quantityPcs.toInt() else quantityPcs} шт"
-        } else {
-            "${effectiveGrams.roundToInt()} г"
+        val servingLabel = when {
+            isPcsItem && quantityPcs % 1.0 == 0.0 -> countLabel(quantityPcs.toInt(), isMealPrep)
+            isPcsItem -> "$quantityPcs шт"
+            else -> "${effectiveGrams.roundToInt()} г"
         }
         val actionText = if (isFridge || isMealPrep) "Списать и записать · $servingLabel" else "Записать · $servingLabel"
+
+        if (unanswered) {
+            Spacer(Modifier.height(14.dp))
+            return@Column
+        }
 
         GTOutlineButton(
             text = "$actionText (${currentKcal.roundToInt()} ккал)",
             onClick = {
-                onSubmit(product, effectiveGrams, servingLabel)
+                onSubmit(
+                    product,
+                    effectiveGrams,
+                    servingLabel,
+                    quantityPcs.toInt().takeIf { isMealPrep },
+                )
             },
             modifier = Modifier
                 .fillMaxWidth()

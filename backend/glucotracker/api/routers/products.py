@@ -23,6 +23,7 @@ from glucotracker.api.schemas import (
     ProductPageResponse,
     ProductPatch,
     ProductResponse,
+    ServingUnitUpdate,
 )
 from glucotracker.domain.nutrients import normalize_nutrients_object
 from glucotracker.infra.db.models import Meal, MealItem, Product, ProductAlias, utc_now
@@ -215,6 +216,7 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "fiber_per_serving": 0.0,
             "kcal_per_serving": round(kcal_100 * default_grams / 100.0, 1),
             "source_kind": "fridge",
+            "serving_unit": item.serving_unit,
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
@@ -265,11 +267,15 @@ def _mealprep_item_to_product_response(
         cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
     remaining_g = float(item.remaining_weight_g or item.net_weight_g or 0)
+    net_w = item.net_weight_g or item.remaining_weight_g or 100.0
     # The only number in this sentence must be grams. The installed client
     # takes the last figure as the slider ceiling, so «ещё 3» locked every
     # portion at 3 g even after stock_remaining was already the weight.
-    serving_text = f"{int(remaining_g)} г в контейнере"
-    net_w = item.net_weight_g or item.remaining_weight_g or 100.0
+    #
+    # Rounded the way the client rounds, not truncated: int() on 113,75 g put
+    # «113 г в контейнере» directly above a chip offering «Вся (114 г)», two
+    # figures on one screen for the one container in front of you.
+    serving_text = f"{round(remaining_g or net_w)} г в контейнере"
 
     return ProductResponse.model_validate(
         {
@@ -301,6 +307,9 @@ def _mealprep_item_to_product_response(
             "stock_remaining": remaining_g,
             "stock_unit": "г",
             "stock_code": item.public_code,
+            # What the picker counts in. The alias below says the same thing in
+            # words for clients that predate this field.
+            "stock_containers_left": containers_left,
             "usage_count": 0,
             "last_used_at": None,
             "created_at": utc_now(),
@@ -382,6 +391,40 @@ def list_products(
         limit=limit,
         offset=offset,
     )
+
+
+@router.patch(
+    "/products/{product_id}/serving-unit",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="setProductServingUnit",
+)
+def set_product_serving_unit(
+    product_id: UUID,
+    payload: ServingUnitUpdate,
+    current_user: CurrentUserDep,
+) -> Response:
+    """Record whether this fridge product is eaten by pieces or by grams.
+
+    Kept in the fridge rather than here, because the answer belongs to the food
+    and not to whichever client was open when it was given: a tub of ice cream
+    is eaten by the spoonful on every phone, and in the fridge's own screens.
+    """
+    outcome = FridgeIntegrationService().set_serving_unit(
+        str(product_id),
+        payload.serving_unit,
+        owner_id=current_user.id,
+    )
+    if outcome == "not_found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Такого продукта нет в холодильнике.",
+        )
+    if outcome != "ok":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Холодильник не принял ответ ({outcome}).",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

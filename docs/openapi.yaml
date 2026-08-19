@@ -8002,6 +8002,13 @@ components:
           examples:
           - 3.3
           title: Protein Per Serving
+        serving_unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          examples:
+          - pcs
+          title: Serving Unit
         source_kind:
           default: manual
           examples:
@@ -8022,6 +8029,13 @@ components:
           examples:
           - GT:C:8F4K2M
           title: Stock Code
+        stock_containers_left:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          examples:
+          - 3
+          title: Stock Containers Left
         stock_expires_in_days:
           anyOf:
           - type: integer
@@ -8761,6 +8775,21 @@ components:
           - type: 'null'
           title: Warmup Instability Score
       title: SensorWarmupMetricsResponse
+      type: object
+    ServingUnitUpdate:
+      description: Someone has said how a fridge product is eaten.
+      properties:
+        serving_unit:
+          enum:
+          - pcs
+          - g
+          examples:
+          - g
+          title: Serving Unit
+          type: string
+      required:
+      - serving_unit
+      title: ServingUnitUpdate
       type: object
     SleepStageResponse:
       description: One wearable-provided sleep stage clipped to the displayed night.
@@ -15431,6 +15460,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Product Image File
+      tags:
+      - products
+      x-glucotracker-scoped: true
+  /products/{product_id}/serving-unit:
+    patch:
+      description: 'Record whether this fridge product is eaten by pieces or by grams.
+
+
+        Kept in the fridge rather than here, because the answer belongs to the food
+
+        and not to whichever client was open when it was given: a tub of ice cream
+
+        is eaten by the spoonful on every phone, and in the fridge''s own screens.'
+      operationId: setProductServingUnit
+      parameters:
+      - in: path
+        name: product_id
+        required: true
+        schema:
+          format: uuid
+          title: Product Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServingUnitUpdate'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - BearerAuth: []
+      summary: Set Product Serving Unit
       tags:
       - products
       x-glucotracker-scoped: true

@@ -157,8 +157,13 @@ def test_products_list_mealprep_slider_uses_grams_not_container_count(
     assert item["stock_unit"] == "г"
     assert item["stock_remaining"] == 113.75
     assert item["default_grams"] == 113.75
-    assert item["default_serving_text"] == "113 г в контейнере"
+    # Rounded, not truncated. The client rounds default_grams to draw its
+    # chips, so int() here put «113 г в контейнере» above a chip offering
+    # «Вся (114 г)» — one container wearing two weights.
+    assert item["default_serving_text"] == "114 г в контейнере"
     assert item["stock_remaining"] != 3
+    # Three containers of one batch, as a number the picker can count in.
+    assert item["stock_containers_left"] == 3
 
 
 def test_creating_meal_with_fridge_item_triggers_consumption(
@@ -219,3 +224,303 @@ def test_creating_meal_with_fridge_item_triggers_consumption(
 
     cont_consume = next(e for e in consumed_events if e["container_id"] == "cont-333")
     assert cont_consume["quantity"] == 320.0
+
+
+def test_two_containers_write_off_two_containers(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A portion of two boxes empties two boxes.
+
+    A container cannot be half-consumed — the fridge zeroes whichever one it is
+    told about — so an entry that ate two while only one was written off left
+    stock on the shelf that nobody had.
+    """
+    consumed: list[dict] = []
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "consume_item",
+        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (
+            consumed.append({"container_id": container_id, "quantity": quantity}) or True
+        ),
+    )
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_mealpreps",
+        lambda self, owner_id=None: [
+            MealPrepItem(
+                container_id=f"cont-{idx}",
+                batch_id="batch-smetannik",
+                dish_name="Сметанник",
+                public_code=f"GT:C:00{idx}",
+                net_weight_g=114.0,
+                remaining_weight_g=114.0,
+                kcal=300.0,
+                protein=4.5,
+                fat=22.2,
+                carbs=20.8,
+                image_url=None,
+            )
+            for idx in range(1, 4)
+        ],
+    )
+
+    res = api_client.post(
+        "/meals",
+        json={
+            "title": "Сметанник",
+            "source": "manual",
+            "status": "accepted",
+            "eaten_at": "2026-08-18T21:30:00",
+            "items": [
+                {
+                    "name": "Сметанник",
+                    "grams": 228.0,
+                    "carbs_g": 41.6,
+                    "protein_g": 9.0,
+                    "fat_g": 44.4,
+                    "kcal": 600.0,
+                    "source_kind": "meal_prep",
+                    "evidence": {
+                        "mealprep_container_id": "cont-1",
+                        "mealprep_containers": 2,
+                    },
+                }
+            ],
+        },
+    )
+
+    assert res.status_code == 201, res.text
+    assert [e["container_id"] for e in consumed] == ["cont-1", "cont-2"]
+    # The weight is split over the boxes it came out of.
+    assert [e["quantity"] for e in consumed] == [114.0, 114.0]
+
+
+def test_one_container_stays_one_call(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Saying nothing about containers means one, as every older client did."""
+    consumed: list[str] = []
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "consume_item",
+        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (
+            consumed.append(str(container_id)) or True
+        ),
+    )
+
+    res = api_client.post(
+        "/meals",
+        json={
+            "title": "Сметанник",
+            "source": "manual",
+            "status": "accepted",
+            "eaten_at": "2026-08-18T21:40:00",
+            "items": [
+                {
+                    "name": "Сметанник",
+                    "grams": 114.0,
+                    "carbs_g": 20.8,
+                    "kcal": 300.0,
+                    "source_kind": "meal_prep",
+                    "evidence": {"mealprep_container_id": "cont-9"},
+                }
+            ],
+        },
+    )
+
+    assert res.status_code == 201, res.text
+    assert consumed == ["cont-9"]
+
+
+def test_a_fridge_picture_survives_the_trip_to_a_phone():
+    """127.0.0.1 is the server talking to itself, not an address a phone can use."""
+    from glucotracker.application.fridge_sync import _shared_media_url
+
+    fridge = "http://127.0.0.1:8011"
+
+    # The case that showed an empty frame: the Fridge stamps its own loopback
+    # base into the address, and the phone resolves that to itself.
+    assert (
+        _shared_media_url("http://127.0.0.1:8011/uploaded-media/abc.jpg", fridge)
+        == "/uploaded-media/abc.jpg"
+    )
+    # Whatever host the Fridge is configured on, not just the loopback literal.
+    elsewhere = "http://fridge.local:8011"
+    assert (
+        _shared_media_url(f"{elsewhere}/uploaded-media/abc.jpg", elsewhere)
+        == "/uploaded-media/abc.jpg"
+    )
+    assert (
+        _shared_media_url("http://localhost:8011/uploaded-media/a.jpg?v=2", fridge)
+        == "/uploaded-media/a.jpg?v=2"
+    )
+
+    # Already a path, or genuinely somewhere else: left exactly as it was.
+    already_a_path = "/uploaded-media/abc.jpg"
+    assert _shared_media_url(already_a_path, fridge) == already_a_path
+    external = "https://avatars.mds.yandex.net/get-eda/1/2/400x400nocrop"
+    assert _shared_media_url(external, fridge) == external
+
+    assert _shared_media_url(None, fridge) is None
+    assert _shared_media_url("   ", fridge) is None
+
+
+def test_products_hand_a_meal_prep_picture_the_phone_can_load(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_inventory",
+        lambda self, owner_id=None: [],
+    )
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_mealpreps",
+        lambda self, owner_id=None: [
+            MealPrepItem(
+                container_id="cont-1",
+                batch_id="batch-1",
+                dish_name="Сметанник",
+                public_code="GT:C:001",
+                net_weight_g=116.0,
+                remaining_weight_g=116.0,
+                kcal=300.0,
+                protein=4.5,
+                fat=22.2,
+                carbs=20.8,
+                image_url=FridgeIntegrationService()._media_url(
+                    "http://127.0.0.1:8011/uploaded-media/smetannik.jpg"
+                ),
+            )
+        ],
+    )
+
+    res = api_client.get("/products")
+    assert res.status_code == 200
+    item = next(p for p in res.json()["items"] if p["name"] == "Сметанник")
+    assert item["image_url"] == "/uploaded-media/smetannik.jpg"
+
+
+def test_a_fridge_lot_carries_how_it_is_eaten(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Answered, unanswered, and answered the other way — all three travel."""
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_mealpreps",
+        lambda self, owner_id=None: [],
+    )
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_inventory",
+        lambda self, owner_id=None: [
+            FridgeItem(
+                id="lot-ice",
+                lot_id="lot-ice",
+                name="Мороженое Экзо ведёрко",
+                brand=None,
+                unit="шт",
+                remaining_quantity=0.366,
+                weight_grams=520.0,
+                kcal_per_100g=140.0,
+                protein_per_100g=1.5,
+                fat_per_100g=3.5,
+                carbs_per_100g=25.0,
+                image_url=None,
+                piece_weight_g=520.0,
+                serving_unit="g",
+            ),
+            FridgeItem(
+                id="lot-apple",
+                lot_id="lot-apple",
+                name="Яблоки свежие",
+                brand=None,
+                unit="г",
+                remaining_quantity=200.0,
+                weight_grams=200.0,
+                kcal_per_100g=47.0,
+                protein_per_100g=0.4,
+                fat_per_100g=0.4,
+                carbs_per_100g=9.8,
+                image_url=None,
+                piece_weight_g=180.0,
+                serving_unit="pcs",
+            ),
+            FridgeItem(
+                id="lot-new",
+                lot_id="lot-new",
+                name="Коржи для торта",
+                brand=None,
+                unit="шт",
+                remaining_quantity=0.75,
+                weight_grams=400.0,
+                kcal_per_100g=360.0,
+                protein_per_100g=7.0,
+                fat_per_100g=8.5,
+                carbs_per_100g=64.0,
+                image_url=None,
+                piece_weight_g=400.0,
+            ),
+        ],
+    )
+
+    items = {p["name"]: p for p in api_client.get("/products").json()["items"]}
+
+    assert items["Мороженое Экзо ведёрко"]["serving_unit"] == "g"
+    assert items["Яблоки свежие"]["serving_unit"] == "pcs"
+    # Nobody has said yet, and that is not the same as «by grams».
+    assert items["Коржи для торта"]["serving_unit"] is None
+
+
+def test_answering_the_question_reaches_the_fridge(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    asked: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "set_serving_unit",
+        lambda self, lot_id, unit, owner_id=None: (
+            asked.append((str(lot_id), unit)) or "ok"
+        ),
+    )
+
+    lot = "11111111-1111-4111-8111-111111111111"
+    response = api_client.patch(
+        f"/products/{lot}/serving-unit",
+        json={"serving_unit": "g"},
+    )
+
+    assert response.status_code == 204, response.text
+    assert asked == [(lot, "g")]
+
+
+def test_a_fridge_that_will_not_answer_is_reported_not_swallowed(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The next open would ask again, so silence here is a lie."""
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "set_serving_unit",
+        lambda self, lot_id, unit, owner_id=None: "timed out",
+    )
+
+    response = api_client.patch(
+        f"/products/{'2' * 8}-2222-4222-8222-{'2' * 12}/serving-unit",
+        json={"serving_unit": "pcs"},
+    )
+
+    assert response.status_code == 503
+
+
+def test_only_the_two_units_are_accepted(api_client: TestClient):
+    response = api_client.patch(
+        f"/products/{'3' * 8}-3333-4333-8333-{'3' * 12}/serving-unit",
+        json={"serving_unit": "штук"},
+    )
+    assert response.status_code == 422

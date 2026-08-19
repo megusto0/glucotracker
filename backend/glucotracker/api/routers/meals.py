@@ -992,6 +992,19 @@ def _as_float(value: object) -> float | None:
         return None
 
 
+def _containers_eaten(evidence: dict) -> int:
+    """How many meal-prep containers this item claims, one if it does not say.
+
+    Anything unreadable counts as one: writing off a container nobody ate is
+    the expensive mistake here, and every client before this field sent none.
+    """
+    try:
+        asked = int(evidence.get("mealprep_containers") or 1)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, asked)
+
+
 def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
     """If meal items were chosen from Fridge or MealPrep, consume them in Fridge service."""
     from glucotracker.application.fridge_sync import FridgeIntegrationService
@@ -1017,12 +1030,22 @@ def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
                 mealprep_container_id = name_val.split(":", 1)[1].strip()
 
         if mealprep_container_id:
-            fridge_service.consume_item(
-                container_id=mealprep_container_id,
-                quantity=item.grams,
-                meal_id=meal.id,
+            containers = fridge_service.containers_for_batch(
+                mealprep_container_id,
+                _containers_eaten(evidence),
                 owner_id=owner_id,
             )
+            # Grams spread over the boxes they came out of. Each consume call
+            # empties its own container anyway, so this only decides what the
+            # fridge records as eaten from each one.
+            per_container = (item.grams / len(containers)) if item.grams else None
+            for container in containers:
+                fridge_service.consume_item(
+                    container_id=container,
+                    quantity=per_container,
+                    meal_id=meal.id,
+                    owner_id=owner_id,
+                )
         elif fridge_lot_id:
             fridge_service.consume_item(
                 lot_id=fridge_lot_id,

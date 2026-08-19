@@ -14,6 +14,10 @@ internal fun Product.toProductMealKind(
     servingText: String? = null,
     now: Instant = Clock.System.now(),
     source: String = "manual",
+    // Containers of a meal-prep batch, when the picker counted in boxes. Null
+    // everywhere else, and null is not the same as one here: it means this
+    // entry has nothing to say about containers at all.
+    mealprepContainers: Int? = null,
 ): OutboxKind.CreateMeal {
     val grams = weightGrams ?: defaultGrams ?: 100.0
     val ratio = grams / (defaultGrams ?: 100.0)
@@ -30,6 +34,7 @@ internal fun Product.toProductMealKind(
         sourceKind = "product_db",
         productId = id,
         imageUrl = imageUrl,
+        mealprepContainers = mealprepContainers,
     )
     return OutboxKind.CreateMeal(
         payload = MealDraft(

@@ -43,6 +43,12 @@ class CaptureViewModel @Inject constructor(
 ) : ViewModel() {
     val composeSheetOpenCount = settingsStore.composeSheetOpenCount
 
+    // Answers given on this run, kept alongside the ones the fridge already
+    // holds. The fridge is where they belong, but a fridge that is down, or
+    // one that has not learned the field yet, must not turn «спросим один
+    // раз» into «спросим каждый раз».
+    private val answeredThisSession = mutableMapOf<String, String>()
+
     init {
         viewModelScope.launch {
             runCatching { productsRepository.refreshProducts() }
@@ -121,11 +127,16 @@ class CaptureViewModel @Inject constructor(
         product: Product,
         weightGrams: Double?,
         servingText: String? = null,
+        mealprepContainers: Int? = null,
         onQueued: (String) -> Unit = {},
     ) {
         viewModelScope.launch {
             val item = outboxRepository.enqueue(
-                product.toProductMealKind(weightGrams = weightGrams, servingText = servingText)
+                product.toProductMealKind(
+                    weightGrams = weightGrams,
+                    servingText = servingText,
+                    mealprepContainers = mealprepContainers,
+                )
             )
             onQueued(item.id)
         }
@@ -166,13 +177,37 @@ class CaptureViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Keep the answer to «как это едят» where the food is: in the fridge.
+     *
+     * Failure is swallowed on purpose. The choice already applies on screen,
+     * and the only cost of a lost write is being asked once more — cheaper
+     * than a dialog in the middle of recording a meal.
+     */
+    fun rememberServingUnit(productId: String, unit: String) {
+        answeredThisSession[productId] = unit
+        viewModelScope.launch {
+            runCatching { productsRepository.setServingUnit(productId, unit) }
+                .onFailure { error ->
+                    Log.w("CaptureViewModel", "Serving unit not stored", error)
+                }
+        }
+    }
+
     fun openStockProduct(product: Product, onReady: (Product) -> Unit) {
         viewModelScope.launch {
             val fresh = runCatching {
                 productsRepository.refreshProducts()
                 productsRepository.getProduct(product.id)
-            }.getOrNull()
-            onReady(fresh ?: product)
+            }.getOrNull() ?: product
+            val answered = answeredThisSession[product.id]
+            onReady(
+                if (answered != null && fresh.servingUnit == null) {
+                    fresh.copy(servingUnit = answered)
+                } else {
+                    fresh
+                },
+            )
         }
     }
 

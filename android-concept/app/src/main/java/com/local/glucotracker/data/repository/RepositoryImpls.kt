@@ -42,6 +42,7 @@ import com.local.glucotracker.domain.model.OutboxItem
 import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.Product
+import com.local.glucotracker.domain.model.ServingUnits
 import com.local.glucotracker.domain.model.Source
 import com.local.glucotracker.domain.model.StatsInsight
 import com.local.glucotracker.domain.model.StatsOverview
@@ -64,6 +65,7 @@ import com.local.glucotracker.domain.repository.TodayRepository
 import com.local.glucotracker.generated.model.MealResponse
 import com.local.glucotracker.generated.model.MealStatus
 import com.local.glucotracker.generated.model.EstimateMealRequest
+import com.local.glucotracker.generated.model.ServingUnitUpdate
 import com.local.glucotracker.generated.model.StatsOverviewResponse
 import java.io.IOException
 import java.util.UUID
@@ -502,6 +504,18 @@ class ProductsRepositoryImpl @Inject constructor(
 
     override suspend fun getProduct(id: String): Product? =
         productDao.getById(id)?.toDomain()
+
+    override suspend fun setServingUnit(id: String, unit: String) {
+        val wire = when (unit) {
+            ServingUnits.Pieces -> ServingUnitUpdate.ServingUnit.PCS
+            ServingUnits.Grams -> ServingUnitUpdate.ServingUnit.G
+            else -> throw IllegalArgumentException("Unknown serving unit: $unit")
+        }
+        productsApi.setServingUnit(UUID.fromString(id), wire)
+        // Straight back from the fridge rather than patched in place: the
+        // answer is stored there, and reading it back is how we learn it stuck.
+        refreshProducts()
+    }
 }
 
 private fun Product.matches(prefix: BrandPrefix?): Boolean =

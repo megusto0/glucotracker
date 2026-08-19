@@ -248,6 +248,20 @@ data class MealDraft(
     val items: List<MealItemPayload> = emptyList(),
 )
 
+/**
+ * The two answers to «как это едят», as the fridge spells them.
+ *
+ * Strings rather than an enum because that is what crosses the wire and what
+ * the cache holds; naming them here keeps the two spellings in one place.
+ */
+object ServingUnits {
+    /** Taken whole: an apple, a yoghurt, an egg. */
+    const val Pieces = "pcs"
+
+    /** A package you take part of: a tub, a bag of grain, cake layers. */
+    const val Grams = "g"
+}
+
 data class Product(
     val id: String,
     val name: String,
@@ -272,9 +286,43 @@ data class Product(
     val pieceWeightG: Double? = null,
     val stockCode: String? = null,
     val stockExpiresInDays: Int? = null,
+    // Containers of a cooked batch still in the fridge. A batch is portioned
+    // once and eaten a box at a time, so this — not grams — is what a person
+    // picks in; consuming a container empties it whole either way.
+    val containersLeft: Int? = null,
+    // "pcs", "g", or null while nobody has said. The fridge holds the answer,
+    // because it belongs to the food: a tub of ice cream is eaten by the
+    // spoonful on every phone, and in the fridge's own screens too.
+    val servingUnit: String? = null,
 ) {
     val isStock: Boolean get() = sourceKind == "fridge" || sourceKind == "meal_prep"
     val isPieces: Boolean get() = stockUnit == "шт"
+    val isMealPrep: Boolean get() = sourceKind == "meal_prep"
+
+    /**
+     * How many containers this batch can still give, never fewer than one.
+     *
+     * One when the server did not say. The count also travels as the alias
+     * «ещё 3», and reading that instead would let the picker offer two
+     * containers to a server too old to write off two — the entry would claim
+     * both while the fridge lost one, and the shelf would hold stock nobody
+     * has. The field's absence is exactly the signal not to offer the choice.
+     */
+    val containerCount: Int get() = containersLeft?.coerceAtLeast(1) ?: 1
+
+    /**
+     * True when this is stock whose unit nobody has settled yet.
+     *
+     * Only worth asking when both answers are possible — the fridge has to
+     * know what one piece weighs before «1 шт» means anything. Meal preps are
+     * never asked: a container cannot be half-consumed, so counting boxes is a
+     * constraint rather than a preference.
+     */
+    val needsServingUnit: Boolean
+        get() = isStock &&
+            !isMealPrep &&
+            servingUnit == null &&
+            (pieceWeightG ?: 0.0) > 0.0
 }
 
 data class Template(
@@ -316,6 +364,10 @@ data class MealItemPayload(
     // the empty-photo glyph on Today.
     val imageUrl: String? = null,
     val position: Int? = 0,
+    // Containers of one meal-prep batch this entry ate. The server writes off
+    // that many real boxes; one container cannot be half-consumed, so sending
+    // grams alone would leave the fridge counting stock nobody has.
+    val mealprepContainers: Int? = null,
 )
 
 @Serializable

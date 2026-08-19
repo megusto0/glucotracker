@@ -15,6 +15,7 @@ import com.local.glucotracker.generated.model.DashboardDayResponse
 import com.local.glucotracker.generated.model.DashboardRangeResponse
 import com.local.glucotracker.generated.model.DashboardTodayResponse
 import com.local.glucotracker.generated.model.DatabaseItemResponse
+import com.local.glucotracker.generated.model.ServingUnitUpdate
 import com.local.glucotracker.generated.model.KcalBalanceRangeResponse
 import com.local.glucotracker.generated.model.KcalBalanceResponse
 import com.local.glucotracker.generated.model.MealResponse
@@ -26,6 +27,7 @@ import com.local.glucotracker.generated.model.ScheduleResponse
 import com.local.glucotracker.generated.model.StatsInsightResponse
 import com.local.glucotracker.generated.model.StatsOverviewResponse
 import com.local.glucotracker.generated.model.UserGoalsUpdate as GeneratedUserGoalsUpdate
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.Instant
@@ -269,6 +271,14 @@ class ProductsApi @Inject constructor(
             pageItems = { it.items },
             pageTotal = { it.total },
         )
+
+    /** Tell the fridge whether this stock is eaten by pieces or by grams. */
+    suspend fun setServingUnit(productId: UUID, unit: ServingUnitUpdate.ServingUnit) {
+        productsApi.setProductServingUnit(
+            productId = productId,
+            servingUnitUpdate = ServingUnitUpdate(unit),
+        )
+    }
 
     suspend fun databaseItems(limit: Int = 500): List<DatabaseItemResponse> =
         fetchPaged(

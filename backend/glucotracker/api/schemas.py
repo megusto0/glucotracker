@@ -962,6 +962,12 @@ class MealDeleteResponse(DeleteResponse):
     fridge_error: str | None = Field(default=None, examples=[None])
 
 
+class ServingUnitUpdate(BaseModel):
+    """Someone has said how a fridge product is eaten."""
+
+    serving_unit: Literal["pcs", "g"] = Field(examples=["g"])
+
+
 class NutrientInput(BaseModel):
     """Optional nutrient input attached to a meal item or seed record."""
 
@@ -1640,6 +1646,18 @@ class ProductResponse(ProductBase):
     piece_weight_g: float | None = Field(default=None, examples=[180.0])
     stock_code: str | None = Field(default=None, examples=["GT:C:8F4K2M"])
     stock_expires_in_days: int | None = Field(default=None, examples=[2])
+    # How many containers of a cooked batch are still in the fridge. A batch is
+    # portioned once and eaten a container at a time, so the count is the unit
+    # a person actually picks in; grams within one container are not a choice
+    # the fridge can honour, because consuming a container empties it whole.
+    # Only meal preps carry this — the count used to travel as the alias
+    # «ещё 3», which a client could show but not count with.
+    stock_containers_left: int | None = Field(default=None, examples=[3])
+    # How this stock is eaten: "pcs" for a thing taken whole, "g" for a package
+    # you take part of, null while nobody has said. Nothing about a product
+    # settles it — an apple and a jar of sweetener both weigh 180 g apiece —
+    # so a client that guessed offered «1 шт» for a 520 g tub of ice cream.
+    serving_unit: str | None = Field(default=None, examples=["pcs"])
     usage_count: int
     last_used_at: datetime | None = None
     created_at: datetime
