@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -467,7 +468,15 @@ fun ManualEntrySearchSheetContent(
             style = GT.type.kicker,
             maxLines = 1,
         )
+        val suggestionListState = rememberLazyListState()
+            // A new query is a new list, and it has to start at the top.
+            // Compose keeps the scroll offset across changes, and with stable
+            // keys it follows the row you were looking at — so typing one more
+            // letter left you halfway down results whose best match was the
+            // first one.
+        LaunchedEffect(query) { suggestionListState.scrollToItem(0) }
         LazyColumn(
+            state = suggestionListState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -984,7 +993,9 @@ fun GTComposeSheetContent(
             }
         }
         GTHairlineDivider()
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        val suggestionListState = rememberLazyListState()
+        LaunchedEffect(query) { suggestionListState.scrollToItem(0) }
+        LazyColumn(state = suggestionListState, modifier = Modifier.weight(1f)) {
             items(suggestions, key = { it.id }) { item ->
                 ComposeSuggestionRow(
                     item = item,
@@ -1551,18 +1562,40 @@ private fun ProductPortionPicker(
         if (isMealPrep) return@remember product.containerCount.toDouble()
         val remaining = product.stockRemaining?.takeIf { it > 0 } ?: return@remember 3.0
         when {
-            product.isPieces -> remaining
+            // Whole pieces only, and never more than are there. A slider that
+            // ran to 2,7 offered a portion no shelf could supply.
+            product.isPieces -> floor(remaining).coerceAtLeast(1.0)
             // A weighed lot: how many whole pieces are left in it.
             pieceGrams != null -> floor(remaining / pieceGrams).coerceAtLeast(1.0)
             else -> 3.0
         }
     }
+    // Grams still on the shelf, whichever way the lot is counted. A pack held
+    // as «шт» reports 0,244 of itself left, which is 220 g of a 900 g bottle —
+    // and the slider was reading the bottle instead of what is in it.
+    val remainingGrams: Double? = remember(
+        product.stockRemaining,
+        product.isPieces,
+        pieceGrams,
+        product.isStock,
+    ) {
+        when {
+            !product.isStock -> null
+            product.isPieces -> product.stockRemaining?.let { left ->
+                pieceGrams?.let { one -> left * one }
+            }
+            // Already grams: the server normalises kilograms before sending.
+            else -> product.stockRemaining
+        }
+    }
+
     val maxGrams: Double = remember(
         product.stockRemaining,
         product.defaultGrams,
         product.stockUnit,
         isMealPrep,
         product.isPieces,
+        remainingGrams,
     ) {
         when {
             // A batch is weighed in grams. stockRemaining used to be the number
@@ -1583,8 +1616,10 @@ private fun ProductPortionPicker(
                 )
                 candidates.maxOrNull() ?: remaining ?: product.defaultGrams ?: 300.0
             }
-            product.isStock && !product.isPieces ->
-                product.stockRemaining ?: product.defaultGrams ?: 300.0
+            // Never more than is left. A pack counted in pieces used to fall
+            // through to defaultGrams — the weight of a full one — so a bottle
+            // with a fifth of it remaining offered «Вся (900 г)».
+            product.isStock -> remainingGrams ?: product.defaultGrams ?: 300.0
             else -> product.defaultGrams ?: 300.0
         }
     }
@@ -1653,12 +1688,19 @@ private fun ProductPortionPicker(
             AsyncImage(
                 model = imageModel,
                 contentDescription = product.name,
-                contentScale = ContentScale.Crop,
+                // A shop's photograph is an object standing on white — a
+                // bottle, a tub — and cropping it to a wide strip showed the
+                // rim of the kefir and nothing else. Fit keeps the whole
+                // silhouette, which is the only part that answers «это оно?».
+                // A dish you photographed yourself fills its frame already,
+                // so that one still crops.
+                contentScale = if (isMealPrep) ContentScale.Crop else ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(if (isMealPrep) 120.dp else 160.dp)
                     .background(GT.colors.surface, GT.shapes.card)
-                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
+                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card)
+                    .padding(if (isMealPrep) 0.dp else 8.dp),
             )
             Spacer(Modifier.height(10.dp))
         }
@@ -1689,6 +1731,27 @@ private fun ProductPortionPicker(
         }
 
         Spacer(Modifier.height(16.dp))
+
+        // Nothing left to record. The list drops a depleted lot on the next
+        // refresh, but a card opened from a stale one used to offer a portion
+        // of nothing — «0.0 шт в наличии» above a slider that wrote 0,8 г
+        // into the diary.
+        val soldOut = product.isStock && !isMealPrep && (remainingGrams ?: 1.0) < 1.0
+        if (soldOut) {
+            Text(
+                text = "Закончилось",
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+            )
+            Text(
+                text = "В холодильнике этого больше нет",
+                modifier = Modifier.padding(top = 2.dp),
+                color = GT.colors.muted,
+                style = GT.type.kicker,
+            )
+            Spacer(Modifier.height(14.dp))
+            return@Column
+        }
 
         val unanswered = product.needsServingUnit && chosenUnit == null
         if (unanswered) {
@@ -1792,19 +1855,24 @@ private fun ProductPortionPicker(
                 )
             }
             val minGram = minOf(20f, maxGrams.toFloat())
-            val maxGram = maxOf(maxGrams.toFloat(), 200f)
-            Slider(
-                value = weightGrams.toFloat(),
-                onValueChange = { weightGrams = (Math.round(it / 10.0) * 10.0).coerceIn(minGram.toDouble(), maxGrams) },
-                valueRange = minGram..maxGram,
-                steps = ((maxGram - minGram) / 10f).toInt() - 1,
-                colors = SliderDefaults.colors(
-                    thumbColor = GT.colors.ink,
-                    activeTrackColor = GT.colors.ink,
-                    inactiveTrackColor = GT.colors.hairline2,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // The track ends where the stock does. It used to be floored at
+            // 200 g, so a lot with 80 g left drew a slider two and a half
+            // times longer than the thumb could travel.
+            val maxGram = maxGrams.toFloat()
+            if (maxGram > minGram) {
+                Slider(
+                    value = weightGrams.toFloat().coerceIn(minGram, maxGram),
+                    onValueChange = { weightGrams = (Math.round(it / 10.0) * 10.0).coerceIn(minGram.toDouble(), maxGrams) },
+                    valueRange = minGram..maxGram,
+                    steps = (((maxGram - minGram) / 10f).toInt() - 1).coerceAtLeast(0),
+                    colors = SliderDefaults.colors(
+                        thumbColor = GT.colors.ink,
+                        activeTrackColor = GT.colors.ink,
+                        inactiveTrackColor = GT.colors.hairline2,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

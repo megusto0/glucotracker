@@ -515,6 +515,53 @@ class FridgeIntegrationService:
             logger.warning("Could not return stock for meal %s: %s", meal_id, exc)
             return str(exc) or exc.__class__.__name__
 
+    def _product_for_lot(
+        self,
+        lot_id: str,
+        owner_id: UUID | str | None = None,
+    ) -> str | None:
+        """Which product a lot is of, whether or not any of it is left.
+
+        Deliberately not `fetch_available_inventory`: that one hides empty
+        lots, which is right for a shopping list and wrong here. Answering
+        «как это едят» about the bottle you have just finished is the most
+        natural moment to be asked, and resolving through the available list
+        made exactly that answer land nowhere.
+        """
+        wanted = str(lot_id).replace("fridge:", "").strip()
+        headers = {"Content-Type": "application/json"}
+        if owner_id:
+            headers["X-User-Id"] = str(owner_id)
+        try:
+            req = urllib.request.Request(
+                f"{self.api_url}/inventory?include_empty=true", headers=headers
+            )
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(req, timeout=1.5) as resp:
+                for lot in json.load(resp):
+                    if str(lot.get("id", "")).strip() != wanted:
+                        continue
+                    product = lot.get("product") or {}
+                    return str(product["id"]) if product.get("id") else None
+        except Exception as exc:
+            logger.debug("Fridge HTTP could not resolve lot %s: %s", wanted, exc)
+
+        conn = self._open_db()
+        if not conn:
+            return None
+        try:
+            row = conn.execute(
+                "SELECT product_id FROM inventory_lots"
+                " WHERE REPLACE(id, '-', '') = ? LIMIT 1",
+                (wanted.replace("-", "").lower(),),
+            ).fetchone()
+            return str(row["product_id"]) if row and row["product_id"] else None
+        except Exception as exc:
+            logger.warning("Could not resolve lot %s in fridge SQLite: %s", wanted, exc)
+            return None
+        finally:
+            conn.close()
+
     def set_serving_unit(
         self,
         lot_id: str,
@@ -532,14 +579,7 @@ class FridgeIntegrationService:
         half-applied write by hand is worse than a failure that says so.
         """
         wanted = str(lot_id).replace("fridge:", "").strip()
-        product_id = next(
-            (
-                item.product_id
-                for item in self.fetch_available_inventory(owner_id)
-                if str(item.lot_id).strip() == wanted and item.product_id
-            ),
-            None,
-        )
+        product_id = self._product_for_lot(wanted, owner_id)
         if not product_id:
             return "not_found"
         try:
