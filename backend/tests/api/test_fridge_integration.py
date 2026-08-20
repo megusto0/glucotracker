@@ -524,3 +524,15 @@ def test_only_the_two_units_are_accepted(api_client: TestClient):
         json={"serving_unit": "штук"},
     )
     assert response.status_code == 422
+
+
+def test_the_serving_unit_reads_the_same_either_way_round():
+    """SQLite hands back the enum's name; HTTP hands back its value."""
+    from glucotracker.application.fridge_sync import _serving_unit
+
+    assert _serving_unit("PIECES") == "pcs"
+    assert _serving_unit("GRAMS") == "g"
+    assert _serving_unit("pcs") == "pcs"
+    assert _serving_unit("g") == "g"
+    assert _serving_unit(None) is None
+    assert _serving_unit("  ") is None

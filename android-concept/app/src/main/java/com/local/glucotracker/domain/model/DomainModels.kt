@@ -325,7 +325,12 @@ data class Product(
         get() = isStock &&
             !isMealPrep &&
             servingUnit == null &&
-            (pieceWeightG ?: 0.0) > 0.0
+            // Both answers have to be possible for the question to be worth
+            // asking. A lot counted in «шт» can be taken whole or by weight —
+            // a punnet of strawberries is the case that matters — and so can a
+            // weighed lot whose piece the fridge has measured, like apples.
+            // Only a weighed lot with no piece at all has one answer.
+            (isPieces || (pieceWeightG ?: 0.0) > 0.0)
 }
 
 data class Template(

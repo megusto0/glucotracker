@@ -315,6 +315,7 @@ fun ManualEntrySearchSheet(
                     searchProducts = viewModel::searchProducts,
                     searchTemplates = viewModel::searchTemplates,
                     openStockProduct = viewModel::openStockProduct,
+                    onServingUnitChosen = viewModel::rememberServingUnit,
                     onMealPrepPhoto = viewModel::uploadMealPrepPhoto,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1426,7 +1427,8 @@ private fun CaptureGlyph(kind: CaptureGlyphKind) {
  */
 @Composable
 private fun ServingUnitQuestion(
-    pieceGrams: Double?,
+    wholeGrams: Double?,
+    isRemainder: Boolean,
     onAnswer: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1449,8 +1451,15 @@ private fun ServingUnitQuestion(
             // The piece weight is the whole point of the choice: «целиком» is
             // only a sensible answer when you can see what one weighs.
             ServingUnitChoice(
-                title = "Целиком",
-                detail = pieceGrams?.let { "${it.roundToInt()} г за штуку" } ?: "по штукам",
+                title = if (isRemainder) "Доесть" else "Целиком",
+                // What one of them weighs — a measured piece where the fridge
+                // knows one, the whole package where it does not. And when
+                // less than one is left, «целиком» can only mean the rest:
+                // saying «500 г за штуку» over 20 г of halva named a portion
+                // that is not in the fridge.
+                detail = wholeGrams?.let {
+                    if (isRemainder) "остаток, ${it.roundToInt()} г" else "${it.roundToInt()} г за штуку"
+                } ?: "по штукам",
                 modifier = Modifier.weight(1f),
                 onClick = { onAnswer(ServingUnits.Pieces) },
             )
@@ -1641,10 +1650,25 @@ private fun ProductPortionPicker(
     // for a piece item it is the only figure that means «one», so say so.
     // For a meal prep this is one container, which is what defaultGrams already
     // holds; a batch has no piece weight and must not borrow one.
-    val baseGrams = (pieceGrams.takeIf { isPcsItem && !isMealPrep }
+    val nominalGrams = (pieceGrams.takeIf { isPcsItem && !isMealPrep }
         ?: product.defaultGrams ?: 100.0).coerceAtLeast(1.0)
+    // «Целиком» over a part-used package means the rest of it. A bag of halva
+    // with 20 g left is not a 500 g portion, whichever unit was chosen — the
+    // gram slider was capped for this and the piece path was not.
+    val baseGrams = if (isMealPrep) {
+        nominalGrams
+    } else {
+        remainingGrams?.let { left -> minOf(nominalGrams, left) }?.coerceAtLeast(1.0)
+            ?: nominalGrams
+    }
     val effectiveGrams = if (isPcsItem) quantityPcs * baseGrams else weightGrams
-    val ratio = effectiveGrams / baseGrams
+    // Against defaultGrams, because that is the weight the product's figures
+    // describe. Dividing by baseGrams held only while the two were equal, and
+    // capping a portion at what is left broke that: 20 g of halva kept the
+    // 2800 kcal of a whole bag. The outbox has always divided by defaultGrams,
+    // so the entry written was right while the screen above it was not.
+    val nutritionBase = (product.defaultGrams ?: baseGrams).coerceAtLeast(1.0)
+    val ratio = effectiveGrams / nutritionBase
 
     val currentKcal = (product.kcal ?: 0.0) * ratio
     val currentCarbs = (product.carbsG ?: 0.0) * ratio
@@ -1761,7 +1785,8 @@ private fun ProductPortionPicker(
         val unanswered = product.needsServingUnit && chosenUnit == null
         if (unanswered) {
             ServingUnitQuestion(
-                pieceGrams = pieceGrams,
+                wholeGrams = baseGrams,
+                isRemainder = baseGrams < nominalGrams,
                 onAnswer = { unit ->
                     chosenUnit = unit
                     onServingUnitChosen?.invoke(product.id, unit)

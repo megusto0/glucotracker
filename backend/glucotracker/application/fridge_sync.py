@@ -24,6 +24,22 @@ logger = logging.getLogger("glucotracker.fridge")
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "0.0.0.0", "::1", "[::1]"})
 
 
+#: The fridge's SQLAlchemy enum stores names, not values: PIECES, GRAMS. The
+#: HTTP path is serialised through pydantic and arrives as "pcs"/"g", so only
+#: the direct-SQLite fallback ever sees the other spelling.
+_SERVING_UNIT_NAMES = {"PIECES": "pcs", "GRAMS": "g"}
+
+
+def _serving_unit(raw: Any) -> str | None:
+    """One spelling of the serving unit, whichever way it was read."""
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    if not value:
+        return None
+    return _SERVING_UNIT_NAMES.get(value.upper(), value.lower())
+
+
 def _row_value(row: Any, column: str) -> Any:
     """A column that may not exist yet on an older fridge database."""
     try:
@@ -201,7 +217,7 @@ class FridgeIntegrationService:
                             fat_per_100g=float(p["fat_per_100"]) if p.get("fat_per_100") is not None else None,
                             carbs_per_100g=float(p["carbs_per_100"]) if p.get("carbs_per_100") is not None else None,
                             image_url=self._media_url(p.get("image_url")),
-                            serving_unit=p.get("serving_unit"),
+                            serving_unit=_serving_unit(p.get("serving_unit")),
                             product_id=str(p["id"]) if p.get("id") else None,
                             days_to_expiry=lot.get("days_to_expiry"),
                             piece_weight_g=(
@@ -290,7 +306,7 @@ class FridgeIntegrationService:
                         fat_per_100g=float(r["fat_per_100"]) if r["fat_per_100"] is not None else None,
                         carbs_per_100g=float(r["carbs_per_100"]) if r["carbs_per_100"] is not None else None,
                         image_url=self._media_url(r["image_url"]),
-                        serving_unit=_row_value(r, "serving_unit"),
+                        serving_unit=_serving_unit(_row_value(r, "serving_unit")),
                         product_id=(
                             str(r["product_id"]) if _row_value(r, "product_id") else None
                         ),
