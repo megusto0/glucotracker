@@ -536,3 +536,56 @@ def test_the_serving_unit_reads_the_same_either_way_round():
     assert _serving_unit("g") == "g"
     assert _serving_unit(None) is None
     assert _serving_unit("  ") is None
+
+
+def test_a_part_used_package_reports_grams_not_a_rounded_count(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """«0.0 шт» reported the rounding; 20 г is the stock."""
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_mealpreps",
+        lambda self, owner_id=None: [],
+    )
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_inventory",
+        lambda self, owner_id=None: [
+            FridgeItem(
+                id="lot-halva",
+                lot_id="lot-halva",
+                name="Халва Восточный гость 500 г",
+                brand=None,
+                unit="шт",
+                remaining_quantity=0.04,
+                weight_grams=20.0,
+                kcal_per_100g=560.0,
+                protein_per_100g=13.0,
+                fat_per_100g=37.0,
+                carbs_per_100g=43.0,
+                image_url=None,
+            ),
+            FridgeItem(
+                id="lot-eggs",
+                lot_id="lot-eggs",
+                name="Яйцо куриное столовое С1",
+                brand=None,
+                unit="шт",
+                remaining_quantity=10.0,
+                weight_grams=600.0,
+                kcal_per_100g=157.0,
+                protein_per_100g=12.7,
+                fat_per_100g=11.5,
+                carbs_per_100g=0.7,
+                image_url=None,
+                piece_weight_g=60.0,
+            ),
+        ],
+    )
+
+    items = {p["name"]: p for p in api_client.get("/products").json()["items"]}
+
+    assert items["Халва Восточный гость 500 г"]["default_serving_text"] == "20 г в наличии"
+    # A whole count is still a count: ten eggs, not six hundred grams.
+    assert items["Яйцо куриное столовое С1"]["default_serving_text"] == "10 шт в наличии"

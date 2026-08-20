@@ -171,11 +171,24 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
     else:
         unit_display = item.unit
 
-    qty_str = (
-        f"{int(remaining)} {unit_display}"
-        if float(remaining).is_integer()
-        else f"{remaining:.1f} {unit_display}"
+    # Grams once the count stops being whole. «0.0 шт в наличии» over a fifth
+    # of a bag of halva reported the rounding, not the stock — and a fifth of a
+    # bag is a real amount you can still eat. Whole counts stay counts: ten
+    # eggs are ten eggs, not six hundred grams.
+    show_grams = (
+        is_pcs
+        and not float(remaining).is_integer()
+        and item.weight_grams
+        and item.weight_grams > 0
     )
+    if show_grams:
+        qty_str = f"{round(item.weight_grams)} г"
+    else:
+        qty_str = (
+            f"{int(remaining)} {unit_display}"
+            if float(remaining).is_integer()
+            else f"{remaining:.1f} {unit_display}"
+        )
     # Plain text. The origin travels in `source_kind` and the amount in
     # `stock_remaining`, so the client can draw its own mark rather than
     # inherit a snowflake from the middle of a sentence.

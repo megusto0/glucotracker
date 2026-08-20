@@ -66,6 +66,9 @@ interface OutboxRepository {
     suspend fun requeue(id: String, nextAttemptAt: kotlinx.datetime.Instant?, errorCode: String?, errorMessage: String?)
     suspend fun retry(id: String)
     suspend fun revertNetworkStuckItems(): Int
+
+    /** Drop the queue rows that stood for a meal the server no longer has. */
+    suspend fun forgetMeal(serverId: String)
 }
 
 interface SyncRepository {

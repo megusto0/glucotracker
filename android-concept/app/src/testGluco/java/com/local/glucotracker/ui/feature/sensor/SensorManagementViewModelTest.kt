@@ -238,6 +238,8 @@ private class FakeSensorOutboxRepository : OutboxRepository {
     override suspend fun requeue(id: String, nextAttemptAt: Instant?, errorCode: String?, errorMessage: String?) = Unit
     override suspend fun retry(id: String) = Unit
     override suspend fun revertNetworkStuckItems(): Int = 0
+
+    override suspend fun forgetMeal(serverId: String) = Unit
 }
 
 private fun sensor(id: String): SensorSession = SensorSession(

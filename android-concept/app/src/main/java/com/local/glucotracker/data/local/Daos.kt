@@ -117,8 +117,30 @@ interface OutboxDao {
     @Query("DELETE FROM outbox WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("DELETE FROM outbox WHERE linkedMealId IS NOT NULL AND state = 'Confirmed'")
+    // Anything the server has taken. `linkedMealId` alone was too narrow: only
+    // the reconciler ever sets it, and the ordinary path records the id in
+    // `serverIdOnSuccess` — so confirmed rows piled up untouched, thirty-six of
+    // them on one phone, each still drawing its «отправим скоро» card.
+    @Query(
+        """
+        DELETE FROM outbox
+        WHERE state = 'Confirmed'
+          AND (linkedMealId IS NOT NULL OR serverIdOnSuccess IS NOT NULL)
+        """,
+    )
     suspend fun deleteConfirmedLinkedItems(): Int
+
+    // The optimistic card has to die with the meal it stood for. Once the meal
+    // is gone from the server there is nothing left to reconcile against, so
+    // the row would otherwise sit there for ever claiming to be on its way.
+    @Query(
+        """
+        DELETE FROM outbox
+        WHERE kindType != 'delete_meal'
+          AND (serverIdOnSuccess = :serverId OR linkedMealId = :serverId)
+        """,
+    )
+    suspend fun deleteForMeal(serverId: String): Int
 
     @Query(
         """

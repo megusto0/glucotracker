@@ -288,6 +288,8 @@ private class FakeOutboxRepository(
 
     override suspend fun revertNetworkStuckItems(): Int = 0
 
+    override suspend fun forgetMeal(serverId: String) = Unit
+
     fun update(
         id: String,
         state: OutboxState,

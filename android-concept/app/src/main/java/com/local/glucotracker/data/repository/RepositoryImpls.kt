@@ -593,8 +593,17 @@ class OutboxRepositoryImpl @Inject constructor(
             lastErrorCode = null,
             lastErrorMessage = null,
         )
+        // Deleting a meal settles the row that created it. Done here rather
+        // than at the four call sites that delete, so no future one can forget.
+        (kind as? OutboxKind.DeleteMeal)?.let { forgetMeal(it.serverId) }
         enqueue(item)
         return item
+    }
+
+    override suspend fun forgetMeal(serverId: String) {
+        database.withTransaction {
+            outboxDao.deleteForMeal(serverId)
+        }
     }
 
     override suspend fun enqueue(item: OutboxItem) {
