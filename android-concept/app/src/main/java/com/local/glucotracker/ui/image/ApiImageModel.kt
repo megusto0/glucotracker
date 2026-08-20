@@ -6,6 +6,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.network.NetworkHeaders
@@ -19,6 +20,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.io.File
+import java.net.URI
 import kotlinx.coroutines.flow.map
 
 @Composable
@@ -80,4 +82,29 @@ fun apiImageModel(context: Context, model: Any?, accessToken: String? = null): A
 @InstallIn(SingletonComponent::class)
 private interface ApiImageEntryPoint {
     fun tokenStore(): TokenStore
+}
+
+/**
+ * How a picture should sit in its frame.
+ *
+ * A photograph you took of your own plate fills the frame it was shot in, so
+ * cropping it loses nothing. A shop's product shot is an object standing on
+ * white — a bottle, a tub of ice cream — and cropping that to a wide box keeps
+ * the middle of the label and throws away the shape, which is the only part
+ * that answers «это оно?». The kefir showed a white rim and a strip of green.
+ */
+fun photoContentScale(model: Any?): ContentScale =
+    if (isOwnPhotograph(model)) ContentScale.Crop else ContentScale.Fit
+
+private fun isOwnPhotograph(model: Any?): Boolean {
+    if (model is File) return true
+    val value = (model as? String)?.trim().orEmpty()
+    if (value.isEmpty()) return false
+    // A camera capture still waiting in the queue is a bare local path.
+    if (!value.startsWith("http", ignoreCase = true) && !value.startsWith("/")) return true
+    val path = runCatching { URI(value).path }.getOrNull().orEmpty().ifEmpty { value }
+    // Meals are photographed into /photos; a cooked batch into its own route.
+    // Everything else — /uploaded-media, a shop's CDN, a product's own file —
+    // is a picture *of a product* rather than of a plate.
+    return path.startsWith("/photos/") || path.contains("/fridge/mealpreps/")
 }

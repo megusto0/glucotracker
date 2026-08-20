@@ -83,6 +83,7 @@ import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
 import com.local.glucotracker.ui.glucose.MealContextAnchor
+import com.local.glucotracker.ui.image.photoContentScale
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -437,7 +438,7 @@ private fun MealCardPhoto(
                     .graphicsLayer {
                         alpha = if (card.state == MealCardState.Confirmed) 1f else 0.5f
                     },
-                contentScale = ContentScale.Crop,
+                contentScale = photoContentScale(card.photo),
             )
         }
         if (card.state != MealCardState.Confirmed) {

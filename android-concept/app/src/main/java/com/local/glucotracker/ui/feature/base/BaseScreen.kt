@@ -48,6 +48,7 @@ import com.local.glucotracker.ui.design.primitives.GTPrimaryButton
 import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.image.photoContentScale
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
@@ -421,7 +422,7 @@ private fun ProductDetail(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
-            contentScale = ContentScale.Crop,
+            contentScale = photoContentScale(imageModel),
         )
     }
     // The sheet kept printing `kind` — «product» — long after the list stopped,
@@ -488,7 +489,7 @@ private fun TemplateDetail(template: com.local.glucotracker.domain.model.Templat
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
-            contentScale = ContentScale.Crop,
+            contentScale = photoContentScale(imageModel),
         )
     }
     Text(

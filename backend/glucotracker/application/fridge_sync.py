@@ -243,7 +243,12 @@ class FridgeIntegrationService:
                 FROM inventory_lots l
                 LEFT JOIN products p ON l.product_id = p.id
                 WHERE l.remaining_quantity > 0
-                  AND l.status IN ('available', 'reserved')
+                  -- The fridge stores enum names, and they are upper case:
+                  -- AVAILABLE, DEPLETED, DISCARDED. Matching them in lower
+                  -- case matched nothing at all, so this fallback quietly
+                  -- reported an empty fridge every time the service was down
+                  -- — which is the only time it runs.
+                  AND lower(l.status) IN ('available', 'reserved')
             """
             rows = conn.execute(query).fetchall()
             items = []
@@ -424,7 +429,11 @@ class FridgeIntegrationService:
                 if conn:
                     try:
                         conn.execute(
-                            "UPDATE meal_prep_containers SET status = 'consumed', remaining_weight_g = 0 WHERE id = ?",
+                            # Upper case, as the fridge's own enum stores it.
+                            # 'consumed' is a value it cannot read back.
+                            "UPDATE meal_prep_containers"
+                            " SET status = 'CONSUMED', remaining_weight_g = 0"
+                            " WHERE id = ?",
                             (cid,),
                         )
                         conn.commit()
@@ -467,7 +476,11 @@ class FridgeIntegrationService:
                 if conn:
                     try:
                         conn.execute(
-                            "UPDATE inventory_lots SET remaining_quantity = MAX(0, remaining_quantity - ?), status = CASE WHEN remaining_quantity <= ? THEN 'depleted' ELSE status END WHERE id = ?",
+                            "UPDATE inventory_lots"
+                            " SET remaining_quantity = MAX(0, remaining_quantity - ?),"
+                            " status = CASE WHEN remaining_quantity <= ?"
+                            " THEN 'DEPLETED' ELSE status END"
+                            " WHERE id = ?",
                             (float(quantity or 1), float(quantity or 1), lid),
                         )
                         conn.commit()

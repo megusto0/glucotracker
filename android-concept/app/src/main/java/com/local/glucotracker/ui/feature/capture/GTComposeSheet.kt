@@ -106,6 +106,7 @@ import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
+import com.local.glucotracker.ui.image.photoContentScale
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1694,13 +1695,13 @@ private fun ProductPortionPicker(
                 // silhouette, which is the only part that answers «это оно?».
                 // A dish you photographed yourself fills its frame already,
                 // so that one still crops.
-                contentScale = if (isMealPrep) ContentScale.Crop else ContentScale.Fit,
+                contentScale = photoContentScale(product.imageUrl),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isMealPrep) 120.dp else 160.dp)
+                    .height(160.dp)
                     .background(GT.colors.surface, GT.shapes.card)
                     .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card)
-                    .padding(if (isMealPrep) 0.dp else 8.dp),
+                    .padding(8.dp),
             )
             Spacer(Modifier.height(10.dp))
         }
