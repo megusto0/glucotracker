@@ -8050,6 +8050,13 @@ components:
           examples:
           - 3
           title: Stock Remaining
+        stock_remaining_g:
+          anyOf:
+          - type: number
+          - type: 'null'
+          examples:
+          - 100.0
+          title: Stock Remaining G
         stock_unit:
           anyOf:
           - type: string

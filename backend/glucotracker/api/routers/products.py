@@ -181,14 +181,27 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
     # inherit a snowflake from the middle of a sentence.
     serving_text = f"{qty_str} в наличии"
 
+    # What is left, in grams, however the lot is counted. Sent outright because
+    # the client cannot work it out: multiplying a remainder by a piece weight
+    # only works when the piece weight is real, and «0,2 шт» of halva came out
+    # as the weight of a full bag.
+    remaining_grams: float | None = item.weight_grams if is_pcs else remaining
+
     # Independent of how the lot is measured. Apples bought by weight still
     # come one apple at a time, and the fridge's estimate of one is the only
     # thing that lets the portion sheet offer «1 шт» for a 0,9 kg bag.
     single_piece_grams: float | None = item.piece_weight_g
     if is_pcs:
-        if not single_piece_grams and item.weight_grams and item.remaining_quantity > 0:
-            single_piece_grams = round(item.weight_grams / item.remaining_quantity, 1)
-        default_grams = single_piece_grams or 100.0
+        # Only a weight the fridge actually measured is a piece. What is left
+        # divided by how many packages are left is the size of a package, and
+        # a 500 g bag of halva is not a piece of anything — offering it as one
+        # put «Целиком · 500 г за штуку» over a fifth of a bag.
+        pack_grams = (
+            round(item.weight_grams / item.remaining_quantity, 1)
+            if item.weight_grams and item.remaining_quantity > 0
+            else None
+        )
+        default_grams = single_piece_grams or pack_grams or 100.0
     else:
         default_grams = min(100.0, item.weight_grams or 100.0)
 
@@ -217,6 +230,7 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "kcal_per_serving": round(kcal_100 * default_grams / 100.0, 1),
             "source_kind": "fridge",
             "serving_unit": item.serving_unit,
+            "stock_remaining_g": remaining_grams,
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,
             "nutrients_json": {},

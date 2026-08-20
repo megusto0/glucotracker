@@ -1658,6 +1658,10 @@ class ProductResponse(ProductBase):
     # settles it — an apple and a jar of sweetener both weigh 180 g apiece —
     # so a client that guessed offered «1 шт» for a 520 g tub of ice cream.
     serving_unit: str | None = Field(default=None, examples=["pcs"])
+    # Grams still on the shelf, whatever unit the lot is counted in. A client
+    # that multiplies a remainder by a piece weight gets this wrong whenever
+    # the piece weight was never measured.
+    stock_remaining_g: float | None = Field(default=None, examples=[100.0])
     usage_count: int
     last_used_at: datetime | None = None
     created_at: datetime

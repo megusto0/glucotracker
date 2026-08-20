@@ -1575,6 +1575,7 @@ private fun ProductPortionPicker(
     // as «шт» reports 0,244 of itself left, which is 220 g of a 900 g bottle —
     // and the slider was reading the bottle instead of what is in it.
     val remainingGrams: Double? = remember(
+        product.stockRemainingG,
         product.stockRemaining,
         product.isPieces,
         pieceGrams,
@@ -1582,10 +1583,13 @@ private fun ProductPortionPicker(
     ) {
         when {
             !product.isStock -> null
+            // The server's own figure, whichever way the lot is counted. The
+            // multiplication below only works when the piece weight is real,
+            // and for «0,2 шт» of halva it produced a whole 500 g bag.
+            product.stockRemainingG != null -> product.stockRemainingG
             product.isPieces -> product.stockRemaining?.let { left ->
                 pieceGrams?.let { one -> left * one }
             }
-            // Already grams: the server normalises kilograms before sending.
             else -> product.stockRemaining
         }
     }
@@ -1916,6 +1920,14 @@ private fun ProductPortionPicker(
             }
         }
 
+        // Nothing to total up until the unit is settled. The panel used to
+        // stand there showing a whole 500 g bag while the question above it
+        // was still «как это едят?».
+        if (unanswered) {
+            Spacer(Modifier.height(14.dp))
+            return@Column
+        }
+
         Spacer(Modifier.height(16.dp))
 
         Row(
@@ -1952,11 +1964,6 @@ private fun ProductPortionPicker(
             else -> "${effectiveGrams.roundToInt()} г"
         }
         val actionText = if (isFridge || isMealPrep) "Списать и записать · $servingLabel" else "Записать · $servingLabel"
-
-        if (unanswered) {
-            Spacer(Modifier.height(14.dp))
-            return@Column
-        }
 
         GTOutlineButton(
             text = "$actionText (${currentKcal.roundToInt()} ккал)",

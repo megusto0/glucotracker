@@ -294,6 +294,9 @@ data class Product(
     // because it belongs to the food: a tub of ice cream is eaten by the
     // spoonful on every phone, and in the fridge's own screens too.
     val servingUnit: String? = null,
+    // Grams still on the shelf, sent outright by the server. Multiplying the
+    // remainder by a piece weight only works when the piece weight is real.
+    val stockRemainingG: Double? = null,
 ) {
     val isStock: Boolean get() = sourceKind == "fridge" || sourceKind == "meal_prep"
     val isPieces: Boolean get() = stockUnit == "шт"
