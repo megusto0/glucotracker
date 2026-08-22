@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -470,13 +471,21 @@ fun ManualEntrySearchSheetContent(
             style = GT.type.kicker,
             maxLines = 1,
         )
-        val suggestionListState = rememberLazyListState()
-            // A new query is a new list, and it has to start at the top.
-            // Compose keeps the scroll offset across changes, and with stable
-            // keys it follows the row you were looking at — so typing one more
-            // letter left you halfway down results whose best match was the
-            // first one.
-        LaunchedEffect(query) { suggestionListState.scrollToItem(0) }
+        // Not `rememberLazyListState()`: that one saves its offset and hands
+        // it back the next time the sheet opens, so search reopened halfway
+        // down the previous set of results. A search that has just been opened
+        // starts at the top.
+        val suggestionListState = remember { LazyListState() }
+        // Keyed on the first row as well as the query, because searching is
+        // asynchronous: the results land after the query changes, and an
+        // effect watching the query alone ran while the list was still empty,
+        // where scrolling to the top is a no-op. With stable keys the list
+        // then follows the row you were looking at, which is how one more
+        // typed letter left you in the middle of results whose best match was
+        // the first one.
+        LaunchedEffect(query, suggestions.firstOrNull()?.id) {
+            suggestionListState.scrollToItem(0)
+        }
         LazyColumn(
             state = suggestionListState,
             modifier = Modifier
@@ -995,8 +1004,10 @@ fun GTComposeSheetContent(
             }
         }
         GTHairlineDivider()
-        val suggestionListState = rememberLazyListState()
-        LaunchedEffect(query) { suggestionListState.scrollToItem(0) }
+        val suggestionListState = remember { LazyListState() }
+        LaunchedEffect(query, suggestions.firstOrNull()?.id) {
+            suggestionListState.scrollToItem(0)
+        }
         LazyColumn(state = suggestionListState, modifier = Modifier.weight(1f)) {
             items(suggestions, key = { it.id }) { item ->
                 ComposeSuggestionRow(

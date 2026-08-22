@@ -33,6 +33,11 @@ object ApiConnection {
     private val API_IMAGE_PREFIXES = listOf(
         "/photos/",
         "/products/",
+        // Restaurant and template pictures. A hundred and forty-eight rows in
+        // the search list are served from here, and leaving the prefix out
+        // meant Coil was handed a bare path with no host and no token — so
+        // every Burger King and Rostic's row drew the empty glyph.
+        "/patterns/",
         "/uploaded-media/",
         "/fridge/",
     )
