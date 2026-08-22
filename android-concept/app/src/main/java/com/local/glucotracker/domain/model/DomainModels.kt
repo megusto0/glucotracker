@@ -297,6 +297,10 @@ data class Product(
     // Grams still on the shelf, sent outright by the server. Multiplying the
     // remainder by a piece weight only works when the piece weight is real.
     val stockRemainingG: Double? = null,
+    // A stand-in picture chosen by the fridge from the name, for food that has
+    // no photograph yet. The first letter in a grey box says nothing a person
+    // can use; a bowl of soup does.
+    val icon: String? = null,
 ) {
     val isStock: Boolean get() = sourceKind == "fridge" || sourceKind == "meal_prep"
     val isPieces: Boolean get() = stockUnit == "шт"

@@ -244,6 +244,7 @@ def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
             "source_kind": "fridge",
             "serving_unit": item.serving_unit,
             "stock_remaining_g": remaining_grams,
+            "icon": item.icon,
             "source_url": f"fridge:{item.lot_id}",
             "image_url": item.image_url,
             "nutrients_json": {},
@@ -337,6 +338,7 @@ def _mealprep_item_to_product_response(
             # What the picker counts in. The alias below says the same thing in
             # words for clients that predate this field.
             "stock_containers_left": containers_left,
+            "icon": item.icon,
             "usage_count": 0,
             "last_used_at": None,
             "created_at": utc_now(),

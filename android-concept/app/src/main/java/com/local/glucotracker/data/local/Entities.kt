@@ -138,6 +138,7 @@ data class CachedProductEntity(
     val containersLeft: Int? = null,
     val servingUnit: String? = null,
     val stockRemainingG: Double? = null,
+    val icon: String? = null,
     val stockExpiresInDays: Int? = null,
     val fetchedAt: Instant,
 )

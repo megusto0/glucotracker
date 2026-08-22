@@ -115,6 +115,10 @@ class FridgeItem:
         # The fridge's product this lot is of. The serving unit is answered
         # once for the product, not again for every jar of it bought since.
         product_id: str | None = None,
+        # A stand-in picture, chosen by the fridge from the name. Not a
+        # fallback the client invents: one rule, one place, so a browser and a
+        # phone do not disagree about what a pot of curd looks like.
+        icon: str | None = None,
     ):
         self.id = id
         self.lot_id = lot_id
@@ -132,6 +136,7 @@ class FridgeItem:
         self.piece_weight_g = piece_weight_g
         self.serving_unit = serving_unit
         self.product_id = product_id
+        self.icon = icon
 
 
 class MealPrepItem:
@@ -148,6 +153,7 @@ class MealPrepItem:
         fat: float,
         carbs: float,
         image_url: str | None,
+        icon: str | None = None,
     ):
         self.container_id = container_id
         self.batch_id = batch_id
@@ -160,6 +166,7 @@ class MealPrepItem:
         self.fat = fat
         self.carbs = carbs
         self.image_url = image_url
+        self.icon = icon
 
 
 class FridgeIntegrationService:
@@ -219,6 +226,7 @@ class FridgeIntegrationService:
                             image_url=self._media_url(p.get("image_url")),
                             serving_unit=_serving_unit(p.get("serving_unit")),
                             product_id=str(p["id"]) if p.get("id") else None,
+                            icon=p.get("icon"),
                             days_to_expiry=lot.get("days_to_expiry"),
                             piece_weight_g=(
                                 float(p["piece_weight_g"])
@@ -348,6 +356,7 @@ class FridgeIntegrationService:
                                 fat=float(c.get("fat") or 0),
                                 carbs=float(c.get("carbs") or 0),
                                 image_url=img or self._media_url(c.get("image_url")),
+                                icon=b.get("icon"),
                             )
                         )
                 return items

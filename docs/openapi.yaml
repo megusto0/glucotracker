@@ -7929,6 +7929,13 @@ components:
           examples:
           - 2.1
           title: Fiber Per Serving
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          examples:
+          - 🥣
+          title: Icon
         id:
           format: uuid
           title: Id

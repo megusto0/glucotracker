@@ -1662,6 +1662,11 @@ class ProductResponse(ProductBase):
     # that multiplies a remainder by a piece weight gets this wrong whenever
     # the piece weight was never measured.
     stock_remaining_g: float | None = Field(default=None, examples=[100.0])
+    # What to draw before a photograph exists. Chosen by the fridge from the
+    # product's name, so every client that shows this shelf shows the same
+    # thing — a browser and a phone disagreeing about a pot of curd is how
+    # this started.
+    icon: str | None = Field(default=None, examples=["🥣"])
     usage_count: int
     last_used_at: datetime | None = None
     created_at: datetime

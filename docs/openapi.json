@@ -12662,6 +12662,20 @@
             ],
             "title": "Fiber Per Serving"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "\ud83e\udd63"
+            ],
+            "title": "Icon"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",

@@ -660,12 +660,21 @@ private fun SuggestionThumb(item: ComposeSuggestion) {
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Text(
-                text = item.name.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
-                color = GT.colors.muted,
-                style = GT.type.kicker,
-                maxLines = 1,
-            )
+            // The fridge's own stand-in, where it has one. A letter in a grey
+            // box says nothing you can use; a bowl of soup does, and the same
+            // bowl appears in the fridge's own screens because the rule that
+            // chose it lives there rather than in either client.
+            val icon = (item as? ComposeSuggestion.ProductSuggestion)?.product?.icon
+            if (icon != null) {
+                Text(text = icon, style = GT.type.serifSection, maxLines = 1)
+            } else {
+                Text(
+                    text = item.name.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
+                    color = GT.colors.muted,
+                    style = GT.type.kicker,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -1713,6 +1722,20 @@ private fun ProductPortionPicker(
         }
         GTHairlineDivider()
         Spacer(Modifier.height(12.dp))
+
+        if (imageModel == null && product.icon != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp)
+                    .background(GT.colors.surface, GT.shapes.card)
+                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = product.icon, style = GT.type.serifTitle)
+            }
+            Spacer(Modifier.height(10.dp))
+        }
 
         if (imageModel != null) {
             AsyncImage(

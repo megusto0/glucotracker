@@ -486,7 +486,7 @@ abstract class CachedTemplateDao {
         OutboxEntity::class,
         PhotoEstimateLogEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 @TypeConverters(GlucotrackerTypeConverters::class)
