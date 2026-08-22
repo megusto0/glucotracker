@@ -194,20 +194,37 @@ class CaptureViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Open a stock card at once, and let the fresh stock catch up with it.
+     *
+     * The refresh fetches every product and every template — five hundred rows
+     * — and waiting for it put several seconds between the tap and the card.
+     * The cached row is enough to draw: the card opens on it, and the figures
+     * are replaced in place when the network answers. The picker's own state
+     * is keyed on the product id, so nothing you have already dragged resets
+     * underneath you.
+     */
     fun openStockProduct(product: Product, onReady: (Product) -> Unit) {
+        onReady(withSessionUnit(product))
         viewModelScope.launch {
             val fresh = runCatching {
                 productsRepository.refreshProducts()
                 productsRepository.getProduct(product.id)
-            }.getOrNull() ?: product
-            val answered = answeredThisSession[product.id]
-            onReady(
-                if (answered != null && fresh.servingUnit == null) {
-                    fresh.copy(servingUnit = answered)
-                } else {
-                    fresh
-                },
-            )
+            }.getOrNull() ?: return@launch
+            // Silently, and only when it says something new — reassigning an
+            // identical row would be a recomposition for nothing.
+            val updated = withSessionUnit(fresh)
+            if (updated != withSessionUnit(product)) onReady(updated)
+        }
+    }
+
+    /** The answer given on this run, where the fridge has not stored one yet. */
+    private fun withSessionUnit(product: Product): Product {
+        val answered = answeredThisSession[product.id]
+        return if (answered != null && product.servingUnit == null) {
+            product.copy(servingUnit = answered)
+        } else {
+            product
         }
     }
 
