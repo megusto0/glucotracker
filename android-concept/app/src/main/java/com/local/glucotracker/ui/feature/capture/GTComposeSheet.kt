@@ -367,17 +367,12 @@ fun ManualEntrySearchSheetContent(
         }
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
+    // No keyboard until it is asked for. The sheet opens on a list that is
+    // useful as it stands — meal preps, then the fridge — and half the screen
+    // used to be covered before anyone had decided to type. Tapping the field
+    // still brings the keyboard up, the ordinary way.
     LaunchedEffect(restoreSearchFocus) {
-        if (restoreSearchFocus) {
-            focusRequester.requestFocus()
-            keyboardController?.show()
-            restoreSearchFocus = false
-        }
+        if (restoreSearchFocus) restoreSearchFocus = false
     }
 
     val suggestions = remember(products, templates, query) {
@@ -901,10 +896,7 @@ fun GTComposeSheetContent(
         }
     }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
+
 
     val suggestions = remember(products, templates, query) {
         (restaurantTemplateChoices(templates).map { choice ->
@@ -926,8 +918,6 @@ fun GTComposeSheetContent(
             group = group,
             onBack = {
                 selectedRestaurantGroup = null
-                focusRequester.requestFocus()
-                keyboardController?.show()
             },
             onCancel = onDismiss,
             onSubmit = onSubmitTemplate,
