@@ -79,6 +79,7 @@ import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.format.formatGrams
+import com.local.glucotracker.ui.format.productNameWithoutPack
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
@@ -382,7 +383,7 @@ fun MealCardComposable(
     ) {
         MealCardPhoto(card = card, onRetry = onRetry)
         Text(
-            text = card.title.orEmpty().ifBlank { fallbackTitle(card) },
+            text = productNameWithoutPack(card.title.orEmpty().ifBlank { fallbackTitle(card) }),
             modifier = Modifier.padding(top = 10.dp),
             color = GT.colors.ink,
             style = GT.type.serifSection.copy(fontSize = 18.sp, lineHeight = 20.sp),

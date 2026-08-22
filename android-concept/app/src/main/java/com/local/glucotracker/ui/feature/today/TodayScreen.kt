@@ -79,6 +79,7 @@ import com.local.glucotracker.ui.format.PhotoProcessingFailureStep
 import com.local.glucotracker.ui.format.PhotoProcessingStage
 import com.local.glucotracker.ui.format.PhotoProcessingUiState
 import com.local.glucotracker.ui.format.formatGrams
+import com.local.glucotracker.ui.format.productNameWithoutPack
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.format.formatSignedKcal
@@ -1551,7 +1552,10 @@ private fun MealRowSurface(
                 reserveTimeGutter = framed,
                 kindColor = kindColor,
                 photo = row.photo,
-                name = row.title ?: fallbackTitle(row),
+                // The amount stands right beside this, so a name that also
+                // carries «2x64 г» argues with it: half a doughnut was logged
+                // and the line read like a whole two-pack.
+                name = productNameWithoutPack(row.title ?: fallbackTitle(row)),
                 // The time used to be repeated here under the title, beside a
                 // word naming the source. The gutter already gives the time,
                 // and the thumbnail already says it came from a photo.
