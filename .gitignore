@@ -65,3 +65,9 @@ backend/kagglelabwork_lab_data_*.zip
 Thumbs.db
 *.swp
 *.swo
+
+# Agent worktrees and prototype scratch. Committed once by accident in
+# edc12d3; a 19 MB zip does not belong in a source history.
+.claude/worktrees/
+mockup-prototype.zip
+mockup-prototype/.claude/
