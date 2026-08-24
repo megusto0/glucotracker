@@ -78,6 +78,7 @@ import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.design.primitives.GTSectionLabel
+import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.productNameWithoutPack
 import com.local.glucotracker.ui.format.formatKcal
@@ -429,7 +430,14 @@ private fun MealCardPhoto(
         contentAlignment = Alignment.Center,
     ) {
         if (imageModel == null) {
-            PhotoPlaceholderGlyph()
+            // The food, where there is no photograph of it. The generic glyph
+            // said only «picture missing», which every empty frame already
+            // says by being empty.
+            Text(
+                text = foodIcon(card.title),
+                style = GT.type.serifTitle.copy(fontSize = 40.sp),
+                maxLines = 1,
+            )
         } else {
             AsyncImage(
                 model = imageModel,

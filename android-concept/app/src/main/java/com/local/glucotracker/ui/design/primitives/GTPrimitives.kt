@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.local.glucotracker.ui.design.GT
+import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.image.rememberApiImageModel
 
 @Composable
@@ -513,6 +514,10 @@ fun GTPhotoSlot(
     // for 36 got 32 and the kind bar beside it stood a few pixels proud of the
     // picture it belonged to. Callers that set their own size say so.
     size: Dp = 32.dp,
+    // What to draw when there is no picture. The generic glyph says «picture
+    // missing», which an empty frame already says by being empty; a caller
+    // that knows what the food is can say something better.
+    fallbackIcon: String? = null,
 ) {
     val imageModel = rememberApiImageModel(model)
     val placeholderColor = when (placeholderTone) {
@@ -529,7 +534,15 @@ fun GTPhotoSlot(
         contentAlignment = Alignment.Center,
     ) {
         if (imageModel == null) {
-            GTPhotoGlyph()
+            if (fallbackIcon != null) {
+                Text(
+                    text = fallbackIcon,
+                    style = GT.type.serifSection.copy(fontSize = size.value.times(0.5f).sp),
+                    maxLines = 1,
+                )
+            } else {
+                GTPhotoGlyph()
+            }
         } else {
             AsyncImage(
                 model = imageModel,
@@ -583,6 +596,7 @@ fun GTMealRow(
     // many entries, and the space between them was doing none of that work.
     val verticalPadding = if (compact) 9.dp else 5.dp
     val photoSize = 36.dp
+    val photoFallbackIcon = foodIcon(name)
     val minHeight = if (compact) 54.dp else 46.dp
     Row(
         modifier = modifier
@@ -607,7 +621,7 @@ fun GTMealRow(
         // picture rather than a stripe laid over it — a half-frame down its
         // leading edge, which is the mockup's `inset 3px 0 0`.
         Box(modifier = Modifier.size(photoSize).clip(GT.shapes.tag)) {
-            GTPhotoSlot(model = photo, size = photoSize)
+            GTPhotoSlot(model = photo, size = photoSize, fallbackIcon = photoFallbackIcon)
             kindColor?.let { color ->
                 Box(modifier = Modifier.width(3.dp).height(photoSize).background(color))
             }

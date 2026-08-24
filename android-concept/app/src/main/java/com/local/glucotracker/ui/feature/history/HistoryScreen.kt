@@ -78,6 +78,7 @@ import com.local.glucotracker.ui.design.primitives.GTTag
 import com.local.glucotracker.ui.image.rememberApiImageModel
 import coil3.compose.AsyncImage
 import com.local.glucotracker.ui.format.formatGrams
+import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.format.formatPercent
 import com.local.glucotracker.ui.format.formatSignedKcal
@@ -676,11 +677,11 @@ private fun ShowcaseTile(
                 .aspectRatio(1f)
                 .clip(GT.shapes.card)
                 .background(GT.colors.bg),
-            contentAlignment = if (model == null && row.photo == null) {
-                Alignment.BottomStart
-            } else {
-                Alignment.Center
-            },
+            // Centred now that the empty square holds a picture rather than a
+            // figure. The number sat in the corner because it read as a
+            // caption; a stand-in for a photograph belongs where the
+            // photograph would be.
+            contentAlignment = Alignment.Center,
         ) {
             when {
                 model != null -> AsyncImage(
@@ -692,14 +693,14 @@ private fun ShowcaseTile(
                 // There is a picture, it just is not here yet. Say so, rather
                 // than showing a number that will be replaced by an image.
                 row.photo != null -> GTPhotoGlyph(glyphSize = 26.dp)
-                // Genuinely no picture: the square goes to the number. An empty
-                // frame would break the shelf's rhythm to say nothing.
+                // Genuinely no picture: the food itself, drawn. The square used
+                // to go to the kcal number, which the caption underneath
+                // already carries — so the tile said the same thing twice and
+                // the shelf read as a wall of figures.
                 else -> Text(
-                    text = row.totalKcal?.let { formatKcal(it) }
-                        ?: stringResource(R.string.value_empty),
+                    text = foodIcon(row.title),
                     modifier = Modifier.padding(10.dp),
-                    color = GT.colors.ink2,
-                    style = GT.type.monoNumber.copy(fontSize = 17.sp),
+                    style = GT.type.serifTitle.copy(fontSize = 30.sp),
                     maxLines = 1,
                 )
             }

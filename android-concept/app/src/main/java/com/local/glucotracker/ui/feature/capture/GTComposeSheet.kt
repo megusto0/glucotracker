@@ -103,6 +103,7 @@ import com.local.glucotracker.domain.model.Template
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
+import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
 import com.local.glucotracker.ui.stock.MealPrepPhotoButton
@@ -664,17 +665,14 @@ private fun SuggestionThumb(item: ComposeSuggestion) {
             // box says nothing you can use; a bowl of soup does, and the same
             // bowl appears in the fridge's own screens because the rule that
             // chose it lives there rather than in either client.
-            val icon = (item as? ComposeSuggestion.ProductSuggestion)?.product?.icon
-            if (icon != null) {
-                Text(text = icon, style = GT.type.serifSection, maxLines = 1)
-            } else {
-                Text(
-                    text = item.name.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
-                    color = GT.colors.muted,
-                    style = GT.type.kicker,
-                    maxLines = 1,
-                )
-            }
+            Text(
+                text = foodIcon(
+                    item.name,
+                    supplied = (item as? ComposeSuggestion.ProductSuggestion)?.product?.icon,
+                ),
+                style = GT.type.serifSection,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -1723,7 +1721,7 @@ private fun ProductPortionPicker(
         GTHairlineDivider()
         Spacer(Modifier.height(12.dp))
 
-        if (imageModel == null && product.icon != null) {
+        if (imageModel == null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1732,7 +1730,7 @@ private fun ProductPortionPicker(
                     .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.card),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = product.icon, style = GT.type.serifTitle)
+                Text(text = foodIcon(product.name, supplied = product.icon), style = GT.type.serifTitle)
             }
             Spacer(Modifier.height(10.dp))
         }
