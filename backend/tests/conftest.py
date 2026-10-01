@@ -23,6 +23,8 @@ from glucotracker.infra.db.models import (
     GlucosePredictionPointAudit,
     GlucosePredictionRun,
     HealthConnectRecord,
+    InsulinRecommendationAction,
+    InsulinRecommendationRun,
     Meal,
     MealAuditEvent,
     MealInsulinEpisodeSnapshot,
@@ -61,6 +63,7 @@ def api_client(
     monkeypatch.setenv("GLUCOTRACKER_NIGHTSCOUT_BACKGROUND_IMPORT_ENABLED", "false")
     monkeypatch.setenv("PHOTO_STORAGE_DIR", str(tmp_path / "photos"))
     monkeypatch.setenv("ACTIVITY_LOG_DIR", str(tmp_path / "activity_logs"))
+    monkeypatch.setenv("GLUCOTRACKER_PREDICTION_MODEL_DIR", str(tmp_path / "models"))
     get_settings.cache_clear()
 
     engine = create_engine(
@@ -92,6 +95,8 @@ def api_client(
         GlucosePredictionPointAudit,
         GlucosePredictionRun,
         HealthConnectRecord,
+        InsulinRecommendationAction,
+        InsulinRecommendationRun,
         Meal,
         MealAuditEvent,
         MealInsulinEpisodeSnapshot,

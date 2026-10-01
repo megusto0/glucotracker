@@ -88,6 +88,11 @@ def _shared_media_url(raw: Any, api_url: str) -> str | None:
     return f"{path}?{parts.query}" if parts.query else path
 
 
+def normalize_fridge_image_url(url: str | None) -> str | None:
+    """Normalize internal Fridge URLs to relative paths using _shared_media_url."""
+    return _shared_media_url(url, "http://127.0.0.1:8011")
+
+
 class FridgeItem:
     def __init__(
         self,
@@ -131,7 +136,7 @@ class FridgeItem:
         self.protein_per_100g = protein_per_100g
         self.fat_per_100g = fat_per_100g
         self.carbs_per_100g = carbs_per_100g
-        self.image_url = image_url
+        self.image_url = normalize_fridge_image_url(image_url)
         self.days_to_expiry = days_to_expiry
         self.piece_weight_g = piece_weight_g
         self.serving_unit = serving_unit
@@ -154,6 +159,7 @@ class MealPrepItem:
         carbs: float,
         image_url: str | None,
         icon: str | None = None,
+        icon_emoji: str | None = None,
     ):
         self.container_id = container_id
         self.batch_id = batch_id
@@ -165,8 +171,13 @@ class MealPrepItem:
         self.protein = protein
         self.fat = fat
         self.carbs = carbs
-        self.image_url = image_url
-        self.icon = icon
+        self.image_url = (
+            normalize_fridge_image_url(image_url)
+            if "normalize_fridge_image_url" in globals()
+            else _shared_media_url(image_url, "http://127.0.0.1:8011")
+        )
+        self.icon = icon or icon_emoji
+        self.icon_emoji = self.icon
 
 
 class FridgeIntegrationService:
@@ -174,8 +185,14 @@ class FridgeIntegrationService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self.api_url = getattr(self.settings, "fridge_api_url", "http://127.0.0.1:8011").rstrip("/")
-        self.db_path = getattr(self.settings, "fridge_db_path", "/media/megusto/storage/fridge/data/fridge.db")
+        self.api_url = getattr(
+            self.settings, "fridge_api_url", "http://127.0.0.1:8011"
+        ).rstrip("/")
+        self.db_path = getattr(
+            self.settings,
+            "fridge_db_path",
+            "/media/megusto/storage/fridge/data/fridge.db",
+        )
 
     def _open_db(self) -> sqlite3.Connection | None:
         db_file = Path(self.db_path)
@@ -192,14 +209,20 @@ class FridgeIntegrationService:
         """This service's Fridge base, applied to :func:`_shared_media_url`."""
         return _shared_media_url(raw, self.api_url)
 
-    def fetch_available_inventory(self, owner_id: UUID | str | None = None) -> list[FridgeItem]:
-        """Fetch available (non-empty) inventory lots from Fridge API or local database."""
+    def fetch_available_inventory(
+        self, owner_id: UUID | str | None = None
+    ) -> list[FridgeItem]:
+        """
+        Fetch available (non-empty) inventory lots from Fridge API or local database.
+        """
         # 1. Try Fridge HTTP API
         try:
             headers = {"Content-Type": "application/json"}
             if owner_id:
                 headers["X-User-Id"] = str(owner_id)
-            req = urllib.request.Request(f"{self.api_url}/inventory?include_empty=false", headers=headers)
+            req = urllib.request.Request(
+                f"{self.api_url}/inventory?include_empty=false", headers=headers
+            )
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             with opener.open(req, timeout=1.5) as resp:
                 data = json.load(resp)
@@ -214,15 +237,27 @@ class FridgeIntegrationService:
                         FridgeItem(
                             id=lot["id"],
                             lot_id=lot["id"],
-                            name=lot.get("display_name") or p.get("canonical_name") or "Продукт",
+                            name=lot.get("display_name")
+                            or p.get("canonical_name")
+                            or "Продукт",
                             brand=p.get("brand"),
                             unit=lot.get("unit") or "г",
                             remaining_quantity=rem,
-                            weight_grams=float(lot["weight_grams"]) if lot.get("weight_grams") else None,
-                            kcal_per_100g=float(p["kcal_per_100"]) if p.get("kcal_per_100") is not None else None,
-                            protein_per_100g=float(p["protein_per_100"]) if p.get("protein_per_100") is not None else None,
-                            fat_per_100g=float(p["fat_per_100"]) if p.get("fat_per_100") is not None else None,
-                            carbs_per_100g=float(p["carbs_per_100"]) if p.get("carbs_per_100") is not None else None,
+                            weight_grams=float(lot["weight_grams"])
+                            if lot.get("weight_grams")
+                            else None,
+                            kcal_per_100g=float(p["kcal_per_100"])
+                            if p.get("kcal_per_100") is not None
+                            else None,
+                            protein_per_100g=float(p["protein_per_100"])
+                            if p.get("protein_per_100") is not None
+                            else None,
+                            fat_per_100g=float(p["fat_per_100"])
+                            if p.get("fat_per_100") is not None
+                            else None,
+                            carbs_per_100g=float(p["carbs_per_100"])
+                            if p.get("carbs_per_100") is not None
+                            else None,
                             image_url=self._media_url(p.get("image_url")),
                             serving_unit=_serving_unit(p.get("serving_unit")),
                             product_id=str(p["id"]) if p.get("id") else None,
@@ -237,7 +272,9 @@ class FridgeIntegrationService:
                     )
                 return items
         except Exception as e:
-            logger.debug("Fridge API HTTP /inventory unavailable, falling back to SQLite: %s", e)
+            logger.debug(
+                "Fridge API HTTP /inventory unavailable, falling back to SQLite: %s", e
+            )
 
         # 2. Fallback to direct SQLite read
         conn = self._open_db()
@@ -287,7 +324,9 @@ class FridgeIntegrationService:
                 # is why every piece item came back weighing 100 g: the mapper
                 # divided a None total by the count and fell to its default.
                 piece_weight = (
-                    float(r["piece_weight_g"]) if r["piece_weight_g"] is not None else None
+                    float(r["piece_weight_g"])
+                    if r["piece_weight_g"] is not None
+                    else None
                 )
                 net_quantity = (
                     float(r["net_quantity"]) if r["net_quantity"] is not None else None
@@ -309,14 +348,24 @@ class FridgeIntegrationService:
                         remaining_quantity=rem,
                         weight_grams=total_grams,
                         piece_weight_g=piece_weight,
-                        kcal_per_100g=float(r["kcal_per_100"]) if r["kcal_per_100"] is not None else None,
-                        protein_per_100g=float(r["protein_per_100"]) if r["protein_per_100"] is not None else None,
-                        fat_per_100g=float(r["fat_per_100"]) if r["fat_per_100"] is not None else None,
-                        carbs_per_100g=float(r["carbs_per_100"]) if r["carbs_per_100"] is not None else None,
+                        kcal_per_100g=float(r["kcal_per_100"])
+                        if r["kcal_per_100"] is not None
+                        else None,
+                        protein_per_100g=float(r["protein_per_100"])
+                        if r["protein_per_100"] is not None
+                        else None,
+                        fat_per_100g=float(r["fat_per_100"])
+                        if r["fat_per_100"] is not None
+                        else None,
+                        carbs_per_100g=float(r["carbs_per_100"])
+                        if r["carbs_per_100"] is not None
+                        else None,
                         image_url=self._media_url(r["image_url"]),
                         serving_unit=_serving_unit(_row_value(r, "serving_unit")),
                         product_id=(
-                            str(r["product_id"]) if _row_value(r, "product_id") else None
+                            str(r["product_id"])
+                            if _row_value(r, "product_id")
+                            else None
                         ),
                     )
                 )
@@ -324,14 +373,20 @@ class FridgeIntegrationService:
         finally:
             conn.close()
 
-    def fetch_available_mealpreps(self, owner_id: UUID | str | None = None) -> list[MealPrepItem]:
-        """Fetch ready (unconsumed) MealPrep containers from Fridge API or local database."""
+    def fetch_available_mealpreps(
+        self, owner_id: UUID | str | None = None
+    ) -> list[MealPrepItem]:
+        """
+        Fetch ready (unconsumed) MealPrep containers from Fridge API or local database.
+        """
         # 1. Try Fridge HTTP API
         try:
             headers = {"Content-Type": "application/json"}
             if owner_id:
                 headers["X-User-Id"] = str(owner_id)
-            req = urllib.request.Request(f"{self.api_url}/meal-prep/batches", headers=headers)
+            req = urllib.request.Request(
+                f"{self.api_url}/meal-prep/batches", headers=headers
+            )
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             with opener.open(req, timeout=1.5) as resp:
                 batches = json.load(resp)
@@ -340,7 +395,9 @@ class FridgeIntegrationService:
                     dish_name = b.get("name") or "Милпреп"
                     img = self._media_url(b.get("image_url"))
                     for c in b.get("containers", []):
-                        rem_w = float(c.get("remaining_weight_g") or c.get("net_weight_g") or 0)
+                        rem_w = float(
+                            c.get("remaining_weight_g") or c.get("net_weight_g") or 0
+                        )
                         if rem_w <= 0 or c.get("status") == "consumed":
                             continue
                         items.append(
@@ -356,17 +413,23 @@ class FridgeIntegrationService:
                                 fat=float(c.get("fat") or 0),
                                 carbs=float(c.get("carbs") or 0),
                                 image_url=img or self._media_url(c.get("image_url")),
-                                icon=b.get("icon"),
+                                icon=b.get("icon") or b.get("icon_emoji"),
                             )
                         )
+                # Include on-demand virtual recipes (e.g. sandwich)
+                items.extend(self.fetch_available_recipes(owner_id))
                 return items
         except Exception as e:
-            logger.debug("Fridge API HTTP /meal-prep/batches unavailable, falling back to SQLite: %s", e)
+            logger.debug(
+                "Fridge API HTTP /meal-prep/batches unavailable,"
+                " falling back to SQLite: %s",
+                e,
+            )
 
         # 2. Fallback to direct SQLite read
         conn = self._open_db()
         if not conn:
-            return []
+            return self.fetch_available_recipes(owner_id)
 
         try:
             query = """
@@ -384,6 +447,7 @@ class FridgeIntegrationService:
                     c.image_url AS container_img,
                     b.name AS dish_name,
                     b.image_url AS batch_img
+                    ,b.icon_emoji AS batch_icon
                 FROM meal_prep_containers c
                 JOIN meal_prep_batches b ON c.batch_id = b.id
                 WHERE (c.status != 'consumed' OR c.status IS NULL)
@@ -393,7 +457,11 @@ class FridgeIntegrationService:
             items = []
             for r in rows:
                 net_w = float(r["net_weight_g"] or 0)
-                rem_w = float(r["remaining_weight_g"] if r["remaining_weight_g"] is not None else net_w)
+                rem_w = float(
+                    r["remaining_weight_g"]
+                    if r["remaining_weight_g"] is not None
+                    else net_w
+                )
                 if rem_w <= 0 or r["status"] == "consumed":
                     continue
                 items.append(
@@ -409,11 +477,258 @@ class FridgeIntegrationService:
                         fat=float(r["fat"] or 0),
                         carbs=float(r["carbs"] or 0),
                         image_url=self._media_url(r["batch_img"] or r["container_img"]),
+                        icon_emoji=_row_value(r, "batch_icon"),
                     )
                 )
+            items.extend(self.fetch_available_recipes(owner_id))
             return items
         finally:
             conn.close()
+
+    def fetch_available_recipes(
+        self, owner_id: UUID | str | None = None
+    ) -> list[MealPrepItem]:
+        """Generate on-demand virtual meal prep recipes based on live fridge stock."""
+        try:
+            inventory = self.fetch_available_inventory(owner_id)
+        except Exception:
+            inventory = []
+
+        def _find_ingredient(
+            patterns: list[str], excludes: list[str] | None = None
+        ) -> tuple[FridgeItem | None, float]:
+            for it in inventory:
+                name_low = (it.name or "").lower()
+                if excludes and any(ex in name_low for ex in excludes):
+                    continue
+                if any(pat in name_low for pat in patterns):
+                    unit = (it.unit or "").lower().strip()
+                    rem = float(it.remaining_quantity or 0)
+                    if it.weight_grams and it.weight_grams > 0:
+                        avail_g = float(it.weight_grams)
+                    elif unit in ("g", "г", "ml", "мл"):
+                        avail_g = rem
+                    elif unit in ("kg", "кг", "l", "л"):
+                        avail_g = rem * 1000.0
+                    elif unit in ("pcs", "шт"):
+                        pack_g = float(it.piece_weight_g or 200.0)
+                        avail_g = rem * pack_g
+                    else:
+                        avail_g = rem
+                    return it, avail_g
+            return None, 0.0
+
+        cheese_item, cheese_g = _find_ingredient(
+            ["сыр", "cheese"], excludes=["плавлен", "косичка"]
+        )
+        butter_item, butter_g = _find_ingredient(
+            [
+                "масло сливочное",
+                "масло традиционное",
+                "масло крестьянское",
+                "масло 82",
+                "масло 72",
+            ],
+            excludes=["растительн", "подсолнечн", "оливков"],
+        )
+        bread_item, bread_g = _find_ingredient(
+            ["батон", "хлеб", "хлеб тостовый"], excludes=["сухарики", "лаваш"]
+        )
+
+        def _macro(
+            it: FridgeItem | None,
+            grams: float,
+            def_k: float,
+            def_p: float,
+            def_f: float,
+            def_c: float,
+        ) -> tuple[float, float, float, float]:
+            ratio = grams / 100.0
+            if it is None:
+                return def_k * ratio, def_p * ratio, def_f * ratio, def_c * ratio
+            k = (it.kcal_per_100g if it.kcal_per_100g is not None else def_k) * ratio
+            p = (
+                it.protein_per_100g if it.protein_per_100g is not None else def_p
+            ) * ratio
+            f = (it.fat_per_100g if it.fat_per_100g is not None else def_f) * ratio
+            c = (it.carbs_per_100g if it.carbs_per_100g is not None else def_c) * ratio
+            return k, p, f, c
+
+        k_ch, p_ch, f_ch, c_ch = _macro(cheese_item, 13.0, 350.0, 26.7, 27.0, 0.0)
+        k_bu, p_bu, f_bu, c_bu = _macro(butter_item, 13.0, 750.0, 0.6, 82.5, 0.8)
+        k_br, p_br, f_br, c_br = _macro(bread_item, 26.0, 288.0, 8.3, 2.8, 56.0)
+
+        total_kcal = round(k_ch + k_bu + k_br, 1)
+        total_p = round(p_ch + p_bu + p_br, 1)
+        total_f = round(f_ch + f_bu + f_br, 1)
+        total_c = round(c_ch + c_bu + c_br, 1)
+
+        possible_cheese = int(cheese_g // 13) if cheese_g >= 13 else 0
+        possible_butter = int(butter_g // 13) if butter_g >= 13 else 0
+        possible_bread = int(bread_g // 26) if bread_g >= 26 else 0
+
+        if cheese_item and butter_item and bread_item:
+            max_sandwiches = min(possible_cheese, possible_butter, possible_bread)
+        else:
+            candidates = [
+                p for p in (possible_cheese, possible_butter, possible_bread) if p > 0
+            ]
+            max_sandwiches = min(candidates) if candidates else 10
+
+        item = MealPrepItem(
+            container_id="recipe:sandwich_cheese_butter",
+            batch_id="recipe:sandwich_cheese_butter",
+            dish_name="Бутерброд с сыром и маслом",
+            public_code="52 г/шт",
+            net_weight_g=52.0,
+            remaining_weight_g=52.0,
+            kcal=total_kcal,
+            protein=total_p,
+            fat=total_f,
+            carbs=total_c,
+            image_url=None,
+            icon_emoji="🥪",
+        )
+        item._virtual_stock_count = max(1, max_sandwiches) if max_sandwiches > 0 else 1
+        return [item]
+
+    def consume_recipe(
+        self,
+        recipe_id: str,
+        portions: float = 1.0,
+        meal_id: UUID | str | None = None,
+        owner_id: UUID | str | None = None,
+    ) -> bool:
+        """Deduct ingredients for an on-demand recipe from Fridge inventory."""
+        owner_hdr = (
+            str(owner_id) if owner_id else "f51669a5-b262-475b-979c-4da82b072266"
+        )
+        if portions <= 0:
+            portions = 1.0
+
+        if recipe_id in (
+            "sandwich_cheese_butter",
+            "sandwich",
+            "бутерброд",
+            "recipe:sandwich_cheese_butter",
+        ):
+            req_cheese_g = Decimal(str(round(13.0 * portions, 2)))
+            req_butter_g = Decimal(str(round(13.0 * portions, 2)))
+            req_bread_g = Decimal(str(round(26.0 * portions, 2)))
+
+            inventory = self.fetch_available_inventory(owner_id)
+
+            def _find_lot_id(
+                patterns: list[str], excludes: list[str] | None = None
+            ) -> str | None:
+                for it in inventory:
+                    name_low = (it.name or "").lower()
+                    if excludes and any(ex in name_low for ex in excludes):
+                        continue
+                    if any(pat in name_low for pat in patterns):
+                        return it.lot_id
+                return None
+
+            cheese_lot = _find_lot_id(
+                ["сыр", "cheese"], excludes=["плавлен", "косичка"]
+            )
+            butter_lot = _find_lot_id(
+                [
+                    "масло сливочное",
+                    "масло традиционное",
+                    "масло крестьянское",
+                    "масло 82",
+                    "масло 72",
+                ],
+                excludes=["растительн", "подсолнечн", "оливков"],
+            )
+            bread_lot = _find_lot_id(
+                ["батон", "хлеб", "хлеб тостовый"], excludes=["сухарики", "лаваш"]
+            )
+
+            items_to_consume = []
+            if cheese_lot:
+                items_to_consume.append(
+                    {"lot_id": cheese_lot, "quantity": str(req_cheese_g), "unit": "g"}
+                )
+            if butter_lot:
+                items_to_consume.append(
+                    {"lot_id": butter_lot, "quantity": str(req_butter_g), "unit": "g"}
+                )
+            if bread_lot:
+                items_to_consume.append(
+                    {"lot_id": bread_lot, "quantity": str(req_bread_g), "unit": "g"}
+                )
+
+            if not items_to_consume:
+                logger.warning("No fridge lots found to deduct recipe %s", recipe_id)
+                return False
+
+            try:
+                payload: dict[str, Any] = {
+                    "items": items_to_consume,
+                    "reason": "consumed",
+                }
+                if meal_id:
+                    payload["glucotracker_meal_id"] = str(meal_id)
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{self.api_url}/inventory/consume",
+                    data=data,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-User-Id": owner_hdr,
+                    },
+                    method="POST",
+                )
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                with opener.open(req, timeout=2.0) as resp:
+                    return resp.status == 200
+            except Exception as e:
+                logger.warning("Failed to consume recipe %s via HTTP: %s", recipe_id, e)
+                conn = self._open_db()
+                if conn:
+                    try:
+                        for entry in items_to_consume:
+                            lid = entry["lot_id"].replace("-", "")
+                            lot_row = conn.execute(
+                                "SELECT l.unit, p.net_quantity, p.net_unit,"
+                                " p.piece_weight_g"
+                                " FROM inventory_lots l LEFT JOIN products p"
+                                " ON l.product_id = p.id"
+                                " WHERE REPLACE(l.id, '-', '') = ?",
+                                (lid,),
+                            ).fetchone()
+                            if lot_row:
+                                lot_u = (lot_row["unit"] or "").lower()
+                                deduct_val = float(entry["quantity"])
+                                if lot_u in ("pcs", "шт"):
+                                    pack_w = float(
+                                        lot_row["net_quantity"]
+                                        or lot_row["piece_weight_g"]
+                                        or 200.0
+                                    )
+                                    deduct_val = (
+                                        deduct_val / pack_w
+                                        if pack_w > 0
+                                        else deduct_val
+                                    )
+                                conn.execute(
+                                    "UPDATE inventory_lots"
+                                    " SET remaining_quantity ="
+                                    " MAX(0, remaining_quantity - ?),"
+                                    " status = CASE WHEN remaining_quantity <= ?"
+                                    " THEN 'DEPLETED' ELSE status END"
+                                    " WHERE REPLACE(id, '-', '') = ?",
+                                    (deduct_val, deduct_val, lid),
+                                )
+                        conn.commit()
+                        return True
+                    except Exception as sqle:
+                        logger.error("Failed SQLite consume for recipe: %s", sqle)
+                    finally:
+                        conn.close()
+        return False
 
     def consume_item(
         self,
@@ -426,7 +741,9 @@ class FridgeIntegrationService:
         owner_id: UUID | str | None = None,
     ) -> bool:
         """Deduct stock from Fridge when consumed in GlucoTracker."""
-        owner_hdr = str(owner_id) if owner_id else "f51669a5-b262-475b-979c-4da82b072266"
+        owner_hdr = (
+            str(owner_id) if owner_id else "f51669a5-b262-475b-979c-4da82b072266"
+        )
 
         # A) MealPrep Container Consumption
         if container_id:
@@ -441,14 +758,19 @@ class FridgeIntegrationService:
                 req = urllib.request.Request(
                     f"{self.api_url}/containers/{cid}/consume",
                     data=data,
-                    headers={"Content-Type": "application/json", "X-User-Id": owner_hdr},
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-User-Id": owner_hdr,
+                    },
                     method="POST",
                 )
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
                 with opener.open(req, timeout=2.0) as resp:
                     return resp.status in (200, 201)
             except Exception as e:
-                logger.warning("Failed to consume MealPrep container %s via HTTP: %s", cid, e)
+                logger.warning(
+                    "Failed to consume MealPrep container %s via HTTP: %s", cid, e
+                )
                 # Fallback to direct SQLite update
                 conn = self._open_db()
                 if conn:
@@ -464,7 +786,9 @@ class FridgeIntegrationService:
                         conn.commit()
                         return True
                     except Exception as sqle:
-                        logger.error("Failed SQLite consume for container %s: %s", cid, sqle)
+                        logger.error(
+                            "Failed SQLite consume for container %s: %s", cid, sqle
+                        )
                     finally:
                         conn.close()
             return False
@@ -488,21 +812,27 @@ class FridgeIntegrationService:
                 req = urllib.request.Request(
                     f"{self.api_url}/inventory/consume",
                     data=data,
-                    headers={"Content-Type": "application/json", "X-User-Id": owner_hdr},
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-User-Id": owner_hdr,
+                    },
                     method="POST",
                 )
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
                 with opener.open(req, timeout=2.0) as resp:
                     return resp.status == 200
             except Exception as e:
-                logger.warning("Failed to consume inventory lot %s via HTTP: %s", lid, e)
+                logger.warning(
+                    "Failed to consume inventory lot %s via HTTP: %s", lid, e
+                )
                 # Fallback to direct SQLite update
                 conn = self._open_db()
                 if conn:
                     try:
                         conn.execute(
                             "UPDATE inventory_lots"
-                            " SET remaining_quantity = MAX(0, remaining_quantity - ?),"
+                            " SET remaining_quantity ="
+                            " MAX(0, remaining_quantity - ?),"
                             " status = CASE WHEN remaining_quantity <= ?"
                             " THEN 'DEPLETED' ELSE status END"
                             " WHERE id = ?",
@@ -749,14 +1079,25 @@ class FridgeIntegrationService:
             ).fetchone()
             return str(row["batch_id"]) if row else None
         except Exception as exc:
-            logger.warning("Could not resolve batch for container %s: %s", container_id, exc)
+            logger.warning(
+                "Could not resolve batch for container %s: %s", container_id, exc
+            )
             return None
         finally:
             conn.close()
 
-    def get_image_for_item_id(self, item_id: str, owner_id: UUID | str | None = None) -> str | None:
+    def get_image_for_item_id(
+        self, item_id: str, owner_id: UUID | str | None = None
+    ) -> str | None:
         """Resolve image URL for a given product lot or mealprep container UUID/id."""
-        clean_id = str(item_id).replace("fridge:", "").replace("mp:", "").replace("-", "").lower().strip()
+        clean_id = (
+            str(item_id)
+            .replace("fridge:", "")
+            .replace("mp:", "")
+            .replace("-", "")
+            .lower()
+            .strip()
+        )
         conn = self._open_db()
         if not conn:
             return None
@@ -784,8 +1125,40 @@ class FridgeIntegrationService:
             ).fetchone()
             if row2 and row2["image_url"]:
                 return self._media_url(row2["image_url"])
+
+            row3 = conn.execute(
+                """
+                SELECT image_url FROM meal_prep_batches
+                WHERE REPLACE(id, '-', '') = ? OR LOWER(name) = ?
+                LIMIT 1
+                """,
+                (clean_id, str(item_id).lower().strip()),
+            ).fetchone()
+            if row3 and row3["image_url"]:
+                return self._media_url(row3["image_url"])
+
+            row4 = conn.execute(
+                """
+                SELECT image_url FROM products
+                WHERE REPLACE(id, '-', '') = ? OR LOWER(name) = ?
+                LIMIT 1
+                """,
+                (clean_id, str(item_id).lower().strip()),
+            ).fetchone()
+            if row4 and row4["image_url"]:
+                return self._media_url(row4["image_url"])
         except Exception as e:
             logger.debug("Failed looking up image in Fridge SQLite: %s", e)
         finally:
             conn.close()
         return None
+
+
+_fridge_service_instance: FridgeIntegrationService | None = None
+
+
+def get_fridge_service() -> FridgeIntegrationService:
+    global _fridge_service_instance
+    if _fridge_service_instance is None:
+        _fridge_service_instance = FridgeIntegrationService()
+    return _fridge_service_instance

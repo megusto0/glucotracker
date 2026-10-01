@@ -1,6 +1,437 @@
 {
   "components": {
     "schemas": {
+      "AIModelAttemptHistory": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": ["gemini", "grok", "openai-codex"],
+            "title": "Provider",
+            "type": "string"
+          },
+          "response_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Latency Ms"
+          },
+          "status": {
+            "enum": ["success", "error", "skipped"],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": ["provider", "model", "status"],
+        "title": "AIModelAttemptHistory",
+        "type": "object"
+      },
+      "AIModelChoice": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": ["gemini", "grok", "openai-codex"],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": ["provider", "model"],
+        "title": "AIModelChoice",
+        "type": "object"
+      },
+      "AIModelErrorCount": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "last_at": {
+            "format": "date-time",
+            "title": "Last At",
+            "type": "string"
+          }
+        },
+        "required": ["category", "count", "last_at"],
+        "title": "AIModelErrorCount",
+        "type": "object"
+      },
+      "AIModelOverview": {
+        "properties": {
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "average_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Confidence"
+          },
+          "average_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Latency Ms"
+          },
+          "average_request_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Request Latency Ms"
+          },
+          "average_response_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Response Latency Ms"
+          },
+          "confidence_samples": {
+            "default": 0,
+            "title": "Confidence Samples",
+            "type": "integer"
+          },
+          "cooldown_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooldown Until"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AIModelErrorCount"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "failures": {
+            "default": 0,
+            "title": "Failures",
+            "type": "integer"
+          },
+          "in_routing": {
+            "default": true,
+            "title": "In Routing",
+            "type": "boolean"
+          },
+          "last_called_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Called At"
+          },
+          "model": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": ["gemini", "grok", "openai-codex"],
+            "title": "Provider",
+            "type": "string"
+          },
+          "skipped": {
+            "default": 0,
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "success_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success Rate"
+          },
+          "successes": {
+            "default": 0,
+            "title": "Successes",
+            "type": "integer"
+          },
+          "timed_attempts": {
+            "default": 0,
+            "title": "Timed Attempts",
+            "type": "integer"
+          },
+          "timed_requests": {
+            "default": 0,
+            "title": "Timed Requests",
+            "type": "integer"
+          },
+          "timed_responses": {
+            "default": 0,
+            "title": "Timed Responses",
+            "type": "integer"
+          }
+        },
+        "required": ["provider", "model", "available"],
+        "title": "AIModelOverview",
+        "type": "object"
+      },
+      "AIModelRoutingUpdate": {
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AIModelChoice"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Models",
+            "type": "array"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": ["revision", "models"],
+        "title": "AIModelRoutingUpdate",
+        "type": "object"
+      },
+      "AIModelsResponse": {
+        "properties": {
+          "custom_routing": {
+            "title": "Custom Routing",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/AIRequestHistory"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "history_offset": {
+            "title": "History Offset",
+            "type": "integer"
+          },
+          "history_total": {
+            "title": "History Total",
+            "type": "integer"
+          },
+          "history_truncated": {
+            "title": "History Truncated",
+            "type": "boolean"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AIModelOverview"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "custom_routing",
+          "since",
+          "generated_at",
+          "history_truncated",
+          "models",
+          "history_total",
+          "history_offset",
+          "history"
+        ],
+        "title": "AIModelsResponse",
+        "type": "object"
+      },
+      "AIRequestHistory": {
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/AIModelAttemptHistory"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "fallback_used": {
+            "title": "Fallback Used",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "model_requested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Requested"
+          },
+          "model_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Used"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "request_type": {
+            "title": "Request Type",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "request_type",
+          "status",
+          "provider",
+          "fallback_used",
+          "attempts"
+        ],
+        "title": "AIRequestHistory",
+        "type": "object"
+      },
       "AIRunResponse": {
         "description": "AI estimation run audit row.",
         "properties": {
@@ -148,12 +579,7 @@
         "description": "Label one activity span and optionally remember its no-steps signature.",
         "properties": {
           "activity_type": {
-            "enum": [
-              "cycling",
-              "gym",
-              "walking",
-              "other"
-            ],
+            "enum": ["cycling", "gym", "walking", "other"],
             "title": "Activity Type",
             "type": "string"
           },
@@ -173,11 +599,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "start_at",
-          "end_at",
-          "activity_type"
-        ],
+        "required": ["start_at", "end_at", "activity_type"],
         "title": "ActivityAnnotationPutRequest",
         "type": "object"
       },
@@ -261,9 +683,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "date"
-        ],
+        "required": ["date"],
         "title": "ActivitySyncRequest",
         "type": "object"
       },
@@ -343,10 +763,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "meals_total",
-          "meals_analyzed"
-        ],
+        "required": ["meals_total", "meals_analyzed"],
         "title": "AdminPostprandialResponse",
         "type": "object"
       },
@@ -368,11 +785,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_date",
-          "to_date",
-          "days_recalculated"
-        ],
+        "required": ["from_date", "to_date", "days_recalculated"],
         "title": "AdminRecalculateResponse",
         "type": "object"
       },
@@ -380,17 +793,12 @@
         "description": "Apply a stored re-estimation proposal.",
         "properties": {
           "apply_mode": {
-            "enum": [
-              "replace_current",
-              "save_as_draft"
-            ],
+            "enum": ["replace_current", "save_as_draft"],
             "title": "Apply Mode",
             "type": "string"
           }
         },
-        "required": [
-          "apply_mode"
-        ],
+        "required": ["apply_mode"],
         "title": "ApplyEstimationRunRequest",
         "type": "object"
       },
@@ -403,10 +811,7 @@
             "type": "string"
           },
           "apply_mode": {
-            "enum": [
-              "replace_current",
-              "save_as_draft"
-            ],
+            "enum": ["replace_current", "save_as_draft"],
             "title": "Apply Mode",
             "type": "string"
           },
@@ -414,11 +819,7 @@
             "$ref": "#/components/schemas/MealResponse"
           }
         },
-        "required": [
-          "apply_mode",
-          "meal",
-          "ai_run_id"
-        ],
+        "required": ["apply_mode", "meal", "ai_run_id"],
         "title": "ApplyEstimationRunResponse",
         "type": "object"
       },
@@ -539,11 +940,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "kind",
-          "token",
-          "display_name"
-        ],
+        "required": ["kind", "token", "display_name"],
         "title": "AutocompleteSuggestion",
         "type": "object"
       },
@@ -596,11 +993,7 @@
             "title": "Start Glucose Mmol L"
           }
         },
-        "required": [
-          "measured_hours",
-          "fast_held",
-          "intervention_count"
-        ],
+        "required": ["measured_hours", "fast_held", "intervention_count"],
         "title": "BasalFastingTestOutcomeResponse",
         "type": "object"
       },
@@ -655,11 +1048,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "running",
-              "completed",
-              "aborted"
-            ],
+            "enum": ["running", "completed", "aborted"],
             "title": "Status",
             "type": "string"
           },
@@ -705,11 +1094,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "window_start_hour",
-          "window_end_hour",
-          "planned_hours"
-        ],
+        "required": ["window_start_hour", "window_end_hour", "planned_hours"],
         "title": "BasalFastingTestStartRequest",
         "type": "object"
       },
@@ -728,17 +1113,12 @@
             "title": "Abort Reason"
           },
           "status": {
-            "enum": [
-              "completed",
-              "aborted"
-            ],
+            "enum": ["completed", "aborted"],
             "title": "Status",
             "type": "string"
           }
         },
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "BasalFastingTestStopRequest",
         "type": "object"
       },
@@ -839,10 +1219,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "sensor_age_hours",
-          "label"
-        ],
+        "required": ["sensor_age_hours", "label"],
         "title": "BiasPhaseMarker",
         "type": "object"
       },
@@ -903,12 +1280,7 @@
           "activity_type": {
             "anyOf": [
               {
-                "enum": [
-                  "cycling",
-                  "gym",
-                  "walking",
-                  "other"
-                ],
+                "enum": ["cycling", "gym", "walking", "other"],
                 "type": "string"
               },
               {
@@ -919,12 +1291,7 @@
           },
           "activity_type_source": {
             "default": "none",
-            "enum": [
-              "user",
-              "recorded",
-              "rule",
-              "none"
-            ],
+            "enum": ["user", "recorded", "rule", "none"],
             "title": "Activity Type Source",
             "type": "string"
           },
@@ -1062,10 +1429,7 @@
             "title": "Iob Start Units"
           },
           "kind": {
-            "enum": [
-              "sleep",
-              "activity"
-            ],
+            "enum": ["sleep", "activity"],
             "title": "Kind",
             "type": "string"
           },
@@ -1120,10 +1484,7 @@
             "type": "array"
           },
           "source": {
-            "enum": [
-              "recorded",
-              "heart_rate"
-            ],
+            "enum": ["recorded", "heart_rate"],
             "title": "Source",
             "type": "string"
           },
@@ -1162,12 +1523,7 @@
           "suggested_activity_type": {
             "anyOf": [
               {
-                "enum": [
-                  "cycling",
-                  "gym",
-                  "walking",
-                  "other"
-                ],
+                "enum": ["cycling", "gym", "walking", "other"],
                 "type": "string"
               },
               {
@@ -1207,11 +1563,7 @@
         "description": "One sleep or hard-effort span, recorded or inferred from heart rate.",
         "properties": {
           "confidence": {
-            "enum": [
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -1221,10 +1573,7 @@
             "type": "string"
           },
           "kind": {
-            "enum": [
-              "sleep",
-              "activity"
-            ],
+            "enum": ["sleep", "activity"],
             "title": "Kind",
             "type": "string"
           },
@@ -1266,10 +1615,7 @@
             "title": "Peak Bpm"
           },
           "source": {
-            "enum": [
-              "recorded",
-              "heart_rate"
-            ],
+            "enum": ["recorded", "heart_rate"],
             "title": "Source",
             "type": "string"
           },
@@ -1308,10 +1654,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "timestamp",
-          "value"
-        ],
+        "required": ["timestamp", "value"],
         "title": "BodyStatePointResponse",
         "type": "object"
       },
@@ -1336,11 +1679,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime",
-          "states"
-        ],
+        "required": ["from_datetime", "to_datetime", "states"],
         "title": "BodyStatesResponse",
         "type": "object"
       },
@@ -1375,19 +1714,12 @@
           },
           "source": {
             "default": "camera",
-            "enum": [
-              "camera",
-              "gallery"
-            ],
+            "enum": ["camera", "gallery"],
             "title": "Source",
             "type": "string"
           }
         },
-        "required": [
-          "photo",
-          "captured_at",
-          "idempotency_key"
-        ],
+        "required": ["photo", "captured_at", "idempotency_key"],
         "title": "Body_createMealFromPhoto",
         "type": "object"
       },
@@ -1400,9 +1732,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_uploadMealPhoto",
         "type": "object"
       },
@@ -1414,9 +1744,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_uploadMealPrepPhoto",
         "type": "object"
       },
@@ -1429,9 +1757,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_uploadPatternImage",
         "type": "object"
       },
@@ -1443,9 +1769,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_uploadProductImage",
         "type": "object"
       },
@@ -1457,12 +1781,7 @@
             "type": "boolean"
           },
           "confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -1554,12 +1873,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "username",
-          "role",
-          "created_at"
-        ],
+        "required": ["id", "username", "role", "created_at"],
         "title": "CurrentUserDetailResponse",
         "type": "object"
       },
@@ -1713,12 +2027,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "day_of_week",
-          "hour",
-          "avg_carbs_g",
-          "meal_count"
-        ],
+        "required": ["day_of_week", "hour", "avg_carbs_g", "meal_count"],
         "title": "DashboardHeatmapCell",
         "type": "object"
       },
@@ -1733,9 +2042,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "cells"
-        ],
+        "required": ["cells"],
         "title": "DashboardHeatmapResponse",
         "type": "object"
       },
@@ -1803,10 +2110,7 @@
             "$ref": "#/components/schemas/DashboardRangeSummary"
           }
         },
-        "required": [
-          "days",
-          "summary"
-        ],
+        "required": ["days", "summary"],
         "title": "DashboardRangeResponse",
         "type": "object"
       },
@@ -1896,10 +2200,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "days",
-          "items"
-        ],
+        "required": ["days", "items"],
         "title": "DashboardSourceBreakdownResponse",
         "type": "object"
       },
@@ -1914,10 +2215,7 @@
             "$ref": "#/components/schemas/ItemSourceKind"
           }
         },
-        "required": [
-          "source_kind",
-          "count"
-        ],
+        "required": ["source_kind", "count"],
         "title": "DashboardSourceBreakdownRow",
         "type": "object"
       },
@@ -2157,12 +2455,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "pattern_id",
-          "token",
-          "display_name",
-          "count"
-        ],
+        "required": ["pattern_id", "token", "display_name", "count"],
         "title": "DashboardTopPatternResponse",
         "type": "object"
       },
@@ -2189,12 +2482,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "DatabaseItemPageResponse",
         "type": "object"
       },
@@ -2311,11 +2599,7 @@
             "title": "Key"
           },
           "kind": {
-            "enum": [
-              "pattern",
-              "product",
-              "restaurant"
-            ],
+            "enum": ["pattern", "product", "restaurant"],
             "title": "Kind",
             "type": "string"
           },
@@ -2448,11 +2732,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "kind",
-          "display_name"
-        ],
+        "required": ["id", "kind", "display_name"],
         "title": "DatabaseItemResponse",
         "type": "object"
       },
@@ -2535,12 +2815,7 @@
             "title": "Shift From Previous Minutes"
           }
         },
-        "required": [
-          "id",
-          "effective_from",
-          "basis",
-          "recorded_at"
-        ],
+        "required": ["id", "effective_from", "basis", "recorded_at"],
         "title": "DayAnchorHistoryResponse",
         "type": "object"
       },
@@ -2581,11 +2856,7 @@
             "title": "Insulin Units"
           },
           "kind": {
-            "enum": [
-              "food",
-              "correction",
-              "catch_up"
-            ],
+            "enum": ["food", "correction", "catch_up"],
             "title": "Kind",
             "type": "string"
           },
@@ -2595,11 +2866,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "timestamp",
-          "kind"
-        ],
+        "required": ["id", "timestamp", "kind"],
         "title": "DayEpisodeInsulinResponse",
         "type": "object"
       },
@@ -2623,11 +2890,7 @@
             "type": "boolean"
           },
           "kind": {
-            "enum": [
-              "peak",
-              "recovery",
-              "minimum"
-            ],
+            "enum": ["peak", "recovery", "minimum"],
             "title": "Kind",
             "type": "string"
           },
@@ -2654,19 +2917,12 @@
             "title": "Start Value"
           },
           "status": {
-            "enum": [
-              "complete",
-              "ongoing",
-              "no_cgm"
-            ],
+            "enum": ["complete", "ongoing", "no_cgm"],
             "title": "Status",
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "kind"
-        ],
+        "required": ["status", "kind"],
         "title": "DayEpisodeOutcomeResponse",
         "type": "object"
       },
@@ -2695,11 +2951,7 @@
             "type": "string"
           },
           "kind": {
-            "enum": [
-              "food",
-              "food_only",
-              "correction"
-            ],
+            "enum": ["food", "food_only", "correction"],
             "title": "Kind",
             "type": "string"
           },
@@ -2767,11 +3019,7 @@
             "type": "string"
           },
           "confidence": {
-            "enum": [
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -2907,10 +3155,7 @@
             "title": "Trough Normalized"
           }
         },
-        "required": [
-          "classification",
-          "confidence"
-        ],
+        "required": ["classification", "confidence"],
         "title": "DayEpisodeTherapyResponse",
         "type": "object"
       },
@@ -2935,11 +3180,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime",
-          "episodes"
-        ],
+        "required": ["from_datetime", "to_datetime", "episodes"],
         "title": "DayEpisodesResponse",
         "type": "object"
       },
@@ -2947,16 +3188,12 @@
         "description": "Generic delete response.",
         "properties": {
           "deleted": {
-            "examples": [
-              true
-            ],
+            "examples": [true],
             "title": "Deleted",
             "type": "boolean"
           }
         },
-        "required": [
-          "deleted"
-        ],
+        "required": ["deleted"],
         "title": "DeleteResponse",
         "type": "object"
       },
@@ -2987,13 +3224,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "title",
-          "summary",
-          "basis",
-          "windows",
-          "ribbon"
-        ],
+        "required": ["title", "summary", "basis", "windows", "ribbon"],
         "title": "EndocrinologistAdaptiveScheduleResponse",
         "type": "object"
       },
@@ -3020,10 +3251,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "label",
-          "value"
-        ],
+        "required": ["label", "value"],
         "title": "EndocrinologistBottomMetric",
         "type": "object"
       },
@@ -3165,12 +3393,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "label",
-          "value",
-          "unit",
-          "caption"
-        ],
+        "required": ["label", "value", "unit", "caption"],
         "title": "EndocrinologistReportKpi",
         "type": "object"
       },
@@ -3229,10 +3452,7 @@
           },
           "glucose_mode": {
             "default": "raw",
-            "enum": [
-              "raw",
-              "normalized"
-            ],
+            "enum": ["raw", "normalized"],
             "title": "Glucose Mode",
             "type": "string"
           },
@@ -3387,12 +3607,7 @@
             "type": "integer"
           },
           "role": {
-            "enum": [
-              "start",
-              "trough",
-              "peak",
-              "settle"
-            ],
+            "enum": ["start", "trough", "peak", "settle"],
             "title": "Role",
             "type": "string"
           },
@@ -3401,13 +3616,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "role",
-          "label",
-          "at",
-          "value",
-          "minutes_from_start"
-        ],
+        "required": ["role", "label", "at", "value", "minutes_from_start"],
         "title": "EpisodeBreakdownAnchorResponse",
         "type": "object"
       },
@@ -3423,10 +3632,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "text"
-        ],
+        "required": ["code", "text"],
         "title": "EpisodeBreakdownCauseResponse",
         "type": "object"
       },
@@ -3451,21 +3657,12 @@
           },
           "group": {
             "default": "neighbour",
-            "enum": [
-              "dose",
-              "context",
-              "neighbour"
-            ],
+            "enum": ["dose", "context", "neighbour"],
             "title": "Group",
             "type": "string"
           },
           "kind": {
-            "enum": [
-              "insulin",
-              "episode",
-              "sleep",
-              "activity"
-            ],
+            "enum": ["insulin", "episode", "sleep", "activity"],
             "title": "Kind",
             "type": "string"
           },
@@ -3489,12 +3686,7 @@
             "title": "Therapy Class"
           }
         },
-        "required": [
-          "kind",
-          "label",
-          "at",
-          "offset_minutes"
-        ],
+        "required": ["kind", "label", "at", "offset_minutes"],
         "title": "EpisodeBreakdownCrossingResponse",
         "type": "object"
       },
@@ -3551,12 +3743,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "code",
-          "label",
-          "value",
-          "unit"
-        ],
+        "required": ["code", "label", "value", "unit"],
         "title": "EpisodeBreakdownDerivedResponse",
         "type": "object"
       },
@@ -3584,13 +3771,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "index",
-          "count",
-          "days",
-          "label"
-        ],
+        "required": ["code", "index", "count", "days", "label"],
         "title": "EpisodeBreakdownFrequencyResponse",
         "type": "object"
       },
@@ -3623,10 +3804,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "timestamp",
-          "value"
-        ],
+        "required": ["timestamp", "value"],
         "title": "EpisodeBreakdownPointResponse",
         "type": "object"
       },
@@ -3663,11 +3841,7 @@
             "type": "string"
           },
           "confidence": {
-            "enum": [
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -3850,11 +4024,7 @@
             "title": "Total Weight G"
           }
         },
-        "required": [
-          "position",
-          "name",
-          "calculated_total"
-        ],
+        "required": ["position", "name", "calculated_total"],
         "title": "EstimateCalculationBreakdown",
         "type": "object"
       },
@@ -3926,9 +4096,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "totals"
-        ],
+        "required": ["totals"],
         "title": "EstimateComparisonDiff",
         "type": "object"
       },
@@ -3974,12 +4142,7 @@
             "$ref": "#/components/schemas/MealTotalsResponse"
           }
         },
-        "required": [
-          "meal_id",
-          "title",
-          "item",
-          "totals"
-        ],
+        "required": ["meal_id", "title", "item", "totals"],
         "title": "EstimateCreatedDraftResponse",
         "type": "object"
       },
@@ -4045,9 +4208,7 @@
             ]
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "EstimateItemChange",
         "type": "object"
       },
@@ -4339,12 +4500,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "index",
-          "url",
-          "thumbnail_url"
-        ],
+        "required": ["id", "index", "url", "thumbnail_url"],
         "title": "EstimateSourcePhotoResponse",
         "type": "object"
       },
@@ -4385,10 +4541,7 @@
             "title": "Notes"
           }
         },
-        "required": [
-          "measured_at",
-          "glucose_mmol_l"
-        ],
+        "required": ["measured_at", "glucose_mmol_l"],
         "title": "FingerstickReadingCreate",
         "type": "object"
       },
@@ -4493,12 +4646,7 @@
             "title": "Notes"
           }
         },
-        "required": [
-          "measured_at",
-          "glucose_mmol_l",
-          "id",
-          "created_at"
-        ],
+        "required": ["measured_at", "glucose_mmol_l", "id", "created_at"],
         "title": "FingerstickReadingResponse",
         "type": "object"
       },
@@ -4647,12 +4795,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "start_at",
-          "end_at",
-          "kind",
-          "label"
-        ],
+        "required": ["start_at", "end_at", "kind", "label"],
         "title": "GlucoseArtifactInterval",
         "type": "object"
       },
@@ -4662,12 +4805,7 @@
           "absorption_confidence": {
             "anyOf": [
               {
-                "enum": [
-                  "none",
-                  "low",
-                  "medium",
-                  "high"
-                ],
+                "enum": ["none", "low", "medium", "high"],
                 "type": "string"
               },
               {
@@ -4810,12 +4948,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "meal_id",
-          "timestamp",
-          "title",
-          "carbs_g"
-        ],
+        "required": ["meal_id", "timestamp", "title", "carbs_g"],
         "title": "GlucoseDashboardFoodEvent",
         "type": "object"
       },
@@ -4882,10 +5015,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "timestamp"
-        ],
+        "required": ["id", "timestamp"],
         "title": "GlucoseDashboardInsulinEvent",
         "type": "object"
       },
@@ -4979,11 +5109,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "raw_value",
-          "display_value"
-        ],
+        "required": ["timestamp", "raw_value", "display_value"],
         "title": "GlucoseDashboardPoint",
         "type": "object"
       },
@@ -5044,11 +5170,7 @@
             "type": "array"
           },
           "mode": {
-            "enum": [
-              "raw",
-              "smoothed",
-              "normalized"
-            ],
+            "enum": ["raw", "smoothed", "normalized"],
             "title": "Mode",
             "type": "string"
           },
@@ -5116,12 +5238,7 @@
             "title": "Bias Mmol L"
           },
           "calibration_confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Calibration Confidence",
             "type": "string"
           },
@@ -5137,21 +5254,13 @@
           },
           "cob_model_confidence": {
             "default": "none",
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Cob Model Confidence",
             "type": "string"
           },
           "cob_model_source": {
             "default": "macro_prior",
-            "enum": [
-              "macro_prior",
-              "personalized"
-            ],
+            "enum": ["macro_prior", "personalized"],
             "title": "Cob Model Source",
             "type": "string"
           },
@@ -5196,21 +5305,13 @@
           },
           "iob_model_confidence": {
             "default": "none",
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Iob Model Confidence",
             "type": "string"
           },
           "iob_model_source": {
             "default": "population",
-            "enum": [
-              "population",
-              "personalized"
-            ],
+            "enum": ["population", "personalized"],
             "title": "Iob Model Source",
             "type": "string"
           },
@@ -5235,10 +5336,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "calibration_confidence",
-          "suspected_compression_count"
-        ],
+        "required": ["calibration_confidence", "suspected_compression_count"],
         "title": "GlucoseDashboardSummary",
         "type": "object"
       },
@@ -5280,10 +5378,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "horizon_minutes",
-          "base_prediction_mmol_l"
-        ],
+        "required": ["horizon_minutes", "base_prediction_mmol_l"],
         "title": "GlucosePredictionAuditCalibration",
         "type": "object"
       },
@@ -5411,12 +5506,7 @@
           },
           "confidence": {
             "default": "none",
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -5441,10 +5531,7 @@
           },
           "forecast_assumption": {
             "default": "observed_policy",
-            "enum": [
-              "observed_policy",
-              "no_new_food_or_insulin"
-            ],
+            "enum": ["observed_policy", "no_new_food_or_insulin"],
             "title": "Forecast Assumption",
             "type": "string"
           },
@@ -5596,10 +5683,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "version",
-          "algorithm"
-        ],
+        "required": ["version", "algorithm"],
         "title": "GlucosePredictionModel",
         "type": "object"
       },
@@ -5607,11 +5691,7 @@
         "description": "One display-only future point from the personal historical model.",
         "properties": {
           "band": {
-            "enum": [
-              "low",
-              "in_range",
-              "high"
-            ],
+            "enum": ["low", "in_range", "high"],
             "title": "Band",
             "type": "string"
           },
@@ -5724,10 +5804,7 @@
             "$ref": "#/components/schemas/GlucosePredictionInputs"
           },
           "mode": {
-            "enum": [
-              "raw",
-              "normalized"
-            ],
+            "enum": ["raw", "normalized"],
             "title": "Mode",
             "type": "string"
           },
@@ -5789,19 +5866,12 @@
             "type": "array"
           },
           "period": {
-            "enum": [
-              "7d",
-              "14d",
-              "30d"
-            ],
+            "enum": ["7d", "14d", "30d"],
             "title": "Period",
             "type": "string"
           }
         },
-        "required": [
-          "period",
-          "days"
-        ],
+        "required": ["period", "days"],
         "title": "GlucoseTirDailyResponse",
         "type": "object"
       },
@@ -5873,10 +5943,7 @@
             "title": "Very Low Pct"
           }
         },
-        "required": [
-          "date",
-          "points"
-        ],
+        "required": ["date", "points"],
         "title": "GlucoseTirDayResponse",
         "type": "object"
       },
@@ -5990,11 +6057,7 @@
             "title": "Start Time"
           }
         },
-        "required": [
-          "record_id",
-          "record_type",
-          "payload"
-        ],
+        "required": ["record_id", "record_type", "payload"],
         "title": "HealthConnectRecordUpload",
         "type": "object"
       },
@@ -6035,44 +6098,52 @@
             "type": "integer"
           }
         },
-        "required": [
-          "received",
-          "upserted",
-          "deleted"
-        ],
+        "required": ["received", "upserted", "deleted"],
         "title": "HealthConnectSyncResponse",
         "type": "object"
       },
       "HealthResponse": {
         "description": "Service health response.",
         "properties": {
-          "db": {
-            "examples": [
-              "not_checked"
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
+            "title": "Commit"
+          },
+          "commit_short": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Short"
+          },
+          "db": {
+            "examples": ["not_checked"],
             "title": "Db",
             "type": "string"
           },
           "status": {
-            "examples": [
-              "ok"
-            ],
+            "examples": ["ok"],
             "title": "Status",
             "type": "string"
           },
           "version": {
-            "examples": [
-              "0.1.0"
-            ],
+            "examples": ["0.1.0"],
             "title": "Version",
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "version",
-          "db"
-        ],
+        "required": ["status", "version", "db"],
         "title": "HealthResponse",
         "type": "object"
       },
@@ -6092,11 +6163,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "bpm",
-          "sample_count"
-        ],
+        "required": ["timestamp", "bpm", "sample_count"],
         "title": "HeartRateBinResponse",
         "type": "object"
       },
@@ -6124,12 +6191,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime",
-          "bin_minutes",
-          "points"
-        ],
+        "required": ["from_datetime", "to_datetime", "bin_minutes", "points"],
         "title": "HeartRateSeriesResponse",
         "type": "object"
       },
@@ -6142,12 +6204,7 @@
             "type": "boolean"
           },
           "confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -6163,11 +6220,7 @@
             "title": "Configured Icr G Per Unit"
           },
           "daypart": {
-            "enum": [
-              "morning",
-              "day",
-              "evening"
-            ],
+            "enum": ["morning", "day", "evening"],
             "title": "Daypart",
             "type": "string"
           },
@@ -6256,9 +6309,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "date"
-        ],
+        "required": ["date"],
         "title": "InsulinLinkDayPutRequest",
         "type": "object"
       },
@@ -6307,13 +6358,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "date",
-          "meals",
-          "insulin_events",
-          "links",
-          "auto_links"
-        ],
+        "required": ["date", "meals", "insulin_events", "links", "auto_links"],
         "title": "InsulinLinkDayResponse",
         "type": "object"
       },
@@ -6332,13 +6377,7 @@
             "title": "Confidence"
           },
           "context_label": {
-            "enum": [
-              "food",
-              "correction",
-              "mixed",
-              "unresolved",
-              "manual"
-            ],
+            "enum": ["food", "correction", "mixed", "unresolved", "manual"],
             "title": "Context Label",
             "type": "string"
           },
@@ -6386,11 +6425,7 @@
             "title": "Insulin Units"
           },
           "link_source": {
-            "enum": [
-              "manual",
-              "auto",
-              "none"
-            ],
+            "enum": ["manual", "auto", "none"],
             "title": "Link Source",
             "type": "string"
           },
@@ -6467,10 +6502,7 @@
         "description": "CGM value sampled around a food/insulin episode.",
         "properties": {
           "source": {
-            "enum": [
-              "actual",
-              "interpolated"
-            ],
+            "enum": ["actual", "interpolated"],
             "title": "Source",
             "type": "string"
           },
@@ -6484,11 +6516,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "value",
-          "timestamp",
-          "source"
-        ],
+        "required": ["value", "timestamp", "source"],
         "title": "InsulinLinkGlucoseAnchorResponse",
         "type": "object"
       },
@@ -6538,14 +6566,71 @@
             "type": "number"
           }
         },
+        "required": ["id", "eaten_at", "title", "total_carbs_g", "total_kcal"],
+        "title": "InsulinLinkMealResponse",
+        "type": "object"
+      },
+      "InsulinRecommendationActionResponse": {
+        "properties": {
+          "action": {
+            "enum": ["created", "updated", "deleted"],
+            "title": "Action",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "insulin_event_id": {
+            "format": "uuid",
+            "title": "Insulin Event Id",
+            "type": "string"
+          },
+          "insulin_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insulin Units"
+          },
+          "link_source": {
+            "enum": ["explicit", "inferred"],
+            "title": "Link Source",
+            "type": "string"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          }
+        },
         "required": [
           "id",
-          "eaten_at",
-          "title",
-          "total_carbs_g",
-          "total_kcal"
+          "action",
+          "link_source",
+          "insulin_event_id",
+          "insulin_units",
+          "recorded_at",
+          "created_at"
         ],
-        "title": "InsulinLinkMealResponse",
+        "title": "InsulinRecommendationActionResponse",
         "type": "object"
       },
       "InsulinRecommendationMatchResponse": {
@@ -6658,22 +6743,27 @@
             "type": "array"
           }
         },
-        "required": [
-          "meal_ids"
-        ],
+        "required": ["meal_ids"],
         "title": "InsulinRecommendationRequest",
         "type": "object"
       },
       "InsulinRecommendationResponse": {
         "description": "Historical meal estimate plus an optional safety-gated correction.",
         "properties": {
-          "confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
+          "calculation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
+            "title": "Calculation Id"
+          },
+          "confidence": {
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -6736,11 +6826,7 @@
           "correction_isf_source": {
             "anyOf": [
               {
-                "enum": [
-                  "manual",
-                  "fitted",
-                  "default"
-                ],
+                "enum": ["manual", "fitted", "default"],
                 "type": "string"
               },
               {
@@ -6795,10 +6881,7 @@
           },
           "correction_projection_source": {
             "default": "linear_trend",
-            "enum": [
-              "linear_trend",
-              "forecast"
-            ],
+            "enum": ["linear_trend", "forecast"],
             "title": "Correction Projection Source",
             "type": "string"
           },
@@ -6891,11 +6974,7 @@
           "icr_daypart": {
             "anyOf": [
               {
-                "enum": [
-                  "morning",
-                  "day",
-                  "evening"
-                ],
+                "enum": ["morning", "day", "evening"],
                 "type": "string"
               },
               {
@@ -7076,6 +7155,164 @@
         "title": "InsulinRecommendationResponse",
         "type": "object"
       },
+      "InsulinRecommendationRunDetailResponse": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/InsulinRecommendationActionResponse"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "calculation_at": {
+            "format": "date-time",
+            "title": "Calculation At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_snapshot": {
+            "additionalProperties": true,
+            "title": "Input Snapshot",
+            "type": "object"
+          },
+          "meal_at": {
+            "format": "date-time",
+            "title": "Meal At",
+            "type": "string"
+          },
+          "meal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Meal Ids",
+            "type": "array"
+          },
+          "method_version": {
+            "title": "Method Version",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/InsulinRecommendationRequest"
+          },
+          "response": {
+            "$ref": "#/components/schemas/InsulinRecommendationResponse"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_recommended_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Recommended Units"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "meal_at",
+          "calculation_at",
+          "meal_ids",
+          "status",
+          "method_version",
+          "total_recommended_units",
+          "duration_ms",
+          "request",
+          "input_snapshot",
+          "response",
+          "actions"
+        ],
+        "title": "InsulinRecommendationRunDetailResponse",
+        "type": "object"
+      },
+      "InsulinRecommendationRunSummaryResponse": {
+        "properties": {
+          "calculation_at": {
+            "format": "date-time",
+            "title": "Calculation At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "meal_at": {
+            "format": "date-time",
+            "title": "Meal At",
+            "type": "string"
+          },
+          "meal_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Meal Ids",
+            "type": "array"
+          },
+          "method_version": {
+            "title": "Method Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_recommended_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Recommended Units"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "meal_at",
+          "calculation_at",
+          "meal_ids",
+          "status",
+          "method_version",
+          "total_recommended_units",
+          "duration_ms"
+        ],
+        "title": "InsulinRecommendationRunSummaryResponse",
+        "type": "object"
+      },
       "InsulinTherapyEntry": {
         "description": "One dated insulin product used by the current user.",
         "properties": {
@@ -7098,11 +7335,7 @@
             "type": "string"
           },
           "role": {
-            "enum": [
-              "rapid",
-              "basal",
-              "pump"
-            ],
+            "enum": ["rapid", "basal", "pump"],
             "title": "Role",
             "type": "string"
           },
@@ -7132,10 +7365,7 @@
             "title": "Units Per Day"
           }
         },
-        "required": [
-          "role",
-          "name"
-        ],
+        "required": ["role", "name"],
         "title": "InsulinTherapyEntry",
         "type": "object"
       },
@@ -7291,10 +7521,7 @@
             "title": "Tdee"
           }
         },
-        "required": [
-          "date",
-          "kcal_in"
-        ],
+        "required": ["date", "kcal_in"],
         "title": "KcalBalanceDay",
         "type": "object"
       },
@@ -7308,9 +7535,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "days"
-        ],
+        "required": ["days"],
         "title": "KcalBalanceRangeResponse",
         "type": "object"
       },
@@ -7373,11 +7598,7 @@
             "title": "Tdee"
           }
         },
-        "required": [
-          "date",
-          "kcal_in",
-          "kcal_burned"
-        ],
+        "required": ["date", "kcal_in", "kcal_burned"],
         "title": "KcalBalanceResponse",
         "type": "object"
       },
@@ -7395,10 +7616,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "username",
-          "password"
-        ],
+        "required": ["username", "password"],
         "title": "LoginRequest",
         "type": "object"
       },
@@ -7411,9 +7629,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "refresh_token"
-        ],
+        "required": ["refresh_token"],
         "title": "LogoutRequest",
         "type": "object"
       },
@@ -7457,11 +7673,7 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "meal_id",
-          "item_id",
-          "name"
-        ],
+        "required": ["meal_id", "item_id", "name"],
         "title": "LowConfidenceItemResponse",
         "type": "object"
       },
@@ -7554,16 +7766,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Post-run meal"
-            ],
+            "examples": ["Post-run meal"],
             "title": "Note"
           },
           "source": {
             "$ref": "#/components/schemas/MealSource",
-            "examples": [
-              "manual"
-            ]
+            "examples": ["manual"]
           },
           "status": {
             "anyOf": [
@@ -7584,15 +7792,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Breakfast"
-            ],
+            "examples": ["Breakfast"],
             "title": "Title"
           }
         },
-        "required": [
-          "source"
-        ],
+        "required": ["source"],
         "title": "MealCreate",
         "type": "object"
       },
@@ -7600,9 +7804,7 @@
         "description": "Deleting a meal, and whether its Nightscout twin went with it.\n\nIts own model rather than a field on the generic one: every other delete in\nthe API has no mirror, and widening the shared response changes a contract\nfor endpoints that gain nothing from it.",
         "properties": {
           "deleted": {
-            "examples": [
-              true
-            ],
+            "examples": [true],
             "title": "Deleted",
             "type": "boolean"
           },
@@ -7615,9 +7817,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              null
-            ],
+            "examples": [null],
             "title": "Fridge Error"
           },
           "mirror_error": {
@@ -7629,15 +7829,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              null
-            ],
+            "examples": [null],
             "title": "Mirror Error"
           }
         },
-        "required": [
-          "deleted"
-        ],
+        "required": ["deleted"],
         "title": "MealDeleteResponse",
         "type": "object"
       },
@@ -7678,18 +7874,12 @@
           },
           "source": {
             "default": "manual",
-            "enum": [
-              "manual",
-              "auto"
-            ],
+            "enum": ["manual", "auto"],
             "title": "Source",
             "type": "string"
           }
         },
-        "required": [
-          "meal_id",
-          "insulin_event_id"
-        ],
+        "required": ["meal_id", "insulin_event_id"],
         "title": "MealInsulinLinkItem",
         "type": "object"
       },
@@ -7728,9 +7918,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Local Dairy"
-            ],
+            "examples": ["Local Dairy"],
             "title": "Brand"
           },
           "calculation_method": {
@@ -7742,16 +7930,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Calculation Method"
           },
           "carbs_g": {
             "default": 0,
-            "examples": [
-              8
-            ],
+            "examples": [8],
             "minimum": 0.0,
             "title": "Carbs G",
             "type": "number"
@@ -7767,9 +7951,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              0.9
-            ],
+            "examples": [0.9],
             "title": "Confidence"
           },
           "confidence_reason": {
@@ -7781,9 +7963,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Label values"
-            ],
+            "examples": ["Label values"],
             "title": "Confidence Reason"
           },
           "evidence": {
@@ -7793,18 +7973,14 @@
           },
           "fat_g": {
             "default": 0,
-            "examples": [
-              4
-            ],
+            "examples": [4],
             "minimum": 0.0,
             "title": "Fat G",
             "type": "number"
           },
           "fiber_g": {
             "default": 0,
-            "examples": [
-              0
-            ],
+            "examples": [0],
             "minimum": 0.0,
             "title": "Fiber G",
             "type": "number"
@@ -7819,9 +7995,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              150
-            ],
+            "examples": [150],
             "title": "Grams"
           },
           "image_url": {
@@ -7833,24 +8007,18 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://\u2026/apple.jpg"
-            ],
+            "examples": ["https://\u2026/apple.jpg"],
             "title": "Image Url"
           },
           "kcal": {
             "default": 0,
-            "examples": [
-              128
-            ],
+            "examples": [128],
             "minimum": 0.0,
             "title": "Kcal",
             "type": "number"
           },
           "name": {
-            "examples": [
-              "Greek yogurt"
-            ],
+            "examples": ["Greek yogurt"],
             "title": "Name",
             "type": "string"
           },
@@ -7897,9 +8065,7 @@
           },
           "position": {
             "default": 0,
-            "examples": [
-              0
-            ],
+            "examples": [0],
             "minimum": 0.0,
             "title": "Position",
             "type": "integer"
@@ -7918,9 +8084,7 @@
           },
           "protein_g": {
             "default": 0,
-            "examples": [
-              15
-            ],
+            "examples": [15],
             "minimum": 0.0,
             "title": "Protein G",
             "type": "number"
@@ -7934,9 +8098,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "1 cup"
-            ],
+            "examples": ["1 cup"],
             "title": "Serving Text"
           },
           "source_kind": {
@@ -7949,9 +8111,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "MealItemCreate",
         "type": "object"
       },
@@ -8326,9 +8486,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Local Dairy"
-            ],
+            "examples": ["Local Dairy"],
             "title": "Brand"
           },
           "calculation_method": {
@@ -8340,16 +8498,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Calculation Method"
           },
           "carbs_g": {
             "default": 0,
-            "examples": [
-              8
-            ],
+            "examples": [8],
             "minimum": 0.0,
             "title": "Carbs G",
             "type": "number"
@@ -8365,9 +8519,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              0.9
-            ],
+            "examples": [0.9],
             "title": "Confidence"
           },
           "confidence_reason": {
@@ -8379,9 +8531,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Label values"
-            ],
+            "examples": ["Label values"],
             "title": "Confidence Reason"
           },
           "created_at": {
@@ -8396,18 +8546,14 @@
           },
           "fat_g": {
             "default": 0,
-            "examples": [
-              4
-            ],
+            "examples": [4],
             "minimum": 0.0,
             "title": "Fat G",
             "type": "number"
           },
           "fiber_g": {
             "default": 0,
-            "examples": [
-              0
-            ],
+            "examples": [0],
             "minimum": 0.0,
             "title": "Fiber G",
             "type": "number"
@@ -8422,9 +8568,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              150
-            ],
+            "examples": [150],
             "title": "Grams"
           },
           "id": {
@@ -8456,9 +8600,7 @@
           },
           "kcal": {
             "default": 0,
-            "examples": [
-              128
-            ],
+            "examples": [128],
             "minimum": 0.0,
             "title": "Kcal",
             "type": "number"
@@ -8469,9 +8611,7 @@
             "type": "string"
           },
           "name": {
-            "examples": [
-              "Greek yogurt"
-            ],
+            "examples": ["Greek yogurt"],
             "title": "Name",
             "type": "string"
           },
@@ -8508,9 +8648,7 @@
           },
           "position": {
             "default": 0,
-            "examples": [
-              0
-            ],
+            "examples": [0],
             "minimum": 0.0,
             "title": "Position",
             "type": "integer"
@@ -8529,9 +8667,7 @@
           },
           "protein_g": {
             "default": 0,
-            "examples": [
-              15
-            ],
+            "examples": [15],
             "minimum": 0.0,
             "title": "Protein G",
             "type": "number"
@@ -8545,9 +8681,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "1 cup"
-            ],
+            "examples": ["1 cup"],
             "title": "Serving Text"
           },
           "source_image_url": {
@@ -8576,13 +8710,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "name",
-          "id",
-          "meal_id",
-          "created_at",
-          "updated_at"
-        ],
+        "required": ["name", "id", "meal_id", "created_at", "updated_at"],
         "title": "MealItemResponse",
         "type": "object"
       },
@@ -8602,17 +8730,13 @@
             "title": "Eaten At"
           },
           "grams": {
-            "examples": [
-              127
-            ],
+            "examples": [127],
             "exclusiveMinimum": 0.0,
             "title": "Grams",
             "type": "number"
           }
         },
-        "required": [
-          "grams"
-        ],
+        "required": ["grams"],
         "title": "MealItemWeightReuseRequest",
         "type": "object"
       },
@@ -8639,12 +8763,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "MealPageResponse",
         "type": "object"
       },
@@ -8718,10 +8837,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "batch_id",
-          "url"
-        ],
+        "required": ["batch_id", "url"],
         "title": "MealPrepPhotoResponse",
         "type": "object"
       },
@@ -8977,22 +9093,13 @@
       },
       "MealSource": {
         "description": "Origin of a meal journal entry.",
-        "enum": [
-          "photo",
-          "pattern",
-          "manual",
-          "mixed"
-        ],
+        "enum": ["photo", "pattern", "manual", "mixed"],
         "title": "MealSource",
         "type": "string"
       },
       "MealStatus": {
         "description": "Lifecycle state for a meal journal entry.",
-        "enum": [
-          "draft",
-          "accepted",
-          "discarded"
-        ],
+        "enum": ["draft", "accepted", "discarded"],
         "title": "MealStatus",
         "type": "string"
       },
@@ -9000,37 +9107,27 @@
         "description": "Backend-calculated meal totals.",
         "properties": {
           "total_carbs_g": {
-            "examples": [
-              42
-            ],
+            "examples": [42],
             "title": "Total Carbs G",
             "type": "number"
           },
           "total_fat_g": {
-            "examples": [
-              12
-            ],
+            "examples": [12],
             "title": "Total Fat G",
             "type": "number"
           },
           "total_fiber_g": {
-            "examples": [
-              5
-            ],
+            "examples": [5],
             "title": "Total Fiber G",
             "type": "number"
           },
           "total_kcal": {
-            "examples": [
-              348
-            ],
+            "examples": [348],
             "title": "Total Kcal",
             "type": "number"
           },
           "total_protein_g": {
-            "examples": [
-              18
-            ],
+            "examples": [18],
             "title": "Total Protein G",
             "type": "number"
           }
@@ -9295,12 +9392,7 @@
             "title": "Upload Duration Ms"
           }
         },
-        "required": [
-          "event_id",
-          "trace_id",
-          "event_type",
-          "event_at"
-        ],
+        "required": ["event_id", "trace_id", "event_type", "event_at"],
         "title": "MobilePhotoEstimateLogEvent",
         "type": "object"
       },
@@ -9329,9 +9421,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "events"
-        ],
+        "required": ["events"],
         "title": "MobilePhotoEstimateLogRequest",
         "type": "object"
       },
@@ -9343,9 +9433,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "accepted_count"
-        ],
+        "required": ["accepted_count"],
         "title": "MobilePhotoEstimateLogResponse",
         "type": "object"
       },
@@ -9424,10 +9512,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "glucose",
-          "insulin"
-        ],
+        "required": ["glucose", "insulin"],
         "title": "NightscoutEventsResponse",
         "type": "object"
       },
@@ -9471,10 +9556,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "timestamp",
-          "value"
-        ],
+        "required": ["timestamp", "value"],
         "title": "NightscoutGlucoseEntryResponse",
         "type": "object"
       },
@@ -9502,10 +9584,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime"
-        ],
+        "required": ["from_datetime", "to_datetime"],
         "title": "NightscoutImportRequest",
         "type": "object"
       },
@@ -9579,10 +9658,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "nightscout_id"
-        ],
+        "required": ["id", "nightscout_id"],
         "title": "NightscoutInsulinDeleteResponse",
         "type": "object"
       },
@@ -9608,6 +9684,18 @@
             "title": "Insulin Units",
             "type": "number"
           },
+          "recommendation_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation Run Id"
+          },
           "recorded_at": {
             "anyOf": [
               {
@@ -9621,9 +9709,7 @@
             "title": "Recorded At"
           }
         },
-        "required": [
-          "insulin_units"
-        ],
+        "required": ["insulin_units"],
         "title": "NightscoutInsulinEntryCreate",
         "type": "object"
       },
@@ -9751,9 +9837,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp"
-        ],
+        "required": ["timestamp"],
         "title": "NightscoutInsulinEventResponse",
         "type": "object"
       },
@@ -10033,9 +10117,7 @@
             "title": "Status"
           }
         },
-        "required": [
-          "configured"
-        ],
+        "required": ["configured"],
         "title": "NightscoutStatusResponse",
         "type": "object"
       },
@@ -10104,9 +10186,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "synced"
-        ],
+        "required": ["synced"],
         "title": "NightscoutSyncResponse",
         "type": "object"
       },
@@ -10141,11 +10221,7 @@
             "title": "Nightscout Id"
           },
           "status": {
-            "enum": [
-              "sent",
-              "skipped",
-              "failed"
-            ],
+            "enum": ["sent", "skipped", "failed"],
             "title": "Status",
             "type": "string"
           },
@@ -10161,10 +10237,7 @@
             "title": "Title"
           }
         },
-        "required": [
-          "meal_id",
-          "status"
-        ],
+        "required": ["meal_id", "status"],
         "title": "NightscoutSyncTodayMealResult",
         "type": "object"
       },
@@ -10182,9 +10255,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "date"
-        ],
+        "required": ["date"],
         "title": "NightscoutSyncTodayRequest",
         "type": "object"
       },
@@ -10284,9 +10355,7 @@
             "title": "Version"
           }
         },
-        "required": [
-          "ok"
-        ],
+        "required": ["ok"],
         "title": "NightscoutTestResponse",
         "type": "object"
       },
@@ -10315,10 +10384,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "start_date",
-          "end_date"
-        ],
+        "required": ["start_date", "end_date"],
         "title": "NonTypicalPeriodCreate",
         "type": "object"
       },
@@ -10357,12 +10423,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "start_date",
-          "end_date",
-          "created_at"
-        ],
+        "required": ["id", "start_date", "end_date", "created_at"],
         "title": "NonTypicalPeriodResponse",
         "type": "object"
       },
@@ -10391,13 +10452,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "display_name",
-          "unit",
-          "category",
-          "created_at"
-        ],
+        "required": ["code", "display_name", "unit", "category", "created_at"],
         "title": "NutrientDefinitionResponse",
         "type": "object"
       },
@@ -10414,9 +10469,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              120
-            ],
+            "examples": [120],
             "title": "Amount"
           },
           "assumptions_json": {
@@ -10435,9 +10488,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              0.95
-            ],
+            "examples": [0.95],
             "title": "Confidence"
           },
           "evidence_json": {
@@ -10454,9 +10505,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Source Kind"
           },
           "unit": {
@@ -10468,9 +10517,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "mg"
-            ],
+            "examples": ["mg"],
             "title": "Unit"
           }
         },
@@ -10500,11 +10547,7 @@
         ],
         "properties": {
           "aliases": {
-            "examples": [
-              [
-                "\u0432\u043e\u043f\u043f\u0435\u0440"
-              ]
-            ],
+            "examples": [["\u0432\u043e\u043f\u043f\u0435\u0440"]],
             "items": {
               "type": "string"
             },
@@ -10513,27 +10556,21 @@
           },
           "default_carbs_g": {
             "default": 0,
-            "examples": [
-              51
-            ],
+            "examples": [51],
             "minimum": 0.0,
             "title": "Default Carbs G",
             "type": "number"
           },
           "default_fat_g": {
             "default": 0,
-            "examples": [
-              35
-            ],
+            "examples": [35],
             "minimum": 0.0,
             "title": "Default Fat G",
             "type": "number"
           },
           "default_fiber_g": {
             "default": 0,
-            "examples": [
-              3
-            ],
+            "examples": [3],
             "minimum": 0.0,
             "title": "Default Fiber G",
             "type": "number"
@@ -10548,33 +10585,25 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              270
-            ],
+            "examples": [270],
             "title": "Default Grams"
           },
           "default_kcal": {
             "default": 0,
-            "examples": [
-              635
-            ],
+            "examples": [635],
             "minimum": 0.0,
             "title": "Default Kcal",
             "type": "number"
           },
           "default_protein_g": {
             "default": 0,
-            "examples": [
-              28
-            ],
+            "examples": [28],
             "minimum": 0.0,
             "title": "Default Protein G",
             "type": "number"
           },
           "display_name": {
-            "examples": [
-              "Whopper"
-            ],
+            "examples": ["Whopper"],
             "title": "Display Name",
             "type": "string"
           },
@@ -10587,9 +10616,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test/item.png"
-            ],
+            "examples": ["https://example.test/item.png"],
             "title": "Image Url"
           },
           "is_verified": {
@@ -10598,9 +10625,7 @@
             "type": "boolean"
           },
           "key": {
-            "examples": [
-              "whopper"
-            ],
+            "examples": ["whopper"],
             "title": "Key",
             "type": "string"
           },
@@ -10639,9 +10664,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              19
-            ],
+            "examples": [19],
             "title": "Per 100G Carbs G"
           },
           "per_100g_fat_g": {
@@ -10654,9 +10677,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              16
-            ],
+            "examples": [16],
             "title": "Per 100G Fat G"
           },
           "per_100g_kcal": {
@@ -10669,9 +10690,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              260
-            ],
+            "examples": [260],
             "title": "Per 100G Kcal"
           },
           "per_100g_protein_g": {
@@ -10684,15 +10703,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              10
-            ],
+            "examples": [10],
             "title": "Per 100G Protein G"
           },
           "prefix": {
-            "examples": [
-              "bk"
-            ],
+            "examples": ["bk"],
             "title": "Prefix",
             "type": "string"
           },
@@ -10705,9 +10720,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "official_pdf"
-            ],
+            "examples": ["official_pdf"],
             "title": "Source Confidence"
           },
           "source_file": {
@@ -10719,9 +10732,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "bk.generated.pdf"
-            ],
+            "examples": ["bk.generated.pdf"],
             "title": "Source File"
           },
           "source_name": {
@@ -10733,9 +10744,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Burger King official PDF"
-            ],
+            "examples": ["Burger King official PDF"],
             "title": "Source Name"
           },
           "source_page": {
@@ -10748,9 +10757,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              1
-            ],
+            "examples": [1],
             "title": "Source Page"
           },
           "source_url": {
@@ -10762,17 +10769,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test"
-            ],
+            "examples": ["https://example.test"],
             "title": "Source Url"
           }
         },
-        "required": [
-          "prefix",
-          "key",
-          "display_name"
-        ],
+        "required": ["prefix", "key", "display_name"],
         "title": "PatternCreate",
         "type": "object"
       },
@@ -10799,12 +10800,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "PatternPageResponse",
         "type": "object"
       },
@@ -11112,27 +11108,21 @@
           },
           "default_carbs_g": {
             "default": 0,
-            "examples": [
-              51
-            ],
+            "examples": [51],
             "minimum": 0.0,
             "title": "Default Carbs G",
             "type": "number"
           },
           "default_fat_g": {
             "default": 0,
-            "examples": [
-              35
-            ],
+            "examples": [35],
             "minimum": 0.0,
             "title": "Default Fat G",
             "type": "number"
           },
           "default_fiber_g": {
             "default": 0,
-            "examples": [
-              3
-            ],
+            "examples": [3],
             "minimum": 0.0,
             "title": "Default Fiber G",
             "type": "number"
@@ -11147,33 +11137,25 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              270
-            ],
+            "examples": [270],
             "title": "Default Grams"
           },
           "default_kcal": {
             "default": 0,
-            "examples": [
-              635
-            ],
+            "examples": [635],
             "minimum": 0.0,
             "title": "Default Kcal",
             "type": "number"
           },
           "default_protein_g": {
             "default": 0,
-            "examples": [
-              28
-            ],
+            "examples": [28],
             "minimum": 0.0,
             "title": "Default Protein G",
             "type": "number"
           },
           "display_name": {
-            "examples": [
-              "Whopper"
-            ],
+            "examples": ["Whopper"],
             "title": "Display Name",
             "type": "string"
           },
@@ -11191,9 +11173,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test/item.png"
-            ],
+            "examples": ["https://example.test/item.png"],
             "title": "Image Url"
           },
           "is_archived": {
@@ -11206,9 +11186,7 @@
             "type": "boolean"
           },
           "key": {
-            "examples": [
-              "whopper"
-            ],
+            "examples": ["whopper"],
             "title": "Key",
             "type": "string"
           },
@@ -11270,9 +11248,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              19
-            ],
+            "examples": [19],
             "title": "Per 100G Carbs G"
           },
           "per_100g_fat_g": {
@@ -11285,9 +11261,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              16
-            ],
+            "examples": [16],
             "title": "Per 100G Fat G"
           },
           "per_100g_kcal": {
@@ -11300,9 +11274,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              260
-            ],
+            "examples": [260],
             "title": "Per 100G Kcal"
           },
           "per_100g_protein_g": {
@@ -11315,15 +11287,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              10
-            ],
+            "examples": [10],
             "title": "Per 100G Protein G"
           },
           "prefix": {
-            "examples": [
-              "bk"
-            ],
+            "examples": ["bk"],
             "title": "Prefix",
             "type": "string"
           },
@@ -11336,9 +11304,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "official_pdf"
-            ],
+            "examples": ["official_pdf"],
             "title": "Source Confidence"
           },
           "source_file": {
@@ -11350,9 +11316,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "bk.generated.pdf"
-            ],
+            "examples": ["bk.generated.pdf"],
             "title": "Source File"
           },
           "source_name": {
@@ -11364,9 +11328,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Burger King official PDF"
-            ],
+            "examples": ["Burger King official PDF"],
             "title": "Source Name"
           },
           "source_page": {
@@ -11379,9 +11341,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              1
-            ],
+            "examples": [1],
             "title": "Source Page"
           },
           "source_url": {
@@ -11393,9 +11353,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test"
-            ],
+            "examples": ["https://example.test"],
             "title": "Source Url"
           },
           "updated_at": {
@@ -11430,13 +11388,7 @@
             "type": "string"
           },
           "estimate_status": {
-            "enum": [
-              "estimating",
-              "succeeded",
-              "failed",
-              "timeout",
-              "error"
-            ],
+            "enum": ["estimating", "succeeded", "failed", "timeout", "error"],
             "title": "Estimate Status",
             "type": "string"
           },
@@ -11450,25 +11402,13 @@
             "type": "string"
           }
         },
-        "required": [
-          "meal_id",
-          "estimate_status",
-          "captured_at",
-          "photo_url"
-        ],
+        "required": ["meal_id", "estimate_status", "captured_at", "photo_url"],
         "title": "PhotoCaptureResponse",
         "type": "object"
       },
       "PhotoReferenceKind": {
         "description": "Reference object detected or supplied for photo scale estimation.",
-        "enum": [
-          "coin_5rub",
-          "card",
-          "hand",
-          "fork",
-          "plate",
-          "none"
-        ],
+        "enum": ["coin_5rub", "card", "hand", "fork", "plate", "none"],
         "title": "PhotoReferenceKind",
         "type": "string"
       },
@@ -11580,9 +11520,7 @@
         "description": "Create a saved packaged food product.",
         "examples": [
           {
-            "aliases": [
-              "crackers"
-            ],
+            "aliases": ["crackers"],
             "barcode": "4601234567890",
             "brand": "Example Foods",
             "carbs_per_100g": 62,
@@ -11598,11 +11536,7 @@
         ],
         "properties": {
           "aliases": {
-            "examples": [
-              [
-                "crackers"
-              ]
-            ],
+            "examples": [["crackers"]],
             "items": {
               "type": "string"
             },
@@ -11618,9 +11552,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "4601234567890"
-            ],
+            "examples": ["4601234567890"],
             "title": "Barcode"
           },
           "brand": {
@@ -11632,9 +11564,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Example Foods"
-            ],
+            "examples": ["Example Foods"],
             "title": "Brand"
           },
           "carbs_per_100g": {
@@ -11647,9 +11577,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              62
-            ],
+            "examples": [62],
             "title": "Carbs Per 100G"
           },
           "carbs_per_serving": {
@@ -11662,9 +11590,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              18.6
-            ],
+            "examples": [18.6],
             "title": "Carbs Per Serving"
           },
           "default_grams": {
@@ -11677,9 +11603,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              30
-            ],
+            "examples": [30],
             "title": "Default Grams"
           },
           "default_serving_text": {
@@ -11691,9 +11615,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "6 crackers"
-            ],
+            "examples": ["6 crackers"],
             "title": "Default Serving Text"
           },
           "fat_per_100g": {
@@ -11706,9 +11628,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              9
-            ],
+            "examples": [9],
             "title": "Fat Per 100G"
           },
           "fat_per_serving": {
@@ -11721,9 +11641,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.7
-            ],
+            "examples": [2.7],
             "title": "Fat Per Serving"
           },
           "fiber_per_100g": {
@@ -11736,9 +11654,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              7
-            ],
+            "examples": [7],
             "title": "Fiber Per 100G"
           },
           "fiber_per_serving": {
@@ -11751,10 +11667,20 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.1
-            ],
+            "examples": [2.1],
             "title": "Fiber Per Serving"
+          },
+          "icon_emoji": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": ["\ud83e\udd63"],
+            "title": "Icon Emoji"
           },
           "image_url": {
             "anyOf": [
@@ -11765,9 +11691,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test/item.png"
-            ],
+            "examples": ["https://example.test/item.png"],
             "title": "Image Url"
           },
           "kcal_per_100g": {
@@ -11780,9 +11704,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              410
-            ],
+            "examples": [410],
             "title": "Kcal Per 100G"
           },
           "kcal_per_serving": {
@@ -11795,15 +11717,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              123
-            ],
+            "examples": [123],
             "title": "Kcal Per Serving"
           },
           "name": {
-            "examples": [
-              "Whole grain crackers"
-            ],
+            "examples": ["Whole grain crackers"],
             "title": "Name",
             "type": "string"
           },
@@ -11842,9 +11760,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              11
-            ],
+            "examples": [11],
             "title": "Protein Per 100G"
           },
           "protein_per_serving": {
@@ -11857,16 +11773,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              3.3
-            ],
+            "examples": [3.3],
             "title": "Protein Per Serving"
           },
           "source_kind": {
             "default": "manual",
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Source Kind",
             "type": "string"
           },
@@ -11879,15 +11791,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test"
-            ],
+            "examples": ["https://example.test"],
             "title": "Source Url"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ProductCreate",
         "type": "object"
       },
@@ -11895,9 +11803,7 @@
         "description": "Create or update a product from manually confirmed label facts.",
         "examples": [
           {
-            "aliases": [
-              "burn zero peach mango"
-            ],
+            "aliases": ["burn zero peach mango"],
             "barcode": "4601234567890",
             "brand": "Burn",
             "carbs_per_100g": 0,
@@ -11913,11 +11819,7 @@
         ],
         "properties": {
           "aliases": {
-            "examples": [
-              [
-                "crackers"
-              ]
-            ],
+            "examples": [["crackers"]],
             "items": {
               "type": "string"
             },
@@ -11933,9 +11835,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "4601234567890"
-            ],
+            "examples": ["4601234567890"],
             "title": "Barcode"
           },
           "brand": {
@@ -11947,9 +11847,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Example Foods"
-            ],
+            "examples": ["Example Foods"],
             "title": "Brand"
           },
           "carbs_per_100g": {
@@ -11962,9 +11860,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              62
-            ],
+            "examples": [62],
             "title": "Carbs Per 100G"
           },
           "carbs_per_serving": {
@@ -11977,9 +11873,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              18.6
-            ],
+            "examples": [18.6],
             "title": "Carbs Per Serving"
           },
           "default_grams": {
@@ -11992,9 +11886,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              30
-            ],
+            "examples": [30],
             "title": "Default Grams"
           },
           "default_serving_text": {
@@ -12006,9 +11898,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "6 crackers"
-            ],
+            "examples": ["6 crackers"],
             "title": "Default Serving Text"
           },
           "fat_per_100g": {
@@ -12021,9 +11911,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              9
-            ],
+            "examples": [9],
             "title": "Fat Per 100G"
           },
           "fat_per_serving": {
@@ -12036,9 +11924,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.7
-            ],
+            "examples": [2.7],
             "title": "Fat Per Serving"
           },
           "fiber_per_100g": {
@@ -12051,9 +11937,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              7
-            ],
+            "examples": [7],
             "title": "Fiber Per 100G"
           },
           "fiber_per_serving": {
@@ -12066,10 +11950,20 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.1
-            ],
+            "examples": [2.1],
             "title": "Fiber Per Serving"
+          },
+          "icon_emoji": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": ["\ud83e\udd63"],
+            "title": "Icon Emoji"
           },
           "image_url": {
             "anyOf": [
@@ -12080,9 +11974,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test/item.png"
-            ],
+            "examples": ["https://example.test/item.png"],
             "title": "Image Url"
           },
           "kcal_per_100g": {
@@ -12095,9 +11987,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              410
-            ],
+            "examples": [410],
             "title": "Kcal Per 100G"
           },
           "kcal_per_serving": {
@@ -12110,15 +12000,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              123
-            ],
+            "examples": [123],
             "title": "Kcal Per Serving"
           },
           "name": {
-            "examples": [
-              "Whole grain crackers"
-            ],
+            "examples": ["Whole grain crackers"],
             "title": "Name",
             "type": "string"
           },
@@ -12157,9 +12043,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              11
-            ],
+            "examples": [11],
             "title": "Protein Per 100G"
           },
           "protein_per_serving": {
@@ -12172,16 +12056,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              3.3
-            ],
+            "examples": [3.3],
             "title": "Protein Per Serving"
           },
           "source_kind": {
             "default": "label_manual",
-            "examples": [
-              "label_manual"
-            ],
+            "examples": ["label_manual"],
             "title": "Source Kind",
             "type": "string"
           },
@@ -12194,15 +12074,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test"
-            ],
+            "examples": ["https://example.test"],
             "title": "Source Url"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ProductFromLabelRequest",
         "type": "object"
       },
@@ -12229,12 +12105,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["items", "total", "limit", "offset"],
         "title": "ProductPageResponse",
         "type": "object"
       },
@@ -12242,9 +12113,7 @@
         "description": "Patch a saved product.",
         "examples": [
           {
-            "aliases": [
-              "crackers"
-            ],
+            "aliases": ["crackers"],
             "brand": "Example Foods"
           }
         ],
@@ -12519,9 +12388,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "4601234567890"
-            ],
+            "examples": ["4601234567890"],
             "title": "Barcode"
           },
           "brand": {
@@ -12533,9 +12400,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Example Foods"
-            ],
+            "examples": ["Example Foods"],
             "title": "Brand"
           },
           "carbs_per_100g": {
@@ -12548,9 +12413,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              62
-            ],
+            "examples": [62],
             "title": "Carbs Per 100G"
           },
           "carbs_per_serving": {
@@ -12563,9 +12426,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              18.6
-            ],
+            "examples": [18.6],
             "title": "Carbs Per Serving"
           },
           "created_at": {
@@ -12583,9 +12444,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              30
-            ],
+            "examples": [30],
             "title": "Default Grams"
           },
           "default_serving_text": {
@@ -12597,9 +12456,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "6 crackers"
-            ],
+            "examples": ["6 crackers"],
             "title": "Default Serving Text"
           },
           "fat_per_100g": {
@@ -12612,9 +12469,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              9
-            ],
+            "examples": [9],
             "title": "Fat Per 100G"
           },
           "fat_per_serving": {
@@ -12627,9 +12482,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.7
-            ],
+            "examples": [2.7],
             "title": "Fat Per Serving"
           },
           "fiber_per_100g": {
@@ -12642,9 +12495,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              7
-            ],
+            "examples": [7],
             "title": "Fiber Per 100G"
           },
           "fiber_per_serving": {
@@ -12657,9 +12508,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2.1
-            ],
+            "examples": [2.1],
             "title": "Fiber Per Serving"
           },
           "icon": {
@@ -12671,10 +12520,20 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "\ud83e\udd63"
-            ],
+            "examples": ["\ud83e\udd63"],
             "title": "Icon"
+          },
+          "icon_emoji": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": ["\ud83e\udd63"],
+            "title": "Icon Emoji"
           },
           "id": {
             "format": "uuid",
@@ -12690,9 +12549,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test/item.png"
-            ],
+            "examples": ["https://example.test/item.png"],
             "title": "Image Url"
           },
           "kcal_per_100g": {
@@ -12705,9 +12562,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              410
-            ],
+            "examples": [410],
             "title": "Kcal Per 100G"
           },
           "kcal_per_serving": {
@@ -12720,9 +12575,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              123
-            ],
+            "examples": [123],
             "title": "Kcal Per Serving"
           },
           "last_used_at": {
@@ -12738,9 +12591,7 @@
             "title": "Last Used At"
           },
           "name": {
-            "examples": [
-              "Whole grain crackers"
-            ],
+            "examples": ["Whole grain crackers"],
             "title": "Name",
             "type": "string"
           },
@@ -12778,9 +12629,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              180.0
-            ],
+            "examples": [180.0],
             "title": "Piece Weight G"
           },
           "protein_per_100g": {
@@ -12793,9 +12642,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              11
-            ],
+            "examples": [11],
             "title": "Protein Per 100G"
           },
           "protein_per_serving": {
@@ -12808,9 +12655,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              3.3
-            ],
+            "examples": [3.3],
             "title": "Protein Per Serving"
           },
           "serving_unit": {
@@ -12822,16 +12667,12 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "pcs"
-            ],
+            "examples": ["pcs"],
             "title": "Serving Unit"
           },
           "source_kind": {
             "default": "manual",
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Source Kind",
             "type": "string"
           },
@@ -12844,9 +12685,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "https://example.test"
-            ],
+            "examples": ["https://example.test"],
             "title": "Source Url"
           },
           "stock_code": {
@@ -12858,9 +12697,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "GT:C:8F4K2M"
-            ],
+            "examples": ["GT:C:8F4K2M"],
             "title": "Stock Code"
           },
           "stock_containers_left": {
@@ -12872,9 +12709,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              3
-            ],
+            "examples": [3],
             "title": "Stock Containers Left"
           },
           "stock_expires_in_days": {
@@ -12886,9 +12721,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              2
-            ],
+            "examples": [2],
             "title": "Stock Expires In Days"
           },
           "stock_remaining": {
@@ -12900,9 +12733,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              3
-            ],
+            "examples": [3],
             "title": "Stock Remaining"
           },
           "stock_remaining_g": {
@@ -12914,9 +12745,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              100.0
-            ],
+            "examples": [100.0],
             "title": "Stock Remaining G"
           },
           "stock_unit": {
@@ -12928,9 +12757,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "\u0448\u0442"
-            ],
+            "examples": ["\u0448\u0442"],
             "title": "Stock Unit"
           },
           "updated_at": {
@@ -12943,13 +12770,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "name",
-          "id",
-          "usage_count",
-          "created_at",
-          "updated_at"
-        ],
+        "required": ["name", "id", "usage_count", "created_at", "updated_at"],
         "title": "ProductResponse",
         "type": "object"
       },
@@ -13052,9 +12873,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "refresh_token"
-        ],
+        "required": ["refresh_token"],
         "title": "RefreshRequest",
         "type": "object"
       },
@@ -13062,11 +12881,7 @@
         "description": "Persist an accepted label item into the product database.",
         "properties": {
           "aliases": {
-            "examples": [
-              [
-                "\u0441\u044b\u0440\u043e\u043a"
-              ]
-            ],
+            "examples": [["\u0441\u044b\u0440\u043e\u043a"]],
             "items": {
               "type": "string"
             },
@@ -13085,9 +12900,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "label"
-        ],
+        "required": ["label"],
         "title": "ReportChipResponse",
         "type": "object"
       },
@@ -13101,9 +12914,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "anchor_minutes"
-        ],
+        "required": ["anchor_minutes"],
         "title": "ScheduleOverrideRequest",
         "type": "object"
       },
@@ -13232,9 +13043,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "windows"
-        ],
+        "required": ["windows"],
         "title": "ScheduleResponse",
         "type": "object"
       },
@@ -13246,12 +13055,7 @@
             "type": "integer"
           },
           "key": {
-            "enum": [
-              "start",
-              "mid",
-              "late",
-              "night_cap"
-            ],
+            "enum": ["start", "mid", "late", "night_cap"],
             "title": "Key",
             "type": "string"
           },
@@ -13264,12 +13068,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "key",
-          "label",
-          "start_minute",
-          "end_minute"
-        ],
+        "required": ["key", "label", "start_minute", "end_minute"],
         "title": "ScheduleWindowResponse",
         "type": "object"
       },
@@ -13307,9 +13106,7 @@
             "title": "Sensor Session Id"
           }
         },
-        "required": [
-          "raw_payload"
-        ],
+        "required": ["raw_payload"],
         "title": "SensorCodeCreate",
         "type": "object"
       },
@@ -13480,10 +13277,7 @@
           "calibration_basis": {
             "anyOf": [
               {
-                "enum": [
-                  "all_valid_fingersticks",
-                  "insufficient"
-                ],
+                "enum": ["all_valid_fingersticks", "insufficient"],
                 "type": "string"
               },
               {
@@ -13495,11 +13289,7 @@
           "calibration_strategy": {
             "anyOf": [
               {
-                "enum": [
-                  "median_delta",
-                  "linear",
-                  "insufficient"
-                ],
+                "enum": ["median_delta", "linear", "insufficient"],
                 "type": "string"
               },
               {
@@ -13509,12 +13299,7 @@
             "title": "Calibration Strategy"
           },
           "confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -13676,11 +13461,7 @@
           "sensor_phase": {
             "anyOf": [
               {
-                "enum": [
-                  "warmup",
-                  "stable",
-                  "end_of_life"
-                ],
+                "enum": ["warmup", "stable", "end_of_life"],
                 "type": "string"
               },
               {
@@ -13775,9 +13556,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai #4"
-            ],
+            "examples": ["Ottai #4"],
             "title": "Label"
           },
           "model": {
@@ -13789,9 +13568,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai"
-            ],
+            "examples": ["Ottai"],
             "title": "Model"
           },
           "notes": {
@@ -13807,9 +13584,7 @@
           },
           "source": {
             "default": "manual",
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Source",
             "type": "string"
           },
@@ -13827,15 +13602,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai"
-            ],
+            "examples": ["Ottai"],
             "title": "Vendor"
           }
         },
-        "required": [
-          "started_at"
-        ],
+        "required": ["started_at"],
         "title": "SensorSessionCreate",
         "type": "object"
       },
@@ -14015,9 +13786,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai #4"
-            ],
+            "examples": ["Ottai #4"],
             "title": "Label"
           },
           "model": {
@@ -14029,9 +13798,7 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai"
-            ],
+            "examples": ["Ottai"],
             "title": "Model"
           },
           "notes": {
@@ -14047,9 +13814,7 @@
           },
           "source": {
             "default": "manual",
-            "examples": [
-              "manual"
-            ],
+            "examples": ["manual"],
             "title": "Source",
             "type": "string"
           },
@@ -14072,18 +13837,11 @@
                 "type": "null"
               }
             ],
-            "examples": [
-              "Ottai"
-            ],
+            "examples": ["Ottai"],
             "title": "Vendor"
           }
         },
-        "required": [
-          "started_at",
-          "id",
-          "created_at",
-          "updated_at"
-        ],
+        "required": ["started_at", "id", "created_at", "updated_at"],
         "title": "SensorSessionResponse",
         "type": "object"
       },
@@ -14160,20 +13918,13 @@
         "description": "Someone has said how a fridge product is eaten.",
         "properties": {
           "serving_unit": {
-            "enum": [
-              "pcs",
-              "g"
-            ],
-            "examples": [
-              "g"
-            ],
+            "enum": ["pcs", "g"],
+            "examples": ["g"],
             "title": "Serving Unit",
             "type": "string"
           }
         },
-        "required": [
-          "serving_unit"
-        ],
+        "required": ["serving_unit"],
         "title": "ServingUnitUpdate",
         "type": "object"
       },
@@ -14190,13 +13941,7 @@
             "type": "integer"
           },
           "stage": {
-            "enum": [
-              "awake",
-              "light",
-              "deep",
-              "rem",
-              "unknown"
-            ],
+            "enum": ["awake", "light", "deep", "rem", "unknown"],
             "title": "Stage",
             "type": "string"
           },
@@ -14206,12 +13951,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "stage",
-          "start_at",
-          "end_at",
-          "minutes"
-        ],
+        "required": ["stage", "start_at", "end_at", "minutes"],
         "title": "SleepStageResponse",
         "type": "object"
       },
@@ -14262,21 +14002,12 @@
             "type": "string"
           },
           "weight": {
-            "enum": [
-              "primary",
-              "secondary"
-            ],
+            "enum": ["primary", "secondary"],
             "title": "Weight",
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "kind",
-          "text",
-          "weight",
-          "computed_at"
-        ],
+        "required": ["id", "kind", "text", "weight", "computed_at"],
         "title": "StatsInsightResponse",
         "type": "object"
       },
@@ -14291,9 +14022,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "insights"
-        ],
+        "required": ["insights"],
         "title": "StatsInsightsResponse",
         "type": "object"
       },
@@ -14310,10 +14039,7 @@
             "type": "number"
           },
           "direction": {
-            "enum": [
-              "up",
-              "down"
-            ],
+            "enum": ["up", "down"],
             "title": "Direction",
             "type": "string"
           },
@@ -14326,13 +14052,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "date",
-          "direction",
-          "reason",
-          "kcal",
-          "delta_kcal"
-        ],
+        "required": ["date", "direction", "reason", "kcal", "delta_kcal"],
         "title": "StatsOverviewAnomalyResponse",
         "type": "object"
       },
@@ -14360,10 +14080,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "date",
-          "meal_count"
-        ],
+        "required": ["date", "meal_count"],
         "title": "StatsOverviewDayResponse",
         "type": "object"
       },
@@ -14383,11 +14100,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "hour",
-          "meal_count",
-          "share"
-        ],
+        "required": ["hour", "meal_count", "share"],
         "title": "StatsOverviewHourlyBucketResponse",
         "type": "object"
       },
@@ -14407,11 +14120,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "kicker",
-          "descriptor",
-          "detail"
-        ],
+        "required": ["kicker", "descriptor", "detail"],
         "title": "StatsOverviewLeadResponse",
         "type": "object"
       },
@@ -14430,11 +14139,7 @@
             "title": "Grams"
           },
           "key": {
-            "enum": [
-              "protein",
-              "fat",
-              "carbs"
-            ],
+            "enum": ["protein", "fat", "carbs"],
             "title": "Key",
             "type": "string"
           },
@@ -14465,10 +14170,7 @@
             "title": "Target Percent"
           }
         },
-        "required": [
-          "key",
-          "label"
-        ],
+        "required": ["key", "label"],
         "title": "StatsOverviewMacroResponse",
         "type": "object"
       },
@@ -14549,11 +14251,7 @@
             "title": "Normal Kcal Low"
           },
           "period": {
-            "enum": [
-              "7d",
-              "14d",
-              "30d"
-            ],
+            "enum": ["7d", "14d", "30d"],
             "title": "Period",
             "type": "string"
           },
@@ -14688,11 +14386,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "rank",
-          "name",
-          "count"
-        ],
+        "required": ["rank", "name", "count"],
         "title": "StatsOverviewTopProductResponse",
         "type": "object"
       },
@@ -14700,12 +14394,7 @@
         "description": "Robust retrospective estimate for one therapy parameter.",
         "properties": {
           "confidence": {
-            "enum": [
-              "none",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["none", "low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -14747,10 +14436,7 @@
             "title": "Value"
           }
         },
-        "required": [
-          "sample_count",
-          "confidence"
-        ],
+        "required": ["sample_count", "confidence"],
         "title": "TherapyAnalysisMetricResponse",
         "type": "object"
       },
@@ -14808,11 +14494,7 @@
           },
           "isf_identifiability": {
             "default": "not_identified",
-            "enum": [
-              "identified",
-              "thin",
-              "not_identified"
-            ],
+            "enum": ["identified", "thin", "not_identified"],
             "title": "Isf Identifiability",
             "type": "string"
           },
@@ -14829,10 +14511,7 @@
             "type": "object"
           },
           "isf_source": {
-            "enum": [
-              "correction_episodes",
-              "configured_fallback"
-            ],
+            "enum": ["correction_episodes", "configured_fallback"],
             "title": "Isf Source",
             "type": "string"
           },
@@ -14854,11 +14533,7 @@
             "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
           },
           "period_days": {
-            "enum": [
-              30,
-              90,
-              180
-            ],
+            "enum": [30, 90, 180],
             "title": "Period Days",
             "type": "integer"
           },
@@ -15003,11 +14678,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "window_count",
-          "projected_daily_basal_units",
-          "slots"
-        ],
+        "required": ["window_count", "projected_daily_basal_units", "slots"],
         "title": "TherapyBasalCompressionResponse",
         "type": "object"
       },
@@ -15166,12 +14837,7 @@
             "$ref": "#/components/schemas/TherapyAnalysisMetricResponse"
           },
           "signal": {
-            "enum": [
-              "insufficient",
-              "stable",
-              "rising",
-              "falling"
-            ],
+            "enum": ["insufficient", "stable", "rising", "falling"],
             "title": "Signal",
             "type": "string"
           },
@@ -15209,10 +14875,7 @@
             "type": "integer"
           },
           "direction": {
-            "enum": [
-              "high",
-              "low"
-            ],
+            "enum": ["high", "low"],
             "title": "Direction",
             "type": "string"
           },
@@ -15320,10 +14983,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "code",
-          "text"
-        ],
+        "required": ["code", "text"],
         "title": "TherapyEvidenceResponse",
         "type": "object"
       },
@@ -15420,11 +15080,7 @@
           },
           "body_context": {
             "items": {
-              "enum": [
-                "after_sleep",
-                "during_sleep",
-                "near_activity"
-              ],
+              "enum": ["after_sleep", "during_sleep", "near_activity"],
               "type": "string"
             },
             "title": "Body Context",
@@ -15458,11 +15114,7 @@
             "type": "string"
           },
           "confidence": {
-            "enum": [
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["low", "medium", "high"],
             "title": "Confidence",
             "type": "string"
           },
@@ -15570,13 +15222,7 @@
           },
           "outcome_quality": {
             "default": "unknown",
-            "enum": [
-              "in_range",
-              "spike",
-              "low",
-              "spike_and_low",
-              "unknown"
-            ],
+            "enum": ["in_range", "spike", "low", "spike_and_low", "unknown"],
             "title": "Outcome Quality",
             "type": "string"
           },
@@ -15643,10 +15289,7 @@
             "type": "integer"
           },
           "value_unit": {
-            "enum": [
-              "U",
-              "g"
-            ],
+            "enum": ["U", "g"],
             "title": "Value Unit",
             "type": "string"
           }
@@ -15689,11 +15332,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime",
-          "episodes"
-        ],
+        "required": ["from_datetime", "to_datetime", "episodes"],
         "title": "TimelineFoodResponse",
         "type": "object"
       },
@@ -15867,9 +15506,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp"
-        ],
+        "required": ["timestamp"],
         "title": "TimelineInsulinEventResponse",
         "type": "object"
       },
@@ -15901,11 +15538,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "from_datetime",
-          "to_datetime",
-          "episodes"
-        ],
+        "required": ["from_datetime", "to_datetime", "episodes"],
         "title": "TimelineResponse",
         "type": "object"
       },
@@ -16014,11 +15647,7 @@
           "isf_source": {
             "anyOf": [
               {
-                "enum": [
-                  "manual",
-                  "fitted",
-                  "default"
-                ],
+                "enum": ["manual", "fitted", "default"],
                 "type": "string"
               },
               {
@@ -16051,11 +15680,7 @@
           },
           "projection_source": {
             "default": "none",
-            "enum": [
-              "none",
-              "linear_trend",
-              "forecast"
-            ],
+            "enum": ["none", "linear_trend", "forecast"],
             "title": "Projection Source",
             "type": "string"
           },
@@ -16093,9 +15718,7 @@
             "title": "Units"
           }
         },
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "TopUpDoseResponse",
         "type": "object"
       },
@@ -16108,10 +15731,7 @@
           },
           "source": {
             "default": "fingerstick",
-            "enum": [
-              "fingerstick",
-              "cgm"
-            ],
+            "enum": ["fingerstick", "cgm"],
             "title": "Source",
             "type": "string"
           },
@@ -16121,10 +15741,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "mmol"
-        ],
+        "required": ["timestamp", "mmol"],
         "title": "TwinCurveAnchor",
         "type": "object"
       },
@@ -16189,11 +15806,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "title",
-          "carbs_g"
-        ],
+        "required": ["timestamp", "title", "carbs_g"],
         "title": "TwinCurveFoodEvent",
         "type": "object"
       },
@@ -16243,10 +15856,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "timestamp",
-          "insulin_units"
-        ],
+        "required": ["timestamp", "insulin_units"],
         "title": "TwinCurveInsulinEvent",
         "type": "object"
       },
@@ -16270,11 +15880,7 @@
             "type": "number"
           },
           "mode": {
-            "enum": [
-              "interpolation",
-              "forecast",
-              "boundary"
-            ],
+            "enum": ["interpolation", "forecast", "boundary"],
             "title": "Mode",
             "type": "string"
           },
@@ -16565,12 +16171,7 @@
             "title": "Train Window Count"
           }
         },
-        "required": [
-          "id",
-          "fit_at",
-          "params_snapshot",
-          "method"
-        ],
+        "required": ["id", "fit_at", "params_snapshot", "method"],
         "title": "TwinFitLogEntry",
         "type": "object"
       },
@@ -16636,11 +16237,7 @@
             "$ref": "#/components/schemas/TwinFitResultRead"
           }
         },
-        "required": [
-          "applied",
-          "params",
-          "result"
-        ],
+        "required": ["applied", "params", "result"],
         "title": "TwinFitResponse",
         "type": "object"
       },
@@ -16684,10 +16281,7 @@
             "type": "integer"
           },
           "method": {
-            "enum": [
-              "least_squares",
-              "fallback_to_defaults"
-            ],
+            "enum": ["least_squares", "fallback_to_defaults"],
             "title": "Method",
             "type": "string"
           },
@@ -16922,11 +16516,7 @@
             "type": "integer"
           },
           "hint": {
-            "enum": [
-              "not_fitted",
-              "ready",
-              "stale"
-            ],
+            "enum": ["not_fitted", "ready", "stale"],
             "title": "Hint",
             "type": "string"
           },
@@ -17351,10 +16941,7 @@
       },
       "UserRole": {
         "description": "Supported application roles.",
-        "enum": [
-          "gluco",
-          "food"
-        ],
+        "enum": ["gluco", "food"],
         "title": "UserRole",
         "type": "string"
       },
@@ -17390,12 +16977,80 @@
             "type": "string"
           }
         },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "description": "Service version and commit information.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "commit_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Message"
+          },
+          "commit_short": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Short"
+          },
+          "commit_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Time"
+          },
+          "service": {
+            "default": "glucotracker",
+            "title": "Service",
+            "type": "string"
+          },
+          "version": {
+            "default": "0.1.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "VersionResponse",
         "type": "object"
       }
     },
@@ -17473,9 +17128,7 @@
           }
         ],
         "summary": "Get Kcal Balance",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "x-glucotracker-scoped": true
       }
     },
@@ -17548,9 +17201,7 @@
           }
         ],
         "summary": "Get Kcal Balance Range",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "x-glucotracker-scoped": true
       }
     },
@@ -17613,9 +17264,7 @@
           }
         ],
         "summary": "Sync Activity",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "x-glucotracker-scoped": true
       }
     },
@@ -17703,9 +17352,7 @@
           }
         ],
         "summary": "Admin Recompute Postprandial",
-        "tags": [
-          "admin"
-        ],
+        "tags": ["admin"],
         "x-glucotracker-scoped": true
       }
     },
@@ -17779,9 +17426,193 @@
           }
         ],
         "summary": "Admin Recalculate Daily Totals",
-        "tags": [
-          "admin"
+        "tags": ["admin"],
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/ai/models": {
+      "get": {
+        "operationId": "getAIModels",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "history_offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 5000,
+              "minimum": 0,
+              "title": "History Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "history_limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "History Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
         ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIModelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Models",
+        "tags": ["ai-models"],
+        "x-glucotracker-scoped": true
+      },
+      "put": {
+        "operationId": "updateAIModels",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "history_offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 5000,
+              "minimum": 0,
+              "title": "History Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "history_limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "History Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIModelRoutingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIModelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Update Models",
+        "tags": ["ai-models"],
         "x-glucotracker-scoped": true
       }
     },
@@ -17822,9 +17653,7 @@
           }
         },
         "summary": "Login",
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/auth/logout": {
@@ -17862,9 +17691,7 @@
           }
         ],
         "summary": "Logout",
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/auth/me": {
@@ -17917,9 +17744,7 @@
           }
         ],
         "summary": "Me",
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/auth/refresh": {
@@ -17959,9 +17784,7 @@
           }
         },
         "summary": "Refresh",
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/autocomplete": {
@@ -18040,10 +17863,33 @@
           }
         ],
         "summary": "Autocomplete",
-        "tags": [
-          "autocomplete"
-        ],
+        "tags": ["autocomplete"],
         "x-glucotracker-scoped": true
+      }
+    },
+    "/commit": {
+      "get": {
+        "description": "Return application version and current git commit info.",
+        "operationId": "getCommit",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Version",
+        "tags": ["system"]
       }
     },
     "/dashboard/data_quality": {
@@ -18108,9 +17954,7 @@
           }
         ],
         "summary": "Dashboard Data Quality",
-        "tags": [
-          "dashboard"
-        ],
+        "tags": ["dashboard"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18176,9 +18020,7 @@
           }
         ],
         "summary": "Dashboard Heatmap",
-        "tags": [
-          "dashboard"
-        ],
+        "tags": ["dashboard"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18252,9 +18094,7 @@
           }
         ],
         "summary": "Dashboard Range",
-        "tags": [
-          "dashboard"
-        ],
+        "tags": ["dashboard"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18320,9 +18160,7 @@
           }
         ],
         "summary": "Dashboard Source Breakdown",
-        "tags": [
-          "dashboard"
-        ],
+        "tags": ["dashboard"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18384,13 +18222,8 @@
           }
         ],
         "summary": "Dashboard Today",
-        "tags": [
-          "dashboard"
-        ],
-        "x-glucotracker-food-omits": [
-          "glucose",
-          "nightscout"
-        ],
+        "tags": ["dashboard"],
+        "x-glucotracker-food-omits": ["glucose", "nightscout"],
         "x-glucotracker-role-variant": true,
         "x-glucotracker-scoped": true
       }
@@ -18473,9 +18306,7 @@
           }
         ],
         "summary": "Dashboard Top Patterns",
-        "tags": [
-          "dashboard"
-        ],
+        "tags": ["dashboard"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18616,9 +18447,7 @@
           }
         ],
         "summary": "List Database Items",
-        "tags": [
-          "database"
-        ],
+        "tags": ["database"],
         "x-glucotracker-scoped": true
       }
     },
@@ -18710,9 +18539,7 @@
           }
         ],
         "summary": "List Fingersticks",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -18776,9 +18603,7 @@
           }
         ],
         "summary": "Create Fingerstick",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -18837,9 +18662,7 @@
           }
         ],
         "summary": "Delete Fingerstick",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -18913,9 +18736,7 @@
           }
         ],
         "summary": "Patch Fingerstick",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -18963,9 +18784,7 @@
           }
         ],
         "summary": "Get Mealprep Photo",
-        "tags": [
-          "fridge"
-        ]
+        "tags": ["fridge"]
       },
       "post": {
         "description": "Attach a photograph to a cooked batch and to every container of it.",
@@ -19036,9 +18855,7 @@
           }
         ],
         "summary": "Upload Mealprep Photo",
-        "tags": [
-          "fridge"
-        ]
+        "tags": ["fridge"]
       }
     },
     "/glucose/basal-tests": {
@@ -19107,9 +18924,7 @@
           }
         ],
         "summary": "List Basal Fasting Tests",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19173,9 +18988,7 @@
           }
         ],
         "summary": "Start Basal Fasting Test",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19251,9 +19064,7 @@
           }
         ],
         "summary": "Stop Basal Fasting Test",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19329,9 +19140,7 @@
           }
         ],
         "summary": "Get Glucose Body States",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19397,9 +19206,7 @@
           }
         ],
         "summary": "Put Activity Annotation",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19415,10 +19222,7 @@
             "name": "kind",
             "required": true,
             "schema": {
-              "enum": [
-                "sleep",
-                "activity"
-              ],
+              "enum": ["sleep", "activity"],
               "title": "Kind",
               "type": "string"
             }
@@ -19488,9 +19292,7 @@
           }
         ],
         "summary": "Get Body State Breakdown",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19527,11 +19329,7 @@
             "required": false,
             "schema": {
               "default": "raw",
-              "enum": [
-                "raw",
-                "smoothed",
-                "normalized"
-              ],
+              "enum": ["raw", "smoothed", "normalized"],
               "title": "Mode",
               "type": "string"
             }
@@ -19581,9 +19379,7 @@
           }
         ],
         "summary": "Get Glucose Dashboard",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19659,9 +19455,7 @@
           }
         ],
         "summary": "Get Glucose Episodes",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19746,9 +19540,7 @@
           }
         ],
         "summary": "Get Glucose Episode Breakdown",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19814,9 +19606,156 @@
           }
         ],
         "summary": "Get Insulin Recommendation",
-        "tags": [
-          "glucose"
+        "tags": ["glucose"],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/insulin-recommendations/history": {
+      "get": {
+        "description": "List the current owner's immutable recommendation snapshots.",
+        "operationId": "listInsulinRecommendationHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
         ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InsulinRecommendationRunSummaryResponse"
+                  },
+                  "title": "Response Listinsulinrecommendationhistory",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "List Insulin Recommendation History",
+        "tags": ["glucose"],
+        "x-glucotracker-required-feature": "glucose",
+        "x-glucotracker-required-role": "gluco",
+        "x-glucotracker-scoped": true
+      }
+    },
+    "/glucose/insulin-recommendations/history/{run_id}": {
+      "get": {
+        "description": "Read one original response, its inputs and linked actual-dose actions.",
+        "operationId": "getInsulinRecommendationHistoryItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsulinRecommendationRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get Insulin Recommendation History Item",
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19833,10 +19772,7 @@
             "required": false,
             "schema": {
               "default": "normalized",
-              "enum": [
-                "raw",
-                "normalized"
-              ],
+              "enum": ["raw", "normalized"],
               "title": "Mode",
               "type": "string"
             }
@@ -19910,9 +19846,7 @@
           }
         ],
         "summary": "Get Glucose Prediction",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -19972,9 +19906,7 @@
           }
         ],
         "summary": "List Sensor Codes",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20038,9 +19970,7 @@
           }
         ],
         "summary": "Create Sensor Code",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20116,9 +20046,7 @@
           }
         ],
         "summary": "Patch Sensor Code",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20213,9 +20141,7 @@
           }
         ],
         "summary": "Get Glucose Therapy Analysis",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20315,9 +20241,7 @@
           }
         ],
         "summary": "Get Glucose Therapy Review",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20334,11 +20258,7 @@
             "required": false,
             "schema": {
               "default": "30d",
-              "enum": [
-                "7d",
-                "14d",
-                "30d"
-              ],
+              "enum": ["7d", "14d", "30d"],
               "title": "Period",
               "type": "string"
             }
@@ -20388,9 +20308,7 @@
           }
         ],
         "summary": "Get Glucose Tir Daily",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20498,9 +20416,7 @@
           }
         ],
         "summary": "Get Top Up Dose",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -20523,9 +20439,7 @@
           }
         },
         "summary": "Health",
-        "tags": [
-          "system"
-        ]
+        "tags": ["system"]
       }
     },
     "/health-connect/heart-rate": {
@@ -20610,9 +20524,7 @@
           }
         ],
         "summary": "Get Heart Rate Series",
-        "tags": [
-          "health-connect"
-        ]
+        "tags": ["health-connect"]
       }
     },
     "/health-connect/records:sync": {
@@ -20675,9 +20587,7 @@
           }
         ],
         "summary": "Sync Health Connect Records",
-        "tags": [
-          "health-connect"
-        ]
+        "tags": ["health-connect"]
       }
     },
     "/me/goals": {
@@ -20729,9 +20639,7 @@
           }
         ],
         "summary": "Get My Goals",
-        "tags": [
-          "users"
-        ]
+        "tags": ["users"]
       },
       "put": {
         "operationId": "updateMyGoals",
@@ -20791,9 +20699,7 @@
           }
         ],
         "summary": "Update My Goals",
-        "tags": [
-          "users"
-        ]
+        "tags": ["users"]
       }
     },
     "/me/schedule": {
@@ -20846,9 +20752,7 @@
           }
         ],
         "summary": "Get My Schedule",
-        "tags": [
-          "schedule"
-        ]
+        "tags": ["schedule"]
       }
     },
     "/me/schedule/non-typical-periods": {
@@ -20911,9 +20815,7 @@
           }
         ],
         "summary": "Create My Non Typical Period",
-        "tags": [
-          "schedule"
-        ]
+        "tags": ["schedule"]
       }
     },
     "/me/schedule/non-typical-periods/{period_id}": {
@@ -20976,9 +20878,7 @@
           }
         ],
         "summary": "Delete My Non Typical Period",
-        "tags": [
-          "schedule"
-        ]
+        "tags": ["schedule"]
       }
     },
     "/me/schedule/override": {
@@ -21031,9 +20931,7 @@
           }
         ],
         "summary": "Delete My Schedule Override",
-        "tags": [
-          "schedule"
-        ]
+        "tags": ["schedule"]
       },
       "put": {
         "description": "Set a manual day-anchor override.",
@@ -21094,9 +20992,7 @@
           }
         ],
         "summary": "Put My Schedule Override",
-        "tags": [
-          "schedule"
-        ]
+        "tags": ["schedule"]
       }
     },
     "/meal_items/{item_id}": {
@@ -21159,9 +21055,7 @@
           }
         ],
         "summary": "Delete Meal Item",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       },
       "patch": {
@@ -21233,9 +21127,7 @@
           }
         ],
         "summary": "Patch Meal Item",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -21309,9 +21201,7 @@
           }
         ],
         "summary": "Create Meal From Item Weight",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -21385,9 +21275,7 @@
           }
         ],
         "summary": "Remember Product From Meal Item",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -21492,10 +21380,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "sweet",
-                    "breakfast"
-                  ],
+                  "enum": ["sweet", "breakfast"],
                   "type": "string"
                 },
                 {
@@ -21606,9 +21491,7 @@
           }
         ],
         "summary": "List Meals",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       },
       "post": {
@@ -21670,9 +21553,7 @@
           }
         ],
         "summary": "Create Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -21736,9 +21617,7 @@
           }
         ],
         "summary": "Create Meal From Photo",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -21802,9 +21681,7 @@
           }
         ],
         "summary": "Delete Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       },
       "get": {
@@ -21866,9 +21743,7 @@
           }
         ],
         "summary": "Get Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       },
       "patch": {
@@ -21940,9 +21815,7 @@
           }
         ],
         "summary": "Patch Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22016,9 +21889,7 @@
           }
         ],
         "summary": "Accept Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22086,9 +21957,7 @@
           }
         ],
         "summary": "List Meal Ai Runs",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22172,9 +22041,7 @@
           }
         ],
         "summary": "Apply Estimation Run",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22238,9 +22105,7 @@
           }
         ],
         "summary": "Discard Meal",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22314,9 +22179,7 @@
           }
         ],
         "summary": "Estimate Meal Photos",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22390,9 +22253,7 @@
           }
         ],
         "summary": "Estimate And Save Meal Draft",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22466,9 +22327,7 @@
           }
         ],
         "summary": "Add Meal Item",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       },
       "put": {
@@ -22544,9 +22403,7 @@
           }
         ],
         "summary": "Replace Meal Items",
-        "tags": [
-          "meals"
-        ],
+        "tags": ["meals"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22620,9 +22477,7 @@
           }
         ],
         "summary": "Upload Meal Photo",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22696,9 +22551,7 @@
           }
         ],
         "summary": "Reestimate Meal Photos",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -22762,9 +22615,7 @@
           }
         ],
         "summary": "Sync Meal To Nightscout",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -22830,9 +22681,7 @@
           }
         ],
         "summary": "Unsync Meal From Nightscout",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -22898,9 +22747,7 @@
           }
         ],
         "summary": "Submit Mobile Photo Estimate Logs",
-        "tags": [
-          "mobile"
-        ]
+        "tags": ["mobile"]
       }
     },
     "/nightscout/day_status": {
@@ -22963,9 +22810,7 @@
           }
         ],
         "summary": "Get Nightscout Day Status",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23041,9 +22886,7 @@
           }
         ],
         "summary": "Get Nightscout Events",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23123,9 +22966,7 @@
           }
         ],
         "summary": "Get Nightscout Glucose",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23191,9 +23032,7 @@
           }
         ],
         "summary": "Import Nightscout Context",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23273,9 +23112,7 @@
           }
         ],
         "summary": "Get Nightscout Insulin",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23339,9 +23176,7 @@
           }
         ],
         "summary": "Create Nightscout Insulin",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23407,9 +23242,7 @@
           }
         ],
         "summary": "Delete Nightscout Insulin",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23483,9 +23316,7 @@
           }
         ],
         "summary": "Update Nightscout Insulin",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23541,9 +23372,7 @@
           }
         ],
         "summary": "Get Nightscout Latest Reading",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23599,9 +23428,7 @@
           }
         ],
         "summary": "Get Nightscout Status",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23667,9 +23494,7 @@
           }
         ],
         "summary": "Sync Today To Nightscout",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -23729,9 +23554,7 @@
           }
         ],
         "summary": "List Nutrient Definitions",
-        "tags": [
-          "nutrients"
-        ]
+        "tags": ["nutrients"]
       }
     },
     "/patterns": {
@@ -23807,9 +23630,7 @@
           }
         ],
         "summary": "List Patterns",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       },
       "post": {
@@ -23871,9 +23692,7 @@
           }
         ],
         "summary": "Create Pattern",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       }
     },
@@ -23952,9 +23771,7 @@
           }
         ],
         "summary": "Search Patterns",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24018,9 +23835,7 @@
           }
         ],
         "summary": "Delete Pattern",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       },
       "get": {
@@ -24082,9 +23897,7 @@
           }
         ],
         "summary": "Get Pattern",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       },
       "patch": {
@@ -24156,9 +23969,7 @@
           }
         ],
         "summary": "Patch Pattern",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24232,9 +24043,7 @@
           }
         ],
         "summary": "Upload Pattern Image",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24296,9 +24105,7 @@
           }
         ],
         "summary": "Get Pattern Image File",
-        "tags": [
-          "patterns"
-        ],
+        "tags": ["patterns"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24362,9 +24169,7 @@
           }
         ],
         "summary": "Delete Photo",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24426,9 +24231,7 @@
           }
         ],
         "summary": "Get Photo File",
-        "tags": [
-          "photos"
-        ],
+        "tags": ["photos"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24521,9 +24324,7 @@
           }
         ],
         "summary": "List Products",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       },
       "post": {
@@ -24585,9 +24386,7 @@
           }
         ],
         "summary": "Create Product",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24651,9 +24450,7 @@
           }
         ],
         "summary": "Create Or Update Product From Label",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24732,9 +24529,7 @@
           }
         ],
         "summary": "Search Products",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -24798,9 +24593,7 @@
           }
         ],
         "summary": "Delete Product",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       },
       "get": {
@@ -24862,9 +24655,7 @@
           }
         ],
         "summary": "Get Product",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       },
       "patch": {
@@ -24936,9 +24727,7 @@
           }
         ],
         "summary": "Patch Product",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -25012,9 +24801,7 @@
           }
         ],
         "summary": "Upload Product Image",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -25060,9 +24847,7 @@
           }
         ],
         "summary": "Get Product Image File",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -25129,9 +24914,7 @@
           }
         ],
         "summary": "Set Product Serving Unit",
-        "tags": [
-          "products"
-        ],
+        "tags": ["products"],
         "x-glucotracker-scoped": true
       }
     },
@@ -25184,9 +24967,7 @@
           }
         ],
         "summary": "Get Profile",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "x-glucotracker-scoped": true
       },
       "put": {
@@ -25247,9 +25028,7 @@
           }
         ],
         "summary": "Update Profile",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "x-glucotracker-scoped": true
       }
     },
@@ -25286,10 +25065,7 @@
             "schema": {
               "default": "raw",
               "description": "Glucose series used for report metrics.",
-              "enum": [
-                "raw",
-                "normalized"
-              ],
+              "enum": ["raw", "normalized"],
               "title": "Glucose Mode",
               "type": "string"
             }
@@ -25339,9 +25115,7 @@
           }
         ],
         "summary": "Get Endocrinologist Report",
-        "tags": [
-          "reports"
-        ],
+        "tags": ["reports"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25401,9 +25175,7 @@
           }
         ],
         "summary": "List Sensors",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25467,9 +25239,7 @@
           }
         ],
         "summary": "Create Sensor",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25545,9 +25315,7 @@
           }
         ],
         "summary": "Patch Sensor",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25613,9 +25381,7 @@
           }
         ],
         "summary": "Get Sensor Quality",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25681,9 +25447,7 @@
           }
         ],
         "summary": "Recalculate Sensor Calibration",
-        "tags": [
-          "glucose"
-        ],
+        "tags": ["glucose"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25739,9 +25503,7 @@
           }
         ],
         "summary": "Get Nightscout Settings",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25805,9 +25567,7 @@
           }
         ],
         "summary": "Update Nightscout Settings",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25863,9 +25623,7 @@
           }
         ],
         "summary": "Test Nightscout Connection",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "nightscout",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -25882,11 +25640,7 @@
             "required": false,
             "schema": {
               "default": "14d",
-              "enum": [
-                "7d",
-                "14d",
-                "30d"
-              ],
+              "enum": ["7d", "14d", "30d"],
               "title": "Period",
               "type": "string"
             }
@@ -25897,10 +25651,7 @@
             "required": false,
             "schema": {
               "default": "stats",
-              "enum": [
-                "today",
-                "stats"
-              ],
+              "enum": ["today", "stats"],
               "title": "Slot",
               "type": "string"
             }
@@ -25950,9 +25701,7 @@
           }
         ],
         "summary": "Stats Insights",
-        "tags": [
-          "stats"
-        ]
+        "tags": ["stats"]
       }
     },
     "/stats/overview": {
@@ -25966,11 +25715,7 @@
             "required": false,
             "schema": {
               "default": "30d",
-              "enum": [
-                "7d",
-                "14d",
-                "30d"
-              ],
+              "enum": ["7d", "14d", "30d"],
               "title": "Period",
               "type": "string"
             }
@@ -26020,9 +25765,7 @@
           }
         ],
         "summary": "Stats Overview",
-        "tags": [
-          "stats"
-        ]
+        "tags": ["stats"]
       }
     },
     "/timeline": {
@@ -26103,13 +25846,8 @@
           }
         ],
         "summary": "Get Timeline",
-        "tags": [
-          "nightscout"
-        ],
-        "x-glucotracker-food-omits": [
-          "glucose",
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
+        "x-glucotracker-food-omits": ["glucose", "nightscout"],
         "x-glucotracker-role-variant": true,
         "x-glucotracker-scoped": true
       }
@@ -26174,9 +25912,7 @@
           }
         ],
         "summary": "Get Timeline Insulin Links",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26240,9 +25976,7 @@
           }
         ],
         "summary": "Put Timeline Insulin Links",
-        "tags": [
-          "nightscout"
-        ],
+        "tags": ["nightscout"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26330,9 +26064,7 @@
           }
         ],
         "summary": "Get Twin Curve",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26408,9 +26140,7 @@
           }
         ],
         "summary": "Get Twin Data Summary",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26476,9 +26206,7 @@
           }
         ],
         "summary": "Fit Twin",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26550,9 +26278,7 @@
           }
         ],
         "summary": "Get Twin Fit History",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26608,9 +26334,7 @@
           }
         ],
         "summary": "Get Twin Params",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26674,9 +26398,7 @@
           }
         ],
         "summary": "Patch Twin Params",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
@@ -26732,12 +26454,35 @@
           }
         ],
         "summary": "Reset Twin Params",
-        "tags": [
-          "twin"
-        ],
+        "tags": ["twin"],
         "x-glucotracker-required-feature": "glucose",
         "x-glucotracker-required-role": "gluco",
         "x-glucotracker-scoped": true
+      }
+    },
+    "/version": {
+      "get": {
+        "description": "Return application version and current git commit info.",
+        "operationId": "getVersion",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Version",
+        "tags": ["system"]
       }
     }
   }

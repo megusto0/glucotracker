@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -61,6 +62,8 @@ class RoutingGeminiClient(GeminiClient):
         self.key_calls: list[str] = []
         # Isolate unit tests from host SuperGrok session / Grok fallback.
         self.settings.grok_photo_fallback_enabled = False
+        # ...and from the OpenAI Codex (Hermes OAuth) fallback.
+        self.settings.openai_photo_fallback_enabled = False
 
     def _sleep(self, seconds: float) -> None:
         """Avoid slowing retry tests."""
@@ -97,6 +100,31 @@ class RoutingGeminiClient(GeminiClient):
 def _photo_inputs() -> list[PhotoInput]:
     """Return a placeholder photo input for routing tests."""
     return [PhotoInput(path=Path("photo.jpg"), content_type="image/jpeg")]
+
+
+def test_gemini_records_provider_response_time_without_remote_call(tmp_path):
+    photo = tmp_path / "food.jpg"
+    photo.write_bytes(b"test-image")
+    client = GeminiClient(
+        api_key="test-key",
+        model="gemini-test",
+        quota_cooldowns=GeminiQuotaCooldownStore(None),
+    )
+    with patch("google.genai.Client") as sdk_client:
+        sdk_client.return_value.models.generate_content.return_value.parsed = _result(
+            0.9
+        )
+        client._run_model_with_retries(
+            "gemini-test",
+            [PhotoInput(path=photo, content_type="image/jpeg")],
+            patterns_context=None,
+            products_context=None,
+            user_context=None,
+            fallback_used=False,
+        )
+    attempt = client.last_attempts[0]
+    assert attempt["response_latency_ms"] >= 0
+    assert attempt["latency_ms"] >= attempt["response_latency_ms"]
 
 
 def test_label_full_routes_to_main_model() -> None:
@@ -335,8 +363,7 @@ def test_429_cooldown_is_global_across_api_keys() -> None:
     assert client.calls == ["gemini-2.5-flash"]
     assert client.key_calls == ["test-key"]
     assert any(
-        attempt.get("reason") == "model_cooldown"
-        for attempt in client.last_attempts
+        attempt.get("reason") == "model_cooldown" for attempt in client.last_attempts
     )
 
 
@@ -414,3 +441,59 @@ def test_flash_lite_proxy_url_is_passed_to_sdk(
         }
     finally:
         get_settings.cache_clear()
+
+
+def test_personal_order_changes_real_calls_and_records_attempt_times():
+    client = RoutingGeminiClient(
+        {
+            "gemini-second": GeminiRequestError("timed out", category="overload"),
+            "gemini-first": _result(0.9),
+        }
+    )
+    client.routing_models = [
+        {"provider": "gemini", "model": "gemini-second", "enabled": True},
+        {"provider": "gemini", "model": "gemini-first", "enabled": True},
+    ]
+    client.estimate_photos(_photo_inputs())
+    assert client.calls == ["gemini-second", "gemini-second", "gemini-first"]
+    assert client.last_used_model == "gemini-first"
+    assert client.last_routing_reason == "personal_model_priority"
+    assert all(a["latency_ms"] >= 0 for a in client.last_attempts)
+    assert client.last_attempts[-1]["confidence"] == 0.9
+
+
+def test_personal_order_crosses_providers_without_gemini_key(monkeypatch):
+    client = RoutingGeminiClient({})
+    client.api_key = None
+    client.routing_models = [
+        {"provider": "grok", "model": "custom-grok", "enabled": True},
+        {"provider": "gemini", "model": "unused", "enabled": True},
+    ]
+    called = []
+
+    def grok(photos, **kwargs):
+        called.append(kwargs["model_override"])
+        client.last_used_model = kwargs["model_override"]
+        client.last_attempts.append(
+            {"model": "custom-grok", "provider": "grok", "status": "success"}
+        )
+        return _result(0.95)
+
+    monkeypatch.setattr(client, "_try_grok_fallback", grok)
+    client.estimate_photos(_photo_inputs())
+    assert called == ["custom-grok"]
+    assert client.last_provider == "grok"
+    assert client.last_fallback_used is False
+
+
+def test_personal_order_skips_disabled_and_cooling_models():
+    client = RoutingGeminiClient({"gemini-ready": _result(0.9)})
+    client.routing_models = [
+        {"provider": "gemini", "model": "gemini-disabled", "enabled": False},
+        {"provider": "gemini", "model": "gemini-cooling", "enabled": True},
+        {"provider": "gemini", "model": "gemini-ready", "enabled": True},
+    ]
+    client.quota_cooldowns.block("gemini-cooling")
+    client.estimate_photos(_photo_inputs())
+    assert client.calls == ["gemini-ready"]
+    assert client.last_attempts[0]["status"] == "skipped"

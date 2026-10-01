@@ -20,6 +20,8 @@ def _load_openapi_spec() -> dict:
 
 
 ISOLATION_TEST_ENDPOINTS: set[str] = {
+    "GET /ai/models",
+    "PUT /ai/models",
     "GET /meals",
     "GET /meals/{meal_id}",
     "POST /meals",
@@ -70,6 +72,8 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "PUT /glucose/body-states/activity-label",
     "GET /glucose/top-up-dose",
     "POST /glucose/insulin-recommendation",
+    "GET /glucose/insulin-recommendations/history",
+    "GET /glucose/insulin-recommendations/history/{run_id}",
     "POST /fingersticks",
     "GET /fingersticks",
     "PATCH /fingersticks/{fingerstick_id}",
@@ -128,6 +132,7 @@ ISOLATION_TEST_ENDPOINTS: set[str] = {
     "DELETE /products/{product_id}",
     "POST /products/{product_id}/image",
     "GET /products/{product_id}/image/file",
+    "PATCH /products/{product_id}/serving-unit",
 }
 
 

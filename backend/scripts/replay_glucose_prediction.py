@@ -1,10 +1,10 @@
 """Historical replay of the glucose predictor against an owner-scoped snapshot.
 
-Walks a support-bundle snapshot forward in time. At every anchor it deletes all
-CGM, insulin, meal and fingerstick rows newer than that instant, calls the live
-``GlucosePredictionService``, and scores the forecast against what actually
-happened. Nothing the predictor sees postdates the anchor, so this is a genuine
-out-of-sample measurement rather than a holdout inside one training run.
+Walks a support-bundle snapshot forward using the predictor's explicit
+``as_of`` cutoff. The SQLite connection is read-only. Future outcomes and late
+arriving records cannot be used at an earlier cutoff. Snapshots do not preserve
+all previous edits/deletions, so this is a conservative historical reconstruction,
+not a replacement for the immutable prospective audit.
 
 The predictor consumes ``TRAINING_DAYS`` (45) of history, so replay anchors only
 begin once the snapshot has that much CGM behind them: a 75-day export yields
@@ -22,7 +22,7 @@ Then replay a build::
 
     REPLAY_DB=snap.sqlite3 \\
     REPLAY_BACKEND=/path/to/backend \\
-    REPLAY_OUT=v8.json \\
+    REPLAY_OUT=v9.json \\
     python scripts/replay_glucose_prediction.py
 
 ``REPLAY_BACKEND`` chooses which checkout to import ``glucotracker`` from, so two
@@ -45,7 +45,7 @@ import statistics as st
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -183,10 +183,10 @@ def main() -> None:
     sys.path.insert(0, backend)
     shutil.copyfile(snapshot, work)
 
-    from sqlalchemy import create_engine, text  # noqa: PLC0415
+    from sqlalchemy import create_engine, event  # noqa: PLC0415
     from sqlalchemy.orm import sessionmaker  # noqa: PLC0415
 
-    from glucotracker.application.glucose_prediction import (
+    from glucotracker.application.glucose_prediction_experimental import (
         MODEL_VERSION,
         GlucosePredictionService,
     )
@@ -196,28 +196,39 @@ def main() -> None:
         raise SystemExit(f"imported {imported}, expected it under {backend}")
 
     engine = create_engine("sqlite+pysqlite:///" + work, future=True)
+
+    @event.listens_for(engine, "connect")
+    def read_only(connection, _):
+        connection.execute("PRAGMA query_only=ON")
+
     session_factory = sessionmaker(engine, expire_on_commit=False)
 
     source = sqlite3.connect(snapshot)
-    owner = UUID(
-        source.execute(
-            "select owner_id from nightscout_glucose_entries limit 1"
-        ).fetchone()[0]
-    )
+    owners = [
+        row[0]
+        for row in source.execute(
+            "select distinct owner_id from nightscout_glucose_entries"
+        )
+    ]
+    owner_text = os.environ.get("REPLAY_OWNER")
+    if owner_text is None and len(owners) != 1:
+        raise SystemExit("Set REPLAY_OWNER for a snapshot containing multiple owners")
+    owner = UUID(owner_text or owners[0])
     cgm = [
         (datetime.strptime(t, FMT), v)
         for t, v in source.execute(
             "select timestamp, value_mmol_l from nightscout_glucose_entries"
-            " order by timestamp"
+            " where owner_id=? order by timestamp",
+            (owner.hex,),
         )
     ]
     sensor_starts = sorted(
         datetime.strptime(t, FMT)
-        for (t,) in source.execute("select started_at from sensor_sessions")
+        for (t,) in source.execute(
+            "select started_at from sensor_sessions where owner_id=?", (owner.hex,)
+        )
     )
     zone = ZoneInfo(os.environ["GLUCOTRACKER_APP_TIMEZONE"])
-    offset_minutes = round(zone.utcoffset(cgm[-1][0]).total_seconds() / 60)
-    values = dict(cgm)
     times = [t for t, _ in cgm]
     anchors = [t for t in times if t >= times[0] + timedelta(days=TRAINING_DAYS)][
         ::step
@@ -230,48 +241,23 @@ def main() -> None:
             f"more than TRAINING_DAYS={TRAINING_DAYS}"
         )
 
-    def actual_at(target: datetime, tolerance_minutes: int = 8) -> float | None:
-        nearest = min(times, key=lambda t: abs((t - target).total_seconds()))
-        within = abs((nearest - target).total_seconds()) <= tolerance_minutes * 60
-        return values[nearest] if within else None
-
     def sensor_age_hours(at: datetime) -> float | None:
         prior = [start for start in sensor_starts if start <= at]
         return (at - prior[-1]).total_seconds() / 3600 if prior else None
 
     results: dict[int, list[dict[str, float]]] = defaultdict(list)
-    failures = empty = 0
+    failures = empty = intervened = 0
     started = time.time()
     for index, anchor in enumerate(anchors):
-        cut = anchor.strftime(FMT)
-        meal_cut = (anchor + timedelta(minutes=offset_minutes)).strftime(FMT)
         response = None
-        # Hide the future inside one transaction and roll it back afterwards.
-        # The predict path is read-only, so the same session can see the
-        # uncommitted deletes without ever writing them. Restoring by file copy
-        # instead would move ~240 MB per anchor and dominate the runtime.
         try:
             with session_factory() as session:
-                for table, column in (
-                    ("nightscout_glucose_entries", "timestamp"),
-                    ("nightscout_insulin_events", "timestamp"),
-                    ("fingerstick_readings", "measured_at"),
-                ):
-                    session.execute(
-                        text(f"delete from {table} where {column} > :cut"),
-                        {"cut": cut},
-                    )
-                # meals.eaten_at is local wall clock, not a UTC instant.
-                session.execute(
-                    text("delete from meals where eaten_at > :cut"), {"cut": meal_cut}
+                response = GlucosePredictionService(session, owner).predict(
+                    mode="normalized",
+                    horizon_minutes=90,
+                    step_minutes=5,
+                    as_of=anchor.replace(tzinfo=UTC),
                 )
-                session.flush()
-                try:
-                    response = GlucosePredictionService(session, owner).predict(
-                        mode="normalized", horizon_minutes=90, step_minutes=5
-                    )
-                finally:
-                    session.rollback()
         except Exception as error:  # noqa: BLE001 - report and keep replaying
             failures += 1
             if failures <= 3:
@@ -283,24 +269,42 @@ def main() -> None:
                 print("  (no forecast)", response.notes[-1][:80])
             continue
 
-        # Score in the model's own space. The anchor bias converts a raw outcome
-        # into it, and the bias is flat across a 90 minute horizon.
-        bias = response.anchor_value - response.raw_anchor_value
-        age = sensor_age_hours(anchor)
-        for point in response.points:
-            truth = actual_at(anchor + timedelta(minutes=point.horizon_minutes))
-            if truth is None:
-                continue
-            results[point.horizon_minutes].append(
-                {
-                    "pred": point.display_value,
-                    "truth": truth + bias,
-                    "anchor": response.anchor_value,
-                    "lo": point.ci_low,
-                    "hi": point.ci_high,
-                    "age_h": age,
-                }
+        from bisect import bisect_right
+
+        from glucotracker.infra.db.repositories.glucose_prediction_audit import (
+            GlucosePredictionAuditRepository,
+        )
+
+        effective_anchor = response.anchor_timestamp.replace(tzinfo=zone).astimezone(
+            UTC
+        )
+        with session_factory() as session:
+            repository = GlucosePredictionAuditRepository(session, owner)
+            events = repository.intervention_times(
+                since=effective_anchor,
+                before=effective_anchor + timedelta(minutes=90),
+                known_at=datetime.now(UTC),
             )
+            for point in response.points:
+                target = point.timestamp.replace(tzinfo=zone).astimezone(UTC)
+                if bisect_right(events, target) > 0:
+                    intervened += 1
+                    continue
+                actual = repository.closest_actual(
+                    target, tolerance=timedelta(minutes=8)
+                )
+                if actual is None:
+                    continue
+                results[point.horizon_minutes].append(
+                    {
+                        "pred": point.raw_value,
+                        "truth": float(actual.value_mmol_l),
+                        "anchor": response.raw_anchor_value,
+                        "lo": point.raw_ci_low,
+                        "hi": point.raw_ci_high,
+                        "age_h": sensor_age_hours(response.anchor_timestamp),
+                    }
+                )
         if (index + 1) % 20 == 0:
             rate = (time.time() - started) / (index + 1)
             remaining = rate * (len(anchors) - index - 1) / 60
@@ -314,6 +318,7 @@ def main() -> None:
     report: dict[str, object] = {
         "version": MODEL_VERSION,
         "backend": backend,
+        "intervened_points_excluded": intervened,
         "by_horizon": {},
         "by_sensor_age": {},
     }

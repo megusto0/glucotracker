@@ -93,7 +93,10 @@ data class CorrectionPart(
     val excessIobUnits: Double?,
     val projectionIsForecast: Boolean,
     val isLowOrFalling: Boolean,
-)
+) {
+    val isProjectedLow: Boolean
+        get() = projectedGlucoseMmolL?.let { it < 3.9 } == true
+}
 
 /** Everything the meal half was derived from, so the sheet can show it. */
 data class MealBasis(
@@ -120,6 +123,7 @@ sealed interface HistoricalInsulinUiState {
      * on board the two differ by several units, in either direction.
      */
     data class Ready(
+        val recommendationRunId: String?,
         val headlineUnits: Double,
         val mealUnits: Double,
         val rangeLowUnits: Double,
@@ -185,11 +189,14 @@ class HistoricalInsulinViewModel @Inject constructor(
 
     fun enqueueActual(units: Double, onQueued: () -> Unit) {
         viewModelScope.launch {
+            val recommendationRunId =
+                (_state.value as? HistoricalInsulinUiState.Ready)?.recommendationRunId
             outboxRepository.enqueue(
                 CreateNightscoutInsulinOutboxKind(
                     recordedAt = Clock.System.now(),
                     insulinUnits = units,
                     idempotencyKey = UUID.randomUUID().toString(),
+                    recommendationRunId = recommendationRunId,
                 ),
             )
             onQueued()
@@ -223,6 +230,7 @@ internal fun InsulinRecommendationResponse.toUiState(): HistoricalInsulinUiState
                 // not be presented as if it accounted for glucose and IOB.
                 val headline = if (correction != null && total != null) total else meal
                 HistoricalInsulinUiState.Ready(
+                    recommendationRunId = calculationId?.toString(),
                     headlineUnits = headline,
                     mealUnits = meal,
                     rangeLowUnits = low,
@@ -532,6 +540,13 @@ private fun HistoricalEstimateBlock(
                         color = GT.colors.warn,
                         style = GT.type.sansLabel,
                     )
+                } else if (state.correction?.isProjectedLow == true) {
+                    Text(
+                        text = stringResource(R.string.insulin_history_projected_low_reduced),
+                        modifier = Modifier.padding(top = 4.dp),
+                        color = GT.colors.warn,
+                        style = GT.type.sansLabel,
+                    )
                 }
                 IcrLine(state.basis)
                 Text(
@@ -771,6 +786,8 @@ private fun reasoningLines(state: HistoricalInsulinUiState.Ready): List<String> 
         }
         if (correction.isLowOrFalling) {
             lines += stringResource(R.string.insulin_history_why_low_cap)
+        } else if (correction.isProjectedLow) {
+            lines += stringResource(R.string.insulin_history_why_projected_low)
         }
         if (correction.isfIsDefault) {
             lines += stringResource(R.string.insulin_history_why_isf_default)

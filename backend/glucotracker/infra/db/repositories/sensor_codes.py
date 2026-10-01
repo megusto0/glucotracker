@@ -122,16 +122,7 @@ class SensorCodeRepository:
         reading_at: datetime,
     ) -> SensorSession | None:
         """Auto-start a sensor at the first point of the current CGM stream."""
-        active = self.session.scalar(
-            select(SensorSession)
-            .where(
-                SensorSession.owner_id == self.user_id,
-                SensorSession.ended_at.is_(None),
-            )
-            .order_by(SensorSession.started_at.desc())
-            .limit(1)
-        )
-        if active is not None:
+        if self._active_sensor() is not None:
             return None
 
         stream_started_at = self._current_stream_start(reading_at)
@@ -151,6 +142,17 @@ class SensorCodeRepository:
             # Wait for an actual CGM stream boundary before starting another.
             return None
 
+        return self.start_sensor_at(stream_started_at)
+
+    def start_sensor_at(self, started_at: datetime) -> SensorSession | None:
+        """Start an auto sensor session at an explicit stream point.
+
+        Used by the rollover path, which already knows the exact boundary and
+        must start even when the new stream continues without a hard gap.
+        """
+        if self._active_sensor() is not None:
+            return None
+
         code = self.session.scalar(
             select(SensorCode)
             .where(
@@ -165,7 +167,7 @@ class SensorCodeRepository:
             owner_id=self.user_id,
             source="auto_cgm",
             label=label,
-            started_at=stream_started_at,
+            started_at=started_at,
             expected_life_days=15,
             notes="Автоматически начат по первой точке нового потока CGM.",
         )
@@ -176,6 +178,18 @@ class SensorCodeRepository:
             code.updated_at = utc_now()
         self.session.flush()
         return sensor
+
+    def _active_sensor(self) -> SensorSession | None:
+        """Return this user's open sensor session, if any."""
+        return self.session.scalar(
+            select(SensorSession)
+            .where(
+                SensorSession.owner_id == self.user_id,
+                SensorSession.ended_at.is_(None),
+            )
+            .order_by(SensorSession.started_at.desc())
+            .limit(1)
+        )
 
     def latest_glucose_timestamp(self) -> datetime | None:
         """Return this user's latest cached CGM instant."""

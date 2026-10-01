@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from glucotracker.application.glucose_dashboard import _local_wall_from_utc
+from glucotracker.application.glucose_dashboard import (
+    GlucoseDashboardService,
+    _local_wall_from_utc,
+)
 from glucotracker.application.glucose_normalization import (
     GlucoseNormalizationService,
 )
@@ -389,3 +393,98 @@ def test_postprandial_hypo_recovery_reads_the_calibrated_value(
         state, _ = compute_pre_meal_state(session, meal)
         assert state == PreMealState.in_range
         assert detect_hypo_recovery(meal, state) is False
+
+
+def test_reimport_timestamp_does_not_hide_immutable_cgm_at_historical_cutoff(
+    api_client,
+):
+    owner = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    event = SENSOR_START + timedelta(days=2)
+    with factory() as session:
+        row = _entries(owner, event, [6], "reimport")[0]
+        row.created_at = event + timedelta(seconds=30)
+        row.updated_at = event + timedelta(hours=1)
+        session.add(row)
+        session.commit()
+        samples = GlucoseNormalizationService(session, owner).series(
+            event - timedelta(minutes=1),
+            event + timedelta(minutes=1),
+            as_of=event + timedelta(minutes=1),
+        )
+        assert [p.raw_mmol_l for p in samples] == [6]
+
+
+def test_future_created_fingerstick_cannot_calibrate_historical_forecast(api_client):
+    owner = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    event = SENSOR_START + timedelta(hours=50)
+    cutoff = event + timedelta(minutes=5)
+    with factory() as session:
+        session.add(SensorSession(owner_id=owner, started_at=SENSOR_START))
+        rows = _entries(
+            owner, event - timedelta(minutes=10), [5] * 4, "late-fingerstick"
+        )
+        for row in rows:
+            row.created_at = row.timestamp
+        session.add_all(rows)
+        session.add(
+            FingerstickReading(
+                owner_id=owner,
+                measured_at=event,
+                glucose_mmol_l=7,
+                created_at=cutoff + timedelta(hours=1),
+            )
+        )
+        session.commit()
+        samples = GlucoseNormalizationService(session, owner).series(
+            event - timedelta(minutes=10), cutoff, as_of=cutoff
+        )
+        assert samples and all(not p.is_normalized for p in samples)
+
+
+def test_outcome_points_match_dashboard_and_reuse_closed_sensor_calibration(
+    api_client: TestClient,
+) -> None:
+    owner = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    sensor_end = SENSOR_START + timedelta(hours=80)
+    series_start = SENSOR_START + timedelta(hours=49)
+    with factory() as session:
+        session.add(
+            SensorSession(
+                owner_id=owner,
+                started_at=SENSOR_START,
+                ended_at=sensor_end,
+            )
+        )
+        session.add_all(_entries(owner, series_start, [5.0] * 253, "outcome"))
+        session.add_all(_stable_fingersticks(owner, SENSOR_START, 1.5, 4))
+        session.commit()
+
+    windows = [
+        (
+            SENSOR_START + timedelta(hours=55),
+            SENSOR_START + timedelta(hours=55, minutes=40),
+        ),
+        (
+            SENSOR_START + timedelta(hours=66),
+            SENSOR_START + timedelta(hours=66, minutes=40),
+        ),
+    ]
+    with factory() as session:
+        service = GlucoseDashboardService(session, owner)
+        expected = [
+            service.dashboard(start, end, "normalized").points for start, end in windows
+        ]
+        calibration_cache = {}
+        with patch.object(
+            service, "_calibration", wraps=service._calibration
+        ) as calibrate:
+            actual = [
+                service.normalized_points_for_outcome(start, end, calibration_cache)
+                for start, end in windows
+            ]
+        assert actual == expected
+        assert actual[0] and actual[0][0].display_value > 5.0
+        assert calibrate.call_count == 1

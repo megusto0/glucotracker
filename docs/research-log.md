@@ -8,6 +8,75 @@ Append-only record of external sources consulted while working on this repo:
 documentation, specifications, standards, vendor references, forum answers,
 papers. One entry per source, newest at the top.
 
+## 2026-09-26 — Пищевой инсулин при низком прогнозе глюкозы
+
+- Source: https://diabetesjournals.org/care/article/doi/10.2337/dci26-0122/172498/The-Management-of-Type-1-Diabetes-in-Adults-The
+  Consulted for the distinction between meal carbohydrate coverage and glucose
+  adjustment. The ADA/EASD type 1 diabetes consensus says carbohydrate intake
+  should guide prandial insulin dosing. Applied to
+  `application/insulin_recommendation.py`: a forecasted low reduces the meal
+  calculation through the existing signed correction instead of unconditionally
+  replacing the food dose with zero. It does not supply a new dose constant.
+- Source: https://diabetesjournals.org/care/article/49/Supplement_1/S132/163927/6-Glycemic-Goals-Hypoglycemia-and-Hyperglycemic
+  Consulted for the treatment boundary of an observed low glucose. The ADA
+  Standards of Care recommend treating glucose at or below 3.9 mmol/L with
+  fast-acting carbohydrate and reassessing. Applied to keep the current-low
+  zero gate and to distinguish its mobile warning from a low _forecast_;
+  a forecast alone is not proof that glucose is already low.
+
+## 2026-09-24 — BK Baconizer catalogue entry
+
+- Source: https://burgerkings.ru/menu/burgery/bekonajzer-47554
+  Consulted for the Russian Burger King Baconizer's reported 335 g serving,
+  50.3 g carbohydrates, 57.2 g protein, 65.7 g fat and 1021.7 kcal. Applied
+  to the shared product entry as unverified third-party data; the database
+  retains this URL and a manual source kind so the UI flags it for review.
+  The same page provides the linked Baconizer image; its JPEG is cached in the
+  local product image store and served by the product image endpoint.
+- Source: https://burgerkingi.ru/menu/bekonayzer
+  Independent third-party catalogue corroborates the same serving and macro
+  values. Used only as a cross-check, not stored as the record's source URL.
+- Source: https://www.burgerking.lt/meniu/ant-groteliu-kepti-mesainiai/bacon-king/
+  Official Lithuania Bacon King page consulted as a regional comparison. Its
+  nutrition differs, so it was rejected as the source for the Russian entry.
+
+## 2026-09-24 — Retrospective insulin recommendation review
+
+- Source: https://diabetesjournals.org/care/article/49/Supplement_1/S132/163927/6-Glycemic-Goals-Hypoglycemia-and-Hyperglycemic
+  Consulted to interpret CGM outcomes after past meal boluses. The 3.9–10.0
+  mmol/L range and time below 3.9 mmol/L are population-level review metrics,
+  not proof that a single meal dose was correct or a mandate to change dosing.
+- Source: https://diabetesjournals.org/care/article/49/Supplement_1/S183/163934/9-Pharmacologic-Approaches-to-Glycemic-Treatment
+  Consulted for the role of bolus timing and CGM trends in interpreting
+  post-meal excursions. No clinical dose constant or formula was changed;
+  request-path work only removes repeated computation with equal outputs.
+
+## 2026-09-22 — Prospective glucose forecast review and v9 implementation
+
+- Source: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
+  Consulted for chronological evaluation and a gap between training and test
+  samples. Applied to the proposed validation design in the private, untracked
+  `exports/glucose_prediction_review_2026-09-22.md` outside the repository.
+  Takeaway: chronological anchor splits alone do not exclude overlapping future
+  labels; the application's forecast horizon and CGM matching tolerance must
+  determine a time-based purge. Subsequently applied in
+  `application/glucose_prediction_experimental.py::_purge_overlapping_targets`, chronological
+  audit calibration, repository outcome cutoffs and the read-only replay harness.
+  No scikit-learn runtime dependency was introduced.
+- Source: https://proceedings.mlr.press/v230/hallberg-szabadvary24a.html
+  Consulted for adaptive interval calibration with delayed multi-step outcomes.
+  Applied as a research candidate in the same private review, not as a deployed
+  algorithm or a claim of clinical coverage. Takeaway: each horizon needs to
+  respect when its outcome becomes available; aggregate historical coverage
+  alone does not establish coverage across changing regimes.
+  The implementation retains quantile/conformal intervals; adopting the paper's
+  adaptive algorithm remains deferred. This change adds availability guards and
+  later-day acceptance for central-forecast corrections instead.
+- Source: https://proceedings.mlr.press/v162/zaffran22a.html
+  Considered for adaptive conformal prediction on dependent time series.
+  Deferred in the same review in favor of the more directly relevant
+  multi-step/delayed-outcome formulation above. No code or constants changed.
+
 ## Why this exists
 
 Glucotracker encodes clinical and pharmacokinetic assumptions — IOB and COB
@@ -261,6 +330,44 @@ Multiple sources for one question get one entry each, sharing the same
 - **Takeaway:** модель поддерживает прямую термопечать, DataMatrix, носители до
   80 мм и имеет SDK производителя.
 - **Verdict:** applied — USB + Bluetooth версия XP-365B рекомендована для MVP.
+
+### 2026-09-25 — Завтрак «Вкусно — и точка»
+
+- **URLs:** https://vkusnoitochka.ru/menu/klassicheskiy-zavtrak/syrniki_1,
+  https://tastyandpoint.com/data/vkusno-menu.json,
+  https://tastyandpoint.com/categories/zavtrak/,
+  https://vkusnotochkamenu.ru/zavtrak/omlet-s-syrom-48502,
+  https://vkusnotochkamenu.ru/zavtrak/omlet-s-vetchinoj-48503,
+  https://vkusnotochkamenu.ru/zavtrak/yaichnitsa-s-bekonom-48500,
+  https://vkusnotochkamenu.ru/zavtrak/maffin-s-yajtsom-i-syrom-48486,
+  https://vkusnotochkamenu.ru/zavtrak/maffin-s-yajtsom-i-bekonom-48487.
+- **Consulted for:** ассортимент завтрака, порции, БЖУ и фотографии отдельных
+  позиций; официальный сайт использован для сверки названий вариантов.
+- **Used in:** `backend/catalog_seeds/vit_breakfast.json`; исходные снимки
+  сохранены в `runtime/catalog_seeds/vit_breakfast_images/`, рабочие копии —
+  в `runtime/pattern_images/`.
+- **Takeaway:** у комбо состав и пищевая ценность зависят от выбранных
+  компонентов, поэтому в базу внесены только продукты с отдельной порцией.
+  Источники БЖУ и снимков — сторонние каталоги, а не подтверждённая таблица
+  производителя; 35 записей оставлены с `is_verified=false`.
+- **Verdict:** applied — картинки скачаны и хранятся локально, а не зависят
+  от доступности сторонних сайтов во время поиска.
+
+### 2026-10-01 — Hermes Codex token renewal and service synchronization
+
+- **Source:** https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions#refreshing-tokens
+- **Consulted for:** access-token renewal, rotating refresh tokens and concurrent
+  consumers of one OAuth session.
+- **Landed in:** `deploy/ubuntu/bin/glucotracker-hermes-auth-sync.py`, the matching
+  systemd service/timer and deployment README.
+- **Takeaway:** renew near expiry, persist the replacement credentials and
+  serialize renewal for the same session. The installed Hermes resolver already
+  locks and updates its canonical store, so Glucotracker calls that resolver as
+  the Hermes owner and atomically publishes only the access token. The backend
+  does not independently rotate a copied refresh token. Official Sign in with
+  ChatGPT flow lifetimes are not assumed for the existing Hermes Codex session;
+  the sync validates the actual token expiry.
+- **Verdict:** applied.
 
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model

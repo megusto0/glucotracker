@@ -31,6 +31,7 @@ from glucotracker.application.glucose_dashboard import (
     estimate_bias_at,
 )
 from glucotracker.application.glucose_visibility import visible_glucose_filter
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.infra.db.models import NightscoutGlucoseEntry, SensorSession
 
 # Bias confidence ranked so callers can compare against a minimum requirement.
@@ -66,11 +67,14 @@ class GlucoseNormalizationService:
     def __init__(self, session: Session, user_id: UUID) -> None:
         self.session = session
         self.user_id = user_id
+        self.as_of: datetime | None = None
 
     def series(
         self,
         from_at: datetime,
         to_at: datetime,
+        *,
+        as_of: datetime | None = None,
     ) -> list[NormalizedGlucoseSample]:
         """Return calibrated samples for a UTC range, oldest first.
 
@@ -79,6 +83,15 @@ class GlucoseNormalizationService:
         and reports ``none`` confidence rather than borrowing another sensor's
         bias.
         """
+        self.as_of = _as_utc(as_of) if as_of is not None else None
+        availability = (
+            [
+                NightscoutGlucoseEntry.created_at <= self.as_of,
+                NightscoutGlucoseEntry.timestamp <= self.as_of,
+            ]
+            if self.as_of is not None
+            else []
+        )
         rows = self.session.scalars(
             select(NightscoutGlucoseEntry)
             .where(
@@ -86,6 +99,7 @@ class GlucoseNormalizationService:
                 NightscoutGlucoseEntry.timestamp >= _as_utc(from_at),
                 NightscoutGlucoseEntry.timestamp <= _as_utc(to_at),
                 visible_glucose_filter(self.user_id),
+                *availability,
             )
             .order_by(NightscoutGlucoseEntry.timestamp.asc())
         ).all()
@@ -97,9 +111,7 @@ class GlucoseNormalizationService:
 
         ordered = sorted(deduped.items())
         sensors = self._sensors_covering(ordered[0][0], ordered[-1][0])
-        calibrations = {
-            sensor.id: self._calibration_for(sensor) for sensor in sensors
-        }
+        calibrations = {sensor.id: self._calibration_for(sensor) for sensor in sensors}
         starts = [_local_wall_time(sensor.started_at) for sensor in sensors]
 
         samples: list[NormalizedGlucoseSample] = []
@@ -161,14 +173,41 @@ class GlucoseNormalizationService:
     def _calibration_for(self, sensor: SensorSession):
         """Calibrate one sensor session on its own fingersticks."""
         dashboard = GlucoseDashboardService(self.session, self.user_id)
-        sensor_raw = dashboard._raw_points(
-            sensor.started_at,
-            sensor.ended_at or _local_wall_time(datetime.now(UTC)),
-        )
+        until = sensor.ended_at or _local_wall_time(datetime.now(UTC))
+        if self.as_of is not None:
+            until = min(_local_wall_time(until), _local_wall_from_utc(self.as_of))
+        if self.as_of is not None:
+            rows = self.session.scalars(
+                select(NightscoutGlucoseEntry)
+                .where(
+                    NightscoutGlucoseEntry.owner_id == self.user_id,
+                    NightscoutGlucoseEntry.timestamp
+                    >= utc_instant_from_local_wall(_local_wall_time(sensor.started_at)),
+                    NightscoutGlucoseEntry.timestamp <= self.as_of,
+                    NightscoutGlucoseEntry.timestamp
+                    <= utc_instant_from_local_wall(until),
+                    NightscoutGlucoseEntry.created_at <= self.as_of,
+                    visible_glucose_filter(self.user_id),
+                )
+                .order_by(NightscoutGlucoseEntry.timestamp.asc())
+            ).all()
+            sensor_raw = [
+                RawPoint(_local_wall_from_utc(r.timestamp), float(r.value_mmol_l))
+                for r in rows
+            ]
+        else:
+            sensor_raw = dashboard._raw_points(sensor.started_at, until)
         fingersticks = dashboard._fingerstick_rows(
             sensor.started_at,
-            sensor.ended_at,
+            until if self.as_of is not None else sensor.ended_at,
         )
+        if self.as_of is not None:
+            fingersticks = [
+                row
+                for row in fingersticks
+                if _as_utc(row.created_at) <= self.as_of
+                and _as_utc(row.measured_at) <= self.as_of
+            ]
         return dashboard._calibration(sensor, sensor_raw, fingersticks)
 
 

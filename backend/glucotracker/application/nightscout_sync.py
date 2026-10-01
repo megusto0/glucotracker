@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
@@ -28,9 +28,12 @@ from glucotracker.api.schemas import (
     NightscoutTestResponse,
 )
 from glucotracker.application.glucose_visibility import is_glucose_timestamp_visible
+from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.config import get_settings
 from glucotracker.domain.entities import MealStatus, NightscoutSyncStatus
 from glucotracker.infra.db.models import (
+    InsulinRecommendationAction,
+    InsulinRecommendationRun,
     Meal,
     MealItem,
     NightscoutInsulinEvent,
@@ -538,6 +541,15 @@ class NightscoutSyncService:
     ) -> NightscoutInsulinEventResponse:
         """Write a user-entered insulin amount to Nightscout and cache it locally."""
         nightscout = self._require_client()
+        if payload.recommendation_run_id is not None:
+            linked_run = self.session.scalar(
+                select(InsulinRecommendationRun.id).where(
+                    InsulinRecommendationRun.id == payload.recommendation_run_id,
+                    InsulinRecommendationRun.owner_id == self.user_id,
+                )
+            )
+            if linked_run is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         recorded_at = _absolute_timestamp(payload.recorded_at)
         idempotency_key = (
             payload.idempotency_key.strip() if payload.idempotency_key else None
@@ -555,6 +567,13 @@ class NightscoutSyncService:
         )
         if existing is not None and existing.nightscout_id:
             return _cached_insulin_response(existing)
+
+        recommendation_run_id = payload.recommendation_run_id
+        link_source = "explicit" if recommendation_run_id is not None else None
+        if recommendation_run_id is None:
+            recommendation_run_id = self._infer_recommendation_run(recorded_at)
+            if recommendation_run_id is not None:
+                link_source = "inferred"
 
         self._release_connection()
         try:
@@ -591,19 +610,74 @@ class NightscoutSyncService:
         row.insulin_type = None
         row.entered_by = "glucotracker"
         row.notes = "glucotracker manual insulin entry"
+        row.recommendation_run_id = recommendation_run_id
         row.raw_json = {
             "request": {
                 "insulin_units": payload.insulin_units,
                 "recorded_at": recorded_at.isoformat(),
                 "idempotency_key": idempotency_key,
+                "recommendation_run_id": (
+                    str(recommendation_run_id)
+                    if recommendation_run_id is not None
+                    else None
+                ),
+                "recommendation_link_source": link_source,
             },
             "response": response,
         }
         row.fetched_at = utc_now()
         row.updated_at = utc_now()
         self.session.add(row)
+        self.session.flush()
+        if row.recommendation_run_id is not None:
+            self.session.add(
+                InsulinRecommendationAction(
+                    owner_id=self.user_id,
+                    recommendation_run_id=row.recommendation_run_id,
+                    insulin_event_id=row.id,
+                    action="created",
+                    link_source=link_source,
+                    insulin_units=row.insulin_units,
+                    recorded_at=row.timestamp,
+                )
+            )
         self.session.commit()
         return _cached_insulin_response(row)
+
+    def _infer_recommendation_run(self, recorded_at: datetime) -> UUID | None:
+        """Conservatively correlate old-client dose saves with a live calculation."""
+        window_start = recorded_at - timedelta(minutes=10)
+        window_end = recorded_at + timedelta(minutes=1)
+        runs = self.session.scalars(
+            select(InsulinRecommendationRun)
+            .where(
+                InsulinRecommendationRun.owner_id == self.user_id,
+                InsulinRecommendationRun.created_at >= window_start,
+                InsulinRecommendationRun.created_at <= window_end,
+                InsulinRecommendationRun.status == "ready",
+            )
+            .order_by(InsulinRecommendationRun.created_at.desc())
+        ).all()
+        candidates = [
+            run
+            for run in runs
+            if abs(
+                utc_instant_from_local_wall(run.calculation_at)
+                - _absolute_timestamp(run.created_at)
+            )
+            <= timedelta(minutes=2)
+        ]
+        if len({run.meal_key for run in candidates}) != 1:
+            return None
+        candidate = candidates[0]
+        already_linked = self.session.scalar(
+            select(InsulinRecommendationAction.id).where(
+                InsulinRecommendationAction.owner_id == self.user_id,
+                InsulinRecommendationAction.recommendation_run_id == candidate.id,
+                InsulinRecommendationAction.action == "created",
+            )
+        )
+        return None if already_linked is not None else candidate.id
 
     async def update_insulin_entry(
         self,
@@ -649,11 +723,29 @@ class NightscoutSyncService:
                 "insulin_units": insulin_units,
                 "recorded_at": recorded_at.isoformat(),
                 "idempotency_key": idempotency_key,
+                "recommendation_run_id": (
+                    str(row.recommendation_run_id)
+                    if row.recommendation_run_id is not None
+                    else None
+                ),
+                "recommendation_link_source": _recommendation_link_source(row),
             },
             "response": response,
         }
         row.fetched_at = utc_now()
         row.updated_at = utc_now()
+        if row.recommendation_run_id is not None:
+            self.session.add(
+                InsulinRecommendationAction(
+                    owner_id=self.user_id,
+                    recommendation_run_id=row.recommendation_run_id,
+                    insulin_event_id=row.id,
+                    action="updated",
+                    link_source=_recommendation_link_source(row),
+                    insulin_units=insulin_units,
+                    recorded_at=recorded_at,
+                )
+            )
         self.session.commit()
         return _cached_insulin_response(row)
 
@@ -671,6 +763,18 @@ class NightscoutSyncService:
             await nightscout.delete_treatment(remote_id)
         except Exception as exc:
             raise self.map_error(exc) from exc
+        if row.recommendation_run_id is not None:
+            self.session.add(
+                InsulinRecommendationAction(
+                    owner_id=self.user_id,
+                    recommendation_run_id=row.recommendation_run_id,
+                    insulin_event_id=row.id,
+                    action="deleted",
+                    link_source=_recommendation_link_source(row),
+                    insulin_units=row.insulin_units,
+                    recorded_at=row.timestamp,
+                )
+            )
         self.session.delete(row)
         self.session.commit()
         return NightscoutInsulinDeleteResponse(
@@ -1010,6 +1114,14 @@ def _cached_insulin_idempotency_key(row: NightscoutInsulinEvent) -> str | None:
     request = row.raw_json.get("request") if isinstance(row.raw_json, dict) else None
     value = request.get("idempotency_key") if isinstance(request, dict) else None
     return str(value) if value else None
+
+
+def _recommendation_link_source(row: NightscoutInsulinEvent) -> str:
+    request = row.raw_json.get("request") if isinstance(row.raw_json, dict) else None
+    value = (
+        request.get("recommendation_link_source") if isinstance(request, dict) else None
+    )
+    return "inferred" if value == "inferred" else "explicit"
 
 
 def _status_server_name(payload: dict[str, Any]) -> str | None:

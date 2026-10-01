@@ -224,7 +224,7 @@ def list_patterns(
         select(Pattern)
         .where(*filters)
         .options(*_pattern_options())
-        .order_by(Pattern.prefix.asc(), Pattern.key.asc())
+        .order_by(Pattern.updated_at.desc(), Pattern.prefix.asc(), Pattern.key.asc())
         .limit(limit)
         .offset(offset)
     ).all()

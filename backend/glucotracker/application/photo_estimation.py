@@ -65,6 +65,10 @@ class PhotoEstimationService:
     ) -> None:
         self.session = session
         self.user_id = user_id
+        from glucotracker.infra.db.repositories.ai_models import AIModelsRepository
+
+        routing = AIModelsRepository(session, user_id).routing()
+        gemini_client.routing_models = routing.models_json if routing else None
         self.gemini_client = gemini_client
         self.dependencies = dependencies
 

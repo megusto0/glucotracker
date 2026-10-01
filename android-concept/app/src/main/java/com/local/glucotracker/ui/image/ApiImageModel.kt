@@ -69,7 +69,16 @@ fun apiImageModel(context: Context, model: Any?, accessToken: String? = null): A
                         )
                         .build()
 
-                ApiConnection.isApiImageUrl(value) -> null
+                ApiConnection.isApiImageUrl(value) ->
+                    ImageRequest.Builder(context)
+                        .data(ApiConnection.resolveUrl(value))
+                        .memoryCacheKey(ApiConnection.imageCacheKey(value))
+                        .diskCacheKey(ApiConnection.imageCacheKey(value))
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
+                        .build()
+
                 ApiConnection.isHttpUrl(value) -> value
                 value.startsWith("/") || value.contains(":\\") -> File(value)
                 else -> value

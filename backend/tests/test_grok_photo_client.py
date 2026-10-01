@@ -53,7 +53,7 @@ def _minimal_result() -> dict[str, Any]:
 
 
 def test_strip_code_fence() -> None:
-    raw = "```json\n{\"a\": 1}\n```"
+    raw = '```json\n{"a": 1}\n```'
     assert _strip_code_fence(raw) == '{"a": 1}'
 
 
@@ -129,6 +129,8 @@ def test_grok_client_parses_json_response(tmp_path: Path) -> None:
     assert isinstance(result, EstimationResult)
     assert result.items[0].display_name_ru == "Лаваш с курицей"
     assert client.last_used_model == "grok-4.5"
+    assert client.last_response_latency_ms is not None
+    assert client.last_response_latency_ms >= 0
     call_kwargs = instance.post.call_args
     body = call_kwargs.kwargs["json"]
     assert body["model"] == "grok-4.5"
@@ -166,6 +168,7 @@ def test_gemini_client_calls_grok_as_final_fallback(tmp_path: Path) -> None:
     gemini.fallback_api_key = None
     gemini.settings = MagicMock(
         grok_photo_fallback_enabled=True,
+        openai_photo_fallback_enabled=False,
         xai_api_key=None,
         gemini_proxy_url=None,
     )
@@ -185,8 +188,7 @@ def test_gemini_client_calls_grok_as_final_fallback(tmp_path: Path) -> None:
     assert gemini.last_used_model == "grok-4.5"
     assert gemini.last_routing_reason == "grok_final_fallback"
     assert any(
-        "SuperGrok session" in warning
-        for warning in result.image_quality_warnings
+        "SuperGrok session" in warning for warning in result.image_quality_warnings
     )
     grok.estimate_photos.assert_called_once()
 
@@ -212,6 +214,7 @@ def test_gemini_client_skips_grok_when_disabled(tmp_path: Path) -> None:
     )
     gemini.settings = MagicMock(
         grok_photo_fallback_enabled=False,
+        openai_photo_fallback_enabled=False,
         xai_api_key="xai-test",
         gemini_proxy_url=None,
     )

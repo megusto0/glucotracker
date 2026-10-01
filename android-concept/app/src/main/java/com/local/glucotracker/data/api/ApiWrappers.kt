@@ -262,7 +262,7 @@ class ProductsApi @Inject constructor(
             pageTotal = { it.total },
         )
 
-    suspend fun templates(limit: Int = 500): List<PatternResponse> =
+    suspend fun templates(limit: Int = 2_000): List<PatternResponse> =
         fetchPaged(
             requestedLimit = limit,
             fetch = { pageLimit, pageOffset ->

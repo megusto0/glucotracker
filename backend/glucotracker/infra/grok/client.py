@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import mimetypes
+import time
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,7 @@ class GrokPhotoClient:
         self.last_used_model: str | None = None
         self.last_auth_source: str | None = None
         self.last_raw_response: dict[str, Any] | None = None
+        self.last_response_latency_ms: int | None = None
 
     @property
     def configured(self) -> bool:
@@ -85,6 +87,7 @@ class GrokPhotoClient:
         user_context: str | None = None,
     ) -> EstimationResult:
         """Estimate visible meal items from photos using Grok vision."""
+        self.last_response_latency_ms = None
         creds = self._resolve_credentials()
         if creds is None:
             raise GrokClientError(
@@ -142,14 +145,20 @@ class GrokPhotoClient:
             # Prefer explicit proxy (same as Gemini) — direct routes to api.x.ai
             # are often unreachable on this host. Avoid broken shell SOCKS proxies.
             with httpx.Client(**self._http_client_kwargs()) as client:
-                response = client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {creds.token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                )
+                response_start = time.perf_counter()
+                try:
+                    response = client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {creds.token}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
+                finally:
+                    self.last_response_latency_ms = int(
+                        (time.perf_counter() - response_start) * 1000
+                    )
         except httpx.TimeoutException as exc:
             raise GrokClientError(
                 "Grok request timed out while estimating the photo.",

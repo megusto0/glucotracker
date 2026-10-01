@@ -1,0 +1,25 @@
+[Unit]
+Description=Renew Hermes Codex auth and synchronize Glucotracker access token
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/media/megusto/storage/glucotracker /home/megusto/.hermes
+
+[Service]
+Type=oneshot
+User=megusto
+Group=glucotracker
+WorkingDirectory=/home/megusto/.hermes/hermes-agent
+Environment="HERMES_HOME=/home/megusto/.hermes"
+Environment="PYTHONPATH=/home/megusto/.hermes/hermes-agent"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="HTTPS_PROXY=http://127.0.0.1:10809"
+Environment="HTTP_PROXY=http://127.0.0.1:10809"
+Environment="HERMES_CODEX_REFRESH_TIMEOUT_SECONDS=20"
+ExecStart=/home/megusto/.hermes/hermes-agent/venv/bin/python /media/megusto/storage/glucotracker/project/deploy/ubuntu/bin/glucotracker-hermes-auth-sync.py --destination /media/megusto/storage/glucotracker/runtime/hermes-auth.json
+TimeoutStartSec=60
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/megusto/.hermes /media/megusto/storage/glucotracker/runtime
+PrivateTmp=true

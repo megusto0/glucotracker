@@ -48,6 +48,7 @@ class GlucoOutboxRemote @Inject constructor(
                         insulinUnits = kind.insulinUnits.toBigDecimal(),
                         recordedAt = kind.recordedAt,
                         idempotencyKey = kind.idempotencyKey,
+                        recommendationRunId = kind.recommendationRunId?.let(UUID::fromString),
                     ),
                 ).bodyOrThrow()
                 event.id?.toString() ?: event.nightscoutId ?: kind.idempotencyKey

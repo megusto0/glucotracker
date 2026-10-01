@@ -270,6 +270,7 @@ class GeminiClient:
             settings.gemini_quota_cooldown_path,
             cooldown_hours=settings.gemini_quota_cooldown_hours,
         )
+        self.routing_models: list[dict[str, Any]] | None = None
         self.last_used_model: str | None = None
         self.last_requested_model: str | None = None
         self.last_fallback_used = False
@@ -277,6 +278,7 @@ class GeminiClient:
         self.last_attempts: list[dict[str, Any]] = []
         self.last_error_history: list[dict[str, Any]] = []
         self.last_latency_ms: int | None = None
+        self._last_provider_response_ms: int | None = None
         self.last_routing_reason: str | None = None
         self.last_provider: str = "gemini"
         self.last_api_key_slot: str = "primary"  # primary | fallback_api
@@ -292,6 +294,13 @@ class GeminiClient:
         user_context: str | None = None,
     ) -> EstimationResult:
         """Estimate visible meal items from photos using structured output."""
+        if self.routing_models is not None and model_override in (None, "default"):
+            return self._estimate_ordered_models(
+                photos,
+                patterns_context=patterns_context,
+                products_context=products_context,
+                user_context=user_context,
+            )
         if not self.api_key:
             msg = "GEMINI_API_KEY is not configured"
             raise GeminiClientError(msg)
@@ -418,7 +427,29 @@ class GeminiClient:
         if grok_result is not None:
             return grok_result
 
+        # Last-resort fallback: OpenAI Codex vision via the Hermes OAuth session.
+        openai_result = self._try_openai_codex_fallback(
+            photos,
+            patterns_context=patterns_context,
+            products_context=products_context,
+            user_context=user_context,
+            start=start,
+        )
+        if openai_result is not None:
+            return openai_result
+
         self.last_latency_ms = self._elapsed_ms(start)
+        openai_errors = [
+            err
+            for err in self.last_error_history
+            if err.get("provider") == "openai-codex"
+            or err.get("category") == "openai_codex_failed"
+        ]
+        if openai_errors:
+            msg = str(
+                openai_errors[-1].get("message") or "OpenAI Codex fallback failed"
+            )
+            raise GeminiClientError(msg)
         grok_errors = [
             err
             for err in self.last_error_history
@@ -451,6 +482,7 @@ class GeminiClient:
         products_context: list[dict[str, Any]] | None,
         user_context: str | None,
         start: float,
+        model_override: str | None = None,
     ) -> EstimationResult | None:
         """Attempt Grok vision estimate as the final automatic fallback."""
         settings = self.settings
@@ -459,7 +491,11 @@ class GeminiClient:
 
         from glucotracker.infra.grok.client import GrokClientError, GrokPhotoClient
 
-        grok = GrokPhotoClient()
+        grok = (
+            GrokPhotoClient(model=model_override)
+            if model_override
+            else GrokPhotoClient()
+        )
         if not grok.configured:
             logger.info(
                 "Grok photo fallback skipped: no SuperGrok session "
@@ -477,6 +513,7 @@ class GeminiClient:
         self.last_attempts.append(attempt_meta)
         self.last_routing_reason = "grok_final_fallback"
         logger.info("Grok final photo-estimate fallback model=%s", model)
+        attempt_start = time.perf_counter()
         try:
             result = grok.estimate_photos(
                 photos,
@@ -485,10 +522,13 @@ class GeminiClient:
                 user_context=user_context,
             )
         except GrokClientError as exc:
+            attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+            self._attach_response_latency(attempt_meta, grok.last_response_latency_ms)
             attempt_meta.update(
                 {
                     "status": "error",
                     "error_category": "grok_failed",
+                    "error_code": exc.http_status_code,
                     "message": str(exc),
                     "auth_source": grok.last_auth_source,
                 }
@@ -505,6 +545,9 @@ class GeminiClient:
             logger.warning("Grok photo fallback failed model=%s error=%s", model, exc)
             return None
 
+        attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+        self._attach_response_latency(attempt_meta, grok.last_response_latency_ms)
+        attempt_meta["confidence"] = self._result_confidence(result)
         attempt_meta["status"] = "success"
         attempt_meta["auth_source"] = grok.last_auth_source
         self.last_used_model = grok.last_used_model or model
@@ -517,13 +560,206 @@ class GeminiClient:
             grok.last_auth_source,
         )
         auth_note = (
-            "SuperGrok session"
-            if grok.last_auth_source == "session"
-            else "XAI API key"
+            "SuperGrok session" if grok.last_auth_source == "session" else "XAI API key"
         )
         warning = f"Gemini недоступен; использован запасной Grok ({auth_note})."
-        if warning not in result.image_quality_warnings:
+        if self.routing_models is None and warning not in result.image_quality_warnings:
             result.image_quality_warnings.append(warning)
+        return result
+
+    def _try_openai_codex_fallback(
+        self,
+        photos: list[PhotoInput],
+        *,
+        patterns_context: list[dict[str, Any]] | None,
+        products_context: list[dict[str, Any]] | None,
+        user_context: str | None,
+        start: float,
+        model_override: str | None = None,
+    ) -> EstimationResult | None:
+        """Attempt the OpenAI Codex (Hermes OAuth) vision estimate."""
+        settings = self.settings
+        if not settings.openai_photo_fallback_enabled:
+            return None
+
+        from glucotracker.infra.openai_codex.client import (
+            OpenAICodexClientError,
+            OpenAICodexPhotoClient,
+        )
+
+        client = OpenAICodexPhotoClient(
+            access_token=settings.openai_hermes_access_token,
+            base_url=settings.openai_codex_base_url,
+            model=model_override or settings.openai_photo_model,
+            auth_json_path=settings.openai_hermes_auth_json,
+        )
+        if not client.configured:
+            logger.info(
+                "OpenAI Codex photo fallback skipped: no Hermes auth drop-in "
+                "(%s) and no OPENAI_HERMES_ACCESS_TOKEN",
+                settings.openai_hermes_auth_json,
+            )
+            return None
+        model = client.model
+        attempt_meta: dict[str, Any] = {
+            "model": model,
+            "attempt": 1,
+            "fallback_used": True,
+            "provider": "openai-codex",
+        }
+        self.last_model_attempts.append(model)
+        self.last_attempts.append(attempt_meta)
+        self.last_routing_reason = "openai_codex_final_fallback"
+        logger.info("OpenAI Codex final photo-estimate fallback model=%s", model)
+        attempt_start = time.perf_counter()
+        try:
+            result = client.estimate_photos(
+                photos,
+                patterns_context=patterns_context,
+                products_context=products_context,
+                user_context=user_context,
+            )
+        except OpenAICodexClientError as exc:
+            attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+            self._attach_response_latency(attempt_meta, client.last_response_latency_ms)
+            attempt_meta.update(
+                {
+                    "status": "error",
+                    "error_category": "openai_codex_failed",
+                    "error_code": exc.http_status_code,
+                    "message": str(exc),
+                    "auth_source": client.last_auth_source,
+                }
+            )
+            self.last_error_history.append(
+                {
+                    "model": model,
+                    "attempt": 1,
+                    "category": "openai_codex_failed",
+                    "message": str(exc),
+                    "provider": "openai-codex",
+                }
+            )
+            logger.warning(
+                "OpenAI Codex photo fallback failed model=%s error=%s", model, exc
+            )
+            return None
+
+        attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+        self._attach_response_latency(attempt_meta, client.last_response_latency_ms)
+        attempt_meta["confidence"] = self._result_confidence(result)
+        attempt_meta["status"] = "success"
+        attempt_meta["auth_source"] = client.last_auth_source
+        self.last_used_model = client.last_used_model or model
+        self.last_fallback_used = True
+        self.last_provider = "openai-codex"
+        self.last_latency_ms = self._elapsed_ms(start)
+        logger.info(
+            "OpenAI Codex photo fallback succeeded model=%s auth=%s",
+            self.last_used_model,
+            client.last_auth_source,
+        )
+        warning = "Gemini недоступен; использован запасной OpenAI Codex."
+        if self.routing_models is None and warning not in result.image_quality_warnings:
+            result.image_quality_warnings.append(warning)
+        return result
+
+    @staticmethod
+    def _result_confidence(result: EstimationResult) -> float | None:
+        return (
+            sum(item.confidence for item in result.items) / len(result.items)
+            if result.items
+            else None
+        )
+
+    def _estimate_ordered_models(
+        self,
+        photos: list[PhotoInput],
+        *,
+        patterns_context: list[dict[str, Any]] | None,
+        products_context: list[dict[str, Any]] | None,
+        user_context: str | None,
+    ) -> EstimationResult:
+        """Use the saved personal order across providers for automatic estimates."""
+        if not photos:
+            raise GeminiClientError("at least one photo is required for estimation")
+        entries = [m for m in (self.routing_models or []) if m.get("enabled", True)]
+        self._reset_run_metadata(entries[0]["model"] if entries else self.model)
+        self.last_routing_reason = "personal_model_priority"
+        start = time.perf_counter()
+        context = dict(
+            patterns_context=patterns_context,
+            products_context=products_context,
+            user_context=user_context,
+        )
+        candidate = None
+        for index, entry in enumerate(entries):
+            provider, model = entry["provider"], entry["model"]
+            result = None
+            count_before = len(self.last_attempts)
+            if provider == "gemini":
+                if self._model_cooldown_active(model) or self._should_skip_model(model):
+                    continue
+                for slot_name, api_key in self._api_key_slots():
+                    if not api_key:
+                        continue
+                    try:
+                        result = self._run_model_with_retries(
+                            model,
+                            photos,
+                            **context,
+                            api_key=api_key,
+                            api_key_slot=slot_name,
+                            fallback_used=index > 0,
+                        )
+                        self.last_provider = provider
+                        break
+                    except GeminiRequestError:
+                        continue
+            elif provider == "grok":
+                result = self._try_grok_fallback(
+                    photos, **context, start=start, model_override=model
+                )
+            elif provider == "openai-codex":
+                result = self._try_openai_codex_fallback(
+                    photos, **context, start=start, model_override=model
+                )
+            if len(self.last_attempts) == count_before:
+                self.last_attempts.append(
+                    dict(
+                        provider=provider,
+                        model=model,
+                        status="skipped",
+                        reason="provider_unavailable",
+                    )
+                )
+            self.last_routing_reason = "personal_model_priority"
+            if result is not None:
+                selected = (
+                    result,
+                    self.last_used_model,
+                    provider,
+                    self.last_api_key_slot,
+                    index > 0,
+                )
+                if candidate is None:
+                    candidate = selected
+                if not self._has_low_confidence(result):
+                    candidate = selected
+                    break
+        self.last_latency_ms = self._elapsed_ms(start)
+        if candidate is None:
+            raise GeminiClientError(
+                "Ни одна включённая модель не смогла выполнить оценку. "
+                "Проверьте доступ и ошибки моделей."
+            )
+        (
+            result,
+            self.last_used_model,
+            self.last_provider,
+            self.last_api_key_slot,
+            self.last_fallback_used,
+        ) = candidate
         return result
 
     def _run_model_with_retries(
@@ -560,6 +796,8 @@ class GeminiClient:
                 api_key_slot,
             )
 
+            attempt_start = time.perf_counter()
+            self._last_provider_response_ms = None
             try:
                 result = self._estimate_with_model(
                     model,
@@ -570,6 +808,10 @@ class GeminiClient:
                     api_key=active_key,
                 )
             except GeminiRequestError as exc:
+                attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+                self._attach_response_latency(
+                    attempt_meta, self._last_provider_response_ms
+                )
                 last_error = exc
                 attempt_meta.update(
                     {
@@ -634,6 +876,9 @@ class GeminiClient:
 
                 raise exc
 
+            attempt_meta["latency_ms"] = self._elapsed_ms(attempt_start)
+            self._attach_response_latency(attempt_meta, self._last_provider_response_ms)
+            attempt_meta["confidence"] = self._result_confidence(result)
             attempt_meta["status"] = "success"
             self.last_used_model = model
             self.last_fallback_used = fallback_used
@@ -715,6 +960,7 @@ class GeminiClient:
             api_key=active_key,
             http_options=self._http_options(),
         )
+        response_start = time.perf_counter()
         try:
             response = client.models.generate_content(
                 model=model,
@@ -726,6 +972,8 @@ class GeminiClient:
             )
         except Exception as exc:
             raise self._classified_request_error(exc) from exc
+        finally:
+            self._last_provider_response_ms = self._elapsed_ms(response_start)
 
         try:
             parsed = getattr(response, "parsed", None)
@@ -785,6 +1033,7 @@ class GeminiClient:
         self.last_attempts = []
         self.last_error_history = []
         self.last_latency_ms = None
+        self._last_provider_response_ms = None
         self.last_routing_reason = None
         self.last_provider = "gemini"
         self.last_api_key_slot = "primary"
@@ -837,6 +1086,15 @@ class GeminiClient:
         """Return elapsed milliseconds from a perf counter start."""
         return int((time.perf_counter() - start) * 1000)
 
+    @staticmethod
+    def _attach_response_latency(attempt: dict[str, Any], value: Any) -> None:
+        if (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and value >= 0
+        ):
+            attempt["response_latency_ms"] = value
+
     def _classified_request_error(self, exc: Exception) -> GeminiRequestError:
         """Convert an SDK exception into retry/fallback categories."""
         code = self._error_code(exc)
@@ -844,7 +1102,14 @@ class GeminiClient:
         message = str(exc)
         haystack = f"{status_text or ''} {message}".upper()
 
-        if code == 503 or "UNAVAILABLE" in haystack or "HIGH DEMAND" in haystack:
+        if (
+            code in {503, 504}
+            or "UNAVAILABLE" in haystack
+            or "HIGH DEMAND" in haystack
+            or "DEADLINE_EXCEEDED" in haystack
+            or "TIMEOUT" in haystack
+            or "TIMED OUT" in haystack
+        ):
             return GeminiRequestError(
                 f"Gemini request failed: {message}",
                 category="overload",

@@ -25,6 +25,11 @@ from glucotracker.api.schemas import (
     ProductResponse,
     ServingUnitUpdate,
 )
+from glucotracker.application.fridge_sync import (
+    FridgeIntegrationService,
+    FridgeItem,
+    MealPrepItem,
+)
 from glucotracker.domain.nutrients import normalize_nutrients_object
 from glucotracker.infra.db.models import Meal, MealItem, Product, ProductAlias, utc_now
 from glucotracker.infra.db.product_merge import (
@@ -49,7 +54,9 @@ def _visible_product_filter(user_id: UUID):
 def _get_product(session: SessionDep, user_id: UUID, product_id: UUID) -> Product:
     """Fetch a product or raise 404."""
     product = session.scalar(
-        select(Product).where(Product.id == product_id).options(*_product_options())
+        select(Product)
+        .where(Product.id == product_id)
+        .options(*_product_options())
         .where(_visible_product_filter(user_id))
     )
     if product is None:
@@ -138,11 +145,10 @@ def _find_product_for_label(
     return None
 
 
-from glucotracker.application.fridge_sync import FridgeIntegrationService, FridgeItem, MealPrepItem
-
-
 def _fridge_item_to_product_response(item: FridgeItem) -> ProductResponse:
-    """Convert an available fridge item into a ProductResponse for mobile client sync."""
+    """
+    Convert an available fridge item into a ProductResponse for mobile client sync.
+    """
     try:
         item_uuid = UUID(hex=item.lot_id.replace("-", ""))
     except Exception:
@@ -278,7 +284,12 @@ def _collapse_mealpreps(items: list[MealPrepItem]) -> list[tuple[MealPrepItem, i
     for item in items:
         by_batch.setdefault(item.batch_id, []).append(item)
     collapsed: list[tuple[MealPrepItem, int]] = []
-    for containers in by_batch.values():
+    for batch_id, containers in by_batch.items():
+        if batch_id.startswith("recipe:"):
+            recipe_item = containers[0]
+            count = getattr(recipe_item, "_virtual_stock_count", len(containers))
+            collapsed.append((recipe_item, count))
+            continue
         oldest = min(containers, key=lambda c: c.public_code)
         collapsed.append((oldest, len(containers)))
     return collapsed
@@ -288,39 +299,61 @@ def _mealprep_item_to_product_response(
     item: MealPrepItem,
     containers_left: int = 1,
 ) -> ProductResponse:
-    """Convert an available meal prep container into a ProductResponse for mobile client sync."""
-    try:
-        cont_uuid = UUID(hex=item.container_id.replace("-", ""))
-    except Exception:
-        cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
+    """
+    Convert an available meal prep container into a ProductResponse for mobile client
+    sync.
+    """
+    if item.container_id == "recipe:sandwich_cheese_butter":
+        cont_uuid = UUID("b007eb00-0000-0000-0000-000000000001")
+    else:
+        try:
+            cont_uuid = UUID(hex=item.container_id.replace("-", ""))
+        except Exception:
+            cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
     remaining_g = float(item.remaining_weight_g or item.net_weight_g or 0)
     net_w = item.net_weight_g or item.remaining_weight_g or 100.0
-    # The only number in this sentence must be grams. The installed client
-    # takes the last figure as the slider ceiling, so «ещё 3» locked every
-    # portion at 3 g even after stock_remaining was already the weight.
-    #
-    # Rounded the way the client rounds, not truncated: int() on 113,75 g put
-    # «113 г в контейнере» directly above a chip offering «Вся (114 г)», two
-    # figures on one screen for the one container in front of you.
-    serving_text = f"{round(remaining_g or net_w)} г в контейнере"
+
+    is_recipe = item.batch_id.startswith("recipe:")
+    if is_recipe:
+        serving_text = f"52 г за шт (в наличии {containers_left} шт)"
+        brand_text = "1 шт · 52 г"
+        extra_aliases = [
+            "бутерброд",
+            "бутер",
+            "бутерброд с сыром",
+            "бутерброд с маслом",
+            "sandwich",
+            "сыр",
+            "масло",
+            "батон",
+        ]
+    else:
+        serving_text = f"{round(remaining_g or net_w)} г в контейнере"
+        brand_text = item.public_code
+        extra_aliases = []
 
     return ProductResponse.model_validate(
         {
             "id": cont_uuid,
             "barcode": None,
-            "brand": item.public_code,
-            # The code left the name. «Сметанник (GT:C:1793F419F0)» three times
-            # over is one dish in three containers, and the only part that told
-            # them apart was truncated by every list that drew it.
+            "brand": brand_text,
             "name": item.dish_name,
             "default_grams": remaining_g or net_w,
             "default_serving_text": serving_text,
-            "carbs_per_100g": round((item.carbs / net_w) * 100.0, 1) if net_w > 0 else item.carbs,
-            "protein_per_100g": round((item.protein / net_w) * 100.0, 1) if net_w > 0 else item.protein,
-            "fat_per_100g": round((item.fat / net_w) * 100.0, 1) if net_w > 0 else item.fat,
+            "carbs_per_100g": round((item.carbs / net_w) * 100.0, 1)
+            if net_w > 0
+            else item.carbs,
+            "protein_per_100g": round((item.protein / net_w) * 100.0, 1)
+            if net_w > 0
+            else item.protein,
+            "fat_per_100g": round((item.fat / net_w) * 100.0, 1)
+            if net_w > 0
+            else item.fat,
             "fiber_per_100g": 0.0,
-            "kcal_per_100g": round((item.kcal / net_w) * 100.0, 1) if net_w > 0 else item.kcal,
+            "kcal_per_100g": round((item.kcal / net_w) * 100.0, 1)
+            if net_w > 0
+            else item.kcal,
             "carbs_per_serving": item.carbs,
             "protein_per_serving": item.protein,
             "fat_per_serving": item.fat,
@@ -329,14 +362,11 @@ def _mealprep_item_to_product_response(
             "source_kind": "meal_prep",
             "source_url": f"mp:{item.container_id}",
             "image_url": item.image_url,
+            "icon_emoji": item.icon_emoji,
             "nutrients_json": {},
-            # Grams left in THIS container. The slider reads stock_remaining as
-            # its max; sending the container count (3) pinned every portion at 3 g.
             "stock_remaining": remaining_g,
             "stock_unit": "г",
             "stock_code": item.public_code,
-            # What the picker counts in. The alias below says the same thing in
-            # words for clients that predate this field.
             "stock_containers_left": containers_left,
             "icon": item.icon,
             "usage_count": 0,
@@ -344,6 +374,7 @@ def _mealprep_item_to_product_response(
             "created_at": utc_now(),
             "updated_at": utc_now(),
             "aliases": ["милпреп", "mp", item.public_code]
+            + extra_aliases
             + ([f"ещё {containers_left}"] if containers_left > 1 else []),
         }
     )
@@ -390,7 +421,9 @@ def list_products(
         fridge_items = fridge_service.fetch_available_inventory(current_user.id)
         mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
 
-        fridge_responses = [_fridge_item_to_product_response(item) for item in fridge_items]
+        fridge_responses = [
+            _fridge_item_to_product_response(item) for item in fridge_items
+        ]
         mealprep_responses = [
             _mealprep_item_to_product_response(item, containers_left)
             for item, containers_left in _collapse_mealpreps(mealprep_items)
@@ -399,12 +432,16 @@ def list_products(
         if q:
             q_norm = q.casefold().strip()
             fridge_responses = [
-                r for r in fridge_responses
-                if q_norm in r.name.casefold() or (r.brand and q_norm in r.brand.casefold())
+                r
+                for r in fridge_responses
+                if q_norm in r.name.casefold()
+                or (r.brand and q_norm in r.brand.casefold())
             ]
             mealprep_responses = [
-                r for r in mealprep_responses
-                if q_norm in r.name.casefold() or (r.brand and q_norm in r.brand.casefold())
+                r
+                for r in mealprep_responses
+                if q_norm in r.name.casefold()
+                or (r.brand and q_norm in r.brand.casefold())
             ]
 
         # Prioritize ready mealpreps and fridge stock at the top of the list
@@ -669,7 +706,9 @@ def get_product_image_file(
     product_id: UUID,
     session: SessionDep,
 ) -> Response:
-    """Stream a locally stored product image or redirect to external/fridge image URL."""
+    """
+    Stream a locally stored product image or redirect to external/fridge image URL.
+    """
     product = session.scalar(
         select(Product).where(Product.id == product_id).options(*_product_options())
     )
@@ -686,13 +725,17 @@ def get_product_image_file(
         except product_image_store.ProductImageStorageError:
             if product.image_url:
                 from fastapi.responses import RedirectResponse
-                return RedirectResponse(product.image_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+                return RedirectResponse(
+                    product.image_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+                )
 
     # Check if product is from Fridge or MealPrep
     fridge_service = FridgeIntegrationService()
     img_url = fridge_service.get_image_for_item_id(str(product_id), None)
     if img_url:
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(img_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     raise HTTPException(

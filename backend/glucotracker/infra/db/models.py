@@ -311,6 +311,18 @@ class Meal(Base, TimestampMixin):
                 return item.image_url
             if item.source_image_url:
                 return item.source_image_url
+
+        if self.title:
+            try:
+                from glucotracker.application.fridge_sync import get_fridge_service
+
+                img = get_fridge_service().get_image_for_item_id(
+                    self.title, getattr(self, "owner_id", None)
+                )
+                if img:
+                    return img
+            except Exception:
+                pass
         return None
 
     @property
@@ -324,6 +336,7 @@ class Meal(Base, TimestampMixin):
         ):
             tags.append("sweet")
         return tags
+
 
 class MealItem(Base, TimestampMixin):
     """Single food item attached to a meal."""
@@ -444,11 +457,17 @@ class MealItem(Base, TimestampMixin):
     @property
     def image_url(self) -> str | None:
         """Return the item's own picture, or the one it inherits."""
-        # Stock from the fridge has no row in `products` — its id is
-        # synthesised — so `source_image_url` finds nothing to inherit and the
-        # entry showed the empty-photo glyph while its picture sat one screen
-        # away. A client that knows the picture can now send it.
-        return self.stored_image_url or self.source_image_url
+        raw = self.stored_image_url or self.source_image_url
+        if raw:
+            try:
+                from glucotracker.application.fridge_sync import (
+                    normalize_fridge_image_url,
+                )
+
+                return normalize_fridge_image_url(raw)
+            except Exception:
+                return raw
+        return None
 
     @property
     def image_cache_path(self) -> str | None:
@@ -462,6 +481,34 @@ class MealItem(Base, TimestampMixin):
             return self.pattern.image_url
         if self.product is not None and self.product.image_url:
             return self.product.image_url
+        if isinstance(self.evidence, dict):
+            for key in (
+                "mealprep_container_id",
+                "fridge_lot_id",
+                "product_id",
+                "container_id",
+            ):
+                val = self.evidence.get(key)
+                if val:
+                    try:
+                        from glucotracker.application.fridge_sync import (
+                            get_fridge_service,
+                        )
+
+                        img = get_fridge_service().get_image_for_item_id(str(val))
+                        if img:
+                            return img
+                    except Exception:
+                        pass
+        if self.name:
+            try:
+                from glucotracker.application.fridge_sync import get_fridge_service
+
+                img = get_fridge_service().get_image_for_item_id(self.name)
+                if img:
+                    return img
+            except Exception:
+                pass
         return None
 
 
@@ -767,6 +814,7 @@ class Product(Base, TimestampMixin):
     )
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    icon_emoji: Mapped[str | None] = mapped_column(String(16), nullable=True)
     category: Mapped[str | None] = mapped_column(String(16), nullable=True)
     nutrients_json: Mapped[dict[str, Any]] = mapped_column(
         JSON,
@@ -1248,6 +1296,11 @@ class NightscoutInsulinEvent(Base, TimestampMixin):
     insulin_type: Mapped[str | None] = mapped_column(String, nullable=True)
     entered_by: Mapped[str | None] = mapped_column(String, nullable=True)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    recommendation_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("insulin_recommendation_runs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     raw_json: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         default=dict,
@@ -1563,6 +1616,72 @@ class InsulinRecommendationCache(Base):
     )
 
     owner: Mapped[User] = relationship()
+
+
+class InsulinRecommendationRun(Base):
+    """Immutable snapshot of one generated insulin recommendation response."""
+
+    __tablename__ = "insulin_recommendation_runs"
+    __table_args__ = (
+        Index("ix_insulin_recommendation_runs_owner_created", "owner_id", "created_at"),
+        Index("ix_insulin_recommendation_runs_owner_meal", "owner_id", "meal_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    meal_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    calculation_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+    meal_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    method_version: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    total_recommended_units: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    request_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    input_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class InsulinRecommendationAction(Base):
+    """Append-only actual-dose actions linked to a recommendation run."""
+
+    __tablename__ = "insulin_recommendation_actions"
+    __table_args__ = (
+        Index(
+            "ix_insulin_recommendation_actions_owner_run",
+            "owner_id",
+            "recommendation_run_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    recommendation_run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("insulin_recommendation_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    insulin_event_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    link_source: Mapped[str] = mapped_column(
+        String(20), default="explicit", server_default="explicit", nullable=False
+    )
+    insulin_units: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
 
 
 class TwinParams(Base, TimestampMixin):
@@ -2430,3 +2549,14 @@ class DayAnchorHistory(Base):
         nullable=False,
     )
     owner: Mapped[User] = relationship()
+
+
+class AIModelRouting(Base):
+    """Private per-user photo-estimation model order; no provider credentials."""
+
+    __tablename__ = "ai_model_routing"
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    models_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)

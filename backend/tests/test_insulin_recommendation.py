@@ -9,8 +9,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from glucotracker.application.glucose_prediction import MODEL_VERSION
+from glucotracker.application.episodes import EpisodeComponent
+from glucotracker.application.glucose_trend_projection import (
+    DOSE_FORECAST_MODEL_VERSIONS,
+)
 from glucotracker.application.insulin_recommendation import (
+    _build_food_coverages,
     _hr_sample_instant,
     _hr_trough_ended_within_window,
 )
@@ -404,6 +408,37 @@ def test_recommendation_reattributes_deferred_bolus_from_later_meal(
     assert body["method_version"] == "historical-episode-median-v3"
 
 
+def test_deferred_bolus_window_excludes_start_and_includes_end(
+    api_client: TestClient,
+) -> None:
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    at = datetime(2026, 7, 20, 14, 0)
+    with api_client.app_state["session_factory"]() as session:
+        meal = _meal(session, owner_id, at, 50)
+        at_start = _insulin(session, owner_id, at + timedelta(minutes=90), 2)
+        correction = _insulin(
+            session,
+            owner_id,
+            at + timedelta(minutes=150),
+            3,
+            event_type="Correction Bolus",
+        )
+        at_end = _insulin(session, owner_id, at + timedelta(minutes=180), 5)
+        coverages = _build_food_coverages(
+            [
+                EpisodeComponent(
+                    meals=[meal],
+                    insulin=[at_start, correction, at_end],
+                    pairs=[],
+                )
+            ],
+            excluded_meal_ids=set(),
+            history_end=at + timedelta(days=1),
+        )
+        assert len(coverages) == 1
+        assert coverages[0].deferred_units == 5.0
+
+
 def test_recommendation_prefers_in_range_plus_2h_outcomes(
     api_client: TestClient,
 ) -> None:
@@ -580,6 +615,18 @@ def test_the_food_half_is_stored_and_the_correction_is_not(
     assert second["recommended_units"] == first["recommended_units"]
     assert second["matched_episode_count"] == first["matched_episode_count"]
 
+    # A cosmetic edit must not invalidate the meal calculation.
+    with session_factory() as session:
+        meal = session.get(Meal, target.id)
+        meal.title = "Новое название"
+        session.commit()
+
+    after_title_edit = api_client.post(
+        "/glucose/insulin-recommendation",
+        json=payload,
+    ).json()
+    assert after_title_edit["meal_from_cache"] is True
+
     # Editing the meal must not serve the estimate made for the old one.
     with session_factory() as session:
         meal = session.get(Meal, target.id)
@@ -592,6 +639,91 @@ def test_the_food_half_is_stored_and_the_correction_is_not(
     ).json()
     assert after_edit["meal_from_cache"] is False
     assert after_edit["target_carbs_g"] == 80.0
+
+
+def test_recommendation_history_keeps_full_original_inputs_and_response(
+    api_client: TestClient,
+) -> None:
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    at = datetime(2026, 7, 20, 12, 0)
+    with factory() as session:
+        target = _meal(session, owner_id, at, 40, title="Исходная еда")
+        for days_ago in (7, 14, 21):
+            past = at - timedelta(days=days_ago)
+            _meal(session, owner_id, past, 40)
+            _insulin(session, owner_id, past, 4)
+        for index, value in enumerate((7.0, 7.2, 7.4, 7.6)):
+            timestamp = at - timedelta(minutes=15 - index * 5)
+            session.add(
+                NightscoutGlucoseEntry(
+                    owner_id=owner_id,
+                    source_key=f"audit-cgm-{index}",
+                    timestamp=timestamp,
+                    value_mmol_l=value,
+                    value_mg_dl=round(value * 18.0182),
+                    source="CGM",
+                )
+            )
+        session.commit()
+
+    payload = {"meal_ids": [str(target.id)], "calculation_at": at.isoformat()}
+    first = api_client.post("/glucose/insulin-recommendation", json=payload)
+    second = api_client.post("/glucose/insulin-recommendation", json=payload)
+    assert first.status_code == second.status_code == 200
+    first_body = first.json()
+    second_body = second.json()
+    assert first_body["calculation_id"] != second_body["calculation_id"]
+    assert first_body["meal_from_cache"] is False
+    assert second_body["meal_from_cache"] is True
+
+    history = api_client.get("/glucose/insulin-recommendations/history")
+    assert history.status_code == 200
+    assert len(history.json()) == 2
+    detail_url = (
+        "/glucose/insulin-recommendations/history/" + first_body["calculation_id"]
+    )
+    detail = api_client.get(detail_url)
+    assert detail.status_code == 200
+    original = detail.json()
+    assert original["response"] == first_body
+    assert original["request"] == payload | {"correction_target_mmol_l": None}
+    assert original["input_snapshot"]["meal_inputs"][0]["title"] == "Исходная еда"
+    assert original["input_snapshot"]["therapy_params"]["dia_minutes"] > 0
+    assert (
+        original["input_snapshot"]["versions"]["total_method"]
+        == "signed-correction-projected-low-v2"
+    )
+    assert len(original["input_snapshot"]["correction_cgm_points"]) == 4
+    assert (
+        original["input_snapshot"]["correction_trend_projection"]["status"]
+        == "no_forecast"
+    )
+    assert original["duration_ms"] >= 0
+
+    with factory() as session:
+        meal = session.get(Meal, target.id)
+        meal.title = "Позднее изменение"
+        meal.total_carbs_g = 70
+        session.commit()
+    assert api_client.get(detail_url).json() == original
+
+    with factory() as session:
+        other = User(
+            username="audit-other",
+            password_hash=hash_password("other-password"),
+            role=UserRole.gluco,
+        )
+        session.add(other)
+        session.commit()
+    headers = _headers(other.id, UserRole.gluco)
+    assert api_client.get(detail_url, headers=headers).status_code == 404
+    assert (
+        api_client.get(
+            "/glucose/insulin-recommendations/history", headers=headers
+        ).json()
+        == []
+    )
 
 
 def test_late_sleep_sync_recomputes_the_first_after_sleep_food_cache(
@@ -857,14 +989,22 @@ def test_recommendation_still_drops_very_low_outcomes(
     assert body["matches"] == []
 
 
+@pytest.mark.parametrize(
+    ("glucose", "forecast", "expected_correction", "expected_total"),
+    [
+        (8.0, 5.6, -0.2, 3.8),
+        (5.8, 2.8, -1.6, 2.4),
+        (5.8, 3.86, -1.1, 2.9),
+    ],
+)
 def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
     api_client: TestClient,
+    glucose: float,
+    forecast: float,
+    expected_correction: float,
+    expected_total: float,
 ) -> None:
-    """The case a flat reading hides: 8.0 now, but heading down to 5.6.
-
-    The linear trend over the last 20 minutes is flat here, so without the
-    forecast the correction would dose as if 8.0 were stable.
-    """
+    """A flat CGM line can hide a forecasted fall, even one below 3.9."""
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     session_factory = api_client.app_state["session_factory"]
     target_at = datetime(2026, 7, 20, 13, 0)
@@ -882,8 +1022,8 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
                     owner_id=owner_id,
                     source_key=f"flat-cgm-{index}",
                     timestamp=target_at - timedelta(minutes=15 - index * 5),
-                    value_mmol_l=8.0,
-                    value_mg_dl=round(8.0 * 18.0182),
+                    value_mmol_l=glucose,
+                    value_mg_dl=round(glucose * 18.0182),
                     source="CGM",
                 )
             )
@@ -891,8 +1031,8 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
             owner_id=owner_id,
             generated_at=anchor_utc,
             anchor_timestamp=anchor_utc,
-            anchor_value_mmol_l=8.0,
-            model_version=MODEL_VERSION,
+            anchor_value_mmol_l=glucose,
+            model_version=DOSE_FORECAST_MODEL_VERSIONS[-1],
             algorithm="test",
             horizon_minutes=90,
             step_minutes=5,
@@ -905,11 +1045,11 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
                 owner_id=owner_id,
                 target_timestamp=anchor_utc + timedelta(minutes=60),
                 horizon_minutes=60,
-                predicted_value_mmol_l=5.6,
-                ci_low_mmol_l=4.4,
-                ci_high_mmol_l=6.8,
+                predicted_value_mmol_l=forecast,
+                ci_low_mmol_l=max(0.1, forecast - 1.2),
+                ci_high_mmol_l=forecast + 1.2,
                 confidence=0.6,
-                predicted_band="in_range",
+                predicted_band="low" if forecast < 3.9 else "in_range",
                 evaluation_status="pending",
             )
         ]
@@ -928,15 +1068,14 @@ def test_correction_uses_the_forecast_when_glucose_is_in_range_but_falling(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["correction_glucose_mmol_l"] == 8.0
+    assert body["correction_glucose_mmol_l"] == glucose
     assert body["correction_trend_mmol_l_per_min"] == 0.0
-    # Flat trend would have projected 8.0 and asked for (8.0-6.0)/2.0 = 1.0 U.
-    assert body["correction_projected_glucose_mmol_l"] == 5.6
+    assert body["correction_projected_glucose_mmol_l"] == forecast
     assert body["correction_status"] == "ready"
-    assert body["correction_units"] == -0.2
+    assert body["correction_units"] == expected_correction
     # Meal dose is unchanged; the signed correction reduces the current total.
     assert body["recommended_units"] == 4.0
-    assert body["total_recommended_units"] == 3.8
+    assert body["total_recommended_units"] == expected_total
 
 
 def test_fast_fall_from_a_safe_level_does_not_hide_the_meal_dose(

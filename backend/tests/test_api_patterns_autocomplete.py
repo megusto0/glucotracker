@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -76,6 +77,25 @@ def test_patterns_search_prefix_only(api_client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert {item["key"] for item in body} == {"whopper", "cheeseburger"}
+
+
+def test_pattern_pages_put_recently_updated_entries_first(
+    api_client: TestClient,
+    db_engine: Engine,
+) -> None:
+    """The phone's bounded catalog sync includes fresh entries first."""
+    older = _create_pattern(api_client, key="older", display_name="Older")
+    newer = _create_pattern(api_client, key="newer", display_name="Newer")
+    with Session(db_engine) as session:
+        older_row = session.get(Pattern, UUID(older["id"]))
+        older_row.updated_at = datetime.now(UTC) - timedelta(days=2)
+        session.get(Pattern, UUID(newer["id"])).updated_at = datetime.now(UTC)
+        session.commit()
+
+    response = api_client.get("/patterns", params={"limit": 1})
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["key"] == "newer"
 
 
 def test_patterns_search_prefix_partial_query(api_client: TestClient) -> None:

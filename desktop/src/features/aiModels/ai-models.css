@@ -1,0 +1,251 @@
+.ai-models-page {
+  padding: 28px;
+  max-width: 1260px;
+  margin: 0 auto;
+  color: var(--ink);
+}
+.ai-models-header,
+.ai-models-toolbar,
+.ai-model-title,
+.ai-model-actions,
+.ai-model-save,
+.ai-model-add,
+.ai-model-details {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ai-models-header {
+  justify-content: space-between;
+}
+.ai-models-page h1,
+.ai-models-page h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+}
+.ai-models-page h1 {
+  font-size: 28px;
+  margin: 0;
+}
+.ai-models-page h2 {
+  font-size: 22px;
+  margin-top: 32px;
+}
+.ai-models-header p,
+.ai-models-help,
+.ai-models-toolbar,
+.ai-model-details,
+.ai-model-row dt,
+.ai-model-row small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.ai-models-help {
+  line-height: 1.6;
+  max-width: 950px;
+}
+.ai-models-toolbar {
+  justify-content: space-between;
+  margin: 20px 0;
+}
+.ai-model-row {
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  margin-bottom: 12px;
+}
+.ai-model-dragging {
+  opacity: 0.55;
+  outline: 1px dashed var(--accent);
+}
+.ai-model-grip {
+  display: flex;
+  gap: 6px;
+  cursor: grab;
+  color: var(--ink-3);
+  padding: 10px 2px;
+}
+.ai-model-name {
+  display: grid;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.ai-model-name strong {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+.ai-model-state {
+  font-size: 11px;
+  border: 0.5px solid var(--hairline);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+}
+.ai-model-paused {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.ai-model-actions {
+  margin-left: auto;
+  font-size: 12px;
+}
+.ai-model-actions label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-model-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin: 18px 0 12px;
+}
+.ai-model-metrics dd {
+  font-family: var(--mono);
+  font-size: 17px;
+  margin: 5px 0;
+}
+.ai-model-metrics dt {
+  line-height: 1.5;
+}
+.ai-model-details {
+  gap: 24px;
+}
+.ai-model-errors {
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--warn);
+}
+.ai-model-add {
+  padding: 18px 0 8px;
+  align-items: end;
+}
+.ai-model-add label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.ai-model-input {
+  flex: 1;
+  min-width: 230px;
+}
+.ai-models-page input:not([type="checkbox"]),
+.ai-models-page select {
+  border: 0.5px solid var(--hairline-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.ai-model-input input {
+  font-family: var(--mono);
+}
+.ai-model-save {
+  margin: 20px 0;
+  font-size: 12px;
+}
+.ai-models-page [role="alert"] {
+  color: var(--warn);
+}
+.ai-request-history {
+  margin-top: 34px;
+}
+.ai-request-history-header,
+.ai-request-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ai-request-history-header {
+  justify-content: space-between;
+}
+.ai-request-history-header h2 {
+  margin: 0 0 14px;
+}
+.ai-request-history-header span,
+.ai-request-pagination {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.ai-request-list {
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.ai-request-row {
+  border-bottom: 0.5px solid var(--hairline);
+  background: var(--surface);
+}
+.ai-request-row:last-child {
+  border-bottom: 0;
+}
+.ai-request-row summary {
+  display: grid;
+  grid-template-columns: 130px 140px 95px minmax(110px, 1fr) 125px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.ai-request-row summary:hover {
+  background: var(--surface-2, var(--surface));
+}
+.ai-request-row summary time,
+.ai-request-model {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+.ai-request-success {
+  color: var(--accent);
+}
+.ai-request-error {
+  color: var(--warn);
+}
+.ai-request-details {
+  border-top: 0.5px solid var(--hairline);
+  padding: 4px 16px 12px;
+  font-size: 12px;
+}
+.ai-request-details ol {
+  padding-left: 20px;
+}
+.ai-request-details li {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 1fr) minmax(
+      130px,
+      1fr
+    ) minmax(130px, 1fr);
+  gap: 12px;
+  margin: 8px 0;
+}
+.ai-request-pagination {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+@media (max-width: 1100px) {
+  .ai-request-row summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 850px) {
+  .ai-models-page {
+    padding: 18px;
+  }
+  .ai-model-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ai-model-actions {
+    margin-left: 0;
+  }
+  .ai-request-row summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-request-details li {
+    grid-template-columns: 1fr 1fr;
+  }
+}

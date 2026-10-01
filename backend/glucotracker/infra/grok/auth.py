@@ -52,6 +52,8 @@ def resolve_grok_credentials(
 
 def load_session_credentials(
     auth_json_path: str | Path | None = None,
+    *,
+    refresh: bool = True,
 ) -> GrokCredentials | None:
     """Load and optionally refresh a SuperGrok OIDC session token."""
     path = _resolve_auth_json_path(auth_json_path)
@@ -92,7 +94,7 @@ def load_session_credentials(
     token = str(entry.get("key") or entry.get("access_token") or "").strip()
 
     # Try silent refresh when close to expiry and we have a refresh token.
-    if expires is not None and expires <= now + timedelta(minutes=5):
+    if refresh and expires is not None and expires <= now + timedelta(minutes=5):
         refreshed = _try_refresh_session(path, entry)
         if refreshed is not None:
             return refreshed

@@ -14,10 +14,12 @@ from glucotracker.infra.db.session import get_session_factory
 from glucotracker.infra.storage import photo_store
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
 from glucotracker.workers.episode_snapshots import EpisodeSnapshotWorker
+from glucotracker.workers.glucose_prediction import GlucosePredictionWorker
 from glucotracker.workers.glucose_prediction_outcomes import (
     GlucosePredictionOutcomeWorker,
 )
 from glucotracker.workers.on_board_fit import OnBoardFitWorker
+from glucotracker.workers.sensor_rollover import SensorRolloverWorker
 
 logger = logging.getLogger(__name__)
 PHOTO_TOMBSTONE_RETENTION_DAYS = 30
@@ -57,6 +59,8 @@ async def run_workers() -> None:
         asyncio.create_task(PhotoTombstoneCleanupWorker().run_forever()),
         asyncio.create_task(EpisodeSnapshotWorker().run_forever()),
         asyncio.create_task(GlucosePredictionOutcomeWorker().run_forever()),
+        asyncio.create_task(GlucosePredictionWorker().run_forever()),
+        asyncio.create_task(SensorRolloverWorker().run_forever()),
         # Personalized IOB/COB timing also runs in the web process when enabled.
         asyncio.create_task(OnBoardFitWorker().run_forever()),
     ]

@@ -7,7 +7,7 @@ object ApiConnection {
     val BASE_URL: String = BuildConfig.API_BASE_URL
 
     fun resolveUrl(value: String, baseUrl: String = BASE_URL): String {
-        val trimmed = value.trim()
+        val trimmed = normalizeLocalhost(value.trim())
         val normalizedBase = baseUrl.trimEnd('/')
         return when {
             isHttpUrl(trimmed) -> trimmed
@@ -17,7 +17,7 @@ object ApiConnection {
     }
 
     fun imageCacheKey(value: String, baseUrl: String = BASE_URL): String {
-        val trimmed = value.trim()
+        val trimmed = normalizeLocalhost(value.trim())
         return when {
             isSameApiUrl(trimmed, baseUrl) -> apiPathWithQuery(trimmed)
             isApiRelativeUrl(trimmed) -> normalizeApiPath(trimmed)
@@ -42,11 +42,13 @@ object ApiConnection {
         "/fridge/",
     )
 
-    fun isApiImageUrl(value: String): Boolean =
-        isApiRelativeUrl(value) || isSameApiUrl(value)
+    fun isApiImageUrl(value: String): Boolean {
+        val trimmed = normalizeLocalhost(value.trim())
+        return isApiRelativeUrl(trimmed) || isSameApiUrl(trimmed)
+    }
 
     fun isHttpUrl(value: String): Boolean {
-        val trimmed = value.trim()
+        val trimmed = normalizeLocalhost(value.trim())
         return trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true)
     }
@@ -57,6 +59,28 @@ object ApiConnection {
     fun isApiRelativeUrl(value: String): Boolean {
         val path = normalizeApiPath(value)
         return API_IMAGE_PREFIXES.any { prefix -> path.startsWith(prefix) }
+    }
+
+    private fun normalizeLocalhost(value: String): String {
+        val trimmed = value.trim()
+        for (prefix in listOf(
+            "http://127.0.0.1:8011",
+            "http://localhost:8011",
+            "http://0.0.0.0:8011",
+            "https://127.0.0.1:8011",
+            "https://localhost:8011",
+            "http://127.0.0.1:8000",
+            "http://localhost:8000",
+            "http://0.0.0.0:8000",
+            "https://127.0.0.1:8000",
+            "https://localhost:8000",
+        )) {
+            if (trimmed.startsWith(prefix, ignoreCase = true)) {
+                val rest = trimmed.substring(prefix.length)
+                return if (rest.startsWith("/")) rest else "/$rest"
+            }
+        }
+        return trimmed
     }
 
     private fun normalizeApiPath(value: String): String =

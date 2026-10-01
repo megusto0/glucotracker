@@ -126,6 +126,15 @@ private val NamedFamilyRules = listOf(
     NamedFamilyRule("bk", "country-potatoes", 2) { name ->
         name.startsWith("картофель деревенский ")
     },
+    NamedFamilyRule("vit", "omelet", 1) { name ->
+        name == "омлет" || name.startsWith("омлет с ")
+    },
+    NamedFamilyRule("vit", "fried-eggs", 1) { name ->
+        name == "яичница" || name.startsWith("яичница с ")
+    },
+    NamedFamilyRule("vit", "egg-muffin", 3) { name ->
+        name.startsWith("маффин с яйцом и ")
+    },
 )
 
 private fun restaurantFamily(template: Template): RestaurantFamily? {

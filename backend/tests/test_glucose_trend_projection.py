@@ -8,9 +8,9 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from glucotracker.application.glucose_prediction import MODEL_VERSION
 from glucotracker.application.glucose_trend_projection import (
     DEFAULT_PROJECTION_HORIZON_MINUTES,
+    DOSE_FORECAST_MODEL_VERSIONS,
     MAX_UPWARD_PROJECTION_MMOL_L,
     GlucoseTrendProjectionService,
 )
@@ -31,7 +31,7 @@ def _run(
     anchor_value: float,
     predicted: float,
     horizon: int = H,
-    model_version: str = MODEL_VERSION,
+    model_version: str = DOSE_FORECAST_MODEL_VERSIONS[-1],
     actual: float | None = None,
 ) -> GlucosePredictionRun:
     run = GlucosePredictionRun(
@@ -59,6 +59,14 @@ def _run(
             predicted_band="in_range",
             evaluation_status="evaluated" if actual is not None else "pending",
             actual_value_mmol_l=actual,
+            actual_timestamp=(
+                anchor_at + timedelta(minutes=horizon) if actual is not None else None
+            ),
+            evaluated_at=(
+                anchor_at + timedelta(minutes=horizon + 10)
+                if actual is not None
+                else None
+            ),
         )
     ]
     session.add(run)
@@ -266,3 +274,66 @@ def test_projection_never_reads_another_users_forecast(
         projection = GlucoseTrendProjectionService(session, owner_id).project(NOW)
 
     assert projection.status == "no_forecast"
+
+
+def test_old_anchor_generated_after_decision_is_not_used(
+    api_client: TestClient,
+) -> None:
+    owner = _owner(api_client)
+    factory = api_client.app_state["session_factory"]
+    with factory() as session:
+        run = _run(
+            session,
+            owner,
+            anchor_at=NOW - timedelta(minutes=5),
+            anchor_value=7,
+            predicted=5,
+        )
+        run.generated_at = NOW + timedelta(minutes=1)
+        session.commit()
+        assert (
+            GlucoseTrendProjectionService(session, owner).project(NOW).status
+            == "no_forecast"
+        )
+
+
+def test_projection_calibration_excludes_late_outcomes(api_client: TestClient) -> None:
+    owner = _owner(api_client)
+    factory = api_client.app_state["session_factory"]
+    with factory() as session:
+        for index in range(60):
+            run = _run(
+                session,
+                owner,
+                anchor_at=NOW - timedelta(days=5, minutes=index * 5),
+                anchor_value=7,
+                predicted=6,
+                actual=3,
+            )
+            run.points[0].evaluated_at = NOW + timedelta(minutes=1)
+        _run(session, owner, anchor_at=NOW, anchor_value=7, predicted=6)
+        session.commit()
+        projection = GlucoseTrendProjectionService(session, owner).project(NOW)
+        assert projection.calibration_samples == 0
+        assert projection.calibration_factor == 1
+
+
+def test_research_model_cannot_silently_become_a_dose_input(api_client: TestClient):
+    from glucotracker.application.glucose_prediction_experimental import MODEL_VERSION
+
+    factory = api_client.app_state["session_factory"]
+    owner = _owner(api_client)
+    with factory() as session:
+        _run(
+            session,
+            owner,
+            anchor_at=NOW,
+            anchor_value=7,
+            predicted=4,
+            model_version=MODEL_VERSION,
+        )
+        session.commit()
+        assert (
+            GlucoseTrendProjectionService(session, owner).project(NOW).status
+            == "no_forecast"
+        )

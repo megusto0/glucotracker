@@ -14,8 +14,8 @@ from glucotracker.application.twin.kernels import (
     personalized_insulin_iob_remaining_fraction,
 )
 from glucotracker.domain.auth import UserRole
-from glucotracker.domain.entities import MealSource, MealStatus
-from glucotracker.infra.db.models import Meal, NightscoutInsulinEvent, User
+from glucotracker.domain.entities import ItemSourceKind, MealSource, MealStatus
+from glucotracker.infra.db.models import Meal, MealItem, NightscoutInsulinEvent, User
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.security import hash_password, issue_access_token
 
@@ -276,3 +276,83 @@ def test_personalized_iob_fit_is_owner_scoped_on_dashboard(
     assert alice_summary["iob_model_confidence"] == "high"
     assert bob_summary["iob_model_source"] == "population"
     assert bob_summary["iob_model_confidence"] == "none"
+
+
+def test_dashboard_exposes_each_meal_item_as_a_separate_food_marker(
+    api_client: TestClient,
+) -> None:
+    """A multi-item meal is one COB episode but separate chart food markers."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    as_of = datetime(2026, 9, 21, 9, 0)
+    meal = Meal(
+        owner_id=owner_id,
+        eaten_at=as_of - timedelta(minutes=50),
+        title="Restaurant order",
+        source=MealSource.manual,
+        status=MealStatus.accepted,
+        total_carbs_g=133,
+        total_protein_g=49.7,
+        total_fat_g=71,
+        total_fiber_g=4,
+        total_kcal=1381,
+        items=[
+            MealItem(
+                name="Картофель Фри",
+                carbs_g=41,
+                protein_g=3.9,
+                fat_g=16,
+                fiber_g=4,
+                kcal=330,
+                source_kind=ItemSourceKind.manual,
+                position=0,
+            ),
+            MealItem(
+                name="Фреш Маффин",
+                carbs_g=34,
+                protein_g=18,
+                fat_g=18,
+                kcal=368,
+                source_kind=ItemSourceKind.manual,
+                position=1,
+            ),
+            MealItem(
+                name="Маффин с яйцом и свиной котлетой",
+                carbs_g=26,
+                protein_g=25,
+                fat_g=25,
+                kcal=434,
+                source_kind=ItemSourceKind.manual,
+                position=2,
+            ),
+            MealItem(
+                name="Пирожок Вишневый",
+                carbs_g=32,
+                protein_g=2.8,
+                fat_g=12,
+                kcal=249,
+                source_kind=ItemSourceKind.manual,
+                position=3,
+            ),
+        ],
+    )
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        session.add(meal)
+        session.commit()
+
+    body = _dashboard(
+        api_client, from_datetime=as_of - timedelta(hours=2), to_datetime=as_of
+    )
+    food_events = body["food_events"]
+
+    assert len(food_events) == 4
+    assert [event["title"] for event in food_events] == [
+        "Картофель Фри",
+        "Фреш Маффин",
+        "Маффин с яйцом и свиной котлетой",
+        "Пирожок Вишневый",
+    ]
+    assert [event["carbs_g"] for event in food_events] == [41, 34, 26, 32]
+    assert {event["meal_id"] for event in food_events} == {str(meal.id)}
+    assert sum(event["carbs_g"] for event in food_events) == pytest.approx(133)
+    assert body["summary"]["cob_g"] > 0

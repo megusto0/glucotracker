@@ -9,8 +9,14 @@ YAML_OUTPUT="$REPO_ROOT/docs/openapi.yaml"
 
 if [ -x "$BACKEND_DIR/.venv/bin/python" ]; then
   PYTHON="$BACKEND_DIR/.venv/bin/python"
+elif [ -x "$REPO_ROOT/venv/bin/python" ]; then
+  PYTHON="$REPO_ROOT/venv/bin/python"
+elif [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+  PYTHON="$REPO_ROOT/.venv/bin/python"
 elif [ -x "$BACKEND_DIR/.venv/Scripts/python.exe" ]; then
   PYTHON="$BACKEND_DIR/.venv/Scripts/python.exe"
+elif [ -x "$REPO_ROOT/venv/Scripts/python.exe" ]; then
+  PYTHON="$REPO_ROOT/venv/Scripts/python.exe"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON="python3"
 else

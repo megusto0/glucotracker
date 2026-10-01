@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -206,6 +207,80 @@ class GlucosePredictionAuditRepository:
             ).all()
         )
 
+    def latest_forecast(
+        self,
+        *,
+        model_version: str,
+        since: datetime,
+        before: datetime,
+    ) -> GlucosePredictionRun | None:
+        """Return only an already generated owner-scoped canonical snapshot."""
+        return self.session.scalar(
+            select(GlucosePredictionRun)
+            .where(
+                GlucosePredictionRun.owner_id == self.user_id,
+                GlucosePredictionRun.model_version == model_version,
+                GlucosePredictionRun.generated_at <= before,
+                GlucosePredictionRun.anchor_timestamp >= since,
+                GlucosePredictionRun.anchor_timestamp <= before,
+                GlucosePredictionRun.horizon_minutes == 90,
+                GlucosePredictionRun.step_minutes == 5,
+            )
+            .order_by(GlucosePredictionRun.anchor_timestamp.desc())
+            .limit(1)
+        )
+
+    def latest_glucose_at(
+        self, *, since: datetime, before: datetime
+    ) -> datetime | None:
+        return self.session.scalar(
+            select(NightscoutGlucoseEntry.timestamp)
+            .where(
+                NightscoutGlucoseEntry.owner_id == self.user_id,
+                NightscoutGlucoseEntry.timestamp >= since,
+                NightscoutGlucoseEntry.timestamp <= before,
+                NightscoutGlucoseEntry.created_at <= before,
+                visible_glucose_filter(self.user_id),
+            )
+            .order_by(NightscoutGlucoseEntry.timestamp.desc())
+            .limit(1)
+        )
+
+    def intervention_times(
+        self,
+        *,
+        since: datetime,
+        before: datetime,
+        known_at: datetime,
+    ) -> list[datetime]:
+        """Batch-load events for checking late interventions without an N+1 query."""
+        from glucotracker.application.time import utc_instant_from_local_wall
+
+        meals = self.session.scalars(
+            select(Meal.eaten_at).where(
+                Meal.owner_id == self.user_id,
+                Meal.status == MealStatus.accepted,
+                Meal.eaten_at > local_wall_time(since),
+                Meal.eaten_at <= local_wall_time(before),
+                Meal.updated_at <= known_at,
+            )
+        ).all()
+        insulin = self.session.scalars(
+            select(NightscoutInsulinEvent.timestamp).where(
+                NightscoutInsulinEvent.owner_id == self.user_id,
+                NightscoutInsulinEvent.timestamp > since,
+                NightscoutInsulinEvent.timestamp <= before,
+                NightscoutInsulinEvent.insulin_units > 0,
+                NightscoutInsulinEvent.updated_at <= known_at,
+            )
+        ).all()
+        return sorted(
+            [
+                *[utc_instant_from_local_wall(at) for at in meals],
+                *[_as_utc(at) for at in insulin],
+            ]
+        )
+
     def evaluated_base_points(
         self,
         *,
@@ -227,14 +302,35 @@ class GlucosePredictionAuditRepository:
                 GlucosePredictionRun.model_version.in_(model_versions),
                 GlucosePredictionRun.anchor_timestamp >= since,
                 GlucosePredictionRun.anchor_timestamp < before,
+                GlucosePredictionRun.generated_at <= before,
+                GlucosePredictionPointAudit.target_timestamp < before,
+                GlucosePredictionPointAudit.actual_timestamp <= before,
+                GlucosePredictionPointAudit.evaluated_at <= before,
                 GlucosePredictionPointAudit.evaluation_status == "evaluated",
                 GlucosePredictionPointAudit.actual_value_mmol_l.is_not(None),
             )
-            .order_by(GlucosePredictionRun.anchor_timestamp.desc())
+            .order_by(
+                GlucosePredictionRun.anchor_timestamp.desc(),
+                GlucosePredictionPointAudit.horizon_minutes.asc(),
+            )
             .limit(limit)
         ).all()
         result: list[EvaluatedForecastPoint] = []
+        interventions = (
+            self.intervention_times(
+                since=since,
+                before=before,
+                known_at=before,
+            )
+            if rows
+            else []
+        )
         for run, point in rows:
+            # A late diary entry may invalidate an outcome finalized earlier.
+            if bisect_right(interventions, _as_utc(point.target_timestamp)) != (
+                bisect_right(interventions, _as_utc(run.anchor_timestamp))
+            ):
+                continue
             calibration_by_horizon = run.model_json.get(
                 "audit_calibration_by_horizon",
                 [],

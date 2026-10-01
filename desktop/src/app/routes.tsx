@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import type { RouteObject } from "react-router-dom";
+import { AIModelsPage } from "../features/aiModels/AIModelsPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ChatPage } from "../features/chat/ChatPage";
 import { DatabasePage } from "../features/database/DatabasePage";
@@ -27,6 +28,7 @@ const TherapyAnalysisPage = lazy(() =>
 );
 
 export const routes: RouteObject[] = [
+  { path: "/ai-models", element: <AIModelsPage /> },
   {
     path: "/login",
     element: <LoginPage />,
@@ -50,7 +52,11 @@ export const routes: RouteObject[] = [
   {
     path: "/nightscout",
     element: (
-      <Suspense fallback={<div className="nightscout-route-loading">Загружаю Nightscout…</div>}>
+      <Suspense
+        fallback={
+          <div className="nightscout-route-loading">Загружаю Nightscout…</div>
+        }
+      >
         <NightscoutPage />
       </Suspense>
     ),
@@ -58,7 +64,11 @@ export const routes: RouteObject[] = [
   {
     path: "/nightscout/review",
     element: (
-      <Suspense fallback={<div className="nightscout-route-loading">Загружаю разбор…</div>}>
+      <Suspense
+        fallback={
+          <div className="nightscout-route-loading">Загружаю разбор…</div>
+        }
+      >
         <TherapyReviewPage />
       </Suspense>
     ),
@@ -66,7 +76,11 @@ export const routes: RouteObject[] = [
   {
     path: "/nightscout/review/analysis",
     element: (
-      <Suspense fallback={<div className="nightscout-route-loading">Загружаю анализ…</div>}>
+      <Suspense
+        fallback={
+          <div className="nightscout-route-loading">Загружаю анализ…</div>
+        }
+      >
         <TherapyAnalysisPage />
       </Suspense>
     ),

@@ -182,12 +182,14 @@
     <string name="insulin_history_why_iob">IOB до приёма: %1$s ЕД</string>
     <string name="insulin_history_why_committed_iob">Из него %1$s ЕД оставлено под прежний COB %2$s г</string>
     <string name="insulin_history_why_excess_iob">Свободный IOB: %1$s ЕД вычтен из итога</string>
-    <string name="insulin_history_why_low_cap">Прогноз ниже 3,9: итог ограничен 0,0 ЕД.</string>
+    <string name="insulin_history_why_low_cap">Текущая глюкоза низкая или ожидается быстрый спад: итог пока 0,0 ЕД.</string>
+    <string name="insulin_history_why_projected_low">Прогноз ниже 3,9 уменьшил расчёт отрицательной поправкой; доза на углеводы сохранена.</string>
     <string name="insulin_history_why_isf_default">ISF взят по умолчанию — задайте личный в двойнике.</string>
     <string name="insulin_history_insufficient">Недостаточно истории: найдено %1$d из 3 нужных приёмов.</string>
     <string name="insulin_history_no_carbs">В этом приёме нет углеводов для исторического расчёта.</string>
     <string name="insulin_history_low_or_falling">Глюкоза низкая или быстро снижается — итог не рассчитан.</string>
-    <string name="insulin_history_low_or_falling_zero">Прогноз ниже 3,9 — итог сейчас 0,0 ЕД.</string>
+    <string name="insulin_history_low_or_falling_zero">Глюкоза низкая или быстро падает: сначала проверьте и устраните гипо, затем пересчитайте дозу.</string>
+    <string name="insulin_history_projected_low_reduced">Прогноз ниже 3,9: расчёт на еду уменьшен. Проверьте глюкозу перед введением; если она низкая, сначала устраните гипо.</string>
     <string name="insulin_history_error">Расчёт сейчас недоступен. Фактический инсулин можно записать ниже.</string>
     <string name="insulin_history_limits">Учтены еда, текущая глюкоза и активный инсулин. Не учтены нагрузка и болезнь.</string>
     <!-- Shown once the episode already has insulin: the calculation stops being

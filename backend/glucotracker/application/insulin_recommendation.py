@@ -4,7 +4,8 @@ v2 meal component:
   - comparable personal episodes with deferred-bolus reattribution
   - outcome weights from +2h normalized CGM
   - optional ICR blend when twin ICR is configured
-  - low/falling glucose caps the actionable total at zero
+  - a projected low reduces meal coverage through the signed correction
+  - an observed low or a longer-horizon fast fall withholds the current total
 
 Correction uses normalized CGM, personal ISF, trend, and prior IOB. A default
 target is applied when the client omits one. Nothing here creates an insulin
@@ -14,6 +15,7 @@ record.
 from __future__ import annotations
 
 import hashlib
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import isfinite, log
@@ -30,12 +32,14 @@ from glucotracker.api.schemas import (
 )
 from glucotracker.application.episodes import EpisodeComponent, EpisodeQueryService
 from glucotracker.application.glucose_dashboard import (
+    CalibrationResult,
     GlucoseDashboardService,
     _local_wall_from_utc,
     _remaining_on_board,
 )
 from glucotracker.application.glucose_trend_projection import (
     GlucoseTrendProjectionService,
+    TrendProjection,
 )
 from glucotracker.application.grouping import GROUPING_VERSION
 from glucotracker.application.health_connect_samples import resolve_instant
@@ -66,6 +70,7 @@ HISTORY_WINDOW = timedelta(days=180)
 MAX_MATCHES = 8
 MIN_MATCHES = 3
 METHOD_VERSION = "historical-episode-median-v3"
+TOTAL_METHOD_VERSION = "signed-correction-projected-low-v2"
 CORRECTION_LOOKBACK = timedelta(minutes=20)
 CORRECTION_PROJECTION_MINUTES = 15
 MAX_PROJECTED_CHANGE_MMOL_L = 2.0
@@ -231,6 +236,11 @@ class CorrectionEstimate:
     prior_cob_g: float | None = None
     excess_iob_units: float | None = None
     calculated_at: datetime | None = None
+    # Exact normalized input points used for this request. Audit storage uses
+    # them without changing the public dose response or rereading the sensor.
+    cgm_points: tuple[GlucoseDashboardPoint, ...] = ()
+    sensor_session_id: UUID | None = None
+    trend_projection: TrendProjection | None = None
 
 
 @dataclass(frozen=True)
@@ -269,6 +279,7 @@ class _InsulinRef:
     event: NightscoutInsulinEvent
     at: datetime
     units: float
+    is_correction: bool
 
 
 class HistoricalInsulinRecommendationService:
@@ -278,6 +289,8 @@ class HistoricalInsulinRecommendationService:
         self.repository = OnBoardRepository(session, user_id)
         self.episodes = EpisodeQueryService(session, user_id)
         self._normalized_outcome_cache: dict[datetime, float | None] = {}
+        self._outcome_dashboard = GlucoseDashboardService(session, user_id)
+        self._outcome_calibrations: dict[tuple[UUID, datetime], CalibrationResult] = {}
         self._preloaded_components: list[EpisodeComponent] | None = None
         self._preloaded_from: datetime | None = None
         self._preloaded_to: datetime | None = None
@@ -397,9 +410,9 @@ class HistoricalInsulinRecommendationService:
         def _total(base: float | None) -> float | None:
             if base is None or correction_units is None:
                 return None
-            # A projected low always has a numeric answer: zero now. Otherwise
-            # the calculation is transparent and signed: food + glucose
-            # adjustment - only the IOB left after earlier COB is covered.
+            # A current low or an extended fast-fall alert withholds the current
+            # total. A projected low at the correction horizon is reflected in the
+            # signed glucose adjustment and need not erase food coverage.
             if correction.status == "low_or_falling":
                 return 0.0
             return _round_dose(max(0.0, base + correction_units - free_iob_units))
@@ -824,12 +837,21 @@ class HistoricalInsulinRecommendationService:
             "normalized",
         )
         points = dashboard.points
+        evidence = {
+            "cgm_points": tuple(points),
+            "sensor_session_id": (
+                dashboard.current_sensor.id
+                if dashboard.current_sensor is not None
+                else None
+            ),
+        }
         if not points:
             return CorrectionEstimate(
                 status="glucose_unavailable",
                 target_mmol_l=target_mmol_l,
                 isf_mmol_l_per_unit=isf,
                 isf_source=isf_source,
+                **evidence,
             )
         latest = points[-1]
         if (
@@ -843,6 +865,7 @@ class HistoricalInsulinRecommendationService:
                 glucose_mmol_l=latest.display_value,
                 isf_mmol_l_per_unit=isf,
                 isf_source=isf_source,
+                **evidence,
             )
 
         trend = _trend_mmol_l_per_min(points)
@@ -853,6 +876,7 @@ class HistoricalInsulinRecommendationService:
                 glucose_mmol_l=latest.display_value,
                 isf_mmol_l_per_unit=isf,
                 isf_source=isf_source,
+                **evidence,
             )
 
         projected_change = max(
@@ -898,7 +922,9 @@ class HistoricalInsulinRecommendationService:
         context = {
             "target_mmol_l": round(target_mmol_l, 1),
             "glucose_mmol_l": round(latest.display_value, 1),
-            "projected_glucose_mmol_l": round(projected, 1),
+            # Keep threshold precision for clients that warn below 3.9;
+            # rendering may still round the displayed number to one decimal.
+            "projected_glucose_mmol_l": round(projected, 2),
             "trend_mmol_l_per_min": round(trend, 3),
             "isf_mmol_l_per_unit": round(isf, 2),
             "isf_source": isf_source,
@@ -913,6 +939,8 @@ class HistoricalInsulinRecommendationService:
             "prior_cob_g": round(prior_cob, 1),
             "excess_iob_units": round(excess_iob, 2),
             "calculated_at": calculation_at,
+            "trend_projection": trend_projection,
+            **evidence,
         }
         # Triggering on rate alone hid the entire calculation - meal dose
         # included - at 8.8 mmol/L falling 4.0/h with 76 g about to be eaten,
@@ -925,11 +953,10 @@ class HistoricalInsulinRecommendationService:
             if projection_source == "forecast"
             else latest.display_value + trend * FAST_FALL_LOOKAHEAD_MINUTES
         )
-        if (
-            latest.display_value < LOW_GLUCOSE_MMOL_L
-            or projected < LOW_GLUCOSE_MMOL_L
-            or fall_landing < LOW_GLUCOSE_MMOL_L
-        ):
+        observed_low = latest.display_value <= LOW_GLUCOSE_MMOL_L
+        projected_low = projected < LOW_GLUCOSE_MMOL_L
+        extended_fall_alert = fall_landing < LOW_GLUCOSE_MMOL_L and not projected_low
+        if observed_low or extended_fall_alert:
             gross_units = (projected - target_mmol_l) / isf
             if not separate_iob:
                 return CorrectionEstimate(status="low_or_falling", **context)
@@ -971,17 +998,14 @@ class HistoricalInsulinRecommendationService:
         if target not in self._normalized_outcome_cache:
             glucose: float | None = None
             try:
-                dashboard = GlucoseDashboardService(
-                    self.repository.session,
-                    self.repository.user_id,
-                ).dashboard(
+                points = self._outcome_dashboard.normalized_points_for_outcome(
                     target - OUTCOME_SAMPLE_WINDOW,
                     target + OUTCOME_SAMPLE_WINDOW,
-                    "normalized",
+                    self._outcome_calibrations,
                 )
-                if dashboard.points:
+                if points:
                     point = min(
-                        dashboard.points,
+                        points,
                         key=lambda candidate: abs(candidate.timestamp - target),
                     )
                     if abs(point.timestamp - target) <= OUTCOME_SAMPLE_WINDOW and not {
@@ -1149,9 +1173,11 @@ def _build_food_coverages(
                     event=event,
                     at=_local_wall_time(event.timestamp),
                     units=units,
+                    is_correction="correction" in normalized_text(event.event_type),
                 )
             )
     insulin_refs.sort(key=lambda item: item.at)
+    insulin_times = [ref.at for ref in insulin_refs]
 
     # Map event -> coverage index for currently linked meal boluses.
     owner: dict[UUID, int] = {}
@@ -1183,9 +1209,16 @@ def _build_food_coverages(
             coverages[index + 1].occurred_at if index + 1 < len(coverages) else None
         )
 
-        stealable = insulin_refs if under_covered else []
+        # Keep the same chronological order, but visit only insulin in this
+        # sitting's three-hour window instead of scanning the full history.
+        window_refs = insulin_refs[
+            bisect_right(insulin_times, window_start) : bisect_right(
+                insulin_times, window_end
+            )
+        ]
+        stealable = window_refs if under_covered else []
         for ref in stealable:
-            if "correction" in normalized_text(ref.event.event_type):
+            if ref.is_correction:
                 continue
             if ref.at <= window_start or ref.at > window_end:
                 continue
@@ -1216,10 +1249,10 @@ def _build_food_coverages(
             owner[ref.event.id] = index
 
         # Free (unassigned) rapid insulin in the deferred window.
-        for ref in insulin_refs:
+        for ref in window_refs:
             if ref.event.id in owner:
                 continue
-            if "correction" in normalized_text(ref.event.event_type):
+            if ref.is_correction:
                 # A labelled correction may coincide with delayed digestion,
                 # but treating it as meal coverage pollutes the learned ICR.
                 continue
@@ -1437,9 +1470,10 @@ def _meal_fingerprint(
         first_meal_context,
     ]
     for meal in sorted(meals, key=lambda item: item.id):
+        # A title, photo, or sync-state edit can bump updated_at without
+        # changing this calculation. Only the sitting inputs belong here.
         parts.append(
-            f"{meal.id}:{meal.updated_at}:{meal.eaten_at}:"
-            f"{meal.total_carbs_g}:{meal.total_kcal}"
+            f"{meal.id}:{meal.eaten_at}:{meal.total_carbs_g}:{meal.total_kcal}"
         )
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
 

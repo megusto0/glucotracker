@@ -37,9 +37,6 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from glucotracker.application.glucose_prediction import (
-    AUDIT_CALIBRATION_SOURCE_VERSIONS,
-)
 from glucotracker.infra.db.models import (
     GlucosePredictionPointAudit,
     GlucosePredictionRun,
@@ -48,6 +45,12 @@ from glucotracker.infra.db.models import (
 # Insulin reaches roughly half its action by this point, so it is the horizon a
 # correction is really aimed at.
 DEFAULT_PROJECTION_HORIZON_MINUTES = 60
+# A research model release must not silently change the dose input model.
+DOSE_FORECAST_MODEL_VERSIONS = (
+    "personal_known_input_shape_scenario_v4",
+    "personal_known_input_shape_scenario_v5",
+    "personal_normalized_scenario_v8",
+)
 # A forecast anchored further back than this describes a different situation.
 MAX_FORECAST_AGE = timedelta(minutes=20)
 # Below this the predicted move is inside the model's own noise.
@@ -122,7 +125,9 @@ class GlucoseTrendProjectionService:
             select(GlucosePredictionRun)
             .where(
                 GlucosePredictionRun.owner_id == self.user_id,
+                GlucosePredictionRun.model_version.in_(DOSE_FORECAST_MODEL_VERSIONS),
                 GlucosePredictionRun.anchor_timestamp <= at,
+                GlucosePredictionRun.generated_at <= at,
                 GlucosePredictionRun.anchor_timestamp >= at - MAX_FORECAST_AGE,
             )
             .order_by(GlucosePredictionRun.anchor_timestamp.desc())
@@ -146,6 +151,7 @@ class GlucoseTrendProjectionService:
         point = self.session.scalar(
             select(GlucosePredictionPointAudit).where(
                 GlucosePredictionPointAudit.run_id == run.id,
+                GlucosePredictionPointAudit.owner_id == self.user_id,
                 GlucosePredictionPointAudit.horizon_minutes == horizon_minutes,
             )
         )
@@ -215,13 +221,15 @@ class GlucoseTrendProjectionService:
             .where(
                 GlucosePredictionRun.owner_id == self.user_id,
                 GlucosePredictionPointAudit.owner_id == self.user_id,
-                GlucosePredictionRun.model_version.in_(
-                    AUDIT_CALIBRATION_SOURCE_VERSIONS
-                ),
+                GlucosePredictionRun.model_version.in_(DOSE_FORECAST_MODEL_VERSIONS),
                 GlucosePredictionPointAudit.horizon_minutes == horizon_minutes,
                 GlucosePredictionPointAudit.evaluation_status == "evaluated",
                 GlucosePredictionPointAudit.actual_value_mmol_l.is_not(None),
                 GlucosePredictionRun.anchor_timestamp < before,
+                GlucosePredictionRun.generated_at <= before,
+                GlucosePredictionPointAudit.target_timestamp < before,
+                GlucosePredictionPointAudit.actual_timestamp <= before,
+                GlucosePredictionPointAudit.evaluated_at <= before,
                 GlucosePredictionRun.anchor_timestamp
                 >= before - timedelta(days=CALIBRATION_LOOKBACK_DAYS),
             )

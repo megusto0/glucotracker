@@ -29,6 +29,20 @@ class HealthResponse(BaseModel):
     status: str = Field(examples=["ok"])
     version: str = Field(examples=["0.1.0"])
     db: str = Field(examples=["not_checked"])
+    commit: str | None = None
+    commit_short: str | None = None
+
+
+class VersionResponse(BaseModel):
+    """Service version and commit information."""
+
+    service: str = "glucotracker"
+    version: str = "0.1.0"
+    commit: str | None = None
+    commit_short: str | None = None
+    branch: str | None = None
+    commit_time: str | None = None
+    commit_message: str | None = None
 
 
 class StatsInsightResponse(BaseModel):
@@ -423,9 +437,7 @@ class BodyStateBreakdownResponse(BaseModel):
     iob_start_units: float | None = None
     activity_type: Literal["cycling", "gym", "walking", "other"] | None = None
     activity_type_source: Literal["user", "recorded", "rule", "none"] = "none"
-    suggested_activity_type: (
-        Literal["cycling", "gym", "walking", "other"] | None
-    ) = None
+    suggested_activity_type: Literal["cycling", "gym", "walking", "other"] | None = None
     remember_no_steps_rule: bool = False
     frequency_count: int = 0
     frequency_days: int = 30
@@ -766,6 +778,7 @@ class InsulinRecommendationMatchResponse(BaseModel):
 class InsulinRecommendationResponse(BaseModel):
     """Historical meal estimate plus an optional safety-gated correction."""
 
+    calculation_id: UUID | None = None
     status: Literal[
         "ready",
         "insufficient_history",
@@ -828,6 +841,37 @@ class InsulinRecommendationResponse(BaseModel):
     matched_episode_count: int
     matches: list[InsulinRecommendationMatchResponse]
     method_version: str
+
+
+class InsulinRecommendationRunSummaryResponse(BaseModel):
+    id: UUID
+    created_at: datetime
+    meal_at: datetime
+    calculation_at: datetime
+    meal_ids: list[UUID]
+    status: str
+    method_version: str
+    total_recommended_units: float | None
+    duration_ms: int
+
+
+class InsulinRecommendationActionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    action: Literal["created", "updated", "deleted"]
+    link_source: Literal["explicit", "inferred"]
+    insulin_event_id: UUID
+    insulin_units: float | None
+    recorded_at: datetime | None
+    created_at: datetime
+
+
+class InsulinRecommendationRunDetailResponse(InsulinRecommendationRunSummaryResponse):
+    request: InsulinRecommendationRequest
+    input_snapshot: dict[str, Any]
+    response: InsulinRecommendationResponse
+    actions: list[InsulinRecommendationActionResponse]
 
 
 class StatsOverviewResponse(BaseModel):
@@ -1568,6 +1612,7 @@ class ProductBase(BaseModel):
     image_url: str | None = Field(
         default=None, examples=["https://example.test/item.png"]
     )
+    icon_emoji: str | None = Field(default=None, examples=["🥣"])
     nutrients_json: dict[str, NutrientInput | float | None] = Field(
         default_factory=dict,
         examples=[{"sodium_mg": {"amount": 220, "unit": "mg"}}],
@@ -2022,6 +2067,7 @@ class NightscoutInsulinEntryCreate(BaseModel):
     insulin_units: float = Field(gt=0, le=100)
     recorded_at: datetime | None = None
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
+    recommendation_run_id: UUID | None = None
 
 
 class NightscoutInsulinEntryPatch(BaseModel):
@@ -2638,9 +2684,7 @@ class InsulinTherapyEntry(BaseModel):
         ):
             raise ValueError("ended_on must not be before started_on")
         if self.role not in {"basal", "pump"} and self.units_per_day is not None:
-            raise ValueError(
-                "units_per_day is only valid for basal or pump insulin"
-            )
+            raise ValueError("units_per_day is only valid for basal or pump insulin")
         return self
 
 

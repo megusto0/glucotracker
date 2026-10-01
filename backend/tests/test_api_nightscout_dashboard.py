@@ -24,12 +24,15 @@ from glucotracker.domain.auth import UserRole
 from glucotracker.domain.entities import MealSource, MealStatus, NightscoutSyncStatus
 from glucotracker.infra.db.models import (
     DailyTotal,
+    InsulinRecommendationAction,
+    InsulinRecommendationRun,
     Meal,
     NightscoutGlucoseEntry,
     NightscoutInsulinEvent,
     SensorCode,
     SensorSession,
     User,
+    utc_now,
 )
 from glucotracker.infra.nightscout.client import (
     NightscoutConnectError,
@@ -1044,6 +1047,224 @@ def test_create_nightscout_insulin_entry_is_idempotent(
     assert second.status_code == 200
     assert second.json()["nightscout_id"] == "manual-insulin-2"
     assert len(fake.posted_insulin) == 1
+
+
+def test_recommendation_keeps_actual_dose_actions_after_treatment_deletion(
+    api_client: TestClient,
+) -> None:
+    """The original suggestion and later actual-dose edits survive deletion."""
+    fake = FakeNightscoutClient(post_response={"_id": "linked-insulin-1"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    owner_id = api_client.app_state["current_user_id"]
+    factory = api_client.app_state["session_factory"]
+    with factory() as session:
+        meal = Meal(
+            owner_id=owner_id,
+            eaten_at=datetime(2026, 7, 20, 12, 0),
+            title="Linked meal",
+            source=MealSource.manual,
+            status=MealStatus.accepted,
+            total_carbs_g=45,
+            total_kcal=300,
+        )
+        session.add(meal)
+        session.commit()
+    estimate = api_client.post(
+        "/glucose/insulin-recommendation",
+        json={"meal_ids": [str(meal.id)]},
+    )
+    assert estimate.status_code == 200
+    run_id = estimate.json()["calculation_id"]
+    actual_payload = {
+        "insulin_units": 2.5,
+        "recorded_at": "2026-07-20T12:10:00Z",
+        "idempotency_key": "linked-insulin-key-1",
+        "recommendation_run_id": run_id,
+    }
+    created = api_client.post("/nightscout/insulin", json=actual_payload)
+    repeated = api_client.post("/nightscout/insulin", json=actual_payload)
+    assert created.status_code == repeated.status_code == 200
+    event_id = created.json()["id"]
+    updated = api_client.patch(
+        f"/nightscout/insulin/{event_id}", json={"insulin_units": 3.0}
+    )
+    assert updated.status_code == 200
+    deleted = api_client.delete(f"/nightscout/insulin/{event_id}")
+    assert deleted.status_code == 200
+    detail = api_client.get(f"/glucose/insulin-recommendations/history/{run_id}")
+    assert detail.status_code == 200
+    actions = detail.json()["actions"]
+    assert [item["action"] for item in actions] == ["created", "updated", "deleted"]
+    assert [item["link_source"] for item in actions] == ["explicit"] * 3
+    assert [item["insulin_units"] for item in actions] == [2.5, 3.0, 3.0]
+    assert len(fake.posted_insulin) == 1
+    with factory() as session:
+        assert session.get(NightscoutInsulinEvent, UUID(event_id)) is None
+
+
+def _seed_recent_recommendation(
+    session: Session,
+    owner_id: UUID,
+    *,
+    created_at: datetime,
+    meal_key: str | None = None,
+    calculation_at: datetime | None = None,
+) -> InsulinRecommendationRun:
+    run = InsulinRecommendationRun(
+        owner_id=owner_id,
+        created_at=created_at,
+        meal_at=created_at.replace(tzinfo=None),
+        calculation_at=calculation_at or created_at.replace(tzinfo=None),
+        meal_key=meal_key or str(uuid4()),
+        method_version="test",
+        status="ready",
+        total_recommended_units=2.5,
+        duration_ms=100,
+        request_json={},
+        input_json={},
+        response_json={},
+    )
+    session.add(run)
+    session.commit()
+    return run
+
+
+def test_old_client_dose_is_linked_to_one_recent_live_recommendation(
+    api_client: TestClient,
+) -> None:
+    fake = FakeNightscoutClient(post_response={"_id": "inferred-insulin"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    owner_id = api_client.app_state["current_user_id"]
+    factory = api_client.app_state["session_factory"]
+    now = utc_now()
+    with factory() as session:
+        run = _seed_recent_recommendation(
+            session, owner_id, created_at=now - timedelta(minutes=2)
+        )
+        run_id = run.id
+    payload = {
+        "insulin_units": 2.0,
+        "recorded_at": now.isoformat(),
+        "idempotency_key": "inferred-insulin-key",
+    }
+    first = api_client.post("/nightscout/insulin", json=payload)
+    repeat = api_client.post("/nightscout/insulin", json=payload)
+    assert first.status_code == repeat.status_code == 200
+    with factory() as session:
+        event = session.get(NightscoutInsulinEvent, UUID(first.json()["id"]))
+        assert event.recommendation_run_id == run_id
+        action = session.scalar(
+            select(InsulinRecommendationAction).where(
+                InsulinRecommendationAction.insulin_event_id == event.id
+            )
+        )
+        assert action.link_source == "inferred"
+        assert action.action == "created"
+        assert event.raw_json["request"]["recommendation_link_source"] == "inferred"
+        assert session.scalars(select(InsulinRecommendationAction)).all() == [action]
+    second = api_client.post(
+        "/nightscout/insulin",
+        json={**payload, "idempotency_key": "inferred-insulin-key-2"},
+    )
+    assert second.status_code == 200
+    with factory() as session:
+        assert (
+            session.get(
+                NightscoutInsulinEvent, UUID(second.json()["id"])
+            ).recommendation_run_id
+            is None
+        )
+    updated = api_client.patch(
+        f"/nightscout/insulin/{first.json()['id']}", json={"insulin_units": 2.25}
+    )
+    assert updated.status_code == 200
+    deleted = api_client.delete(f"/nightscout/insulin/{first.json()['id']}")
+    assert deleted.status_code == 200
+    with factory() as session:
+        actions = session.scalars(
+            select(InsulinRecommendationAction)
+            .where(InsulinRecommendationAction.recommendation_run_id == run_id)
+            .order_by(InsulinRecommendationAction.created_at)
+        ).all()
+        assert [action.action for action in actions] == [
+            "created",
+            "updated",
+            "deleted",
+        ]
+        assert [action.link_source for action in actions] == ["inferred"] * 3
+
+
+@pytest.mark.parametrize("match_owner", [False, True])
+def test_inferred_dose_link_is_owner_scoped(
+    api_client: TestClient, match_owner: bool
+) -> None:
+    fake = FakeNightscoutClient(post_response={"_id": "owner-scope-insulin"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    owner_id = api_client.app_state["current_user_id"]
+    factory = api_client.app_state["session_factory"]
+    now = utc_now()
+    with factory() as session:
+        other = User(
+            username=f"other-{uuid4()}",
+            password_hash=hash_password("other-password"),
+            role=UserRole.gluco,
+        )
+        session.add(other)
+        session.flush()
+        run = _seed_recent_recommendation(
+            session,
+            owner_id if match_owner else other.id,
+            created_at=now - timedelta(minutes=1),
+        )
+        run_id = run.id
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 1.0,
+            "recorded_at": now.isoformat(),
+            "idempotency_key": f"owner-scope-{match_owner}",
+        },
+    )
+    assert created.status_code == 200
+    with factory() as session:
+        event = session.get(NightscoutInsulinEvent, UUID(created.json()["id"]))
+        assert event.recommendation_run_id == (run_id if match_owner else None)
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_inferred_dose_link_skips_ambiguous_or_retrospective_calculations(
+    api_client: TestClient, ambiguous: bool
+) -> None:
+    fake = FakeNightscoutClient(post_response={"_id": "ambiguous-insulin"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    owner_id = api_client.app_state["current_user_id"]
+    factory = api_client.app_state["session_factory"]
+    now = utc_now()
+    with factory() as session:
+        _seed_recent_recommendation(
+            session,
+            owner_id,
+            created_at=now - timedelta(minutes=2),
+            calculation_at=(now - timedelta(hours=1)).replace(tzinfo=None)
+            if not ambiguous
+            else None,
+        )
+        if ambiguous:
+            _seed_recent_recommendation(
+                session, owner_id, created_at=now - timedelta(minutes=1)
+            )
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 1.0,
+            "recorded_at": now.isoformat(),
+            "idempotency_key": f"ambiguous-{ambiguous}",
+        },
+    )
+    assert created.status_code == 200
+    with factory() as session:
+        event = session.get(NightscoutInsulinEvent, UUID(created.json()["id"]))
+        assert event.recommendation_run_id is None
 
 
 def test_create_nightscout_insulin_entry_rejects_non_positive_units(

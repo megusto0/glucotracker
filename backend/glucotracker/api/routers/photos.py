@@ -1165,6 +1165,10 @@ def reestimate_meal_photos(
 
     ordered_photos = _ordered_photos(meal.photos)
     photo_inputs = _photo_inputs(ordered_photos)
+    from glucotracker.infra.db.repositories.ai_models import AIModelsRepository
+
+    routing = AIModelsRepository(session, current_user.id).routing()
+    gemini_client.routing_models = routing.models_json if routing else None
     model_override = None if payload.model == "default" else payload.model
 
     try:

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     app_version: str = "0.1.0"
     token: str | None = None
+    prediction_model_dir: Path = Path("./data/prediction_models")
+    experimental_glucose_prediction_enabled: bool = False
     log_level: str = Field(
         default="INFO",
         validation_alias=AliasChoices("LOG_LEVEL", "GLUCOTRACKER_LOG_LEVEL"),
@@ -80,7 +82,7 @@ class Settings(BaseSettings):
         ),
     )
     gemini_model: str = Field(
-        default="gemini-3.6-flash",
+        default="gemini-3.7-flash",
         validation_alias=AliasChoices(
             "GEMINI_MODEL_PHOTO",
             "GLUCOTRACKER_GEMINI_MODEL_PHOTO",
@@ -117,7 +119,7 @@ class Settings(BaseSettings):
         ),
     )
     gemini_fallback_models: str = Field(
-        default="gemini-3.5-flash,gemini-3.5-flash-lite",
+        default="gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite",
         validation_alias=AliasChoices(
             "GEMINI_FALLBACK_MODELS",
             "GLUCOTRACKER_GEMINI_FALLBACK_MODELS",
@@ -159,8 +161,7 @@ class Settings(BaseSettings):
     )
     gemini_quota_cooldown_path: Path = Field(
         default=Path(
-            "/media/megusto/storage/glucotracker/runtime/"
-            "gemini-quota-cooldowns.json"
+            "/media/megusto/storage/glucotracker/runtime/gemini-quota-cooldowns.json"
         ),
         validation_alias=AliasChoices(
             "GEMINI_QUOTA_COOLDOWN_PATH",
@@ -208,6 +209,48 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "GROK_PHOTO_FALLBACK_ENABLED",
             "GLUCOTRACKER_GROK_PHOTO_FALLBACK_ENABLED",
+        ),
+    )
+    # Last-resort photo-estimate fallback: OpenAI Codex via the OAuth session
+    # Hermes already holds. No OpenAI API key required; the service reads a
+    # runtime drop-in copy of the Hermes auth store (ProtectHome blocks
+    # ~/.hermes for the service user).
+    openai_photo_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "OPENAI_PHOTO_FALLBACK_ENABLED",
+            "GLUCOTRACKER_OPENAI_PHOTO_FALLBACK_ENABLED",
+        ),
+    )
+    openai_hermes_auth_json: Path | None = Field(
+        default=Path("/media/megusto/storage/glucotracker/runtime/hermes-auth.json"),
+        validation_alias=AliasChoices(
+            "OPENAI_HERMES_AUTH_JSON",
+            "GLUCOTRACKER_OPENAI_HERMES_AUTH_JSON",
+            "HERMES_AUTH_JSON",
+        ),
+    )
+    openai_hermes_access_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "OPENAI_HERMES_ACCESS_TOKEN",
+            "GLUCOTRACKER_OPENAI_HERMES_ACCESS_TOKEN",
+        ),
+    )
+    openai_codex_base_url: str = Field(
+        default="https://chatgpt.com/backend-api/codex",
+        validation_alias=AliasChoices(
+            "OPENAI_CODEX_BASE_URL",
+            "GLUCOTRACKER_OPENAI_CODEX_BASE_URL",
+            "HERMES_CODEX_BASE_URL",
+        ),
+    )
+    openai_photo_model: str = Field(
+        default="gpt-5.6-luna",
+        validation_alias=AliasChoices(
+            "OPENAI_PHOTO_MODEL",
+            "GLUCOTRACKER_OPENAI_PHOTO_MODEL",
+            "HERMES_CODEX_MODEL",
         ),
     )
     nightscout_url: str | None = Field(

@@ -14,6 +14,11 @@ from sqlalchemy.orm import selectinload
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.routers.patterns import search_pattern_rows
 from glucotracker.api.schemas import AutocompleteSuggestion
+from glucotracker.application.fridge_sync import (
+    FridgeIntegrationService,
+    FridgeItem,
+    MealPrepItem,
+)
 from glucotracker.domain.nutrition import calculate_item_from_per_100g
 from glucotracker.infra.db.models import Product
 from glucotracker.infra.db.product_merge import collapse_duplicate_source_photo_products
@@ -51,8 +56,7 @@ def _token_match_rank(value: str, query: str) -> int:
     if not value_tokens:
         return 9
     if all(
-        any(candidate == token for candidate in value_tokens)
-        for token in query_tokens
+        any(candidate == token for candidate in value_tokens) for token in query_tokens
     ):
         return 2
     if all(
@@ -300,8 +304,6 @@ def _suggestion_sort_key(
     )
 
 
-from glucotracker.application.fridge_sync import FridgeIntegrationService, FridgeItem, MealPrepItem
-
 FRIDGE_PREFIXES = {"fridge", "холодильник", "х"}
 MEALPREP_PREFIXES = {"mp", "милпреп"}
 
@@ -313,7 +315,11 @@ def _fridge_item_suggestion(
     """Convert an available fridge item into a top-priority autocomplete suggestion."""
     search_values = [item.name, item.brand or "", "холодильник", "fridge"]
     match_rank = _text_match_rank(search_values, q)
-    qty_str = f"{int(item.remaining_quantity)} {item.unit}" if item.remaining_quantity.is_integer() else f"{item.remaining_quantity:.1f} {item.unit}"
+    qty_str = (
+        f"{int(item.remaining_quantity)} {item.unit}"
+        if item.remaining_quantity.is_integer()
+        else f"{item.remaining_quantity:.1f} {item.unit}"
+    )
     # No snowflake and no word for the source: `kind` already says
     # "fridge_product" and the client draws its own mark from it.
     subtitle = f"{qty_str} в наличии"
@@ -355,14 +361,32 @@ def _mealprep_item_suggestion(
     q: str,
 ) -> tuple[AutocompleteSuggestion, int, datetime | None, int, int]:
     """Convert an available ready meal prep container into a top-priority suggestion."""
-    search_values = [item.dish_name, item.public_code, "милпреп", "контейнер", "mp"]
+    search_values = [
+        item.dish_name,
+        item.public_code,
+        "милпреп",
+        "контейнер",
+        "mp",
+        "бутерброд",
+        "бутер",
+        "бутерброд с сыром",
+        "бутерброд с маслом",
+        "сыр",
+        "масло",
+        "батон",
+        "хлеб",
+        "sandwich",
+    ]
     match_rank = _text_match_rank(search_values, q)
     subtitle = f"{int(item.remaining_weight_g)} г · {int(item.kcal)} ккал"
 
-    try:
-        cont_uuid = UUID(hex=item.container_id.replace("-", ""))
-    except Exception:
-        cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
+    if item.container_id == "recipe:sandwich_cheese_butter":
+        cont_uuid = UUID("b007eb00-0000-0000-0000-000000000001")
+    else:
+        try:
+            cont_uuid = UUID(hex=item.container_id.replace("-", ""))
+        except Exception:
+            cont_uuid = UUID("00000000-0000-0000-0000-000000000000")
 
     return (
         AutocompleteSuggestion(
@@ -401,7 +425,9 @@ def autocomplete(
     q: str = "",
     limit: int = Query(default=20, ge=1, le=100),
 ) -> list[AutocompleteSuggestion]:
-    """Return unified pattern, product, fridge, and meal prep suggestions for frontends."""
+    """
+    Return unified pattern, product, fridge, and meal prep suggestions for frontends.
+    """
     prefix = ""
     suffix = q
     if ":" in q:
@@ -413,20 +439,14 @@ def autocomplete(
 
     if prefix in FRIDGE_PREFIXES:
         fridge_items = fridge_service.fetch_available_inventory(current_user.id)
-        rows = [
-            _fridge_item_suggestion(item, suffix)
-            for item in fridge_items
-        ]
+        rows = [_fridge_item_suggestion(item, suffix) for item in fridge_items]
         rows = [r for r in rows if r[3] < 9]  # Match rank < 9
         rows.sort(key=_suggestion_sort_key)
         return [row[0] for row in rows[:limit]]
 
     if prefix in MEALPREP_PREFIXES:
         mealprep_items = fridge_service.fetch_available_mealpreps(current_user.id)
-        rows = [
-            _mealprep_item_suggestion(item, suffix)
-            for item in mealprep_items
-        ]
+        rows = [_mealprep_item_suggestion(item, suffix) for item in mealprep_items]
         rows = [r for r in rows if r[3] < 9]
         rows.sort(key=_suggestion_sort_key)
         return [row[0] for row in rows[:limit]]

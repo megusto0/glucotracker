@@ -1,6 +1,15 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Activity, BarChart3, BookOpen, Clock, Database, Dna, Link2, LogOut, Monitor, Settings,
+  Activity,
+  BarChart3,
+  BookOpen,
+  Clock,
+  Database,
+  Dna,
+  Link2,
+  LogOut,
+  Monitor,
+  Settings,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -26,23 +35,37 @@ const NAV = [
   { to: "/insulin-links", label: "Связи", icon: Link2, feature: "insulin" },
   { to: "/stats", label: "Статистика", icon: BarChart3 },
   { to: "/database", label: "База продуктов", icon: Database },
+  { to: "/ai-models", label: "Модели", icon: Monitor },
   { to: "/settings", label: "Настройки", icon: Settings },
 ];
 
 function MiniSparkline({ points }: { points: number[] }) {
-  const w = 80, h = 22;
+  const w = 80,
+    h = 22;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
-  const path = points.map((y, i) => {
-    const x = (i / (points.length - 1)) * w;
-    const yy = h - ((y - min) / range) * h;
-    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${yy.toFixed(1)}`;
-  }).join(" ");
+  const path = points
+    .map((y, i) => {
+      const x = (i / (points.length - 1)) * w;
+      const yy = h - ((y - min) / range) * h;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${yy.toFixed(1)}`;
+    })
+    .join(" ");
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      style={{ display: "block" }}
+    >
       <path d={path} fill="none" stroke="var(--ink)" strokeWidth="1.2" />
-      <circle cx={w} cy={h - ((points[points.length - 1] - min) / range) * h} r="2" fill="var(--accent)" />
+      <circle
+        cx={w}
+        cy={h - ((points[points.length - 1] - min) / range) * h}
+        r="2"
+        fill="var(--accent)"
+      />
     </svg>
   );
 }
@@ -144,9 +167,12 @@ export default function Sidebar() {
       const pts = d.points ?? [];
       if (!pts.length) return null;
       const last = pts[pts.length - 1];
-      const recent = pts.slice(-12).map(p => p.display_value ?? p.raw_value);
+      const recent = pts.slice(-12).map((p) => p.display_value ?? p.raw_value);
       const prev = pts.length > 1 ? pts[pts.length - 2] : null;
-      const delta = prev ? (last.display_value ?? last.raw_value) - (prev.display_value ?? prev.raw_value) : 0;
+      const delta = prev
+        ? (last.display_value ?? last.raw_value) -
+          (prev.display_value ?? prev.raw_value)
+        : 0;
       return {
         value: last.display_value ?? last.raw_value,
         timestamp: last.timestamp,
@@ -157,11 +183,16 @@ export default function Sidebar() {
   });
 
   const latestValue = latestReading?.value_mmol_l ?? sparkline?.value ?? null;
-  const latestTimestamp = latestReading?.timestamp ?? sparkline?.timestamp ?? null;
+  const latestTimestamp =
+    latestReading?.timestamp ?? sparkline?.timestamp ?? null;
   const latestTrend = nightscoutTrendSymbol(latestReading?.trend);
   const trendChar =
     latestTrend ??
-    ((sparkline?.trend ?? 0) > 0.2 ? "↑" : (sparkline?.trend ?? 0) < -0.2 ? "↓" : "→");
+    ((sparkline?.trend ?? 0) > 0.2
+      ? "↑"
+      : (sparkline?.trend ?? 0) < -0.2
+        ? "↓"
+        : "→");
   const trendColor =
     trendChar.includes("↑") || trendChar === "↗"
       ? "var(--accent)"
@@ -183,33 +214,68 @@ export default function Sidebar() {
 
       <nav className="gt-nav">
         <div className="gt-nav-section">Основное</div>
-        {NAV.filter((n) => hasFeature("feature" in n ? n.feature : undefined)).map((n) => (
+        {NAV.filter((n) =>
+          hasFeature("feature" in n ? n.feature : undefined),
+        ).map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
             end={n.to === "/"}
-            className={({ isActive }) => isActive ? "active" : ""}
+            className={({ isActive }) => (isActive ? "active" : "")}
           >
             <n.icon />
             <span className="gt-nav-label">{n.label}</span>
-            {"badge" in n ? <span className="gt-nav-badge">{n.badge}</span> : null}
+            {"badge" in n ? (
+              <span className="gt-nav-badge">{n.badge}</span>
+            ) : null}
           </NavLink>
         ))}
       </nav>
 
       {hasGlucoseFeature && !isGlucosePage && latestValue != null && (
-        <div className="gt-side-glucose" onClick={() => navigate("/glucose")} title="Перейти к графику глюкозы">
-          <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between" }}>
+        <div
+          className="gt-side-glucose"
+          onClick={() => navigate("/glucose")}
+          title="Перейти к графику глюкозы"
+        >
+          <div
+            className="row"
+            style={{ alignItems: "baseline", justifyContent: "space-between" }}
+          >
             <span className="lbl">сейчас</span>
-            <span className="mono" style={{ fontSize: 9, color: "var(--ink-4)" }}>{formatGlucoseAge(latestTimestamp)}</span>
+            <span
+              className="mono"
+              style={{ fontSize: 9, color: "var(--ink-4)" }}
+            >
+              {formatGlucoseAge(latestTimestamp)}
+            </span>
           </div>
-          <div className="row" style={{ alignItems: "baseline", gap: 4, marginTop: 4 }}>
-            <span className="mono" style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em" }}>
+          <div
+            className="row"
+            style={{ alignItems: "baseline", gap: 4, marginTop: 4 }}
+          >
+            <span
+              className="mono"
+              style={{
+                fontSize: 22,
+                fontWeight: 500,
+                letterSpacing: "-0.01em",
+              }}
+            >
               {formatMmol(latestValue)}
             </span>
             <span style={{ fontSize: 10, color: "var(--ink-3)" }}>ммоль/л</span>
             <span className="spacer" />
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 10, color: trendColor, fontFamily: "var(--mono)" }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 2,
+                fontSize: 10,
+                color: trendColor,
+                fontFamily: "var(--mono)",
+              }}
+            >
               {trendChar} {trendDelta}
             </span>
           </div>
@@ -218,7 +284,15 @@ export default function Sidebar() {
               <MiniSparkline points={sparkline.recent} />
             </div>
           ) : null}
-          <div className="mono" style={{ fontSize: 9, color: "var(--ink-4)", marginTop: 4, textAlign: "right" }}>
+          <div
+            className="mono"
+            style={{
+              fontSize: 9,
+              color: "var(--ink-4)",
+              marginTop: 4,
+              textAlign: "right",
+            }}
+          >
             последние 60 мин
           </div>
         </div>

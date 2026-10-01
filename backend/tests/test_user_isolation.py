@@ -701,6 +701,55 @@ class TestGETIsolation:
         assert data["summary"]["iob_minutes_remaining"] == 270
 
     def test_glucose_prediction(self):
+        from glucotracker.api.schemas import (
+            GlucosePredictionInputs,
+            GlucosePredictionModel,
+            GlucosePredictionPoint,
+            GlucosePredictionResponse,
+        )
+        from glucotracker.application.glucose_prediction import MODEL_VERSION
+        from glucotracker.application.glucose_prediction_audit import (
+            GlucosePredictionAuditService,
+        )
+
+        # The endpoint reads worker-produced snapshots; it must not fit on GET.
+        now = datetime.now(UTC)
+        with self.env["session_factory"]() as session:
+            for index, (owner, value) in enumerate(
+                ((self.alice, 6.0), (self.bob, 12.0))
+            ):
+                at = now - timedelta(microseconds=index)
+                response = GlucosePredictionResponse(
+                    generated_at=now,
+                    anchor_timestamp=at.replace(tzinfo=None),
+                    anchor_value=value,
+                    raw_anchor_value=value,
+                    horizon_minutes=90,
+                    step_minutes=5,
+                    mode="normalized",
+                    model=GlucosePredictionModel(
+                        version=MODEL_VERSION, algorithm="test"
+                    ),
+                    inputs=GlucosePredictionInputs(),
+                    notes=[],
+                    points=[
+                        GlucosePredictionPoint(
+                            timestamp=(at + timedelta(minutes=h)).replace(tzinfo=None),
+                            horizon_minutes=h,
+                            raw_value=value,
+                            raw_ci_low=value - 1,
+                            raw_ci_high=value + 1,
+                            display_value=value,
+                            ci_low=value - 1,
+                            ci_high=value + 1,
+                            confidence=0.5,
+                            band="in_range" if value < 10 else "high",
+                        )
+                        for h in range(5, 91, 5)
+                    ],
+                )
+                GlucosePredictionAuditService(session, owner).record(response)
+            session.commit()
         alice_response = self.client.get(
             "/glucose/prediction", headers=self.alice_headers
         )
@@ -712,6 +761,8 @@ class TestGETIsolation:
         bob_data = bob_response.json()
 
         assert alice_data["anchor_timestamp"] != bob_data["anchor_timestamp"]
+        assert alice_data["raw_anchor_value"] == 6
+        assert bob_data["raw_anchor_value"] == 12
         assert alice_data["model"]["sample_count"] == 0
         assert bob_data["model"]["sample_count"] == 0
 
@@ -813,9 +864,7 @@ class TestGETIsolation:
         )
         assert alice_response.status_code == 200
         assert bob_response.status_code == 200
-        assert [
-            state["kind"] for state in alice_response.json()["states"]
-        ] == ["sleep"]
+        assert [state["kind"] for state in alice_response.json()["states"]] == ["sleep"]
         assert bob_response.json()["states"] == []
 
     def test_glucose_body_state_breakdown(self):
@@ -1854,10 +1903,7 @@ class TestMutationIsolation:
         s.close()
 
     def test_sensor_code_create_list_and_patch_isolation(self):
-        raw_payload = (
-            "0106977641010009112606221727062110BOB-LOT"
-            "\u001d21BOB-SENSOR-CODE"
-        )
+        raw_payload = "0106977641010009112606221727062110BOB-LOT\u001d21BOB-SENSOR-CODE"
         created = self.client.post(
             "/glucose/sensor-codes",
             json={"raw_payload": raw_payload},

@@ -66,6 +66,57 @@ The glucose dashboard only loads an active validated fit and falls back to the
 population model, so a read request never trains or writes a model. See
 [`iob-cob-models.md`](iob-cob-models.md) for gates and model details.
 
+### Insulin recommendation audit
+
+Per `CONCEPT.md` §1, the backend is the source of truth for the mobile insulin
+calculation. Every successful `POST /glucose/insulin-recommendation` appends a
+row to `insulin_recommendation_runs` before the response is sent. It stores the
+request, complete generated response, meal and therapy snapshots, the exact CGM
+points used for correction, nearby meal/insulin candidates, active IOB/COB fits,
+algorithm versions, and elapsed calculation time. The food cache is a separate
+replaceable optimization and never the audit record.
+
+The response's `calculation_id` is carried by the gluco Android outbox when the
+user saves a manual insulin dose. The backend validates ownership and appends
+`created`, `updated`, and `deleted` rows to `insulin_recommendation_actions`;
+these survive deletion of the Nightscout treatment. Both audit tables are
+owner-scoped and exposed through
+`GET /glucose/insulin-recommendations/history` and
+`GET /glucose/insulin-recommendations/history/{run_id}`. No route mutates or
+deletes audit rows. A generated response proves a completed server calculation,
+not that the device displayed it or that insulin was given. Older food-cache
+rows cannot reconstruct the original correction and are not backfilled as full
+runs. Future outcome analysis can join immutable raw CGM and linked dose actions
+to these snapshots, while handling extra food, external boluses, delayed imports
+and sensor quality.
+
+Older Android builds omit `calculation_id`. For those manual dose saves, the
+backend links at most one unlinked recommendation from the same owner when it
+was calculated live within ten minutes of the recorded dose, with at most one
+distinct meal key in the window. It skips retrospective and ambiguous cases.
+The append-only action's `link_source` is `inferred` for such matches and
+`explicit` when the client sent the ID; inferred links are temporal evidence,
+not proof that the user acted on that recommendation. Unmatched doses remain
+unlinked, and no Android update is required for this server-side fallback.
+
+### Photo model management
+
+Desktop `/ai-models` reads owner-scoped attempt statistics and saves a personal
+provider/model order through `/ai/models`. Photo estimation loads that order
+for initial, background and repeated requests. Existing provider credentials
+and cooldowns remain on the server. See [ai-model-management.md](ai-model-management.md)
+for metric definitions, routing semantics and the required additive migration.
+
+### Glucose forecasting
+
+Glucose forecasts are produced by `GlucosePredictionWorker`; the prediction
+endpoint reads an immutable, owner-scoped snapshot. V8 remains the default; the
+experimental v9 requires explicit configuration and was not promoted after the
+historical comparison. V9 fitted JSON/LightGBM artifacts are reused only for the
+same owner, data and implementation. See
+[`glucose-prediction.md`](glucose-prediction.md) for historical availability,
+validation boundaries, worker configuration and the separate dose-model allowlist.
+
 ### Time Semantics
 
 Meal and photo capture times are local wall-clock product data, not absolute

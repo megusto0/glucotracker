@@ -1421,8 +1421,7 @@ def test_unpeeled_orange_scale_weight_uses_edible_yield(
     assert item["evidence"]["gross_weight_edible_yield"]["edible_weight_g"] == 155.4
     assert item["evidence"]["raw_model_estimate"]["carbs_g"] == 24.7
     assert any(
-        warning["code"] == "gross_weight_includes_peel"
-        for warning in item["warnings"]
+        warning["code"] == "gross_weight_includes_peel" for warning in item["warnings"]
     )
 
 
@@ -1460,8 +1459,7 @@ def test_known_component_replaces_full_component_macros(
     assert component["matches"][0]["known_component_fat_g"] == pytest.approx(4)
     assert component["matches"][0]["known_component_kcal"] == pytest.approx(150)
     assert (
-        component["components"][0]["field_sources"]["carbs_g"]
-        == "personal_component"
+        component["components"][0]["field_sources"]["carbs_g"] == "personal_component"
     )
     assert component["components"][1]["field_sources"]["protein_g"] == (
         "gemini_visual_estimate"
@@ -1987,3 +1985,22 @@ def test_photo_delete_removes_disk_file(api_client: TestClient) -> None:
     assert response.json() == {"deleted": True}
     assert not full_path.exists()
     assert api_client.get(f"/photos/{photo['id']}/file").status_code == 404
+
+
+def test_saved_priority_is_loaded_for_initial_and_repeat_estimates(api_client):
+    meal = _create_photo_meal(api_client)
+    _upload_photo(api_client, meal["id"])
+    fake = _override_gemini(_plated_result())
+    models = [{"provider": "gemini", "model": "gemini-custom", "enabled": True}]
+    saved = api_client.put("/ai/models", json={"revision": 0, "models": models})
+    assert saved.status_code == 200
+    assert api_client.post(f"/meals/{meal['id']}/estimate", json={}).status_code == 200
+    assert fake.routing_models == models
+    fake.routing_models = None
+    assert (
+        api_client.post(
+            f"/meals/{meal['id']}/reestimate", json={"model": "default"}
+        ).status_code
+        == 200
+    )
+    assert fake.routing_models == models

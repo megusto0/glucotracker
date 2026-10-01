@@ -110,6 +110,37 @@ class RestaurantVariantsTest {
         assertTrue(groups.none { it.hasQuantitySlider })
     }
 
+    @Test
+    fun vitBreakfastFamiliesUseOneChoicePerDishWithNamedFillings() {
+        val choices = restaurantTemplateChoices(
+            listOf(
+                template("omelet", "vit", "Омлет"),
+                template("omelet-bacon", "vit", "Омлет с беконом"),
+                template("omelet-cheese", "vit", "Омлет с сыром"),
+                template("eggs", "vit", "Яичница"),
+                template("eggs-ham", "vit", "Яичница с ветчиной"),
+                template("muffin-bacon", "vit", "Маффин с яйцом и беконом"),
+                template("muffin-cheese", "vit", "Маффин с яйцом и сыром"),
+                template("omletter", "vit", "Омлеттер с беконом и сыром"),
+                template("strips3", "vit", "Стрипсы (3 шт.)"),
+                template("strips5", "vit", "Стрипсы (5 шт.)"),
+            ),
+        )
+
+        val groups = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
+            .map { it.group }
+        assertEquals(
+            setOf("Омлет", "Яичница", "Маффин с яйцом", "Стрипсы"),
+            groups.map { it.name }.toSet(),
+        )
+        assertTrue(groups.filter { it.name != "Стрипсы" }.all { !it.hasQuantitySlider })
+        assertEquals(listOf(3, 5), groups.single { it.name == "Стрипсы" }.quantityOptions)
+        assertTrue(
+            choices.filterIsInstance<RestaurantTemplateChoice.Single>()
+                .any { it.template.id == "omletter" },
+        )
+    }
+
     private fun template(id: String, prefix: String, name: String) =
         Template(
             id = id,

@@ -519,7 +519,31 @@ async function apiBlobRequest(
   }
 }
 
+export type AIModelsResponse = components["schemas"]["AIModelsResponse"];
+export type AIModelChoice = components["schemas"]["AIModelChoice"];
+export type AIModelRoutingUpdate =
+  components["schemas"]["AIModelRoutingUpdate"];
+
 export const apiClient = {
+  getAIModels: (config: ApiConfig, days = 30, historyOffset = 0) =>
+    apiRequest<AIModelsResponse>(
+      `/ai/models?days=${days}&history_offset=${historyOffset}`,
+      config,
+    ),
+  updateAIModels: (
+    config: ApiConfig,
+    body: AIModelRoutingUpdate,
+    days = 30,
+    historyOffset = 0,
+  ) =>
+    apiRequest<AIModelsResponse>(
+      `/ai/models?days=${days}&history_offset=${historyOffset}`,
+      config,
+      {
+        method: "PUT",
+        body,
+      },
+    ),
   login: (config: ApiConfig, body: LoginRequest) =>
     apiRequest<IssuedTokensResponse>("/auth/login", config, {
       auth: false,
@@ -961,19 +985,15 @@ export const apiClient = {
     horizonMinutes: number,
     forceRecalculate = false,
   ) =>
-    apiRequest<TherapyReviewDayResponse>(
-      "/glucose/therapy-review",
-      config,
-      {
-        query: {
-          date,
-          target_mmol_l: targetMmolL,
-          horizon_minutes: horizonMinutes,
-          force_recalculate: forceRecalculate,
-        },
-        timeoutMs: 90_000,
+    apiRequest<TherapyReviewDayResponse>("/glucose/therapy-review", config, {
+      query: {
+        date,
+        target_mmol_l: targetMmolL,
+        horizon_minutes: horizonMinutes,
+        force_recalculate: forceRecalculate,
       },
-    ),
+      timeoutMs: 90_000,
+    }),
 
   getGlucoseBodyStates: (config: ApiConfig, from: string, to: string) =>
     apiRequest<BodyStatesResponse>("/glucose/body-states", config, {
@@ -985,17 +1005,13 @@ export const apiClient = {
     periodDays: 30 | 90 | 180,
     targetMmolL: number,
   ) =>
-    apiRequest<TherapyAnalysisResponse>(
-      "/glucose/therapy-analysis",
-      config,
-      {
-        query: {
-          period_days: periodDays,
-          target_mmol_l: targetMmolL,
-        },
-        timeoutMs: 90_000,
+    apiRequest<TherapyAnalysisResponse>("/glucose/therapy-analysis", config, {
+      query: {
+        period_days: periodDays,
+        target_mmol_l: targetMmolL,
       },
-    ),
+      timeoutMs: 90_000,
+    }),
 
   getTopUpDose: (config: ApiConfig, targetMmolL?: number) =>
     apiRequest<TopUpDoseResponse>(

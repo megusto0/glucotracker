@@ -113,6 +113,7 @@ data class CreateNightscoutInsulinOutboxKind(
     val recordedAt: Instant,
     val insulinUnits: Double,
     val idempotencyKey: String,
+    val recommendationRunId: String? = null,
 ) : OutboxKind
 
 @Serializable

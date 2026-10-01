@@ -3,9 +3,11 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from glucotracker.api.errors import UnauthorizedError, unauthorized_exception_handler
 from glucotracker.api.openapi import build_openapi
@@ -32,12 +34,15 @@ from glucotracker.api.routers import (
     stats_router,
     twin_router,
 )
-from glucotracker.api.schemas import HealthResponse
+from glucotracker.api.routers.ai_models import router as ai_models_router
+from glucotracker.api.schemas import HealthResponse, VersionResponse
 from glucotracker.application.nightscout_background import NightscoutBackgroundImporter
 from glucotracker.application.postprandial.worker import PostprandialSweeper
 from glucotracker.config import get_settings
 from glucotracker.infra.db.session import get_session_factory
+from glucotracker.version import get_version_info
 from glucotracker.workers.anchor_recompute import AnchorRecomputeWorker
+from glucotracker.workers.glucose_prediction import GlucosePredictionWorker
 from glucotracker.workers.glucose_prediction_outcomes import (
     GlucosePredictionOutcomeWorker,
 )
@@ -53,6 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     anchor_task: asyncio.Task[None] | None = None
     sweeper_task: asyncio.Task[None] | None = None
     prediction_outcome_task: asyncio.Task[None] | None = None
+    prediction_task: asyncio.Task[None] | None = None
     on_board_fit_task: asyncio.Task[None] | None = None
     run_background_tasks = (
         settings.run_background_tasks_in_web and not app.dependency_overrides
@@ -68,6 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             GlucosePredictionOutcomeWorker().run_forever()
         )
         on_board_fit_task = asyncio.create_task(OnBoardFitWorker().run_forever())
+        prediction_task = asyncio.create_task(GlucosePredictionWorker().run_forever())
     try:
         yield
     finally:
@@ -87,6 +94,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             prediction_outcome_task.cancel()
             with suppress(asyncio.CancelledError):
                 await prediction_outcome_task
+        if prediction_task is not None:
+            prediction_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await prediction_task
         if on_board_fit_task is not None:
             on_board_fit_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -115,6 +126,7 @@ app.add_middleware(
 
 app.add_exception_handler(UnauthorizedError, unauthorized_exception_handler)
 app.include_router(admin_router)
+app.include_router(ai_models_router)
 app.include_router(activity_router)
 app.include_router(auth_router)
 app.include_router(autocomplete_router)
@@ -136,8 +148,6 @@ app.include_router(schedule_router)
 app.include_router(stats_router)
 app.include_router(twin_router)
 
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
 
 _fridge_uploads = Path("/media/megusto/storage/fridge/data/uploads")
 if _fridge_uploads.is_dir():
@@ -158,8 +168,28 @@ app.openapi = lambda: build_openapi(app)
 )
 async def health() -> HealthResponse:
     """Return lightweight service health for watchdog and reverse proxy checks."""
+    v_info = get_version_info()
     return HealthResponse(
         status="ok",
         version=get_settings().app_version,
         db="not_checked",
+        commit=v_info.get("commit"),
+        commit_short=v_info.get("commit_short"),
     )
+
+
+@app.get(
+    "/version",
+    tags=["system"],
+    response_model=VersionResponse,
+    operation_id="getVersion",
+)
+@app.get(
+    "/commit",
+    tags=["system"],
+    response_model=VersionResponse,
+    operation_id="getCommit",
+)
+async def version() -> VersionResponse:
+    """Return application version and current git commit info."""
+    return VersionResponse(**get_version_info())

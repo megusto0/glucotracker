@@ -14,7 +14,9 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     api_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Verify that available fridge items and mealpreps appear in autocomplete suggestions."""
+    """
+    Verify that available fridge items and mealpreps appear in autocomplete suggestions.
+    """
     mock_fridge_items = [
         FridgeItem(
             id="lot-111",
@@ -66,12 +68,16 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     monkeypatch.setattr(
         FridgeIntegrationService,
         "fetch_available_inventory",
-        lambda self, owner_id=None: [x for x in mock_fridge_items if x.remaining_quantity > 0],
+        lambda self, owner_id=None: [
+            x for x in mock_fridge_items if x.remaining_quantity > 0
+        ],
     )
     monkeypatch.setattr(
         FridgeIntegrationService,
         "fetch_available_mealpreps",
-        lambda self, owner_id=None: [x for x in mock_mealpreps if x.remaining_weight_g > 0],
+        lambda self, owner_id=None: [
+            x for x in mock_mealpreps if x.remaining_weight_g > 0
+        ],
     )
 
     # 1. Search for "Epica" -> should find available Fridge yogurt
@@ -87,7 +93,8 @@ def test_autocomplete_includes_available_fridge_and_mealprep_items(
     assert "260 г" in epica_item["subtitle"]
     assert "Холодильник" not in epica_item["subtitle"]
 
-    # 2. Search for depleted "Гауда" -> should NOT be found because remaining_quantity == 0
+    # 2. Search for depleted "Гауда" -> should NOT be found because remaining_quantity
+    # == 0
     res_gauda = api_client.get("/autocomplete?q=гауда")
     assert res_gauda.status_code == 200
     assert not any(item.get("token") == "fridge:lot-222" for item in res_gauda.json())
@@ -136,6 +143,7 @@ def test_products_list_mealprep_slider_uses_grams_not_container_count(
             fat=22.2,
             carbs=20.84,
             image_url=None,
+            icon_emoji="🥣",
         )
         for idx in range(1, 4)
     ]
@@ -164,19 +172,31 @@ def test_products_list_mealprep_slider_uses_grams_not_container_count(
     assert item["stock_remaining"] != 3
     # Three containers of one batch, as a number the picker can count in.
     assert item["stock_containers_left"] == 3
+    assert item["icon_emoji"] == "🥣"
 
 
 def test_creating_meal_with_fridge_item_triggers_consumption(
     api_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Verify that creating/accepting a meal with fridge product consumes it in Fridge service."""
+    """
+    Verify that creating/accepting a meal with fridge product consumes it in Fridge
+    service.
+    """
     consumed_events = []
     monkeypatch.setattr(
         FridgeIntegrationService,
         "consume_item",
-        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (
-            consumed_events.append({"lot_id": lot_id, "container_id": container_id, "quantity": quantity, "unit": unit}) or True
+        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (  # noqa: E501
+            consumed_events.append(
+                {
+                    "lot_id": lot_id,
+                    "container_id": container_id,
+                    "quantity": quantity,
+                    "unit": unit,
+                }
+            )
+            or True
         ),
     )
 
@@ -240,8 +260,9 @@ def test_two_containers_write_off_two_containers(
     monkeypatch.setattr(
         FridgeIntegrationService,
         "consume_item",
-        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (
-            consumed.append({"container_id": container_id, "quantity": quantity}) or True
+        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (  # noqa: E501
+            consumed.append({"container_id": container_id, "quantity": quantity})
+            or True
         ),
     )
     monkeypatch.setattr(
@@ -305,7 +326,7 @@ def test_one_container_stays_one_call(
     monkeypatch.setattr(
         FridgeIntegrationService,
         "consume_item",
-        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (
+        lambda self, lot_id=None, container_id=None, quantity=None, unit=None, meal_id=None, owner_id=None: (  # noqa: E501
             consumed.append(str(container_id)) or True
         ),
     )
@@ -586,6 +607,129 @@ def test_a_part_used_package_reports_grams_not_a_rounded_count(
 
     items = {p["name"]: p for p in api_client.get("/products").json()["items"]}
 
-    assert items["Халва Восточный гость 500 г"]["default_serving_text"] == "20 г в наличии"
+    assert (
+        items["Халва Восточный гость 500 г"]["default_serving_text"] == "20 г в наличии"
+    )
     # A whole count is still a count: ten eggs, not six hundred grams.
-    assert items["Яйцо куриное столовое С1"]["default_serving_text"] == "10 шт в наличии"
+    assert (
+        items["Яйцо куриное столовое С1"]["default_serving_text"] == "10 шт в наличии"
+    )
+
+
+def test_sandwich_recipe_mealprep_available_and_consumed(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """
+    Sandwich recipe mealprep (13g cheese, 13g butter, 26g bread) is available and
+    deducts stock.
+    """
+    consumed_calls = []
+
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "fetch_available_inventory",
+        lambda self, owner_id=None: [
+            FridgeItem(
+                id="lot-cheese",
+                lot_id="lot-cheese",
+                name="Сыр Село Зелёное 200 г",
+                brand=None,
+                unit="pcs",
+                remaining_quantity=1.0,
+                weight_grams=200.0,
+                kcal_per_100g=350.0,
+                protein_per_100g=26.7,
+                fat_per_100g=27.0,
+                carbs_per_100g=0.0,
+                image_url=None,
+                piece_weight_g=200.0,
+            ),
+            FridgeItem(
+                id="lot-butter",
+                lot_id="lot-butter",
+                name="Масло сливочное 82.5% 175 г",
+                brand=None,
+                unit="pcs",
+                remaining_quantity=1.0,
+                weight_grams=175.0,
+                kcal_per_100g=750.0,
+                protein_per_100g=0.6,
+                fat_per_100g=82.5,
+                carbs_per_100g=0.8,
+                image_url=None,
+                piece_weight_g=175.0,
+            ),
+            FridgeItem(
+                id="lot-bread",
+                lot_id="lot-bread",
+                name="Батон Покровский Хлеб 270 г",
+                brand=None,
+                unit="pcs",
+                remaining_quantity=1.0,
+                weight_grams=270.0,
+                kcal_per_100g=288.0,
+                protein_per_100g=8.3,
+                fat_per_100g=2.8,
+                carbs_per_100g=56.0,
+                image_url=None,
+                piece_weight_g=270.0,
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(
+        FridgeIntegrationService,
+        "consume_recipe",
+        lambda self, recipe_id, portions=1.0, meal_id=None, owner_id=None: (
+            consumed_calls.append((recipe_id, portions)) or True
+        ),
+    )
+
+    # 1. Check /products endpoint includes Sandwich mealprep
+    resp = api_client.get("/products?q=бутерброд")
+    assert resp.status_code == 200
+    data = resp.json()
+    items = data["items"]
+    assert len(items) >= 1
+    sandwich = items[0]
+    assert "Бутерброд" in sandwich["name"]
+    assert sandwich["source_kind"] == "meal_prep"
+    assert sandwich["default_grams"] == 52.0
+    assert (
+        sandwich["stock_containers_left"] == 10
+    )  # min(200//13=15, 175//13=13, 270//26=10)
+
+    # 2. Check /autocomplete includes Sandwich
+    auto_resp = api_client.get("/autocomplete?q=бутерброд")
+    assert auto_resp.status_code == 200
+    auto_items = auto_resp.json()
+    assert any("Бутерброд" in it["display_name"] for it in auto_items)
+
+    # 3. Create meal logging 2 sandwiches (104g)
+    meal_resp = api_client.post(
+        "/meals",
+        json={
+            "eaten_at": "2026-08-21T10:00:00Z",
+            "title": "Завтрак",
+            "source": "manual",
+            "items": [
+                {
+                    "name": "Бутерброд с сыром и маслом",
+                    "grams": 104.0,
+                    "carbs_g": 29.3,
+                    "protein_g": 11.4,
+                    "fat_g": 30.0,
+                    "kcal": 435.6,
+                    "evidence": {
+                        "source_kind": "meal_prep",
+                        "source_url": "mp:recipe:sandwich_cheese_butter",
+                        "mealprep_containers": 2,
+                    },
+                }
+            ],
+        },
+    )
+    assert meal_resp.status_code in (200, 201)
+    assert len(consumed_calls) == 1
+    assert consumed_calls[0] == ("sandwich_cheese_butter", 2.0)

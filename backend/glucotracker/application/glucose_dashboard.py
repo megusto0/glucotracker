@@ -130,6 +130,49 @@ class GlucoseDashboardService:
         self.session = session
         self.user_id = user_id
 
+    def normalized_points_for_outcome(
+        self,
+        from_datetime: datetime,
+        to_datetime: datetime,
+        calibration_cache: dict[tuple[UUID, datetime], CalibrationResult] | None = None,
+    ) -> list[GlucoseDashboardPoint]:
+        """Use dashboard-identical CGM display points without its unrelated overlays.
+
+        A closed sensor has a stable calibration within one request. An open
+        sensor is keyed by the window end because dashboard calibration only
+        reads its raw history through that time.
+        """
+        local_from = _local_wall_time(from_datetime)
+        local_to = _local_wall_time(to_datetime)
+        raw_points = self._raw_points(local_from, local_to)
+        sensors = self._sensors_overlapping(local_from, local_to)
+        current_sensor = sensors[0] if sensors else None
+        calibration: CalibrationResult | None = None
+        if current_sensor is not None:
+            calibration_key = (
+                current_sensor.id,
+                current_sensor.ended_at or local_to,
+            )
+            if calibration_cache is not None:
+                calibration = calibration_cache.get(calibration_key)
+            if calibration is None:
+                sensor_raw = self._raw_points(
+                    current_sensor.started_at,
+                    current_sensor.ended_at or local_to,
+                )
+                sensor_fingersticks = self._fingerstick_rows(
+                    current_sensor.started_at,
+                    current_sensor.ended_at,
+                )
+                calibration = self._calibration(
+                    current_sensor,
+                    sensor_raw,
+                    sensor_fingersticks,
+                )
+                if calibration_cache is not None:
+                    calibration_cache[calibration_key] = calibration
+        return self._display_points(raw_points, calibration, "normalized")
+
     def list_sensors(self) -> list[SensorSessionResponse]:
         """Return sensor sessions newest first."""
         rows = self.session.scalars(
@@ -652,25 +695,59 @@ class GlucoseDashboardService:
                 normal_duration_minutes=default_carb_duration,
                 residual_fraction=DISPLAY_COB_RESIDUAL_FRACTION,
             )
-            events.append(
-                GlucoseDashboardFoodEvent(
-                    meal_id=meal.id,
-                    timestamp=meal.eaten_at,
-                    title=meal.title or "Приём пищи",
-                    carbs_g=carbs,
-                    kcal=meal.total_kcal,
-                    protein_g=protein,
-                    fat_g=fat,
-                    fiber_g=fiber,
-                    absorption_profile=weights.dominant_profile,
-                    absorption_minutes=duration,
-                    absorption_fast_weight=weights.fast,
-                    absorption_normal_weight=weights.normal,
-                    absorption_slow_weight=weights.slow,
-                    absorption_model_source=model_source,
-                    absorption_confidence=confidence,
+            event_rows = [
+                (
+                    item.name,
+                    float(item.carbs_g or 0.0),
+                    float(item.kcal) if item.kcal is not None else None,
+                    float(item.protein_g) if item.protein_g is not None else None,
+                    float(item.fat_g) if item.fat_g is not None else None,
+                    float(item.fiber_g) if item.fiber_g is not None else None,
                 )
-            )
+                for item in meal.items
+                if item.name
+            ]
+            if not event_rows:
+                event_rows = [
+                    (
+                        meal.title or "Приём пищи",
+                        carbs,
+                        meal.total_kcal,
+                        protein,
+                        fat,
+                        fiber,
+                    )
+                ]
+            # Keep one absorption model for the meal so splitting display
+            # markers does not change COB/IOB. The item carbs still sum to the
+            # meal total, while the chart can show each food separately.
+            for (
+                title,
+                item_carbs,
+                item_kcal,
+                item_protein,
+                item_fat,
+                item_fiber,
+            ) in event_rows:
+                events.append(
+                    GlucoseDashboardFoodEvent(
+                        meal_id=meal.id,
+                        timestamp=meal.eaten_at,
+                        title=title,
+                        carbs_g=item_carbs,
+                        kcal=item_kcal,
+                        protein_g=item_protein,
+                        fat_g=item_fat,
+                        fiber_g=item_fiber,
+                        absorption_profile=weights.dominant_profile,
+                        absorption_minutes=duration,
+                        absorption_fast_weight=weights.fast,
+                        absorption_normal_weight=weights.normal,
+                        absorption_slow_weight=weights.slow,
+                        absorption_model_source=model_source,
+                        absorption_confidence=confidence,
+                    )
+                )
         return events
 
     def _insulin_events(

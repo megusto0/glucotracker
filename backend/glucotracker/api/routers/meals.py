@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-
 from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Literal
@@ -17,9 +16,9 @@ from sqlalchemy.orm import selectinload
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
 from glucotracker.api.schemas import (
     DeleteResponse,
-    MealDeleteResponse,
     MealAcceptRequest,
     MealCreate,
+    MealDeleteResponse,
     MealItemCreate,
     MealItemPatch,
     MealItemResponse,
@@ -236,9 +235,7 @@ async def _mirror_meal_delete(
     try:
         await service.mirror_meal_delete(meal, commit=False)
     except Exception as exc:
-        logger.warning(
-            "Nightscout mirror delete failed for meal %s: %s", meal.id, exc
-        )
+        logger.warning("Nightscout mirror delete failed for meal %s: %s", meal.id, exc)
         return str(exc) or exc.__class__.__name__
     return None
 
@@ -676,6 +673,12 @@ def _build_item(
     # `image_url` is the property that falls back to the linked pattern or
     # product when the item carries no picture of its own.
     item_data["stored_image_url"] = item_data.pop("image_url", None)
+    if item_data.get("stored_image_url"):
+        from glucotracker.application.fridge_sync import normalize_fridge_image_url
+
+        item_data["stored_image_url"] = normalize_fridge_image_url(
+            item_data["stored_image_url"]
+        )
 
     if payload.product_id is not None:
         product = session.scalar(
@@ -700,6 +703,12 @@ def _build_item(
                 evidence["fridge_lot_id"] = pid_str
                 item_data["source_kind"] = ItemSourceKind.fridge
             item_data["evidence"] = evidence
+            if not item_data.get("stored_image_url") and pid_str:
+                from glucotracker.application.fridge_sync import get_fridge_service
+
+                img = get_fridge_service().get_image_for_item_id(pid_str, user_id)
+                if img:
+                    item_data["stored_image_url"] = img
 
     item = MealItem(meal_id=meal_id, **item_data)
     _apply_product_database_values(session, user_id, item)
@@ -787,9 +796,7 @@ def _scaled_weight_evidence(
 ) -> dict:
     """Build traceable evidence for a weight-based repeat."""
     source_evidence = (
-        dict(source_item.evidence)
-        if isinstance(source_item.evidence, dict)
-        else {}
+        dict(source_item.evidence) if isinstance(source_item.evidence, dict) else {}
     )
     source_grams = float(source_item.grams or 0)
     per_100g = {
@@ -1006,7 +1013,9 @@ def _containers_eaten(evidence: dict) -> int:
 
 
 def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
-    """If meal items were chosen from Fridge or MealPrep, consume them in Fridge service."""
+    """
+    If meal items were chosen from Fridge or MealPrep, consume them in Fridge service.
+    """
     from glucotracker.application.fridge_sync import FridgeIntegrationService
 
     fridge_service = FridgeIntegrationService()
@@ -1017,9 +1026,8 @@ def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
             or evidence.get("lot_id")
             or evidence.get("inventory_lot_id")
         )
-        mealprep_container_id = (
-            evidence.get("mealprep_container_id")
-            or evidence.get("container_id")
+        mealprep_container_id = evidence.get("mealprep_container_id") or evidence.get(
+            "container_id"
         )
 
         name_val = item.name or ""
@@ -1028,6 +1036,39 @@ def _sync_fridge_consumption_for_meal(meal: Meal, owner_id: UUID) -> None:
                 fridge_lot_id = name_val.split(":", 1)[1].strip()
             elif name_val.startswith("mp:"):
                 mealprep_container_id = name_val.split(":", 1)[1].strip()
+
+        # Check for Recipe / Sandwich on-demand meal prep
+        source_url_val = str(evidence.get("source_url") or "")
+        is_sandwich_recipe = (
+            source_url_val
+            in ("recipe:sandwich_cheese_butter", "mp:recipe:sandwich_cheese_butter")
+            or str(evidence.get("container_id") or "")
+            == "recipe:sandwich_cheese_butter"
+            or str(mealprep_container_id or "") == "recipe:sandwich_cheese_butter"
+            or (
+                name_val
+                and "бутерброд" in name_val.lower()
+                and (
+                    evidence.get("source_kind") == "meal_prep"
+                    or name_val.startswith("mp:recipe")
+                )
+            )
+        )
+        if is_sandwich_recipe:
+            portions = float(_containers_eaten(evidence))
+            if item.grams and item.grams > 0:
+                calc_portions = round(item.grams / 52.0, 2)
+                if abs(calc_portions - round(calc_portions)) < 0.15:
+                    portions = max(1.0, float(round(calc_portions)))
+                else:
+                    portions = max(0.5, calc_portions)
+            fridge_service.consume_recipe(
+                "sandwich_cheese_butter",
+                portions=portions,
+                meal_id=meal.id,
+                owner_id=owner_id,
+            )
+            continue
 
         if mealprep_container_id:
             containers = fridge_service.containers_for_batch(
@@ -1095,8 +1136,7 @@ async def create_meal(
     session.flush()
 
     meal.items = [
-        _build_item(item, meal.id, session, current_user.id)
-        for item in payload.items
+        _build_item(item, meal.id, session, current_user.id) for item in payload.items
     ]
     for item in meal.items:
         _increment_usage_counters(session, current_user.id, item)

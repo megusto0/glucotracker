@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 SCOPED_PATH_PREFIXES: tuple[str, ...] = (
+    "/ai/models",
     "/meals",
     "/meal_items",
     "/photos",

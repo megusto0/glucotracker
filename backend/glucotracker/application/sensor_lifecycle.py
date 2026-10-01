@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
@@ -11,7 +11,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from glucotracker.config import get_settings
-from glucotracker.infra.db.models import SensorSession, utc_now
+from glucotracker.infra.db.models import (
+    NightscoutGlucoseEntry,
+    SensorSession,
+    utc_now,
+)
+from glucotracker.infra.db.repositories.sensor_codes import (
+    CGM_STREAM_GAP,
+    SensorCodeRepository,
+)
+
+SENSOR_ROLLOVER_NOTE = "Автоматически завершён: истёк срок сенсора."
 
 SensorLifecycleKind = Literal["start", "stop"]
 
@@ -83,6 +93,102 @@ def close_previous_open_sensors(
         if _close_sensor(sensor, local_started_at, "новый сенсор"):
             closed += 1
     return closed
+
+
+def rollover_expired_sensor_sessions(
+    session: Session,
+    *,
+    user_id: UUID | None = None,
+) -> int:
+    """Finish sensor sessions past their expected life at the sensor's last point.
+
+    Guarantees that no open session survives longer than ``expected_life_days``:
+    the expired session is closed on the last CGM point of its own stream and a
+    fresh session is started on the first point of the following stream.
+    """
+    now = utc_now()
+    statement = select(SensorSession).where(SensorSession.ended_at.is_(None))
+    if user_id is not None:
+        statement = statement.where(SensorSession.owner_id == user_id)
+    rolled = 0
+    for sensor in session.scalars(statement).all():
+        if _rollover_expired_sensor(session, sensor, now):
+            rolled += 1
+    if rolled:
+        session.commit()
+    return rolled
+
+
+def _rollover_expired_sensor(
+    session: Session,
+    sensor: SensorSession,
+    now: datetime,
+) -> bool:
+    started_at = _as_utc(sensor.started_at)
+    life_days = float(sensor.expected_life_days or 15)
+    cutoff = started_at + timedelta(days=life_days)
+    if cutoff > now:
+        return False
+
+    boundary = _stream_boundary(session, sensor, started_at, now, cutoff)
+    if boundary is None:
+        return False
+    old_last, new_first = boundary
+
+    sensor.ended_at = old_last
+    sensor.updated_at = utc_now()
+    if SENSOR_ROLLOVER_NOTE not in (sensor.notes or ""):
+        sensor.notes = (
+            f"{sensor.notes}\n{SENSOR_ROLLOVER_NOTE}".strip()
+            if sensor.notes
+            else SENSOR_ROLLOVER_NOTE
+        )
+    # Flush the finished session before the auto-start query reads open rows,
+    # so the new stream is not mistaken for a continuation of the old one.
+    session.flush()
+
+    if new_first is not None:
+        SensorCodeRepository(session, sensor.owner_id).start_sensor_at(new_first)
+        session.flush()
+    return True
+
+
+def _stream_boundary(
+    session: Session,
+    sensor: SensorSession,
+    started_at: datetime,
+    now: datetime,
+    cutoff: datetime,
+) -> tuple[datetime, datetime | None] | None:
+    """Return the last point of the expired stream and the next stream's first."""
+    rows = session.scalars(
+        select(NightscoutGlucoseEntry.timestamp)
+        .where(
+            NightscoutGlucoseEntry.owner_id == sensor.owner_id,
+            NightscoutGlucoseEntry.timestamp >= started_at,
+            NightscoutGlucoseEntry.timestamp <= now,
+        )
+        .order_by(NightscoutGlucoseEntry.timestamp.asc())
+    ).all()
+    times = [_as_utc(value) for value in rows]
+    if not times:
+        return None
+
+    # The sensor ends on the last point before the first stream gap that starts
+    # after its expected life. Earlier outages belong to the same sensor.
+    for older, newer in zip(times, times[1:], strict=False):
+        if older >= cutoff and newer - older > CGM_STREAM_GAP:
+            return older, newer
+
+    if times[-1] <= cutoff:
+        # The stream stopped at/before the expected end; wait for the next one.
+        return times[-1], None
+
+    before = [value for value in times if value <= cutoff]
+    after = [value for value in times if value > cutoff]
+    if before and after:
+        return before[-1], after[0]
+    return None
 
 
 def is_sensor_lifecycle_treatment(row: dict[str, Any]) -> bool:
@@ -171,3 +277,10 @@ def _local_wall_time(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(get_settings().local_zoneinfo).replace(tzinfo=None)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Return a stored instant as UTC, treating naive values as UTC."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

@@ -32,3 +32,30 @@ The backend is expected at
 `/media/megusto/storage/glucotracker/project/venv`, Postgres listening only on
 localhost, and photo files under
 `/media/megusto/storage/glucotracker/runtime/photos`.
+
+## Hermes Codex authorization
+
+Install `systemd/glucotracker-hermes-auth-sync.service` and `.timer` in
+`/etc/systemd/system/`, then run:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now glucotracker-hermes-auth-sync.timer
+sudo systemctl start glucotracker-hermes-auth-sync.service
+```
+
+The service runs as the Hermes owner (`megusto`) with the backend group
+(`glucotracker`). Every minute, and after boot, it calls Hermes's own
+`resolve_codex_runtime_credentials`, which refreshes expiring tokens under the
+canonical auth-store lock. The service publishes only the current access token
+to `runtime/hermes-auth.json` using atomic replacement and mode `0640`.
+Refresh tokens and other provider credentials stay in Hermes's private store.
+The backend rereads this file for each estimate, so rotation needs no restart.
+The runtime directory must be writable by `megusto` (the deployed directory
+already has that ACL). Adjust the Hermes installation paths, user and local
+proxy in the unit when installing on another host.
+
+Inspect failures with `journalctl -u glucotracker-hermes-auth-sync.service`.
+A failed renewal retains the previous published copy and retries at the next
+timer tick. If Hermes reports a revoked renewable session, sign in again in
+Hermes; the next tick publishes the new access token.

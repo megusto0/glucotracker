@@ -7,13 +7,13 @@ from math import sin
 from uuid import UUID
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from glucotracker.application.glucose_prediction import (
+from glucotracker.application.glucose_prediction import MODEL_ALGORITHM, MODEL_VERSION
+from glucotracker.application.glucose_prediction_experimental import (
     FEATURE_NAMES,
-    MODEL_ALGORITHM,
-    MODEL_VERSION,
     _chronological_day_splits,
     _fit_audit_calibration,
     _post_meal_validation_metrics,
@@ -36,7 +36,7 @@ from glucotracker.infra.db.repositories.glucose_prediction_audit import (
 def _seed_glucose_history(api_client: TestClient, count: int) -> datetime:
     session_factory = api_client.app_state["session_factory"]
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
-    start = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
+    start = datetime.now(UTC) - timedelta(minutes=5 * (count - 1))
     with session_factory() as session:
         for index in range(count):
             timestamp = start + timedelta(minutes=index * 5)
@@ -53,10 +53,21 @@ def _seed_glucose_history(api_client: TestClient, count: int) -> datetime:
     return start + timedelta(minutes=(count - 1) * 5)
 
 
+@pytest.mark.parametrize("experimental", [False, True])
 def test_prediction_uses_history_and_payload_corrected_health_context(
     api_client: TestClient,
+    monkeypatch,
+    experimental,
 ) -> None:
-    anchor = _seed_glucose_history(api_client, 1200)
+    from glucotracker.application.glucose_prediction_runtime import selected_predictor
+    from glucotracker.config import get_settings
+
+    monkeypatch.setenv(
+        "GLUCOTRACKER_EXPERIMENTAL_GLUCOSE_PREDICTION_ENABLED", str(experimental)
+    )
+    get_settings.cache_clear()
+    prediction = selected_predictor()
+    anchor = _seed_glucose_history(api_client, 1800)
     session_factory = api_client.app_state["session_factory"]
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     heart_rate_at = anchor - timedelta(minutes=4)
@@ -105,6 +116,9 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
         )
         session.commit()
 
+    from glucotracker.workers.glucose_prediction import GlucosePredictionWorker
+
+    GlucosePredictionWorker(session_factory).run_once()
     response = api_client.get(
         "/glucose/prediction",
         params={"mode": "raw", "horizon_minutes": 90, "step_minutes": 5},
@@ -115,8 +129,9 @@ def test_prediction_uses_history_and_payload_corrected_health_context(
     assert len(payload["points"]) == 18
     assert payload["points"][-1]["horizon_minutes"] == 90
     assert payload["model"]["sample_count"] >= 240
-    assert payload["model"]["version"] == MODEL_VERSION
-    assert payload["model"]["algorithm"] == MODEL_ALGORITHM
+    assert payload["model"]["version"] == prediction.MODEL_VERSION
+    assert payload["model"]["algorithm"] == prediction.MODEL_ALGORITHM
+    assert payload["model"]["version"].endswith("_v9" if experimental else "_v8")
     assert payload["model"]["forecast_assumption"] == "no_new_food_or_insulin"
     assert "cob_remaining_g" in payload["model"]["features_used"]
     assert "iob_remaining_units" in payload["model"]["features_used"]
@@ -175,20 +190,20 @@ def test_audit_calibration_shrinks_bad_long_horizon_toward_persistence() -> None
     start = datetime(2026, 7, 20, tzinfo=UTC)
     samples = [
         EvaluatedForecastPoint(
-            anchor_timestamp=start + timedelta(minutes=5 * index),
+            anchor_timestamp=start + timedelta(minutes=30 * index),
             anchor_value_mmol_l=6.0,
             horizon_minutes=90,
             base_predicted_value_mmol_l=4.0,
             actual_value_mmol_l=6.0,
         )
-        for index in range(120)
+        for index in range(240)
     ]
 
     calibration = _fit_audit_calibration(samples, [30, 90])
 
     assert calibration[30].sample_count == 0
     assert calibration[30].weight == 1.0
-    assert calibration[90].sample_count == 120
+    assert calibration[90].sample_count == 240
     assert calibration[90].weight < 1.0
     adjusted = (
         6.0 + calibration[90].weight * (4.0 - 6.0) + calibration[90].correction_mmol_l
@@ -201,7 +216,7 @@ def test_audit_calibration_shrinks_bad_long_horizon_toward_persistence() -> None
 def test_no_new_input_scenario_preserves_a_current_downward_trend(
     api_client: TestClient,
 ) -> None:
-    _seed_glucose_history(api_client, 1200)
+    _seed_glucose_history(api_client, 1800)
     session_factory = api_client.app_state["session_factory"]
     owner_id = UUID(str(api_client.app_state["current_user_id"]))
     with session_factory() as session:
@@ -218,6 +233,9 @@ def test_no_new_input_scenario_preserves_a_current_downward_trend(
             row.value_mmol_l = value
         session.commit()
 
+    from glucotracker.workers.glucose_prediction import GlucosePredictionWorker
+
+    GlucosePredictionWorker(session_factory).run_once()
     response = api_client.get(
         "/glucose/prediction",
         params={"mode": "raw", "horizon_minutes": 90, "step_minutes": 5},
@@ -243,7 +261,7 @@ def test_prediction_returns_provenance_when_history_is_insufficient(
     assert payload["points"] == []
     assert payload["model"]["confidence"] == "none"
     assert payload["model"]["sample_count"] < 240
-    assert any("Недостаточно" in note for note in payload["notes"])
+    assert any("в фоне" in note for note in payload["notes"])
 
 
 def test_prediction_query_bounds_are_validated(api_client: TestClient) -> None:
@@ -314,3 +332,186 @@ def test_post_meal_metrics_only_use_recent_carb_windows() -> None:
         "mae_90": 2.0,
         "baseline_mae_90": 2.0,
     }
+
+
+def test_purge_respects_horizon_and_cgm_matching_tolerance() -> None:
+    from glucotracker.application.glucose_prediction_experimental import (
+        _purge_overlapping_targets,
+    )
+
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    times = [start + timedelta(minutes=15 * i) for i in range(30)]
+    eligible = np.ones((30, 2), dtype=bool)
+    purged = _purge_overlapping_targets(times, [15, 90], eligible, (10, 20))
+    assert eligible.all()  # The input array is not mutated.
+    for boundary in (10, 20):
+        for row in range(boundary):
+            for column, horizon in enumerate((15, 90)):
+                if purged[row, column]:
+                    assert times[row] + timedelta(minutes=horizon + 8) < times[boundary]
+    assert purged[8, 0] and not purged[8, 1]
+    assert not purged[9].any()
+    assert purged[20:].all()
+
+
+def test_delayed_health_sample_is_not_backfilled_into_training() -> None:
+    from glucotracker.application.glucose_prediction_experimental import _health_series
+
+    event = datetime(2026, 7, 1, 10, tzinfo=UTC)
+    imported = event + timedelta(days=1)
+    record = HealthConnectRecord(
+        record_type="HeartRateRecord",
+        record_id="late-heart-rate",
+        created_at=imported,
+        updated_at=imported,
+        payload={"samples": [{"time": event.isoformat(), "beatsPerMinute": 110}]},
+    )
+    heart, *_ = _health_series([record])
+    assert heart.latest(event, 15) is None
+    assert heart.window_mean(event, 30) is None
+    # Once imported it can be examined retrospectively, but it is not fresh now.
+    assert heart.latest(event, 15, known_at=imported) == 110
+    assert heart.latest(imported, 15) is None
+
+
+def test_calibration_rejects_correction_that_fails_on_later_days() -> None:
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    samples = [
+        EvaluatedForecastPoint(
+            anchor_timestamp=start + timedelta(days=day, minutes=15 * i),
+            anchor_value_mmol_l=6,
+            horizon_minutes=90,
+            base_predicted_value_mmol_l=4,
+            actual_value_mmol_l=6 if day < 3 else 4,
+        )
+        for day in range(5)
+        for i in range(40)
+    ]
+    result = _fit_audit_calibration(samples, [90])[90]
+    assert result.weight == 1
+    assert result.correction_mmol_l == 0
+
+
+def test_many_correlated_points_in_one_day_cannot_enable_calibration() -> None:
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    samples = [
+        EvaluatedForecastPoint(
+            anchor_timestamp=start + timedelta(minutes=i),
+            anchor_value_mmol_l=6,
+            horizon_minutes=90,
+            base_predicted_value_mmol_l=4,
+            actual_value_mmol_l=6,
+        )
+        for i in range(500)
+    ]
+    assert _fit_audit_calibration(samples, [90])[90].weight == 1
+
+
+def _feature_test_context():
+    from glucotracker.application.glucose_prediction_experimental import (
+        POPULATION_INSULIN_KERNEL_V2,
+        _FeatureContext,
+        _GlucoseSample,
+        _Series,
+    )
+
+    at = datetime(2026, 7, 1, 12, tzinfo=UTC)
+    glucose = [
+        _GlucoseSample(at - timedelta(minutes=5 * i), 6 + 0.01 * i, raw=6 + 0.01 * i)
+        for i in reversed(range(19))
+    ]
+    return _FeatureContext(
+        glucose,
+        [p.timestamp for p in glucose],
+        _Series([]),
+        _Series([]),
+        [],
+        [],
+        [],
+        [],
+        POPULATION_INSULIN_KERNEL_V2,
+        _Series([]),
+        _Series([]),
+        _Series([]),
+        [],
+        [],
+        60,
+    ), at
+
+
+def test_absent_health_context_differs_from_observed_rest():
+    from dataclasses import replace
+
+    from glucotracker.application.glucose_prediction_experimental import (
+        _features_at,
+        _Series,
+    )
+
+    context, at = _feature_test_context()
+    missing, missing_coverage = _features_at(context, at)
+    observed, observed_coverage = _features_at(
+        replace(
+            context,
+            heart_rate=_Series([(at, 60)]),
+            active_kcal=_Series([(at, 0)]),
+        ),
+        at,
+    )
+    assert not missing_coverage["health"]
+    assert observed_coverage["heart_rate"] and observed_coverage["activity"]
+    for feature in ["heart_rate_available", "activity_available"]:
+        assert missing[FEATURE_NAMES.index(feature)] == 0
+        assert observed[FEATURE_NAMES.index(feature)] == 1
+
+
+def test_later_sensor_calibration_does_not_rewrite_shape_features():
+    from dataclasses import replace
+
+    from glucotracker.application.glucose_prediction_experimental import _features_at
+
+    context, at = _feature_test_context()
+    before, _ = _features_at(context, at)
+    changed = replace(
+        context,
+        glucose=[
+            replace(p, value=p.value + 1 + i * 0.1)
+            for i, p in enumerate(context.glucose)
+        ],
+    )
+    after, _ = _features_at(changed, at)
+    np.testing.assert_array_equal(
+        _shape_features(np.asarray([before])), _shape_features(np.asarray([after]))
+    )
+
+
+def test_worker_skips_unchanged_anchor_without_training(api_client, monkeypatch):
+    from glucotracker.application.glucose_prediction import GlucosePredictionService
+    from glucotracker.infra.db.models import GlucosePredictionRun
+    from glucotracker.workers.glucose_prediction import GlucosePredictionWorker
+
+    anchor = _seed_glucose_history(api_client, 2)
+    factory = api_client.app_state["session_factory"]
+    owner = UUID(str(api_client.app_state["current_user_id"]))
+    with factory() as session:
+        session.add(
+            GlucosePredictionRun(
+                owner_id=owner,
+                anchor_timestamp=anchor,
+                generated_at=anchor,
+                anchor_value_mmol_l=6,
+                model_version=MODEL_VERSION,
+                algorithm=MODEL_ALGORITHM,
+                horizon_minutes=90,
+                step_minutes=5,
+                model_json={},
+                inputs_json={},
+                notes_json=[],
+            )
+        )
+        session.commit()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("The same anchor must not be recalculated")
+
+    monkeypatch.setattr(GlucosePredictionService, "predict", forbidden)
+    assert GlucosePredictionWorker(factory).run_once() == 0

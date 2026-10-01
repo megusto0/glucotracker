@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from time import perf_counter
 from typing import Annotated, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from glucotracker.api.dependencies import CurrentUserDep, ReadSessionDep, SessionDep
 from glucotracker.api.dependencies.feature import require_feature
@@ -34,9 +35,12 @@ from glucotracker.api.schemas import (
     GlucoseTirDailyResponse,
     GlucoseTirDayResponse,
     IcrDaypartComparisonResponse,
+    InsulinRecommendationActionResponse,
     InsulinRecommendationMatchResponse,
     InsulinRecommendationRequest,
     InsulinRecommendationResponse,
+    InsulinRecommendationRunDetailResponse,
+    InsulinRecommendationRunSummaryResponse,
     IsfCaseResponse,
     SensorCodeCreate,
     SensorCodePatch,
@@ -74,13 +78,15 @@ from glucotracker.application.episodes import (
     component_key,
 )
 from glucotracker.application.glucose_dashboard import GlucoseDashboardService
-from glucotracker.application.glucose_prediction import GlucosePredictionService
 from glucotracker.application.glucose_prediction_audit import (
     GlucosePredictionAuditService,
 )
 from glucotracker.application.grouping import rising_test
 from glucotracker.application.insulin_recommendation import (
     HistoricalInsulinRecommendationService,
+)
+from glucotracker.application.insulin_recommendation_audit import (
+    InsulinRecommendationAuditService,
 )
 from glucotracker.application.sensor_codes import SensorCodeService
 from glucotracker.application.stats_insights import (
@@ -133,13 +139,11 @@ def get_glucose_prediction(
     step_minutes: Annotated[int, Query(ge=5, le=30)] = 5,
 ) -> GlucosePredictionResponse:
     """Return a validated personal forecast for informational display only."""
-    prediction = GlucosePredictionService(session, current_user.id).predict(
+    prediction = GlucosePredictionAuditService(session, current_user.id).latest(
         mode=mode,
         horizon_minutes=horizon_minutes,
         step_minutes=step_minutes,
     )
-    GlucosePredictionAuditService(session, current_user.id).record(prediction)
-    session.commit()
     return prediction
 
 
@@ -668,8 +672,12 @@ def get_insulin_recommendation(
     payload: InsulinRecommendationRequest,
     session: SessionDep,
     current_user: CurrentUserDep,
+    request: Request,
 ) -> InsulinRecommendationResponse:
     """Return a meal estimate plus a safety-gated correction component."""
+    started_at = datetime.now(UTC)
+    started = perf_counter()
+    run_id = uuid4()
     calculation = HistoricalInsulinRecommendationService(
         session,
         current_user.id,
@@ -685,7 +693,8 @@ def get_insulin_recommendation(
         )
     estimate = calculation.meal
     correction = calculation.correction
-    return InsulinRecommendationResponse(
+    response = InsulinRecommendationResponse(
+        calculation_id=run_id,
         status=estimate.status,
         meal_ids=estimate.meal_ids,
         target_carbs_g=estimate.target_carbs_g,
@@ -740,6 +749,75 @@ def get_insulin_recommendation(
             for match in estimate.matches
         ],
         method_version=estimate.method_version,
+    )
+    InsulinRecommendationAuditService(session, current_user.id).record(
+        run_id=run_id,
+        created_at=started_at,
+        request=payload,
+        response=response,
+        calculation=calculation,
+        duration_ms=round((perf_counter() - started) * 1000),
+        client_user_agent=request.headers.get("user-agent"),
+    )
+    return response
+
+
+@router.get(
+    "/glucose/insulin-recommendations/history",
+    response_model=list[InsulinRecommendationRunSummaryResponse],
+    operation_id="listInsulinRecommendationHistory",
+)
+def list_insulin_recommendation_history(
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[InsulinRecommendationRunSummaryResponse]:
+    """List the current owner's immutable recommendation snapshots."""
+    rows = InsulinRecommendationAuditService(session, current_user.id).list_recent(
+        limit=limit, offset=offset
+    )
+    return [_recommendation_run_summary(row) for row in rows]
+
+
+@router.get(
+    "/glucose/insulin-recommendations/history/{run_id}",
+    response_model=InsulinRecommendationRunDetailResponse,
+    operation_id="getInsulinRecommendationHistoryItem",
+)
+def get_insulin_recommendation_history_item(
+    run_id: UUID,
+    session: ReadSessionDep,
+    current_user: CurrentUserDep,
+) -> InsulinRecommendationRunDetailResponse:
+    """Read one original response, its inputs and linked actual-dose actions."""
+    audit = InsulinRecommendationAuditService(session, current_user.id)
+    row = audit.get(run_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return InsulinRecommendationRunDetailResponse(
+        **_recommendation_run_summary(row).model_dump(),
+        request=InsulinRecommendationRequest.model_validate(row.request_json),
+        input_snapshot=row.input_json,
+        response=InsulinRecommendationResponse.model_validate(row.response_json),
+        actions=[
+            InsulinRecommendationActionResponse.model_validate(action)
+            for action in audit.actions(run_id)
+        ],
+    )
+
+
+def _recommendation_run_summary(row) -> InsulinRecommendationRunSummaryResponse:
+    return InsulinRecommendationRunSummaryResponse(
+        id=row.id,
+        created_at=row.created_at,
+        meal_at=row.meal_at,
+        calculation_at=row.calculation_at,
+        meal_ids=[UUID(item) for item in row.meal_key.split("|")],
+        status=row.status,
+        method_version=row.method_version,
+        total_recommended_units=row.total_recommended_units,
+        duration_ms=row.duration_ms,
     )
 
 

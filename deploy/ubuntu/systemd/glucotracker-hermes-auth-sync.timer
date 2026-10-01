@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep Glucotracker Hermes Codex access token current
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=glucotracker-hermes-auth-sync.service
+
+[Install]
+WantedBy=timers.target

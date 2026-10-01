@@ -70,7 +70,8 @@ def test_on_board_fit_migration_creates_owner_scoped_table_and_indexes(
         for foreign_key in foreign_keys
     )
 
-    command.downgrade(config, "f0e1d2c3b4a5")
+    # Forward-only history survives the upgrade repeated on backend startup.
+    command.upgrade(config, "head")
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
     try:
         assert "on_board_model_fits" in inspect(engine).get_table_names()

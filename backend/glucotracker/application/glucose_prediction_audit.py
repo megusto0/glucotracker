@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from glucotracker.api.schemas import GlucosePredictionResponse
+from glucotracker.api.schemas import (
+    GlucosePredictionInputs,
+    GlucosePredictionModel,
+    GlucosePredictionPoint,
+    GlucosePredictionResponse,
+)
 from glucotracker.application.time import utc_instant_from_local_wall
 from glucotracker.infra.db.repositories.glucose_prediction_audit import (
     ForecastPointSnapshot,
@@ -38,7 +44,12 @@ class GlucosePredictionAuditService:
     def __init__(self, session: Session, user_id: UUID) -> None:
         self.repository = GlucosePredictionAuditRepository(session, user_id)
 
-    def record(self, prediction: GlucosePredictionResponse) -> bool:
+    def record(
+        self,
+        prediction: GlucosePredictionResponse,
+        *,
+        provenance: dict | None = None,
+    ) -> bool:
         """Persist a successful canonical raw forecast, deduplicating polling."""
         if (
             prediction.anchor_timestamp is None
@@ -55,7 +66,11 @@ class GlucosePredictionAuditService:
             algorithm=prediction.model.algorithm,
             horizon_minutes=prediction.horizon_minutes,
             step_minutes=prediction.step_minutes,
-            model_json=prediction.model.model_dump(mode="json"),
+            model_json={
+                **prediction.model.model_dump(mode="json"),
+                "prediction_snapshot": prediction.model_dump(mode="json"),
+                "input_provenance": provenance or {},
+            },
             inputs_json=prediction.inputs.model_dump(mode="json"),
             notes_json=list(prediction.notes),
             points=[
@@ -72,6 +87,51 @@ class GlucosePredictionAuditService:
             ],
         )
         return created
+
+    def latest(
+        self,
+        *,
+        mode: str = "normalized",
+        horizon_minutes: int = 90,
+        step_minutes: int = 5,
+        now: datetime | None = None,
+    ) -> GlucosePredictionResponse:
+        """Serve the worker's immutable snapshot; never fit inside a GET request."""
+        from glucotracker.application.glucose_prediction_runtime import (
+            selected_predictor,
+        )
+
+        prediction = selected_predictor()
+
+        checked_at = _as_utc(now or datetime.now(UTC))
+        horizon_minutes = max(step_minutes, min(90, horizon_minutes))
+        run = self.repository.latest_forecast(
+            model_version=prediction.MODEL_VERSION,
+            since=checked_at - timedelta(minutes=15),
+            before=checked_at,
+        )
+        snapshot = run.model_json.get("prediction_snapshot") if run else None
+        if run is not None and self.repository.has_intervention(
+            _as_utc(run.anchor_timestamp),
+            checked_at,
+        ):
+            snapshot = None
+        if not snapshot:
+            return GlucosePredictionResponse(
+                generated_at=checked_at,
+                mode=mode,
+                horizon_minutes=horizon_minutes,
+                step_minutes=step_minutes,
+                points=[],
+                model=GlucosePredictionModel(
+                    version=prediction.MODEL_VERSION,
+                    algorithm=prediction.MODEL_ALGORITHM,
+                ),
+                inputs=GlucosePredictionInputs(),
+                notes=["Свежий прогноз пока не готов; расчёт выполняется в фоне."],
+            )
+        response = GlucosePredictionResponse.model_validate(snapshot)
+        return _resample_snapshot(response, mode, horizon_minutes, step_minutes)
 
     def evaluate_due(self, *, now: datetime | None = None) -> EvaluationResult:
         """Evaluate due points without using CGM data unavailable at forecast time."""
@@ -171,3 +231,77 @@ def _glucose_band(value: float) -> str:
     if value > 10:
         return "high"
     return "in_range"
+
+
+def _resample_snapshot(
+    response: GlucosePredictionResponse,
+    mode: str,
+    horizon_minutes: int,
+    step_minutes: int,
+) -> GlucosePredictionResponse:
+    """Interpolate the saved trajectory for the API's existing arbitrary step sizes."""
+    if response.anchor_timestamp is None or response.raw_anchor_value is None:
+        return response
+    original = response.points
+    normalized = next((p for p in original if p.normalized_value is not None), None)
+    raw_anchor = response.raw_anchor_value
+    anchor = raw_anchor if mode == "raw" else response.anchor_value
+    # Internal interpolation anchor; returned horizon points always satisfy ge=1.
+    zero = GlucosePredictionPoint.model_construct(
+        timestamp=response.anchor_timestamp,
+        horizon_minutes=0,
+        raw_value=raw_anchor,
+        raw_ci_low=raw_anchor,
+        raw_ci_high=raw_anchor,
+        normalized_value=response.anchor_value if normalized else None,
+        display_value=anchor,
+        ci_low=anchor,
+        ci_high=anchor,
+        confidence=original[0].confidence,
+        band=_glucose_band(anchor),
+    )
+    source = [zero, *original]
+    horizons = [p.horizon_minutes for p in source]
+    points = []
+    for horizon in range(step_minutes, horizon_minutes + 1, step_minutes):
+        right = bisect_left(horizons, horizon)
+        if right >= len(source):
+            break
+        after = source[right]
+        before = source[max(0, right - 1)]
+        span = after.horizon_minutes - before.horizon_minutes
+        fraction = (horizon - before.horizon_minutes) / span if span else 0.0
+
+        def mix(field: str, before=before, after=after, fraction=fraction) -> float:
+            left, right_value = getattr(before, field), getattr(after, field)
+            return round(float(left + fraction * (right_value - left)), 3)
+
+        raw_value = mix("raw_value")
+        # Canonical worker snapshots are normalized; preserve their display intervals.
+        value = raw_value if mode == "raw" else mix("display_value")
+        low = mix("raw_ci_low") if mode == "raw" else mix("ci_low")
+        high = mix("raw_ci_high") if mode == "raw" else mix("ci_high")
+        points.append(
+            GlucosePredictionPoint(
+                timestamp=response.anchor_timestamp + timedelta(minutes=horizon),
+                horizon_minutes=horizon,
+                raw_value=raw_value,
+                raw_ci_low=mix("raw_ci_low"),
+                raw_ci_high=mix("raw_ci_high"),
+                normalized_value=mix("normalized_value") if normalized else None,
+                display_value=value,
+                ci_low=low,
+                ci_high=high,
+                confidence=mix("confidence"),
+                band=_glucose_band(value),
+            )
+        )
+    return response.model_copy(
+        update={
+            "mode": mode,
+            "horizon_minutes": horizon_minutes,
+            "step_minutes": step_minutes,
+            "anchor_value": anchor,
+            "points": points,
+        }
+    )
