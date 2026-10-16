@@ -8,6 +8,87 @@ Append-only record of external sources consulted while working on this repo:
 documentation, specifications, standards, vendor references, forum answers,
 papers. One entry per source, newest at the top.
 
+## 2026-10-01 — Проект анализатора отклика: причинные ограничения
+
+- **URL:** https://hsph.harvard.edu/profile/miguel-hernan/
+- **Consulted for:** ограничения причинных выводов из наблюдательных данных,
+  особенно при меняющихся во времени вмешательствах и смешивающих факторах.
+- **Used in:** архитектурное предложение в чате Codex о разборе еды,
+  инсулина и активности; реализация и параметры терапии не изменены.
+- **Takeaway:** причинный вопрос и допущения должны быть заданы явно;
+  обычная регрессия может быть неверна при факторах, зависящих от предыдущего
+  лечения. Хороший прогноз сам по себе не доказывает причинный эффект.
+- **Verdict:** applied to the proposal — отделять наблюдаемые факты,
+  условные модельные сценарии и гипотезы; сначала использовать сопоставимые
+  изолированные эпизоды, отдельно учитывать последующие корректировки.
+
+## 2026-10-01 — Проект анализатора отклика: недоступный учебник
+
+- **URL:** https://www.hsph.harvard.edu/miguel-hernan/wp-content/uploads/sites/1268/2024/04/hernanrobins_WhatIf_26apr24.pdf
+- **Consulted for:** полное изложение методов для меняющихся во времени
+  вмешательств; поиск вернул выдержки, открытие PDF завершилось ошибкой.
+- **Used in:** только выбор источника для архитектурного предложения в чате.
+- **Takeaway:** полный текст в этой сессии не проверен.
+- **Verdict:** rejected as the basis for detailed algorithm claims — вместо
+  него использовано доступное авторское описание на сайте Harvard; формулы
+  и клинические коэффициенты из поисковых выдержек не перенесены.
+
+## 2026-10-01 — Проект анализатора отклика: состав еды
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC3836096/
+- **Consulted for:** контролируемое исследование Smart et al. о влиянии жиров
+  и белков при одинаковом количестве углеводов на поздний гликемический отклик.
+- **Used in:** архитектурное предложение в чате Codex; без изменений COB,
+  ICR, ISF или дозировочных констант.
+- **Takeaway:** в исследовании детей и подростков состав еды влиял на позднюю
+  кривую; одинаковые углеводы не означают одинаковый временной отклик.
+- **Verdict:** applied as qualitative motivation to retain meal composition
+  and the full response path. Универсальная персональная поправка к дозе,
+  пересчёт жиров/белков в углеводы и точная причина отдельного эпизода из этого
+  исследования не выводятся. Использован доступный индексированный текст;
+  повторное открытие страницы упёрлось в проверку браузера.
+
+## 2026-10-01 — Проект анализатора отклика: физическая активность
+
+- **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC11732933/
+- **Mirror consulted:** https://pubmed.ncbi.nlm.nih.gov/39653802/
+- **Consulted for:** позиция EASD/ISPAD о различающихся гликемических ответах
+  на активность и контексте AID; применимость к анализатору дневника.
+- **Used in:** архитектурное предложение в чате Codex; без изменений
+  Health Connect, Nightscout или параметров терапии.
+- **Takeaway:** ответ на активность зависит от контекста; один универсальный
+  коэффициент «снижение сахара на шаг» не обоснован этим документом.
+- **Verdict:** applied to the proposal — хранить тип, время, источник и
+  полноту активности, оценивать персональный эффект по повторениям. Конкретные
+  рекомендации по управлению AID не перенесены на пользователя без проверки
+  его режима терапии.
+
+## 2026-10-01 — Проект анализатора отклика: ограничения OpenAPS Autotune
+
+- **URL:** https://openaps.readthedocs.io/en/latest/docs/Customize-Iterate/autotune.html
+- **Consulted for:** требования к журналу углеводов/инсулина и ошибки
+  классификации незаписанной еды или лечения гипогликемии как недостатка базала.
+- **Used in:** архитектурное предложение в чате Codex; OpenAPS не запускался,
+  профили Nightscout и настройки терапии не изменены.
+- **Takeaway:** неполные записи могут систематически исказить настройку;
+  отсутствие события в журнале не доказывает отсутствие еды или вмешательства.
+- **Verdict:** applied to the proposal — обязательный контроль полноты,
+  причины исключения эпизодов и режим предложений. Прямое перенесение
+  алгоритма, констант и автоматическое переключение профиля rejected.
+
+## 2026-10-01 — Проект анализатора отклика: чтение предложений автотюна
+
+- **URL:** https://openaps.readthedocs.io/en/dev/docs/Customize-Iterate/understanding-autotune.html
+- **Consulted for:** трактовка результатов и различие короткого наблюдения
+  и основания для долговременного изменения профиля.
+- **Used in:** архитектурное предложение в чате Codex; без изменений сервиса
+  `icr_autotune.py` и его порогов.
+- **Takeaway:** вывод автотюна требует проверки исходных данных и рассмотрения
+  человеком, а не слепого изменения настроек.
+- **Verdict:** applied as a review boundary — выводить доказательства,
+  неопределённость и проверку на последующих днях; сроки и числовые пороги
+  из документа не приняты как персональные клинические правила.
+
 ## 2026-09-26 — Пищевой инсулин при низком прогнозе глюкозы
 
 - Source: https://diabetesjournals.org/care/article/doi/10.2337/dci26-0122/172498/The-Management-of-Type-1-Diabetes-in-Adults-The
@@ -368,6 +449,138 @@ Multiple sources for one question get one entry each, sharing the same
   ChatGPT flow lifetimes are not assumed for the existing Hermes Codex session;
   the sync validates the actual token expiry.
 - **Verdict:** applied.
+
+### 2026-10-01 — Huami/Zepp OS activity fetch timestamps (Helio Strap mis-dating)
+
+- **Source:** https://codeberg.org/Freeyourgadget/Gadgetbridge/issues/3091
+- **Consulted for:** how Gadgetbridge dates Zepp OS activity samples, while
+  investigating Helio Strap rows stored up to 2026-10-09 in the Bridge database.
+- **Landed in:** Bridge fork `glucotracker/SampleTimeGuards.kt`,
+  `FetchActivityOperation.java`, `AbstractFetchOperation.java` and
+  `HealthConnectUtils.kt`.
+- **Takeaway:** Gadgetbridge requests "since X", the band answers "N samples since
+  Y", and each sample is dated Y + i minutes; the maintainer notes Gadgetbridge
+  "just accepts the date and data that the band reports". Any record in the
+  band's stream that is not one real minute (Helio sent 3 022 all-0xFF filler
+  records from 2026-09-27 02:35) shifts every later sample and is persisted into
+  `lastSyncTimeMillis`. Fetching from an intermediate date is the documented
+  manual recovery.
+- **Verdict:** applied — a stream whose minute-by-minute dating would end after
+  now is refused rather than stored, filler records are skipped, and stored
+  fetch positions are clamped to now.
+
+### 2026-10-01 — Gadgetbridge issue search for future-dated samples
+
+- **Source:** web search over codeberg.org/Freeyourgadget/Gadgetbridge issues;
+  the issue list page itself answered HTTP 429 and was not retried.
+- **Consulted for:** whether upstream knows future-dated samples and their effect
+  on the Health Connect export.
+- **Landed in:** the diagnosis given to the user.
+- **Takeaway:** search results show an open upstream issue saying the Health
+  Connect sync silently stops when the database holds samples with a future
+  timestamp, with no in-app way to remove them. Its number and text could not
+  be opened, so it is treated as a lead, not a verified fact.
+- **Verdict:** confirmed in the fork: `HealthConnectUtils.kt` takes the export
+  end boundary from the latest sample in the database, not capped at now, so
+  future-dated rows are exported and the per-type cursor jumps past them.
+
+### 2026-10-04 — Размеры картошки и меню Rostic's, «Вкусно — и точка», Burger King
+
+- **URLs:** https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect,
+  https://vkusnoitochka.ru/api/nutrition/search, https://vkusnoitochka.ru/menu,
+  https://burger-king.by/menu/zakuski/king-fri-xl/,
+  https://bkmenu.ru/fries/kartofel-king-fri-bolshoi, https://burgerkingrus.ru/.
+- **Consulted for:** официальные размеры картофеля фри и по-деревенски в каждой
+  сети, недостающие блюда и напитки, КБЖУ порций.
+- **Used in:** `backend/catalog_seeds/restaurant_menus_2026_10.json`,
+  `backend/scripts/organize_restaurant_menus.py`; линейка размеров в
+  `android-concept/.../capture/RestaurantVariants.kt`.
+- **Takeaway:** паспорт меню Rostic's даёт КБЖУ на 100 г и вес; размеры там
+  называются «Малый / Средний / Баскет» (фри) и «Малый / Средний»
+  (по-деревенски). Напитки идут без веса — объём взят из названия, 1 мл = 1 г.
+  API «Вкусно — и точка» отвечает только на точное название: фри маленький
+  76 г, средний, большой 147 г, двойной 220 г; по-деревенски средний 165 г,
+  большой 220 г, двойной 330 г; наггетсы 4/6/9/18 шт. Для среднего фри API
+  пишет 160 г, но 318 ккал при общих для всех размеров 289 ккал/100 г дают
+  110 г — записано 110 г с `source_confidence=official_api_weight_corrected`.
+  Официальный сайт Burger King России закрыт антибот-защитой; «Кинг Фри XL»
+  есть только у белорусской сети (160 г), российский самый большой размер —
+  «Большой».
+- **Verdict:** applied — Rostic's и «Вкусно — и точка» по официальным API.
+  Rejected — белорусские значения XL и неофициальные каталоги BK (bkmenu.ru):
+  у BK остаются значения официального российского PDF, а «XL» добавлен
+  поисковым синонимом к «Кинг Фри Большой».
+
+### 2026-10-04 — Актуальное меню Burger King
+
+- **URLs:** https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz,
+  https://s3.burgerkingrus.ru/default/0001/76/63751da2ff388af43630c54add8491b8f2df7568.pdf,
+  https://chibbis.ru/smol/restaurant/burger-king-dostavka/menu,
+  https://orderapp.burgerkingrus.ru (API приложения BK).
+- **Consulted for:** блюда текущего меню BK (Биг Кинг, Кинг Фри MAXX, Ангус 4
+  Сыра и т. д.) с весом и КБЖУ.
+- **Used in:** `backend/catalog_seeds/restaurant_menus_2026_10_bk.json`,
+  `backend/scripts/cache_restaurant_images.py` (хост `eda.yandex.ru`), токен
+  размера `maxx` в `android-concept/.../capture/RestaurantVariants.kt`.
+- **Takeaway:** официальный PDF BK датирован августом 2024 и не знает половины
+  меню. Сайт и API приложения BK закрыты антибот-защитой; обходить её не стали.
+  Витрина ресторана в Яндекс Еде — та, на которую ссылается приложение BK, —
+  отдаёт вес и КБЖУ на 100 г от ресторана. Кинг Фри малый и MAXX там не
+  продаются: их вес (67 и 250 г) взят из меню доставки BK на chibbis.ru, КБЖУ
+  посчитано по «Кинг Фри стандартный» той же витрины. «Острый Кинг Фри» — та же
+  картошка плюс пакетик «Острая Штука» 7 г.
+- **Verdict:** applied — витрина Яндекс Еды (`restaurant_partner_menu`) и
+  производные размеры (`derived_from_partner_menu`). Rejected — PDF 2024 года
+  как устаревший; chibbis.ru только для веса, КБЖУ там нет.
+
+### 2026-10-04 — Расход и нагрузка по пульсу
+
+- **URLs:** https://www.researchgate.net/publication/7777759_Prediction_of_energy_expenditure_from_heart_rate_monitoring_during_submaximal_exercise
+  (Keytel et al. 2005),
+  https://support.hexoskin.com/how-is-the-energy-expenditure-calculated,
+  https://fellrnr.com/wiki/TRIMP, https://www.trainingimpulse.com/banisters-trimp-0
+  (Banister TRIMP),
+  https://www.researchgate.net/publication/12175294_Age-Predicted_Maximal_Heart_Rate_Revisited
+  (Tanaka, Monahan & Seals 2001).
+- **Consulted for:** расход энергии на тренировке по пульсу, когда браслет не
+  пишет калории в Health Connect; шкала нагрузки, которая отличает час во 2-й
+  зоне от короткой тяжёлой работы; максимальный пульс для зон.
+- **Used in:** `backend/glucotracker/application/activity_energy.py`,
+  `backend/glucotracker/domain/energy.py` (`keypoint_kcal_per_min`),
+  `glucotracker-gadgetbridge/.../glucotracker/ui/data/BridgeEffort.kt`.
+- **Takeaway:** Keytel без VO2max, кДж/мин: мужчины −55,0969 + 0,6309·ЧСС +
+  0,1988·кг + 0,2017·возраст; женщины −20,4022 + 0,4472·ЧСС − 0,1263·кг +
+  0,074·возраст. Уравнение подобрано на субмаксимальной нагрузке; Hexoskin
+  применяет его только выше ~60 % ЧССmax и плавно смешивает с обменом покоя
+  ниже — у нас вклад так же сходит на нет от порога нагрузки (max(100, покой +
+  30)) к flex-точке (покой + 15). В коде женская формула была ошибочной (мужские
+  коэффициенты при ЧСС и возрасте) — исправлено. TRIMP Банистера: минуты ×
+  ΔЧСС-резерва × 0,64·e^(1,92·Δ) (мужчины), 0,86·e^(1,67·Δ) (женщины). ЧССmax =
+  208 − 0,7·возраст.
+- **Verdict:** applied — Keytel для расхода на сервере и в Bridge, TRIMP и
+  Tanaka для нагрузки и зон в Bridge. Rejected — варианты TRIMP без множителя
+  0,64 и с 0,64 для женщин (встречаются на калькуляторах, не совпадают с
+  оригиналом); hrTSS — нужен лактатный порог, которого нет.
+
+### 2026-10-05 — Huami "fetch data" refusal after the start date (Helio Strap stall)
+
+- **Source:** https://codeberg.org/Freeyourgadget/Gadgetbridge/issues/3249,
+  https://codeberg.org/Freeyourgadget/Gadgetbridge/issues/2327
+- **Consulted for:** the meaning of the strap's `10 02 04` answer to the fetch
+  command, after Helio syncs saved nothing for 27 hours.
+- **Landed in:** Bridge fork `FetchActivityOperation.java`,
+  `AbstractFetchOperation.java` (`acceptAnnouncedTransfer`,
+  `onFetchDataRejected`) and `glucotracker/SampleTimeGuards.kt`.
+- **Takeaway:** in these logs `0x10` marks a response, the second byte is the
+  step (`0x01` start date, `0x02` fetch data) and the third the status, `0x01`
+  meaning success. `10 02 04` is therefore a refusal of the transfer after an
+  accepted start date. No source documents status `0x04`. The fix itself rests
+  on probing the strap: "since 10-04 09:41" announced 6 669 records and was
+  refused, "since 10:11" was served with exactly the real minutes.
+- **Verdict:** applied — an impossible announced count or a refused transfer
+  steps the start forward 15 minutes at a time. Rejected: the suggestion in the
+  same search results to turn off "Truncate fetch operation timestamps", which
+  concerns sub-minute activities and did not match the observed counts.
 
 _Started 2026-08-06. Entries before this date were not recorded; sources behind
 earlier decisions are documented, where they exist, in the relevant ADR or model
