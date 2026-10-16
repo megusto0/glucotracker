@@ -1,0 +1,6 @@
+results/
+cache/
+*.zip
+*.csv
+*.pt
+
