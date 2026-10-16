@@ -101,7 +101,14 @@ def test_suggests_a_top_up_from_carbs_left_minus_insulin_on_board(
     assert body["iob_minutes_remaining"] > 0
     assert body["cob_minutes_remaining"] > 0
     expected = body["carb_units"] + body["correction_units"] - body["iob_units"]
-    assert abs(body["units"] - round(expected * 10) / 10) < 0.15
+    assert abs(body["balance_units"] - expected) < 0.05
+    # The balance asks for ~6 U here; the history model, which learned that the
+    # carbohydrate term barely predicts what is needed, asks for far less, and
+    # the smaller of the two is the answer.
+    assert body["limited_by"] == "model"
+    assert body["units"] == round(body["model_units"], 1)
+    assert body["units"] < body["balance_units"]
+    assert body["method_version"] == "top-up-history-min-balance-v2"
 
 
 def test_no_top_up_when_active_insulin_already_covers_the_meal(
@@ -213,7 +220,6 @@ def test_moderate_high_still_defers_to_the_balance(
 
     assert response.status_code == 200
     assert response.json()["status"] == "not_needed"
-
 
 
 def test_top_up_can_be_asked_about_a_past_moment(api_client: TestClient) -> None:
@@ -355,5 +361,78 @@ def test_retrospective_top_up_excludes_the_bolus_being_explained(
     excluded_body = excluded.json()
     assert included_body["iob_units"] == 4.0
     assert excluded_body["iob_units"] == 0.0
-    assert included_body["units"] == 2.0
-    assert excluded_body["units"] == 6.0
+    assert included_body["balance_units"] == 2.0
+    assert excluded_body["balance_units"] == 6.0
+    assert included_body["units"] == min(2.0, round(included_body["model_units"], 1))
+
+
+def test_history_model_weights_the_reading_and_its_direction() -> None:
+    from glucotracker.application.top_up_dose import history_model_units
+
+    base = history_model_units(
+        correction_units=1.6,
+        carb_units=5.6,
+        iob_units=5.7,
+        trend_mmol_l_per_30_min=0.0,
+    )
+    rising = history_model_units(
+        correction_units=1.6,
+        carb_units=5.6,
+        iob_units=5.7,
+        trend_mmol_l_per_30_min=1.2,
+    )
+    falling = history_model_units(
+        correction_units=1.6,
+        carb_units=5.6,
+        iob_units=5.7,
+        trend_mmol_l_per_30_min=-1.2,
+    )
+    assert falling < base < rising
+    # A missing trend reads as level, not as a guess in either direction.
+    assert (
+        history_model_units(
+            correction_units=1.6,
+            carb_units=5.6,
+            iob_units=5.7,
+            trend_mmol_l_per_30_min=None,
+        )
+        == base
+    )
+
+
+def test_balance_still_caps_the_model_when_insulin_on_board_is_large(
+    api_client: TestClient,
+) -> None:
+    """History rarely saw a large IOB, so the balance keeps the last word there."""
+    _setup(api_client, carbs=30.0, units=9.0, glucose=9.5)
+
+    body = api_client.get("/glucose/top-up-dose", params={"target_mmol_l": 6.0}).json()
+
+    assert body["model_units"] > 0
+    assert body["balance_units"] == 0.0
+    assert body["status"] == "not_needed"
+
+
+def test_a_rise_over_the_last_half_hour_raises_the_model(
+    api_client: TestClient,
+) -> None:
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    factory = api_client.app_state["session_factory"]
+    with factory() as session:
+        _cgm(session, owner_id, {30: 8.0, 20: 8.6, 10: 9.2, 0: 9.8})
+        _meal(session, owner_id, 60, 80.0)
+        _insulin(session, owner_id, 55, 2.0)
+        params = TwinRepository(session, owner_id).get_or_create_params()
+        params.icr_morning = params.icr_day = params.icr_evening = 10.0
+        params.isf = 2.6
+        params.last_fit_method = "manual"
+        session.commit()
+
+    body = api_client.get("/glucose/top-up-dose", params={"target_mmol_l": 6.0}).json()
+
+    assert body["trend_mmol_l_per_30_min"] == 1.8
+    # The stored forecast is not consulted; direction comes from the trace.
+    assert body["projection_source"] == "linear_trend"
+    # Correction is measured from the reading, not from where it is heading.
+    assert body["correction_units"] == round((9.8 - 6.0) / 2.6, 2)
+    assert body["status"] == "ready"

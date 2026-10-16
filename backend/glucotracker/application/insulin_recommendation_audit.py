@@ -15,6 +15,7 @@ from glucotracker.api.schemas import (
     InsulinRecommendationRequest,
     InsulinRecommendationResponse,
 )
+from glucotracker.application.dose_shadow import shadow_meal_estimate
 from glucotracker.application.glucose_dashboard import (
     MODEL_VERSION as CGM_MODEL_VERSION,
 )
@@ -162,6 +163,9 @@ class InsulinRecommendationAuditService:
                 }
                 for event in prior_insulin
             ],
+            # Recorded, never applied: the frozen alternative the next weeks
+            # of outcomes will judge (application/dose_shadow.py).
+            "shadow_meal_estimate": _shadow_input(calculation, meals),
             "versions": {
                 "meal_method": calculation.meal.method_version,
                 "total_method": TOTAL_METHOD_VERSION,
@@ -226,6 +230,20 @@ class InsulinRecommendationAuditService:
                 )
             )
         )
+
+
+def _shadow_input(
+    calculation: InsulinCalculation,
+    meals: list[Meal],
+) -> dict[str, Any] | None:
+    shadow = shadow_meal_estimate(
+        production_meal_units=calculation.meal.recommended_units,
+        carbs_g=sum(float(meal.total_carbs_g or 0) for meal in meals),
+        fat_g=sum(float(meal.total_fat_g or 0) for meal in meals),
+        trend_mmol_l_per_min=calculation.correction.trend_mmol_l_per_min,
+        after_sleep=calculation.meal.icr_after_sleep,
+    )
+    return asdict(shadow) if shadow is not None else None
 
 
 def _meal_input(meal: Meal) -> dict[str, Any]:

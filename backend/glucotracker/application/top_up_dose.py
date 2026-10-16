@@ -22,6 +22,20 @@ on board — which is workable at small quantities and unreliable at large ones.
 
 Every term is already computed elsewhere; none of them is visible at the moment
 the decision is made.
+
+v2 (2026-10-04). A read-only backtest over 846 past moments
+(`ml-labs/response-attribution/topup_backtest_server.py`) scored the balance
+against the dose the next three hours implied. Carbohydrate left and insulin on
+board barely predicted it (fitted weights 0.08 and −0.05 where the balance uses
++1 and −1): two large uncertain numbers whose difference is mostly noise. The
+reading itself and its last half hour carried the information, and the stored
+forecast was usable in only 17% of moments and is no longer consulted. The
+answer is now the smaller of the balance and a model fitted on those moments.
+Against the outcomes, in a time-ordered check, that cut the error from 1.35 to
+1.00 U and the share of suggestions more than 1 U too high from 31% to 16%
+(ISF 2.6; it held at 1.5 and 3.5). Taking the smaller of the two keeps the
+balance's protection where insulin on board is large, which the history alone
+rarely saw.
 """
 
 from __future__ import annotations
@@ -38,9 +52,6 @@ from glucotracker.application.glucose_dashboard import (
     GlucoseDashboardService,
     _local_wall_from_utc,
     _remaining_on_board,
-)
-from glucotracker.application.glucose_trend_projection import (
-    GlucoseTrendProjectionService,
 )
 from glucotracker.application.insulin_recommendation import (
     DEFAULT_CORRECTION_ISF_MMOL_L_PER_UNIT,
@@ -60,7 +71,21 @@ from glucotracker.application.twin.kernels import (
 from glucotracker.infra.db.repositories.on_board import OnBoardRepository
 from glucotracker.infra.db.repositories.twin import TwinRepository
 
-LOOKBACK_MINUTES = 30
+METHOD_VERSION = "top-up-history-min-balance-v2"
+LOOKBACK_MINUTES = 40
+TREND_MINUTES = 30
+TREND_POINT_TOLERANCE_MINUTES = 8
+# Frozen on 2026-10-04 from 324 moments without later food or insulin; the
+# label was what was given plus the three-hour glucose change over ISF 2.6.
+# Rise and fall are the last 30 minutes in mmol/L, divided by 2.6 to put them on
+# the same footing as the correction term.
+MODEL_CORRECTION_WEIGHT = 0.491
+MODEL_CARB_WEIGHT = 0.096
+MODEL_IOB_WEIGHT = 0.011
+MODEL_RISE_WEIGHT = 0.967
+MODEL_FALL_WEIGHT = 0.367
+TREND_SCALE_MMOL_L = 2.6
+MAX_TREND_MMOL_L = 3.0
 # Below this the arithmetic is noise against the dose rounding.
 MIN_SUGGESTION_UNITS = 0.2
 # A follow-up bolus is a nudge on top of insulin that is already working; a
@@ -96,6 +121,13 @@ class TopUpSuggestion:
     isf_mmol_l_per_unit: float | None = None
     isf_source: Literal["manual", "fitted", "default"] | None = None
     note: str | None = None
+    method_version: str = METHOD_VERSION
+    #: Glucose change over the last 30 minutes; None without a reading then.
+    trend_mmol_l_per_30_min: float | None = None
+    #: The two candidates and which one the answer is.
+    balance_units: float | None = None
+    model_units: float | None = None
+    limited_by: Literal["balance", "model"] | None = None
 
 
 class TopUpDoseService:
@@ -172,17 +204,14 @@ class TopUpDoseService:
                 cob_minutes_remaining=summary.cob_minutes_remaining,
             )
 
-        # Prefer where the curve is heading over where it currently sits; the
-        # projection is already asymmetric and refuses to overstate a rise.
-        projection = GlucoseTrendProjectionService(
-            self.session,
-            self.user_id,
-        ).project(now)
+        # The stored forecast matched what followed too rarely to be given a
+        # weight; the last half hour of the trace stands in for direction.
+        trend = _trend_over(dashboard.points, now)
         projected = glucose
         projection_source: Literal["none", "linear_trend", "forecast"] = "none"
-        if projection.is_usable and projection.projected_mmol_l is not None:
-            projected = glucose + (projection.move_mmol_l or 0.0)
-            projection_source = "forecast"
+        if trend is not None:
+            projected = glucose + trend
+            projection_source = "linear_trend"
 
         context = {
             "glucose_mmol_l": round(glucose, 1),
@@ -196,6 +225,7 @@ class TopUpDoseService:
             "icr_g_per_unit": round(icr, 1),
             "isf_mmol_l_per_unit": round(isf, 2),
             "isf_source": isf_source,
+            "trend_mmol_l_per_30_min": round(trend, 2) if trend is not None else None,
         }
 
         if glucose < LOW_GLUCOSE_MMOL_L or projected < LOW_GLUCOSE_MMOL_L:
@@ -206,7 +236,7 @@ class TopUpDoseService:
             )
 
         carb_units = summary.cob_g / icr
-        correction_units = (projected - target) / isf
+        correction_units = (glucose - target) / isf
 
         # The mass balance is right where the imbalance is large and obvious:
         # 80 g against 1 U needs units, 30 g against 9 U needs none. It fails
@@ -220,16 +250,30 @@ class TopUpDoseService:
         # the situation is handled has been contradicted by the reading itself,
         # so the correction toward target is offered instead of nothing.
         net = carb_units + correction_units - iob_units
-        contradicted = (
-            net < MIN_SUGGESTION_UNITS
-            and min(glucose, projected) > TIR_HIGH_MMOL_L
-        )
+        contradicted = net < MIN_SUGGESTION_UNITS and glucose > TIR_HIGH_MMOL_L
         if contradicted:
             net = correction_units
+        balance = max(0.0, net)
+        model = max(
+            0.0,
+            history_model_units(
+                correction_units=correction_units,
+                carb_units=carb_units,
+                iob_units=iob_units,
+                trend_mmol_l_per_30_min=trend,
+            ),
+        )
+        limited_by: Literal["balance", "model"] = (
+            "model" if model < balance else "balance"
+        )
+        net = min(model, balance)
 
         rounded = {
             "carb_units": round(carb_units, 2),
             "correction_units": round(correction_units, 2),
+            "balance_units": round(balance, 2),
+            "model_units": round(model, 2),
+            "limited_by": limited_by,
         }
 
         if net < MIN_SUGGESTION_UNITS:
@@ -249,6 +293,37 @@ class TopUpDoseService:
             **context,
             **rounded,
         )
+
+
+def history_model_units(
+    *,
+    correction_units: float,
+    carb_units: float,
+    iob_units: float,
+    trend_mmol_l_per_30_min: float | None,
+) -> float:
+    """What the frozen history model says a follow-up should be, unclamped."""
+    trend = trend_mmol_l_per_30_min or 0.0
+    trend = max(-MAX_TREND_MMOL_L, min(MAX_TREND_MMOL_L, trend))
+    return (
+        MODEL_CORRECTION_WEIGHT * correction_units
+        + MODEL_CARB_WEIGHT * carb_units
+        - MODEL_IOB_WEIGHT * iob_units
+        + MODEL_RISE_WEIGHT * max(trend, 0.0) / TREND_SCALE_MMOL_L
+        - MODEL_FALL_WEIGHT * max(-trend, 0.0) / TREND_SCALE_MMOL_L
+    )
+
+
+def _trend_over(points, now: datetime) -> float | None:
+    """Glucose now minus 30 minutes ago, from the same display series."""
+    if not points:
+        return None
+    latest = max(points, key=lambda point: point.timestamp)
+    target = latest.timestamp - _minutes(TREND_MINUTES)
+    earlier = min(points, key=lambda point: abs(point.timestamp - target))
+    if abs(earlier.timestamp - target) > _minutes(TREND_POINT_TOLERANCE_MINUTES):
+        return None
+    return float(latest.display_value) - float(earlier.display_value)
 
 
 def _minutes(value: int):

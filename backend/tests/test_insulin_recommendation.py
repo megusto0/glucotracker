@@ -700,6 +700,12 @@ def test_recommendation_history_keeps_full_original_inputs_and_response(
         == "no_forecast"
     )
     assert original["duration_ms"] >= 0
+    # The frozen alternative is stored beside the run, never returned with it.
+    shadow = original["input_snapshot"]["shadow_meal_estimate"]
+    assert shadow["model_version"] == "meal-residual-shadow-v1"
+    assert shadow["production_meal_units"] == first_body["recommended_units"]
+    assert shadow["carbs_g"] == 40.0
+    assert "shadow" not in str(first_body)
 
     with factory() as session:
         meal = session.get(Meal, target.id)

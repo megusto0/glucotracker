@@ -254,10 +254,7 @@ export function NightscoutPage() {
     overviewRange.to,
     10,
   );
-  const bodyStates = useGlucoseBodyStates(
-    overviewRange.from,
-    overviewRange.to,
-  );
+  const bodyStates = useGlucoseBodyStates(overviewRange.from, overviewRange.to);
   const prediction = useGlucosePrediction(mode);
   const episodes = useGlucoseEpisodes(range.from, range.to);
   const points = dashboard.data?.points ?? [];
@@ -485,9 +482,9 @@ export function NightscoutPage() {
                     {formatDose(topUpData.units)} Ед
                   </strong>
                   <small>
-                    углеводы {formatDose(topUpData.carb_units)} + коррекция{" "}
-                    {formatDose(topUpData.correction_units)} − активный инсулин{" "}
-                    {formatDose(topUpData.iob_units)}
+                    {topUpData.limited_by === "model"
+                      ? `по истории добавок · баланс дал бы ${formatDose(topUpData.balance_units)}`
+                      : `углеводы ${formatDose(topUpData.carb_units)} + коррекция ${formatDose(topUpData.correction_units)} − активный инсулин ${formatDose(topUpData.iob_units)}`}
                   </small>
                 </>
               ) : topUpData.status === "not_needed" ? (
@@ -506,13 +503,13 @@ export function NightscoutPage() {
               topUpData.status === "not_needed" ? (
                 <small className="ns-top-up-context">
                   {formatMmol(topUpData.glucose_mmol_l)}
-                  {topUpData.projection_source === "forecast"
-                    ? ` → ${formatMmol(topUpData.projected_glucose_mmol_l)} (прогноз)`
+                  {typeof topUpData.trend_mmol_l_per_30_min === "number"
+                    ? ` ${signedTrend(topUpData.trend_mmol_l_per_30_min)} за 30 мин`
                     : ""}{" "}
                   · цель {formatMmol(topUpData.target_mmol_l)} · осталось{" "}
                   {formatOnBoard(topUpData.cob_g ?? undefined, 0)} г · ICR{" "}
-                  {formatOnBoard(topUpData.icr_g_per_unit ?? undefined, 1)} · ISF{" "}
-                  {formatDose(topUpData.isf_mmol_l_per_unit)}
+                  {formatOnBoard(topUpData.icr_g_per_unit ?? undefined, 1)} ·
+                  ISF {formatDose(topUpData.isf_mmol_l_per_unit)}
                   {topUpData.isf_source === "default" ? " (по умолчанию)" : ""}
                 </small>
               ) : null}
@@ -827,11 +824,7 @@ function CarbCorrectionPanel({
         ) : null}
       </section>
 
-      <button
-        className="ns-carb-show-dose"
-        onClick={onShowDose}
-        type="button"
-      >
+      <button className="ns-carb-show-dose" onClick={onShowDose} type="button">
         Это обычный приём — показать расчёт дозы
       </button>
     </div>
@@ -1030,12 +1023,12 @@ function InsulinEpisodePanel({
           <div className="ns-insulin-safety-stop">
             <strong>Инсулин не рекомендуется</strong>
             <small>
-              Глюкоза низкая или быстро снижается. Расчёт еды, коррекции и
-              итога скрыт.
+              Глюкоза низкая или быстро снижается. Расчёт еды, коррекции и итога
+              скрыт.
             </small>
             <small>
-              Глюкоза{" "}
-              {formatDose(recommendationData.correction_glucose_mmol_l)} →{" "}
+              Глюкоза {formatDose(recommendationData.correction_glucose_mmol_l)}{" "}
+              →{" "}
               {formatDose(
                 recommendationData.correction_projected_glucose_mmol_l,
               )}{" "}
@@ -1084,10 +1077,11 @@ function InsulinEpisodePanel({
               </small>
             )}
             <small>
-              IOB до приёма {formatDose(recommendationData.correction_iob_units)}
+              IOB до приёма{" "}
+              {formatDose(recommendationData.correction_iob_units)}
               {" Ед"} · прежний COB{" "}
-              {formatDose(recommendationData.correction_prior_cob_g)} г · свободно
-              для коррекции{" "}
+              {formatDose(recommendationData.correction_prior_cob_g)} г ·
+              свободно для коррекции{" "}
               {formatDose(recommendationData.correction_excess_iob_units)} Ед
             </small>
             <small>
@@ -1356,10 +1350,7 @@ function NightscoutChart({
   const heartRateBinMs = (heartRate?.bin_minutes ?? 10) * 60_000;
   const heartRateBarWidth = Math.max(
     1.5,
-    Math.min(
-      12,
-      (heartRateBinMs / overviewDuration) * chartWidth - 0.7,
-    ),
+    Math.min(12, (heartRateBinMs / overviewDuration) * chartWidth - 0.7),
   );
   const heartRateBarHeight = (bpm: number) => {
     const clamped = Math.min(180, Math.max(35, bpm));
@@ -1552,7 +1543,8 @@ function NightscoutChart({
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     if (rect.width <= 0) return;
-    const deltaSvgX = ((event.clientX - drag.startClientX) / rect.width) * width;
+    const deltaSvgX =
+      ((event.clientX - drag.startClientX) / rect.width) * width;
     const deltaMs = (deltaSvgX / chartWidth) * overviewDuration;
     const nextRange = resizeOverviewRange(
       drag,
@@ -1965,7 +1957,9 @@ function NightscoutChart({
                     {`${new Intl.DateTimeFormat("ru-RU", {
                       hour: "2-digit",
                       minute: "2-digit",
-                    }).format(new Date(point.timestamp))} · ${point.bpm.toFixed(0)} уд/мин · ${point.sample_count} изм.`}
+                    }).format(
+                      new Date(point.timestamp),
+                    )} · ${point.bpm.toFixed(0)} уд/мин · ${point.sample_count} изм.`}
                   </title>
                 </rect>
               );
@@ -2149,4 +2143,12 @@ function NightscoutChart({
       ) : null}
     </div>
   );
+}
+
+function signedTrend(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const text = Math.abs(rounded).toFixed(1);
+  if (rounded > 0) return `+${text}`;
+  if (rounded < 0) return `−${text}`;
+  return text;
 }

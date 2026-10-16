@@ -649,11 +649,12 @@ def get_top_up_dose(
     reconstruct. [exclude_insulin_id] identifies that dose so it cannot appear
     inside the IOB used to explain itself.
 
-    Two terms do not travel backwards and the response says so through its own
-    fields: `projection_source` degrades to "none" once the stored forecast for
-    that moment has aged out, and ICR/ISF are read from the owner's *current*
-    parameters, so a figure recomputed after a refit will not reproduce what was
-    displayed at the time.
+    The answer is the smaller of the carb/IOB balance and a history model
+    (`limited_by` says which). Direction comes from the last 30 minutes of the
+    trace (`projection_source` "linear_trend", or "none" without a reading
+    then); the stored forecast is not consulted. ICR/ISF are read from the
+    owner's *current* parameters, so a figure recomputed after a refit will not
+    reproduce what was displayed at the time.
     """
     suggestion = TopUpDoseService(session, current_user.id).suggest(
         target_mmol_l=target_mmol_l,

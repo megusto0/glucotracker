@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type {
@@ -713,7 +719,8 @@ describe("NightscoutPage", () => {
 
     const latestMainRangeTo = () => {
       const mainCalls = mockedUseDashboard.mock.calls.filter(
-        ([from, to]) => Date.parse(to) - Date.parse(from) <= 12 * 60 * 60 * 1000,
+        ([from, to]) =>
+          Date.parse(to) - Date.parse(from) <= 12 * 60 * 60 * 1000,
       );
       return Date.parse(mainCalls[mainCalls.length - 1]![1]);
     };
@@ -882,8 +889,12 @@ describe("NightscoutPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("15 г")).toBeInTheDocument();
     expect(screen.getByText("Фактически: 30 г")).toBeInTheDocument();
-    expect(screen.getByText(/Пик после: raw 6.7 · норм. 9.0/)).toBeInTheDocument();
-    expect(screen.getByText(/На 15 г больше базового ориентира/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Пик после: raw 6.7 · норм. 9.0/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/На 15 г больше базового ориентира/),
+    ).toBeInTheDocument();
     expect(mockedUseRecommendation).not.toHaveBeenCalled();
   });
 
@@ -1010,11 +1021,11 @@ describe("NightscoutPage", () => {
     );
 
     expect(
-      screen.getByText(
-        /По факту 8.5 Ед уже привели к 5.2 ммоль\/л через 2 ч/,
-      ),
+      screen.getByText(/По факту 8.5 Ед уже привели к 5.2 ммоль\/л через 2 ч/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Расчёт 9.3 Ед был бы избыточным/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Расчёт 9.3 Ед был бы избыточным/),
+    ).toBeInTheDocument();
   });
 
   test("records an actual dose when the grouped meal has none", async () => {
@@ -1166,6 +1177,49 @@ describe("NightscoutPage", () => {
     expect(panel?.textContent).toContain("углеводы 3.2");
     expect(panel?.textContent).toContain("коррекция 1.1");
     expect(panel?.textContent).toContain("активный инсулин 2.9");
+  });
+
+  test("when the history model is smaller, the top-up says so in one line", () => {
+    mockedUseTopUp.mockReturnValue({
+      data: {
+        balance_units: 6.1,
+        carb_units: 6.0,
+        cob_g: 60,
+        correction_units: 1.5,
+        glucose_mmol_l: 9.8,
+        icr_g_per_unit: 10,
+        iob_units: 1.4,
+        isf_mmol_l_per_unit: 2.6,
+        isf_source: "manual",
+        limited_by: "model",
+        model_units: 1.9,
+        note: null,
+        projection_source: "linear_trend",
+        status: "ready",
+        target_mmol_l: 6,
+        trend_mmol_l_per_30_min: 1.8,
+        units: 1.9,
+      },
+      error: null,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useTopUpDose>);
+
+    const { container } = render(
+      <MemoryRouter>
+        <NightscoutPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сколько добавить?" }));
+
+    const panel = container.querySelector(".ns-top-up");
+    expect(panel?.querySelector(".ns-top-up-units")?.textContent).toContain(
+      "1.9",
+    );
+    expect(panel?.textContent).toContain("по истории добавок");
+    expect(panel?.textContent).toContain("баланс дал бы 6.1");
+    expect(panel?.textContent).toContain("+1.8 за 30 мин");
+    expect(panel?.textContent).not.toContain("прогноз");
   });
 
   test("the top-up button withholds a number while glucose is low", () => {
