@@ -9,6 +9,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
@@ -429,17 +430,26 @@ fun GTNavHost(
                 navArgument(Route.MealStack.ArgDate) { type = NavType.StringType },
                 navArgument(Route.MealStack.ArgFocusedId) { type = NavType.StringType },
             ),
+            // CONCEPT §6: opening a record is a fade plus 8 dp of travel in
+            // 180 ms. The same spec drives the predictive back gesture, which
+            // seeks these transitions under the finger.
             enterTransition = {
-                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+                fadeIn(tween(RecordOpenMillis, easing = LinearOutSlowInEasing)) +
+                    slideInVertically(tween(RecordOpenMillis, easing = LinearOutSlowInEasing)) {
+                        recordTravelPx()
+                    }
             },
             popExitTransition = {
-                fadeOut(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+                fadeOut(tween(RecordOpenMillis, easing = LinearOutSlowInEasing)) +
+                    slideOutVertically(tween(RecordOpenMillis, easing = LinearOutSlowInEasing)) {
+                        recordTravelPx()
+                    }
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+                fadeOut(tween(RecordOpenMillis, easing = LinearOutSlowInEasing))
             },
             popEnterTransition = {
-                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+                fadeIn(tween(RecordOpenMillis, easing = LinearOutSlowInEasing))
             },
         ) {
             MealStackRoute(onBack = { navController.popBackStack() })
@@ -859,3 +869,9 @@ private fun NavGlyph(kind: NavIcon) {
         }
     }
 }
+
+private const val RecordOpenMillis = 180
+
+/** 8 dp in pixels; transition lambdas have no composition to read density from. */
+private fun recordTravelPx(): Int =
+    (8f * android.content.res.Resources.getSystem().displayMetrics.density).toInt()

@@ -15,8 +15,9 @@ import com.local.glucotracker.domain.model.OutboxKind
 import com.local.glucotracker.domain.model.OutboxState
 import com.local.glucotracker.domain.model.hasRestaurantSource
 import com.local.glucotracker.domain.model.matchesCreateMeal
-import com.local.glucotracker.domain.repository.OutboxRepository
 import com.local.glucotracker.domain.repository.MealRepository
+import com.local.glucotracker.domain.repository.OutboxRepository
+import com.local.glucotracker.domain.repository.ProductsRepository
 import com.local.glucotracker.domain.repository.TodayRepository
 import com.local.glucotracker.ui.format.RowState
 import com.local.glucotracker.ui.format.computeRowState
@@ -24,6 +25,11 @@ import com.local.glucotracker.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import io.ktor.client.plugins.ResponseException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +45,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 sealed interface MealStackUiState {
     data object Loading : MealStackUiState
@@ -115,6 +122,7 @@ class MealStackViewModel @Inject constructor(
     private val outboxRepository: OutboxRepository,
     private val mealRepository: MealRepository,
     private val mealApi: MealApi,
+    private val productsRepository: ProductsRepository,
     connectivityObserver: ConnectivityObserver,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -167,14 +175,67 @@ class MealStackViewModel @Inject constructor(
     fun deleteCurrent(onDeleted: () -> Unit) {
         val card = currentCard() ?: return
         viewModelScope.launch {
-            val outboxId = card.outboxId
-            val serverId = card.serverId
-            if (serverId == null && outboxId != null) {
-                outboxRepository.remove(outboxId)
-            } else if (serverId != null) {
-                outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = serverId))
-            }
+            performDelete(card)
             onDeleted()
+        }
+    }
+
+    private val _pendingDelete = MutableStateFlow(false)
+
+    /** True while a delete waits out its undo window. */
+    val pendingDelete: StateFlow<Boolean> = _pendingDelete
+
+    private var pendingDeleteCard: MealCard? = null
+    private var pendingDeleteJob: Job? = null
+
+    /**
+     * Delete after [UNDO_WINDOW], unless [undoDelete] comes first.
+     *
+     * The card is captured now: the pager is frozen while the window is open,
+     * but the delete must land on the entry the user chose even if the screen
+     * goes away first — see [onCleared].
+     */
+    fun requestDelete(onDeleted: () -> Unit) {
+        if (pendingDeleteJob != null) return
+        val card = currentCard() ?: return
+        pendingDeleteCard = card
+        _pendingDelete.value = true
+        pendingDeleteJob = viewModelScope.launch {
+            delay(UNDO_WINDOW)
+            pendingDeleteJob = null
+            pendingDeleteCard = null
+            performDelete(card)
+            _pendingDelete.value = false
+            onDeleted()
+        }
+    }
+
+    fun undoDelete() {
+        pendingDeleteJob?.cancel()
+        pendingDeleteJob = null
+        pendingDeleteCard = null
+        _pendingDelete.value = false
+    }
+
+    override fun onCleared() {
+        // Leaving the screen inside the undo window still means "delete": the
+        // user never pressed «Отменить». viewModelScope is already cancelled, so
+        // the write gets a scope of its own that outlives this ViewModel.
+        val card = pendingDeleteCard
+        if (card != null) {
+            pendingDeleteJob?.cancel()
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { performDelete(card) }
+        }
+        super.onCleared()
+    }
+
+    private suspend fun performDelete(card: MealCard) {
+        val outboxId = card.outboxId
+        val serverId = card.serverId
+        if (serverId == null && outboxId != null) {
+            outboxRepository.remove(outboxId)
+        } else if (serverId != null) {
+            outboxRepository.enqueue(OutboxKind.DeleteMeal(serverId = serverId))
         }
     }
 
@@ -190,7 +251,12 @@ class MealStackViewModel @Inject constructor(
         viewModelScope.launch {
             val aliases = listOfNotNull(card.title?.trim()?.ifBlank { null })
             runCatching { mealApi.rememberProduct(java.util.UUID.fromString(itemId), aliases) }
-                .onSuccess { _favoriteFeedback.value = FavoriteFeedback.Saved }
+                .onSuccess {
+                    _favoriteFeedback.value = FavoriteFeedback.Saved
+                    // The server mutation does not invalidate Room. Refresh now so
+                    // Search and Base see the new quick-add without an app restart.
+                    runCatching { productsRepository.refreshProducts() }
+                }
                 .onFailure { error ->
                     _favoriteFeedback.value = if (error.isConflict()) {
                         FavoriteFeedback.NotEnoughData
@@ -607,3 +673,6 @@ private fun Instant.replaceTime(value: String): Instant? {
 
 private fun Instant.localDate(): LocalDate =
     toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+/** How long «Отменить» stays on screen after «Удалить». */
+private val UNDO_WINDOW = 5.seconds

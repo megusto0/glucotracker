@@ -1,5 +1,40 @@
 package com.local.glucotracker.ui.feature.stack
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import com.local.glucotracker.ui.design.primitives.GTKicker
+import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -13,15 +48,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -37,10 +69,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,7 +94,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -77,7 +105,6 @@ import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHairlineDivider
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
-import com.local.glucotracker.ui.design.primitives.GTSectionLabel
 import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.productNameWithoutPack
@@ -104,9 +131,11 @@ fun MealStackRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val favoriteFeedback by viewModel.favoriteFeedback.collectAsStateWithLifecycle()
+    val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     MealStackScreen(
         state = state,
         favoriteFeedback = favoriteFeedback,
+        pendingDelete = pendingDelete,
         onBack = onBack,
         onPageChanged = viewModel::onPageChanged,
         onSaveTitle = viewModel::updateTitle,
@@ -114,7 +143,8 @@ fun MealStackRoute(
         onSaveWeight = viewModel::updateWeight,
         onRetry = viewModel::retryCurrent,
         onFavorite = viewModel::favoriteCurrent,
-        onDelete = { viewModel.deleteCurrent(onDeleted = onBack) },
+        onDelete = { viewModel.requestDelete(onDeleted = onBack) },
+        onUndoDelete = viewModel::undoDelete,
         modifier = modifier,
     )
 }
@@ -133,6 +163,8 @@ fun MealStackScreen(
     onFavorite: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    pendingDelete: Boolean = false,
+    onUndoDelete: () -> Unit = {},
 ) {
     Box(
         modifier = modifier
@@ -145,6 +177,7 @@ fun MealStackScreen(
             is MealStackUiState.Ready -> ReadyStack(
                 state = state,
                 favoriteFeedback = favoriteFeedback,
+                pendingDelete = pendingDelete,
                 onBack = onBack,
                 onPageChanged = onPageChanged,
                 onSaveTitle = onSaveTitle,
@@ -153,6 +186,7 @@ fun MealStackScreen(
                 onRetry = onRetry,
                 onFavorite = onFavorite,
                 onDelete = onDelete,
+                onUndoDelete = onUndoDelete,
             )
         }
     }
@@ -163,6 +197,7 @@ fun MealStackScreen(
 private fun ReadyStack(
     state: MealStackUiState.Ready,
     favoriteFeedback: FavoriteFeedback,
+    pendingDelete: Boolean,
     onBack: () -> Unit,
     onPageChanged: (String) -> Unit,
     onSaveTitle: (String) -> Unit,
@@ -171,12 +206,22 @@ private fun ReadyStack(
     onRetry: () -> Unit,
     onFavorite: () -> Unit,
     onDelete: () -> Unit,
+    onUndoDelete: () -> Unit,
 ) {
-    var editSheetOpen by remember { mutableStateOf(false) }
+    var editOpen by remember { mutableStateOf(false) }
     val currentCard = state.cards.getOrNull(state.currentIndex)
     val pagerState = rememberPagerState(
         initialPage = state.currentIndex,
         pageCount = { state.cards.size },
+    )
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    // Vertical offset of the card while a finger drags it; 0 at rest.
+    val dragY = remember { Animatable(0f) }
+    val editProgress by animateFloatAsState(
+        targetValue = if (editOpen) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "editProgress",
     )
 
     LaunchedEffect(state.currentIndex, state.cards.size) {
@@ -189,6 +234,7 @@ private fun ReadyStack(
             onPageChanged(card.id)
         }
     }
+    BackHandler(enabled = editOpen) { editOpen = false }
 
     Column(Modifier.fillMaxSize()) {
         StackTopBar(
@@ -197,23 +243,31 @@ private fun ReadyStack(
             total = state.cards.size,
             onBack = onBack,
         )
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalStackGestures(
-                    enabled = !editSheetOpen,
-                    onOpenEdit = { editSheetOpen = true },
+                .followingStackGestures(
+                    enabled = !editOpen && !pendingDelete,
+                    dragY = dragY,
+                    scope = scope,
+                    onOpenEdit = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        editOpen = true
+                    },
                     onBack = onBack,
                 ),
         ) {
+            val dismissDistance = constraints.maxHeight.toFloat().coerceAtLeast(1f)
             HorizontalPager(
                 state = pagerState,
                 pageSize = PageSize.Fill,
                 contentPadding = PaddingValues(horizontal = 0.dp),
                 pageSpacing = 0.dp,
-                verticalAlignment = Alignment.CenterVertically,
-                userScrollEnabled = state.cards.size > 1 && !editSheetOpen,
+                // While editing, the card sits at the top so the panel below
+                // never covers the numbers it is changing.
+                verticalAlignment = if (editOpen) Alignment.Top else Alignment.CenterVertically,
+                userScrollEnabled = state.cards.size > 1 && !editOpen && !pendingDelete,
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(),
@@ -223,61 +277,151 @@ private fun ReadyStack(
                         .fillMaxWidth()
                         .fillMaxHeight()
                         .padding(bottom = 18.dp),
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = if (editOpen) Alignment.TopCenter else Alignment.Center,
                 ) {
                     MealCardComposable(
                         card = state.cards[page],
                         allCards = state.cards,
                         onRetry = onRetry,
+                        modifier = Modifier.graphicsLayer {
+                            val down = (dragY.value / dismissDistance).coerceIn(0f, 1f)
+                            translationY = dragY.value
+                            // Following the finger down, the card recedes a
+                            // little; lifted for editing, it shrinks to fit
+                            // above the panel. Both read as one card moving.
+                            val shrink = 1f - 0.06f * down - 0.16f * editProgress
+                            scaleX = shrink
+                            scaleY = shrink
+                            transformOrigin = TransformOrigin(0.5f, 0f)
+                            alpha = (1f - 0.5f * down) * if (pendingDelete) 0.4f else 1f
+                        },
                     )
+                }
+            }
+        }
+        AnimatedVisibility(
+            visible = editOpen && currentCard != null,
+            enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it },
+            exit = slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it },
+        ) {
+            currentCard?.let { card ->
+                QuickEditPanel(
+                    card = card,
+                    favoriteFeedback = favoriteFeedback,
+                    onClose = { editOpen = false },
+                    onSaveTitle = onSaveTitle,
+                    onSaveTime = onSaveTime,
+                    onSaveWeight = onSaveWeight,
+                    onFavorite = onFavorite,
+                    onDelete = {
+                        editOpen = false
+                        onDelete()
+                    },
+                )
+            }
+        }
+        if (pendingDelete) {
+            UndoDeleteBar(onUndo = onUndoDelete)
+        }
+    }
+}
+
+/**
+ * Swipe down to go back, up to edit — with the card under the finger.
+ *
+ * The thresholds used to fire on their own with nothing moving, so the gesture
+ * was invisible until it happened. Now the card travels with the drag, a
+ * release short of the threshold springs it home, and one past it (or a fast
+ * fling) finishes the motion before the action runs.
+ */
+private fun Modifier.followingStackGestures(
+    enabled: Boolean,
+    dragY: Animatable<Float, AnimationVector1D>,
+    scope: CoroutineScope,
+    onOpenEdit: () -> Unit,
+    onBack: () -> Unit,
+): Modifier =
+    if (!enabled) {
+        this
+    } else {
+        pointerInput(Unit) {
+            val backThreshold = 96.dp.toPx()
+            val editThreshold = -72.dp.toPx()
+            val liftLimit = -120.dp.toPx()
+            val intentSlop = 16.dp.toPx()
+            val flingVelocity = 1200.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val pointerId = down.id
+                val tracker = VelocityTracker()
+                var totalX = 0f
+                var totalY = 0f
+                var vertical = false
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                    if (!change.pressed) break
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    totalX += change.position.x - change.previousPosition.x
+                    totalY += change.position.y - change.previousPosition.y
+                    if (!vertical) {
+                        val absX = totalX.absoluteValue
+                        val absY = totalY.absoluteValue
+                        // Horizontal stays with the pager; only a clearly
+                        // vertical drag is taken.
+                        if (absX > intentSlop && absX > absY) return@awaitEachGesture
+                        vertical = absY > intentSlop && absY >= absX * 0.75f
+                    }
+                    if (vertical) {
+                        change.consume()
+                        // Down follows 1:1; up is damped and capped — the card
+                        // lifts toward the panel rather than leaving.
+                        val target = if (totalY >= 0f) totalY else (totalY * 0.5f).coerceAtLeast(liftLimit)
+                        scope.launch { dragY.snapTo(target) }
+                    }
+                }
+                if (!vertical) return@awaitEachGesture
+                val velocityY = tracker.calculateVelocity().y
+                scope.launch {
+                    when {
+                        totalY > backThreshold || (totalY > 0f && velocityY > flingVelocity) -> {
+                            dragY.animateTo(
+                                targetValue = size.height.toFloat(),
+                                animationSpec = tween(160, easing = LinearOutSlowInEasing),
+                                initialVelocity = velocityY,
+                            )
+                            onBack()
+                        }
+                        totalY < editThreshold || (totalY < 0f && velocityY < -flingVelocity) -> {
+                            onOpenEdit()
+                            dragY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                        else -> dragY.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
+                    }
                 }
             }
         }
     }
 
-    if (editSheetOpen && currentCard != null) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        val haptic = LocalHapticFeedback.current
-        var hapticReady by remember(currentCard.id) { mutableStateOf(false) }
-
-        LaunchedEffect(sheetState.currentValue) {
-            if (
-                hapticReady &&
-                (
-                    sheetState.currentValue == SheetValue.Expanded ||
-                        sheetState.currentValue == SheetValue.Hidden
-                    )
-            ) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
-            hapticReady = true
-        }
-
-        ModalBottomSheet(
-            onDismissRequest = { editSheetOpen = false },
-            sheetState = sheetState,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            containerColor = GT.colors.bg,
-            contentColor = GT.colors.ink,
-            tonalElevation = 0.dp,
-            scrimColor = Color.Black.copy(alpha = 0.32f),
-            dragHandle = { JournalDragHandle() },
-            contentWindowInsets = { WindowInsets.ime.add(WindowInsets.navigationBars) },
-        ) {
-            QuickEditSheet(
-                card = currentCard,
-                favoriteFeedback = favoriteFeedback,
-                onClose = { editSheetOpen = false },
-                onSaveTitle = onSaveTitle,
-                onSaveTime = onSaveTime,
-                onSaveWeight = onSaveWeight,
-                onFavorite = onFavorite,
-                onDelete = {
-                    editSheetOpen = false
-                    onDelete()
-                },
-            )
-        }
+@Composable
+private fun UndoDeleteBar(onUndo: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .background(GT.colors.surface, GT.shapes.card)
+            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.stack_deleted),
+            modifier = Modifier.weight(1f),
+            color = GT.colors.ink2,
+            style = GT.type.sansLabel,
+        )
+        GTOutlineButton(text = stringResource(R.string.stack_undo), onClick = onUndo)
     }
 }
 
@@ -689,8 +833,18 @@ private fun MetaRow(label: String, value: String, modifier: Modifier = Modifier)
     }
 }
 
+/**
+ * Quick edit as a compact panel under the card, not a sheet over it.
+ *
+ * The sheet covered the photo and the macro line, so after «Пересчитать» the
+ * result was out of sight, and every field had its own save button. Here the
+ * card stays visible above, each change is committed as it is made, and the
+ * numbers it changes update on the card when the server has recalculated them
+ * — the client never scales nutrition itself.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuickEditSheet(
+private fun QuickEditPanel(
     card: MealCard,
     favoriteFeedback: FavoriteFeedback,
     onClose: () -> Unit,
@@ -700,75 +854,304 @@ private fun QuickEditSheet(
     onFavorite: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var title by remember(card.id, card.title) { mutableStateOf(card.title.orEmpty()) }
-    var time by remember(card.id, card.eatenAt) { mutableStateOf(card.eatenAt.timeText()) }
-    var weight by remember(card.id, card.weightGrams) { mutableStateOf(editableNumber(card.weightGrams)) }
-    val canEditWeight = card.canEditWeight()
     val closeDescription = stringResource(R.string.stack_edit_close)
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(GT.colors.surface, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .border(
+                GT.space.hairline,
+                GT.colors.hairline,
+                RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            )
             .imePadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 8.dp, bottom = 10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { change, dragAmount ->
+                        if (dragAmount > 12f) {
+                            change.consume()
+                            onClose()
+                        }
+                    }
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GTKicker(
+                text = stringResource(R.string.record_quick_edit),
+                modifier = Modifier.weight(1f),
+            )
             GTIconButton(
                 onClick = onClose,
                 modifier = Modifier.semantics { contentDescription = closeDescription },
             ) {
-                Text(
-                    text = "\u00d7",
-                    color = GT.colors.ink2,
-                    style = GT.type.sansLabel,
-                )
+                Text(text = "×", color = GT.colors.ink2, style = GT.type.sansLabel)
             }
-            Text(
-                text = stringResource(R.string.record_quick_edit),
-                modifier = Modifier.padding(start = 8.dp),
-                color = GT.colors.ink,
-                style = GT.type.serifSection,
-                maxLines = 1,
-            )
         }
-        StackEditField(
-            label = stringResource(R.string.record_field_name),
-            value = title,
-            onValueChange = { title = it },
-            actionText = stringResource(R.string.record_save),
-            onAction = { onSaveTitle(title) },
-        )
-        StackEditField(
-            label = stringResource(R.string.record_field_time),
-            value = time,
-            onValueChange = { time = it },
-            actionText = stringResource(R.string.record_save),
-            onAction = { onSaveTime(time) },
-        )
-        StackEditField(
-            label = stringResource(R.string.record_field_weight),
-            value = weight,
-            onValueChange = { weight = it },
-            actionText = stringResource(R.string.record_recalculate),
-            onAction = { onSaveWeight(weight) },
-            keyboardType = KeyboardType.Number,
-            enabled = canEditWeight,
-        )
-        if (!canEditWeight) {
-            Text(
-                text = stringResource(R.string.stack_weight_disabled),
-                color = GT.colors.muted,
-                style = GT.type.sansLabel,
-            )
-        }
-        GTHairlineDivider(modifier = Modifier.padding(vertical = 2.dp))
+        TitleRow(card = card, onSaveTitle = onSaveTitle)
+        GTHairlineDivider(modifier = Modifier.padding(end = 8.dp))
+        TimeRow(card = card, onSaveTime = onSaveTime)
+        GTHairlineDivider(modifier = Modifier.padding(end = 8.dp))
+        WeightRow(card = card, onSaveWeight = onSaveWeight)
+        GTHairlineDivider(modifier = Modifier.padding(end = 8.dp, top = 2.dp))
         StackActionsFooter(
             alreadyFavorite = card.primaryProductId != null,
             canFavorite = card.primaryItemId != null,
             favoriteFeedback = favoriteFeedback,
             onFavorite = onFavorite,
             onDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+private fun EditRowLabel(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.width(64.dp),
+        color = GT.colors.muted,
+        style = GT.type.kicker.copy(fontSize = 9.sp),
+        maxLines = 1,
+    )
+}
+
+/** Name: shown as text, becomes a field on tap, saved on «Готово». */
+@Composable
+private fun TitleRow(card: MealCard, onSaveTitle: (String) -> Unit) {
+    var editing by remember(card.id) { mutableStateOf(false) }
+    var title by remember(card.id, card.title) { mutableStateOf(card.title.orEmpty()) }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun commit() {
+        editing = false
+        keyboard?.hide()
+        if (title.trim() != card.title.orEmpty().trim()) onSaveTitle(title)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = GT.space.touch)
+            .clickable(enabled = !editing) { editing = true },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        EditRowLabel(stringResource(R.string.record_field_name))
+        if (editing) {
+            LaunchedEffect(Unit) { focus.requestFocus() }
+            BasicTextField(
+                value = title,
+                onValueChange = { title = it },
+                singleLine = true,
+                textStyle = GT.type.sansBody.copy(color = GT.colors.ink),
+                cursorBrush = SolidColor(GT.colors.ink),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { commit() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
+                    .focusRequester(focus)
+                    .onFocusChanged { if (!it.isFocused && editing) commit() },
+            )
+        } else {
+            Text(
+                text = productNameWithoutPack(card.title.orEmpty().ifBlank { fallbackTitle(card) }),
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                color = GT.colors.ink,
+                style = GT.type.sansBody,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Time: system picker on tap, plus «сейчас» and «−15 мин». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeRow(card: MealCard, onSaveTime: (String) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    val zone = TimeZone.currentSystemDefault()
+    val local = card.eatenAt.toLocalDateTime(zone)
+    val today = Clock.System.now().toLocalDateTime(zone).date
+    val earlier = (card.eatenAt - 15.minutes).toLocalDateTime(zone)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = GT.space.touch),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        EditRowLabel(stringResource(R.string.record_field_time))
+        Text(
+            text = card.eatenAt.timeText(),
+            modifier = Modifier
+                .heightIn(min = GT.space.touch)
+                .clickable { picking = true }
+                .padding(horizontal = 4.dp, vertical = 12.dp),
+            color = GT.colors.ink,
+            style = GT.type.monoLabel.copy(fontSize = 14.sp),
+        )
+        Spacer(Modifier.weight(1f))
+        // «сейчас» only means something on the meal's own day, and «−15 мин»
+        // must not wrap the clock into the previous day: the time is replaced
+        // on the meal's date, so either would silently land on the wrong one.
+        if (local.date == today) {
+            EditChip(text = stringResource(R.string.stack_time_now)) {
+                onSaveTime(Clock.System.now().timeText())
+            }
+        }
+        if (earlier.date == local.date) {
+            EditChip(text = stringResource(R.string.stack_time_minus_15)) {
+                onSaveTime((card.eatenAt - 15.minutes).timeText())
+            }
+        }
+    }
+    if (picking) {
+        val pickerState = rememberTimePickerState(
+            initialHour = local.hour,
+            initialMinute = local.minute,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { picking = false },
+            containerColor = GT.colors.surface,
+            confirmButton = {
+                GTOutlineButton(
+                    text = stringResource(R.string.goals_onboarding_done),
+                    onClick = {
+                        picking = false
+                        onSaveTime(
+                            "${pickerState.hour.toString().padStart(2, '0')}:" +
+                                pickerState.minute.toString().padStart(2, '0'),
+                        )
+                    },
+                )
+            },
+            dismissButton = {
+                GTOutlineButton(
+                    text = stringResource(R.string.record_delete_cancel),
+                    onClick = { picking = false },
+                )
+            },
+            text = {
+                TimePicker(
+                    state = pickerState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = GT.colors.bg,
+                        selectorColor = GT.colors.ink,
+                        periodSelectorBorderColor = GT.colors.hairline2,
+                        timeSelectorSelectedContainerColor = GT.colors.bg,
+                        timeSelectorUnselectedContainerColor = GT.colors.surface,
+                        timeSelectorSelectedContentColor = GT.colors.ink,
+                        timeSelectorUnselectedContentColor = GT.colors.ink2,
+                    ),
+                )
+            },
+        )
+    }
+}
+
+/**
+ * Weight: ±10 g and portion shares of the weight the panel opened with.
+ *
+ * A photo estimate is most often wrong about the portion, so that is what is
+ * one tap away. Steps are committed 0.7 s after the last tap, so five taps send
+ * one recalculation rather than five.
+ */
+@Composable
+private fun WeightRow(card: MealCard, onSaveWeight: (String) -> Unit) {
+    val canEdit = card.canEditWeight()
+    val base = remember(card.id) { card.weightGrams ?: 100.0 }
+    var grams by remember(card.id) { mutableStateOf(card.weightGrams ?: 100.0) }
+    var committed by remember(card.id) { mutableStateOf(card.weightGrams ?: 100.0) }
+    LaunchedEffect(grams) {
+        if (canEdit && grams != committed) {
+            delay(700)
+            committed = grams
+            onSaveWeight(editableNumber(grams))
+        }
+    }
+    val minusDescription = stringResource(R.string.stack_weight_minus_description)
+    val plusDescription = stringResource(R.string.stack_weight_plus_description)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = GT.space.touch),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            EditRowLabel(stringResource(R.string.record_field_weight))
+            GTIconButton(
+                onClick = { grams = (grams - 10.0).coerceAtLeast(5.0) },
+                enabled = canEdit,
+                modifier = Modifier.semantics { contentDescription = minusDescription },
+            ) {
+                Text(text = "−10", color = GT.colors.ink2, style = GT.type.monoLabel)
+            }
+            Text(
+                text = stringResource(R.string.stack_weight_value, formatGrams(grams)),
+                modifier = Modifier.width(72.dp),
+                color = if (canEdit) GT.colors.ink else GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 14.sp),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+            GTIconButton(
+                onClick = { grams += 10.0 },
+                enabled = canEdit,
+                modifier = Modifier.semantics { contentDescription = plusDescription },
+            ) {
+                Text(text = "+10", color = GT.colors.ink2, style = GT.type.monoLabel)
+            }
+        }
+        if (canEdit) {
+            Row(
+                modifier = Modifier.padding(start = 64.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                PORTION_SHARES.forEach { (label, share) ->
+                    EditChip(
+                        text = label,
+                        active = kotlin.math.abs(grams - base * share) < 0.5,
+                    ) { grams = (base * share).coerceAtLeast(5.0) }
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.stack_weight_disabled),
+                modifier = Modifier.padding(start = 64.dp, bottom = 6.dp),
+                color = GT.colors.muted,
+                style = GT.type.sansLabel,
+            )
+        }
+    }
+}
+
+private val PORTION_SHARES = listOf(
+    "½" to 0.5,
+    "¾" to 0.75,
+    "1" to 1.0,
+    "1¼" to 1.25,
+    "1½" to 1.5,
+)
+
+/** A 22 dp tag that is still a 44 dp touch target (CONCEPT §5, §7). */
+@Composable
+private fun EditChip(text: String, active: Boolean = false, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .heightIn(min = GT.space.touch)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .height(22.dp)
+                .background(if (active) GT.colors.ink else Color.Transparent, GT.shapes.tag)
+                .border(GT.space.hairline, if (active) GT.colors.ink else GT.colors.hairline2, GT.shapes.tag)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            color = if (active) GT.colors.surface else GT.colors.ink2,
+            style = GT.type.monoLabel.copy(fontSize = 11.sp),
+            maxLines = 1,
         )
     }
 }
@@ -781,7 +1164,6 @@ private fun StackActionsFooter(
     onFavorite: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var confirmDelete by remember { mutableStateOf(false) }
     val saved = alreadyFavorite || favoriteFeedback == FavoriteFeedback.Saved
     val favoriteText = when {
         favoriteFeedback == FavoriteFeedback.Saving -> stringResource(R.string.stack_favorite_saving)
@@ -798,17 +1180,13 @@ private fun StackActionsFooter(
                     favoriteFeedback != FavoriteFeedback.Saving,
             )
             Spacer(Modifier.weight(1f))
+            // One tap: «Отменить» stays on screen for five seconds afterwards,
+            // which is a better guard than a second question.
             Text(
-                text = if (confirmDelete) {
-                    stringResource(R.string.stack_delete_confirm)
-                } else {
-                    stringResource(R.string.record_delete)
-                },
+                text = stringResource(R.string.record_delete),
                 modifier = Modifier
                     .heightIn(min = GT.space.touch)
-                    .clickable {
-                        if (confirmDelete) onDelete() else confirmDelete = true
-                    }
+                    .clickable(onClick = onDelete)
                     .padding(horizontal = GT.space.sm, vertical = 12.dp),
                 color = GT.colors.warn,
                 style = GT.type.sansLabel,
@@ -825,74 +1203,6 @@ private fun StackActionsFooter(
                 text = feedbackText,
                 color = GT.colors.muted,
                 style = GT.type.sansLabel,
-            )
-        }
-    }
-}
-
-@Composable
-private fun JournalDragHandle() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 32.dp, height = 4.dp)
-                .background(
-                    color = GT.colors.muted,
-                    shape = RoundedCornerShape(2.dp),
-                ),
-        )
-    }
-}
-
-@Composable
-private fun StackEditField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    actionText: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    enabled: Boolean = true,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        GTSectionLabel(text = label)
-        Row(
-            modifier = Modifier.padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(GT.space.sm),
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 34.dp)
-                    .background(GT.colors.surface2, GT.shapes.tag)
-                    .border(GT.space.hairline, GT.colors.hairline2, GT.shapes.tag)
-                    .padding(horizontal = GT.space.sm, vertical = 8.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    enabled = enabled,
-                    singleLine = true,
-                    textStyle = GT.type.sansBody.copy(
-                        color = if (enabled) GT.colors.ink else GT.colors.muted,
-                    ),
-                    cursorBrush = SolidColor(GT.colors.ink),
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            GTOutlineButton(
-                text = actionText,
-                onClick = onAction,
-                enabled = enabled,
             )
         }
     }
@@ -943,55 +1253,6 @@ private fun StackMessage(text: String) {
         )
     }
 }
-
-private fun Modifier.verticalStackGestures(
-    enabled: Boolean,
-    onOpenEdit: () -> Unit,
-    onBack: () -> Unit,
-): Modifier =
-    if (!enabled) {
-        this
-    } else {
-        pointerInput(Unit) {
-            val backThreshold = 44.dp.toPx()
-            val editThreshold = -72.dp.toPx()
-            val intentSlop = 16.dp.toPx()
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                val pointerId = down.id
-                var totalX = 0f
-                var totalY = 0f
-                var handled = false
-
-                while (!handled) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                    if (!change.pressed) break
-
-                    totalX += change.position.x - change.previousPosition.x
-                    totalY += change.position.y - change.previousPosition.y
-
-                    val absX = totalX.absoluteValue
-                    val absY = totalY.absoluteValue
-                    val hasVerticalIntent = absY > intentSlop && absY >= absX * 0.75f
-                    if (hasVerticalIntent) {
-                        when {
-                            totalY > backThreshold -> {
-                                handled = true
-                                change.consume()
-                                onBack()
-                            }
-                            totalY < editThreshold -> {
-                                handled = true
-                                change.consume()
-                                onOpenEdit()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 
 @Composable
 private fun PhotoPlaceholderGlyph() {

@@ -283,7 +283,6 @@
     <string name="stack_favorite_saved">★ В избранном</string>
     <string name="stack_favorite_no_data">Недостаточно данных для быстрого добавления</string>
     <string name="stack_favorite_error">Не удалось сохранить</string>
-    <string name="stack_delete_confirm">Точно удалить?</string>
     <string name="record_delete_confirm_title">Удалить запись?</string>
     <string name="record_delete_confirm_body">Для серверной записи будет создана операция в очереди. Локальная запись удалится сразу.</string>
     <string name="record_delete_cancel">Отмена</string>
@@ -316,6 +315,12 @@
     <string name="stack_status_confirmed">принято</string>
     <string name="stack_status_stuck">ошибка · повторить</string>
     <string name="stack_edit_close">Закрыть правку</string>
+    <string name="stack_time_now">сейчас</string>
+    <string name="stack_time_minus_15">−15 мин</string>
+    <string name="stack_weight_minus_description">Убавить 10 г</string>
+    <string name="stack_weight_plus_description">Прибавить 10 г</string>
+    <string name="stack_deleted">Запись удалена</string>
+    <string name="stack_undo">Отменить</string>
     <string name="stack_weight_disabled">Вес станет доступен после оценки.</string>
     <string name="stack_gesture_back">↓ назад в список</string>
     <string name="stack_gesture_edit">править ↑</string>
@@ -350,6 +355,7 @@
     <string name="manual_entry_no_match">не нашли «%1$s». ↵ добавить</string>
     <string name="manual_entry_suggestion_meta">БЖУ · ×%1$d</string>
     <string name="manual_entry_kcal_unit">ккал/100 г</string>
+    <string name="manual_entry_kcal_portion_unit">ккал/порц.</string>
     <string name="restaurant_burger_king">BURGER KING</string>
     <string name="restaurant_rostics">ROSTIC’S</string>
     <string name="restaurant_vkusno_i_tochka">ВКУСНО — И ТОЧКА</string>
@@ -358,6 +364,9 @@
     <string name="restaurant_variant_choose_quantity">КОЛИЧЕСТВО</string>
     <string name="restaurant_variant_quantity_value">%1$d шт.</string>
     <string name="restaurant_variant_choose_kind">ВАРИАНТ</string>
+    <string name="restaurant_variant_choose_size">РАЗМЕР</string>
+    <string name="restaurant_variant_size_grams">%1$s г</string>
+    <string name="restaurant_variant_size_liters">%1$s л</string>
     <string name="restaurant_variant_selected">ВЫБРАНО</string>
     <string name="restaurant_variant_macros">%1$s ккал · Б %2$s · Ж %3$s · У %4$s</string>
     <string name="restaurant_variant_add">Добавить выбранное</string>
