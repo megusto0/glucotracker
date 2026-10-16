@@ -636,3 +636,126 @@ def test_a_chasing_dose_stays_with_the_meal_it_chases(
         event for event in dinner["insulin"] if event["id"] == str(ids["chase"])
     )
     assert chased["kind"] == "catch_up"
+
+
+def test_a_meal_recorded_seconds_after_a_bolus_wins_over_catch_up(
+    api_client: TestClient,
+) -> None:
+    """Capture ordering must not move an at-the-plate bolus to the prior meal.
+
+    The real failure had both records displayed as 12:53, while the bolus was
+    stored 10 seconds before the new plate. A rising trace made the catch-up
+    tie-breaker ignore that plate and attach the dose to a sitting 40 minutes
+    earlier.
+    """
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    previous_at = datetime(2026, 8, 17, 12, 13)
+    bolus_at = datetime(2026, 8, 17, 12, 53, 15)
+    plate_at = bolus_at + timedelta(seconds=10)
+
+    with session_factory() as session:
+        previous = _seed_meal(
+            session, owner_id, "Earlier sitting", previous_at, carbs=102.2
+        )
+        plate = _seed_meal(
+            session, owner_id, "Cherry pastry", plate_at, carbs=23.9
+        )
+        _seed_insulin(
+            session,
+            owner_id,
+            "ns-earlier-meal",
+            previous_at + timedelta(minutes=2),
+            units=9.6,
+            event_type="Bolus",
+        )
+        near_plate = _seed_insulin(
+            session,
+            owner_id,
+            "ns-near-future-plate",
+            bolus_at,
+            units=3.5,
+            event_type="Bolus",
+        )
+        for minutes, value in ((-20, 4.4), (-10, 5.2), (0, 6.1)):
+            _seed_glucose(
+                session,
+                owner_id,
+                bolus_at + timedelta(minutes=minutes),
+                value,
+            )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-17T00:00:00", "to": "2026-08-18T00:00:00"},
+    ).json()["episodes"]
+    by_meal = {
+        meal_id: episode for episode in episodes for meal_id in episode["meal_ids"]
+    }
+
+    assert by_meal[str(previous.id)]["total_insulin_units"] == 9.6
+    assert by_meal[str(plate.id)]["total_insulin_units"] == 3.5
+    attached = next(
+        event
+        for event in by_meal[str(plate.id)]["insulin"]
+        if event["id"] == str(near_plate.id)
+    )
+    assert attached["anchor_meal_id"] == str(plate.id)
+    assert attached["kind"] == "food"
+
+
+def test_near_future_meal_grace_stops_after_two_minutes(
+    api_client: TestClient,
+) -> None:
+    """A later snack must not steal a genuine catch-up dose."""
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    previous_at = datetime(2026, 8, 18, 12, 13)
+    bolus_at = datetime(2026, 8, 18, 12, 53)
+
+    with session_factory() as session:
+        previous = _seed_meal(
+            session, owner_id, "Earlier sitting", previous_at, carbs=70
+        )
+        later = _seed_meal(
+            session,
+            owner_id,
+            "Later snack",
+            bolus_at + timedelta(minutes=2, seconds=1),
+            carbs=24,
+        )
+        catch_up = _seed_insulin(
+            session,
+            owner_id,
+            "ns-real-catch-up",
+            bolus_at,
+            units=2,
+            event_type="Bolus",
+        )
+        for minutes, value in ((-20, 5.0), (-10, 6.0), (0, 7.2)):
+            _seed_glucose(
+                session,
+                owner_id,
+                bolus_at + timedelta(minutes=minutes),
+                value,
+            )
+        session.commit()
+
+    episodes = api_client.get(
+        "/glucose/episodes",
+        params={"from": "2026-08-18T00:00:00", "to": "2026-08-19T00:00:00"},
+    ).json()["episodes"]
+    by_meal = {
+        meal_id: episode for episode in episodes for meal_id in episode["meal_ids"]
+    }
+
+    assert by_meal[str(previous.id)]["total_insulin_units"] == 2.0
+    assert by_meal[str(later.id)]["total_insulin_units"] == 0.0
+    attached = next(
+        event
+        for event in by_meal[str(previous.id)]["insulin"]
+        if event["id"] == str(catch_up.id)
+    )
+    assert attached["anchor_meal_id"] == str(previous.id)
+    assert attached["kind"] == "catch_up"

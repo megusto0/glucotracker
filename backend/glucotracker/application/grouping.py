@@ -30,6 +30,14 @@ SITTING_SPAN = timedelta(minutes=30)
 # than to each meal, which is a separate question from clustering the food.
 INSULIN_COVERAGE_WINDOW = timedelta(minutes=90)
 
+# Meal capture and insulin import are separate actions, so their timestamps can
+# land a few seconds apart in the opposite order even when they describe one
+# at-the-plate event. Prefer a meal recorded immediately after the dose before
+# applying the rising-glucose catch-up heuristic. This is deliberately short:
+# it absorbs sequencing jitter without turning a later snack into the target of
+# an earlier correction.
+NEAR_FUTURE_MEAL_GRACE = timedelta(minutes=2)
+
 # A dose given while glucose is climbing is answering a rise that has already
 # started, so it belongs to whatever caused the rise rather than to whatever is
 # about to be eaten. Measured over 75 days for this owner: boluses at the plate
@@ -45,7 +53,7 @@ RisingAt = Callable[[datetime], bool]
 # Bumped whenever a rule above changes what an episode contains. Anything that
 # stores a derived number records this next to its own model version, so two
 # groupings never end up mixed in one chart.
-GROUPING_VERSION = "sitting-anchored-v2"
+GROUPING_VERSION = "sitting-anchored-v3"
 
 
 def rising_test(series: list[tuple[datetime, float]]) -> RisingAt:

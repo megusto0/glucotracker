@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from glucotracker.application.grouping import (
     INSULIN_COVERAGE_WINDOW,
+    NEAR_FUTURE_MEAL_GRACE,
     SITTING_SPAN,
     RisingAt,
 )
@@ -201,6 +202,12 @@ def group_components(
             for pair in candidates
             if meal_by_id[pair.meal_id].eaten_at > event_at
         ]
+        near_future = [
+            pair
+            for pair in after
+            if meal_by_id[pair.meal_id].eaten_at - event_at
+            <= NEAR_FUTURE_MEAL_GRACE
+        ]
         # A dose between two sittings is ambiguous on the clock and only on the
         # clock. Insulin can be *for* a plate only if the plate had already been
         # decided on, and a dose given while glucose climbs is answering a rise
@@ -213,11 +220,17 @@ def group_components(
         # then read as 29 g on 3.0 U — a carbohydrate ratio of 9.7 g/U where the
         # same evening with the same doses gives 14.5 if the snack happens an
         # hour later.
-        pool = (
-            before
-            if before and after and rising is not None and rising(event_at)
-            else candidates
-        )
+        # There is one stronger signal: a plate recorded immediately after the
+        # dose. Capture and insulin import are separate actions, and their exact
+        # seconds commonly land in this order even though the minute shown in
+        # the diary is the same. Treat that short gap as one at-the-plate event;
+        # only then fall back to the rising-glucose catch-up rule.
+        if near_future:
+            pool = near_future
+        elif before and after and rising is not None and rising(event_at):
+            pool = before
+        else:
+            pool = candidates
         nearest = min(
             pool,
             key=lambda pair: abs(

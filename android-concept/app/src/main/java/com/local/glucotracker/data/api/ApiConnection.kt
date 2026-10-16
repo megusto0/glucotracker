@@ -40,6 +40,7 @@ object ApiConnection {
         "/patterns/",
         "/uploaded-media/",
         "/fridge/",
+        "/patterns/",
     )
 
     fun isApiImageUrl(value: String): Boolean {

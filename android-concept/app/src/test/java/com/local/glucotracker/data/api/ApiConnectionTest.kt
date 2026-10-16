@@ -16,6 +16,10 @@ class ApiConnectionTest {
             "${ApiConnection.BASE_URL}/photos/456/file",
             ApiConnection.resolveUrl("photos/456/file"),
         )
+        assertEquals(
+            "${ApiConnection.BASE_URL}/patterns/789/image/file",
+            ApiConnection.resolveUrl("/patterns/789/image/file"),
+        )
     }
 
     @Test
@@ -30,8 +34,10 @@ class ApiConnectionTest {
     fun detectsApiOwnedImageUrls() {
         assertTrue(ApiConnection.isApiRelativeUrl("/photos/456/file"))
         assertTrue(ApiConnection.isApiRelativeUrl("/products/123/image/file"))
+        assertTrue(ApiConnection.isApiRelativeUrl("/patterns/789/image/file"))
         assertTrue(ApiConnection.isApiRelativeUrl(" photos/456/file "))
         assertTrue(ApiConnection.isApiImageUrl("${ApiConnection.BASE_URL}/products/123/image/file"))
+        assertTrue(ApiConnection.isApiImageUrl("${ApiConnection.BASE_URL}/patterns/789/image/file"))
         assertTrue(ApiConnection.isSameApiUrl("${ApiConnection.BASE_URL}/photos/456/file"))
         assertFalse(ApiConnection.isSameApiUrl("${ApiConnection.BASE_URL}.evil.test/photos/456/file"))
     }
@@ -45,6 +51,10 @@ class ApiConnectionTest {
         assertEquals(
             "/products/123/image/file",
             ApiConnection.imageCacheKey("products/123/image/file"),
+        )
+        assertEquals(
+            "/patterns/789/image/file",
+            ApiConnection.imageCacheKey("${ApiConnection.BASE_URL}/patterns/789/image/file"),
         )
     }
 

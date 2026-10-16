@@ -288,3 +288,23 @@ reattached**, catch-up count unchanged at 2. That bounds the blast radius on
 real records but does not measure the fix — the pattern does not occur in those
 six days. The replay over the full export is still owed, and until it is run the
 frequency of the case is unknown.
+
+---
+
+## 8 · Addendum, 2026-08-17 — capture-order grace
+
+The rising-trace rule from §7 treated exact timestamp order as intent. On the
+owner's 2026-08-17 diary, a 3.5 U dose landed at 12:53:15 and the new plate at
+12:53:26. The UI correctly showed both as 12:53, but grouping saw the plate as
+future food and moved the dose to a sitting forty minutes earlier. The later
+plate then appeared as an uncovered carbohydrate correction.
+
+This is capture sequencing, not the ambiguity §7 addresses. Insulin import and
+meal capture are separate operations and cannot share one atomic timestamp.
+Automatic grouping therefore gives a meal recorded no more than two minutes
+after a dose priority over the rising-trace tie-breaker. Beyond that boundary,
+the §7 rule is unchanged so a later snack cannot steal a genuine catch-up dose.
+Manual links remain authoritative over both rules.
+
+`GROUPING_VERSION` moves to `sitting-anchored-v3`; stored derived numbers
+recompute rather than mixing the old and new attribution.
