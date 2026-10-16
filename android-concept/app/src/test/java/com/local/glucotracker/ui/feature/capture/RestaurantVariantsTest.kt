@@ -106,8 +106,95 @@ class RestaurantVariantsTest {
 
         val groups = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
             .map { it.group }
-        assertEquals(setOf("Ростмастер", "Байтсы"), groups.map { it.name }.toSet())
+        assertEquals(setOf("Ростмастер", "Байтсы из куриного филе"), groups.map { it.name }.toSet())
         assertTrue(groups.none { it.hasQuantitySlider })
+        assertFalse(groups.single { it.name == "Ростмастер" }.hasSizeSlider)
+        assertEquals(
+            listOf("bites-small", "bites-large"),
+            groups.single { it.name != "Ростмастер" }.sizeOptions.map { it.id },
+        )
+    }
+
+    @Test
+    fun friesGetOneSizeRulerPerRestaurant() {
+        val choices = restaurantTemplateChoices(
+            listOf(
+                template("bk-l", "bk", "Кинг Фри Большой"),
+                template("bk-maxx", "bk", "Кинг Фри MAXX"),
+                template("bk-hot-s", "bk", "Острый Кинг Фри малый"),
+                template("bk-hot-maxx", "bk", "Острый Кинг Фри MAXX"),
+                template("bk-s", "bk", "Кинг Фри Малый"),
+                template("bk-m", "bk", "Кинг Фри Стандартный"),
+                template("bk-seasoned", "bk", "Кинг Фри Стандартный + Приправа «Сметана И Лук»"),
+                template("r-basket", "rostics", "Картофель фри баскет"),
+                template("r-s", "rostics", "Картофель фри малый"),
+                template("r-m", "rostics", "Картофель фри средний"),
+                template("v-double", "vit", "Картофель фри двойной"),
+                template("v-l", "vit", "Картофель фри большой"),
+                template("v-s", "vit", "Картофель фри маленький"),
+                template("v-m", "vit", "Картофель фри средний"),
+            ),
+        )
+
+        val groups = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
+            .filter { it.group.prefix != "bk" }
+            .associate { it.group.prefix to it.group }
+        val bk = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
+            .map { it.group }
+            .filter { it.prefix == "bk" }
+            .associateBy { it.name }
+        assertEquals(listOf("bk-s", "bk-m", "bk-l", "bk-maxx"), bk.getValue("Кинг Фри").sizeOptions.map { it.id })
+        assertEquals(listOf("bk-hot-s", "bk-hot-maxx"), bk.getValue("Острый Кинг Фри").sizeOptions.map { it.id })
+        assertEquals(listOf("r-s", "r-m", "r-basket"), groups.getValue("rostics").sizeOptions.map { it.id })
+        assertEquals(
+            listOf("v-s", "v-m", "v-l", "v-double"),
+            groups.getValue("vit").sizeOptions.map { it.id },
+        )
+        assertTrue(
+            choices.filterIsInstance<RestaurantTemplateChoice.Single>()
+                .any { it.template.id == "bk-seasoned" },
+        )
+    }
+
+    @Test
+    fun countryPotatoesAreTheirOwnRulerNextToFries() {
+        val choices = restaurantTemplateChoices(
+            listOf(
+                template("fries-s", "rostics", "Картофель фри малый"),
+                template("fries-m", "rostics", "Картофель фри средний"),
+                template("country-s", "rostics", "Картофель по-деревенски малый"),
+                template("country-m", "rostics", "Картофель по-деревенски средний"),
+            ),
+        )
+
+        val names = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
+            .map { it.group.name }
+        assertEquals(setOf("Картофель фри", "Картофель по-деревенски"), names.toSet())
+    }
+
+    @Test
+    fun drinksGroupBySizeWordOrVolumeAndDoubleBurgersStayApart() {
+        val choices = restaurantTemplateChoices(
+            listOf(
+                template("lj", "bk", "Липтон Грин Джуниор 0.3"),
+                template("ls", "bk", "Липтон Грин Малый 0.4 Л"),
+                template("lm", "bk", "Липтон Грин Стандартный"),
+                template("lxl", "bk", "Липтон Грин Xl 1,0 Л"),
+                template("c3", "rostics", "Эвервесс Кола 0,3 л"),
+                template("c5", "rostics", "Эвервесс Кола 0,5 л"),
+                template("c8", "rostics", "Эвервесс Кола 0,8 л"),
+                template("angus", "bk", "Ангус Шеф"),
+                template("angus2", "bk", "Ангус Шеф Двойной"),
+            ),
+        )
+
+        val groups = choices.filterIsInstance<RestaurantTemplateChoice.Variants>()
+            .associate { it.group.name to it.group }
+        assertEquals(listOf("lj", "ls", "lm", "lxl"), groups.getValue("Липтон Грин").sizeOptions.map { it.id })
+        assertEquals(listOf("c3", "c5", "c8"), groups.getValue("Эвервесс Кола").sizeOptions.map { it.id })
+        assertEquals(0.5, restaurantSize("Эвервесс Кола 0,5 л")?.liters)
+        assertEquals(null, restaurantSize("Ангус Шеф Двойной"))
+        assertEquals(setOf("Липтон Грин", "Эвервесс Кола"), groups.keys)
     }
 
     @Test

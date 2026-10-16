@@ -23,6 +23,10 @@ fun formatMmol(value: Double): String =
 fun formatKg(value: Double): String =
     decimal("0.00").format(BigDecimal.valueOf(value))
 
+/** Drink volume in litres: "0,3", "0,25", "1". */
+fun formatLiters(value: Double): String =
+    decimal("0.##").format(BigDecimal.valueOf(value))
+
 fun formatSignedKcal(value: Long): String =
     if (value < 0) "−${-value}" else value.toString()
 

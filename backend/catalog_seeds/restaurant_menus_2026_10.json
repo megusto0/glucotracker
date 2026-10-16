@@ -1,0 +1,1299 @@
+{
+  "fetched_at": "2026-10-04",
+  "sources": [
+    "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect",
+    "https://vkusnoitochka.ru/api/nutrition/search"
+  ],
+  "upserts": [
+    {
+      "prefix": "rostics",
+      "key": "big_maestro_burger_superostryy",
+      "name": "Биг Маэстро Бургер Суперострый",
+      "grams": 271,
+      "kcal": 642.3,
+      "protein_g": 35.5,
+      "fat_g": 29.8,
+      "carbs_g": 58.3,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1565197",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/063b279f-01b5-4020-8481-0b673d694cb8-1780340946243",
+      "aliases": [
+        "Ростикс Биг Маэстро Бургер Суперострый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "rostmaster_superostryy",
+      "name": "Ростмастер Суперострый",
+      "grams": 281,
+      "kcal": 637.9,
+      "protein_g": 29.8,
+      "fat_g": 32.0,
+      "carbs_g": 57.9,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1565212",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/136b8304-6dfd-4ab9-aa5d-23ad2aaac525-1780340907625",
+      "aliases": [
+        "Ростикс Ростмастер Суперострый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "shefburger_superostryy",
+      "name": "Шефбургер Суперострый",
+      "grams": 193,
+      "kcal": 418.8,
+      "protein_g": 26.4,
+      "fat_g": 17.2,
+      "carbs_g": 39.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1565190",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/8791f12c-bb75-4e55-9a83-fe49c2d48867-1780341011750",
+      "aliases": [
+        "Ростикс Шефбургер Суперострый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "shefburger_de_lyuks_superostryy",
+      "name": "Шефбургер Де Люкс Суперострый",
+      "grams": 211,
+      "kcal": 476.9,
+      "protein_g": 29.1,
+      "fat_g": 22.2,
+      "carbs_g": 40.3,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1565220",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/ce536956-53b2-455e-a1ed-8d5bce35465d-1780341048812",
+      "aliases": [
+        "Ростикс Шефбургер Де Люкс Суперострый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "shefroll_superostryy",
+      "name": "Шефролл Суперострый",
+      "grams": 189,
+      "kcal": 434.7,
+      "protein_g": 21.7,
+      "fat_g": 19.3,
+      "carbs_g": 43.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1565205",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/77a3d60e-2b06-40d2-83e1-875d57115d4c-1780341079543",
+      "aliases": [
+        "Ростикс Шефролл Суперострый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "shefroll_ostryy",
+      "name": "Шефролл Острый",
+      "grams": 178,
+      "kcal": 427.2,
+      "protein_g": 21.5,
+      "fat_g": 19.2,
+      "carbs_g": 42.2,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=268808",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/787f1cd4-ff78-4a7d-9f9e-96bbd5cfa7e7-1777273994302",
+      "aliases": [
+        "Ростикс Шефролл Острый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "burger_s_gribnoy_bulochkoy",
+      "name": "Бургер с грибной булочкой",
+      "grams": 181,
+      "kcal": 403.6,
+      "protein_g": 26.8,
+      "fat_g": 14.3,
+      "carbs_g": 42.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1687648",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/935d0fca-67d9-4a82-b0cf-6abc7fc1eddd-1789734523249",
+      "aliases": [
+        "Ростикс Бургер с грибной булочкой"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "zhyulen_roll",
+      "name": "Жюльен Ролл",
+      "grams": 167,
+      "kcal": 424.2,
+      "protein_g": 21.0,
+      "fat_g": 17.7,
+      "carbs_g": 44.9,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1687663",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/0c663202-6bed-4ae1-8358-70c4296b1fe9-1789734576352",
+      "aliases": [
+        "Ростикс Жюльен Ролл"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "ay_roll_po_russki",
+      "name": "Ай-ролл по-русски",
+      "grams": 86,
+      "kcal": 241.7,
+      "protein_g": 9.5,
+      "fat_g": 10.1,
+      "carbs_g": 27.9,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658625",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/e46f53d3-080e-4c5e-98da-e4f7571b09a1-1787818587002",
+      "aliases": [
+        "Ростикс Ай-ролл по-русски"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "burger_chiz_po_russki_s_gribami",
+      "name": "Бургер Чиз по-русски с грибами",
+      "grams": 279,
+      "kcal": 719.8,
+      "protein_g": 42.7,
+      "fat_g": 32.4,
+      "carbs_g": 64.2,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658610",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/bddf4917-b8ba-4232-8dd0-2f59d61e8ea1-1787818364159",
+      "aliases": [
+        "Ростикс Бургер Чиз по-русски с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "burger_po_russki_s_gribami",
+      "name": "Бургер по-русски с грибами",
+      "grams": 190,
+      "kcal": 416.1,
+      "protein_g": 27.4,
+      "fat_g": 14.6,
+      "carbs_g": 43.7,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658585",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/1466f0ab-5ae2-4e04-9e41-31c1b347d4f3-1788104971389",
+      "aliases": [
+        "Ростикс Бургер по-русски с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "roll_po_russki_s_gribami",
+      "name": "Ролл по-русски с грибами",
+      "grams": 176,
+      "kcal": 427.7,
+      "protein_g": 21.5,
+      "fat_g": 18.0,
+      "carbs_g": 45.4,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658590",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/9aa25366-7387-427f-8064-ba4f71dccd9d-1787818008794",
+      "aliases": [
+        "Ростикс Ролл по-русски с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "rostmaster_po_russki_s_gribami",
+      "name": "Ростмастер по-русски с грибами",
+      "grams": 266,
+      "kcal": 606.5,
+      "protein_g": 29.5,
+      "fat_g": 28.5,
+      "carbs_g": 58.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658595",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/7c1a843c-f713-4f89-999b-54a20a136d35-1787818225560",
+      "aliases": [
+        "Ростикс Ростмастер по-русски с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofel_fri_po_russki_s_gribami",
+      "name": "Картофель фри по-русски с грибами",
+      "grams": 145,
+      "kcal": 395.8,
+      "protein_g": 4.3,
+      "fat_g": 29.7,
+      "carbs_g": 28.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658615",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/1b85ceed-0023-4249-9356-d733f53f1116-1787818456451",
+      "aliases": [
+        "Ростикс Картофель фри по-русски с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofelnye_dolki_s_gribami",
+      "name": "Картофельные дольки с грибами",
+      "grams": 145,
+      "kcal": 371.2,
+      "protein_g": 3.8,
+      "fat_g": 26.4,
+      "carbs_g": 29.6,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1658620",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/915cdf24-947f-4a1d-bd1c-60dfacfd8087-1787818515303",
+      "aliases": [
+        "Ростикс Картофельные дольки с грибами"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "dabl_chiken_chiz_originalnyy",
+      "name": "Дабл Чикен Чиз оригинальный",
+      "grams": 305,
+      "kcal": 786.9,
+      "protein_g": 60.7,
+      "fat_g": 43.0,
+      "carbs_g": 39.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1649422",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/ace231cf-5a00-47aa-93c2-0dfdf85d841d-1786607333063",
+      "aliases": [
+        "Ростикс Дабл Чикен Чиз оригинальный"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "dabl_chiken_chiz_ostryy",
+      "name": "Дабл Чикен Чиз острый",
+      "grams": 297,
+      "kcal": 793.0,
+      "protein_g": 58.5,
+      "fat_g": 45.4,
+      "carbs_g": 37.1,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1649427",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/b4fd1635-f2ed-4bcb-8c92-909cc637355a-1786607326184",
+      "aliases": [
+        "Ростикс Дабл Чикен Чиз острый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "pirozhok_malina_krem_chiz",
+      "name": "Пирожок Малина-Крем-чиз",
+      "grams": 82,
+      "kcal": 238.6,
+      "protein_g": 2.8,
+      "fat_g": 13.2,
+      "carbs_g": 27.2,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1670964",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/2ebd9cf9-a4e3-493b-bf37-3ec9d447271d-1788105950304",
+      "aliases": [
+        "Ростикс Пирожок Малина-Крем-чиз"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "donat_vanil_v_shokolade",
+      "name": "Донат ваниль в шоколаде",
+      "grams": 67,
+      "kcal": 247.9,
+      "protein_g": 3.0,
+      "fat_g": 12.1,
+      "carbs_g": 30.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1364476",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/87c68b0c-16f7-4e4b-8cf0-2510c42390ec-1777274582847",
+      "aliases": [
+        "Ростикс Донат ваниль в шоколаде"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "maffin_so_sgushchenkoy",
+      "name": "Маффин со сгущёнкой",
+      "grams": 65,
+      "kcal": 312.0,
+      "protein_g": 3.6,
+      "fat_g": 16.9,
+      "carbs_g": 35.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1364486",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/291cb9f5-1edc-4807-85fd-86fbf5b24414-1777274593279",
+      "aliases": [
+        "Ростикс Маффин со сгущёнкой"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "mini_tart_karamelno_arakhisovyy",
+      "name": "Мини-тарт карамельно-арахисовый",
+      "grams": 40,
+      "kcal": 192.0,
+      "protein_g": 2.2,
+      "fat_g": 10.0,
+      "carbs_g": 22.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=811989",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/cd2494de-31c0-4501-87a0-c7a568e66e40-1777274550616",
+      "aliases": [
+        "Ростикс Мини-тарт карамельно-арахисовый"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "morozhenoe_fistashka",
+      "name": "Мороженое фисташка",
+      "grams": 177,
+      "kcal": 462.0,
+      "protein_g": 3.2,
+      "fat_g": 5.8,
+      "carbs_g": 99.3,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1529518",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/bc8d6376-5418-495c-8891-e343e92aa45a-1781537527243",
+      "aliases": [
+        "Ростикс Мороженое фисташка"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chizkeyk_s_solenoy_karamelyu",
+      "name": "Чизкейк с солёной карамелью",
+      "grams": 90,
+      "kcal": 346.5,
+      "protein_g": 4.9,
+      "fat_g": 19.5,
+      "carbs_g": 37.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1364466",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/c2132a89-368d-45dd-8c28-53de70fc3351-1777274573531",
+      "aliases": [
+        "Ростикс Чизкейк с солёной карамелью"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_0_3_l",
+      "name": "Эвервесс Кола 0,3 л",
+      "grams": 300.0,
+      "kcal": 108.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 27.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=148216",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/420cdb3e-809a-460d-a48e-05c97599833f-1779797798139",
+      "aliases": [
+        "Ростикс Эвервесс Кола 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_0_4_l",
+      "name": "Эвервесс Кола 0,4 л",
+      "grams": 400.0,
+      "kcal": 144.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 36.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=148222",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/d12de8c5-7d39-4027-8021-befaf497248b-1779797786563",
+      "aliases": [
+        "Ростикс Эвервесс Кола 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_0_5_l",
+      "name": "Эвервесс Кола 0,5 л",
+      "grams": 500.0,
+      "kcal": 180.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 45.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=148228",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/7c6c4a82-74c3-4356-920a-a3bd90e8fbfd-1779797807087",
+      "aliases": [
+        "Ростикс Эвервесс Кола 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_0_8_l",
+      "name": "Эвервесс Кола 0,8 л",
+      "grams": 800.0,
+      "kcal": 288.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 72.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=148234",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/06683da5-9245-436e-b8a3-e5b4c92fd5bf-1779797792021",
+      "aliases": [
+        "Ростикс Эвервесс Кола 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_bez_sakhara_0_3_l",
+      "name": "Эвервесс Кола Без Сахара 0,3 л",
+      "grams": 300.0,
+      "kcal": 0.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 0.3,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=706693",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/717daf34-e00c-4e59-beb2-9a8208659264-1779797713156",
+      "aliases": [
+        "Ростикс Эвервесс Кола Без Сахара 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_bez_sakhara_0_4_l",
+      "name": "Эвервесс Кола Без Сахара 0,4 л",
+      "grams": 400.0,
+      "kcal": 0.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 0.4,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=706683",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/a08ddc98-7450-408a-802b-f8d9c005ecb2-1779797748506",
+      "aliases": [
+        "Ростикс Эвервесс Кола Без Сахара 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_bez_sakhara_0_5_l",
+      "name": "Эвервесс Кола Без Сахара 0,5 л",
+      "grams": 500.0,
+      "kcal": 0.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 0.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=706673",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/cdb52022-ba29-4084-99ce-715ea045530f-1779797727742",
+      "aliases": [
+        "Ростикс Эвервесс Кола Без Сахара 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "evervess_kola_bez_sakhara_0_8_l",
+      "name": "Эвервесс Кола Без Сахара 0,8 л",
+      "grams": 800.0,
+      "kcal": 0.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 0.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=706663",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/ff41c005-3c78-47e3-a0c4-eb4c532b46af-1779797737065",
+      "aliases": [
+        "Ростикс Эвервесс Кола Без Сахара 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_apelsin_0_3_l",
+      "name": "Фрустайл Апельсин 0,3 л",
+      "grams": 300.0,
+      "kcal": 102.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 25.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167454",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/027caa52-84fd-4e02-aaff-547a285df623-1775063427257",
+      "aliases": [
+        "Ростикс Фрустайл Апельсин 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_apelsin_0_4_l",
+      "name": "Фрустайл Апельсин 0,4 л",
+      "grams": 400.0,
+      "kcal": 136.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 34.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167473",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/3439ade4-b290-4812-aad7-b967f518116d-1775063436681",
+      "aliases": [
+        "Ростикс Фрустайл Апельсин 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_apelsin_0_5_l",
+      "name": "Фрустайл Апельсин 0,5 л",
+      "grams": 500.0,
+      "kcal": 170.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 42.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167476",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/be1be902-11e3-46d8-b56f-6a6dadf02a1c-1775063446664",
+      "aliases": [
+        "Ростикс Фрустайл Апельсин 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_apelsin_0_8_l",
+      "name": "Фрустайл Апельсин 0,8 л",
+      "grams": 800.0,
+      "kcal": 272.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 68.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167481",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/017de5bd-0423-4ea1-a1c2-67e10fcab53c-1775063457499",
+      "aliases": [
+        "Ростикс Фрустайл Апельсин 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_limon_laym_0_3_l",
+      "name": "Фрустайл Лимон-Лайм 0,3 л",
+      "grams": 300.0,
+      "kcal": 87.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 21.6,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167485",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/7bb8abdd-04c0-47f0-b58b-9a27597ec3de-1775063469721",
+      "aliases": [
+        "Ростикс Фрустайл Лимон-Лайм 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_limon_laym_0_4_l",
+      "name": "Фрустайл Лимон-Лайм 0,4 л",
+      "grams": 400.0,
+      "kcal": 116.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 28.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167488",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/9a03e664-a17a-4153-861d-d9dce8682112-1775063481670",
+      "aliases": [
+        "Ростикс Фрустайл Лимон-Лайм 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_limon_laym_0_5_l",
+      "name": "Фрустайл Лимон-Лайм 0,5 л",
+      "grams": 500.0,
+      "kcal": 145.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 36.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167491",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/b0374abc-8e6c-4488-ab9a-a3de8a662e40-1775063495884",
+      "aliases": [
+        "Ростикс Фрустайл Лимон-Лайм 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "frustayl_limon_laym_0_8_l",
+      "name": "Фрустайл Лимон-Лайм 0,8 л",
+      "grams": 800.0,
+      "kcal": 232.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 57.6,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=167494",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/cabc5d52-3718-4c1a-9ce6-442e82e1f43c-1775063507939",
+      "aliases": [
+        "Ростикс Фрустайл Лимон-Лайм 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_zelenyy_0_3_l",
+      "name": "Чай Lipton Зеленый 0,3 л",
+      "grams": 300.0,
+      "kcal": 81.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 20.1,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401365",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/cbf612df-54b1-4b72-8e74-9fe48df79d14-1775063047827",
+      "aliases": [
+        "Ростикс Чай Lipton Зеленый 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_zelenyy_0_4_l",
+      "name": "Чай Lipton Зеленый 0,4 л",
+      "grams": 400.0,
+      "kcal": 108.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 26.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=129163",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/4bc8b6a6-fca6-43ac-a386-ce6f97f39a5c-1775063035971",
+      "aliases": [
+        "Ростикс Чай Lipton Зеленый 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_zelenyy_0_5_l",
+      "name": "Чай Lipton Зеленый 0,5 л",
+      "grams": 500.0,
+      "kcal": 135.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 33.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401384",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/9310892a-e5b7-43ee-8942-6167f9e53c2f-1775063024629",
+      "aliases": [
+        "Ростикс Чай Lipton Зеленый 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_zelenyy_0_8_l",
+      "name": "Чай Lipton Зеленый 0,8 л",
+      "grams": 800.0,
+      "kcal": 216.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 53.6,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401389",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/58b8c2e1-0aaf-4a5d-965c-f73bdb66d8b5-1775063014679",
+      "aliases": [
+        "Ростикс Чай Lipton Зеленый 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_limon_0_3_l",
+      "name": "Чай Lipton Лимон 0,3 л",
+      "grams": 300.0,
+      "kcal": 81.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 20.1,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401414",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/d8bdfe1f-b4ae-40ac-ba45-b4f4c139b33c-1775063103104",
+      "aliases": [
+        "Ростикс Чай Lipton Лимон 0,3 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_limon_0_4_l",
+      "name": "Чай Lipton Лимон 0,4 л",
+      "grams": 400.0,
+      "kcal": 108.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 26.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=129170",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/77e371f9-f405-4a0f-ab8e-fe8096f069a9-1775063086066",
+      "aliases": [
+        "Ростикс Чай Lipton Лимон 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_limon_0_5_l",
+      "name": "Чай Lipton Лимон 0,5 л",
+      "grams": 500.0,
+      "kcal": 135.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 33.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401421",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/3b2d251f-2d43-4a35-831c-2528162c6178-1775063073801",
+      "aliases": [
+        "Ростикс Чай Lipton Лимон 0,5 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "chay_lipton_limon_0_8_l",
+      "name": "Чай Lipton Лимон 0,8 л",
+      "grams": 800.0,
+      "kcal": 216.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 53.6,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1401428",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/f93cf775-466d-41d7-baab-3815e9750180-1775063062087",
+      "aliases": [
+        "Ростикс Чай Lipton Лимон 0,8 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "milksheyk_vanil_0_25_l",
+      "name": "Милкшейк Ваниль 0,25 л",
+      "grams": 250.0,
+      "kcal": 187.5,
+      "protein_g": 4.5,
+      "fat_g": 4.0,
+      "carbs_g": 33.8,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1555525",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/cce93cce-903f-432d-9bd0-cafb67ca1894-1779875687807",
+      "aliases": [
+        "Ростикс Милкшейк Ваниль 0,25 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "milksheyk_vanil_0_4_l",
+      "name": "Милкшейк Ваниль 0,4 л",
+      "grams": 400.0,
+      "kcal": 300.0,
+      "protein_g": 7.2,
+      "fat_g": 6.4,
+      "carbs_g": 54.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1555549",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/6816fbee-4716-4814-938c-f4e2e420112d-1779875704151",
+      "aliases": [
+        "Ростикс Милкшейк Ваниль 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "milksheyk_shokoladno_orekhovyy_0_25_l",
+      "name": "Милкшейк Шоколадно-Ореховый 0,25 л",
+      "grams": 250.0,
+      "kcal": 212.5,
+      "protein_g": 4.5,
+      "fat_g": 4.0,
+      "carbs_g": 39.5,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1555533",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/65dd1b90-3585-4ed0-903c-aa3dd045eeb6-1779876137578",
+      "aliases": [
+        "Ростикс Милкшейк Шоколадно-Ореховый 0,25 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "milksheyk_shokoladno_orekhovyy_0_4_l",
+      "name": "Милкшейк Шоколадно-Ореховый 0,4 л",
+      "grams": 400.0,
+      "kcal": 340.0,
+      "protein_g": 7.2,
+      "fat_g": 6.4,
+      "carbs_g": 63.2,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=1555557",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/f6a5d64f-a91b-4e7f-9ead-2e97e76a8c18-1779876153029",
+      "aliases": [
+        "Ростикс Милкшейк Шоколадно-Ореховый 0,4 л"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "sok_j7_yablochnyy_0_2_l",
+      "name": "Сок J7 яблочный 0,2 л",
+      "grams": 200.0,
+      "kcal": 100.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 24.0,
+      "source_name": "Rostic's official menu API",
+      "source_url": "https://rostics.ru/api/menu/getMenuPassport/74015171/ru/clickcollect#product=130287",
+      "image_url": "https://s82079.cdn.ngenix.net/330x0/04896616-2c53-45d9-88cd-bc4b34e90247-1775063634956",
+      "aliases": [
+        "Ростикс Сок J7 яблочный 0,2 л"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_fri_malenkiy",
+      "name": "Картофель фри маленький",
+      "grams": 76.0,
+      "kcal": 231.0,
+      "protein_g": 2.8,
+      "fat_g": 11.0,
+      "carbs_g": 29.0,
+      "fiber_g": 2.8,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Картофель фри маленький",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/1e1/mxpwaiuqvab0zjg0ebju7mer3kbytswb/large.png",
+      "aliases": [
+        "Вкусно и точка Картофель фри маленький",
+        "картошка фри маленькая вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_fri_sredniy",
+      "name": "Картофель фри средний",
+      "grams": 110,
+      "kcal": 318.0,
+      "protein_g": 3.7,
+      "fat_g": 15.0,
+      "carbs_g": 40.0,
+      "fiber_g": 3.9,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Картофель фри средний",
+      "source_confidence": "official_api_weight_corrected",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/1e1/mxpwaiuqvab0zjg0ebju7mer3kbytswb/large.png",
+      "aliases": [
+        "Вкусно и точка Картофель фри средний",
+        "картошка фри средняя вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_fri_bolshoi",
+      "name": "Картофель фри большой",
+      "grams": 147.0,
+      "kcal": 425.0,
+      "protein_g": 5.0,
+      "fat_g": 20.0,
+      "carbs_g": 53.0,
+      "fiber_g": 5.1,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Картофель фри большой",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Картофель фри большой",
+        "картошка фри большая вкусно и точка",
+        "картофель фри (большая порция)"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_po_derevenski_sredniy",
+      "name": "Картофель по-деревенски средний",
+      "grams": 165.0,
+      "kcal": 331.0,
+      "protein_g": 4.6,
+      "fat_g": 15.0,
+      "carbs_g": 42.0,
+      "fiber_g": 4.8,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Картофель по-деревенски средний",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/c2c/41gnsogxe2ean2g702k7vl3lxpoilmqy/large.png",
+      "aliases": [
+        "Вкусно и точка Картофель по-деревенски средний",
+        "картошка по-деревенски средняя вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_po_derevenski_bolshoy",
+      "name": "Картофель по-деревенски большой",
+      "grams": 220.0,
+      "kcal": 441.0,
+      "protein_g": 6.2,
+      "fat_g": 20.0,
+      "carbs_g": 57.0,
+      "fiber_g": 6.4,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Картофель по-деревенски большой",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/c2c/41gnsogxe2ean2g702k7vl3lxpoilmqy/large.png",
+      "aliases": [
+        "Вкусно и точка Картофель по-деревенски большой",
+        "картошка по-деревенски большая вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "naggetsy_4_sht",
+      "name": "Наггетсы (4 шт.)",
+      "grams": 72.0,
+      "kcal": 179.0,
+      "protein_g": 11.0,
+      "fat_g": 9.1,
+      "carbs_g": 12.0,
+      "fiber_g": 0.9,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Наггетсы (4 шт.)",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/70b/vpi27f0bo6dhionqfhjunxig5tx4n1do/large.png",
+      "aliases": [
+        "Вкусно и точка Наггетсы (4 шт.)"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "naggetsy_6_sht",
+      "name": "Наггетсы (6 шт.)",
+      "grams": 108.0,
+      "kcal": 264.0,
+      "protein_g": 17.0,
+      "fat_g": 14.0,
+      "carbs_g": 19.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Наггетсы (6 шт.)",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/70b/vpi27f0bo6dhionqfhjunxig5tx4n1do/large.png",
+      "aliases": [
+        "Вкусно и точка Наггетсы (6 шт.)"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "naggetsy_9_sht",
+      "name": "Наггетсы (9 шт.)",
+      "grams": 161.0,
+      "kcal": 402.0,
+      "protein_g": 25.0,
+      "fat_g": 21.0,
+      "carbs_g": 28.0,
+      "fiber_g": 2.1,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Наггетсы (9 шт.)",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/70b/vpi27f0bo6dhionqfhjunxig5tx4n1do/large.png",
+      "aliases": [
+        "Вкусно и точка Наггетсы (9 шт.)"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "naggetsy_18_sht",
+      "name": "Наггетсы (18 шт.)",
+      "grams": 322.0,
+      "kcal": 794.0,
+      "protein_g": 50.0,
+      "fat_g": 42.0,
+      "carbs_g": 56.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Наггетсы (18 шт.)",
+      "source_confidence": "official_api",
+      "image_url": "https://vkusnoitochka.ru/upload/iblock/70b/vpi27f0bo6dhionqfhjunxig5tx4n1do/large.png",
+      "aliases": [
+        "Вкусно и точка Наггетсы (18 шт.)"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "maffin_perets_gril",
+      "name": "Маффин Перец гриль",
+      "grams": null,
+      "kcal": 447.0,
+      "protein_g": 24.0,
+      "fat_g": 23.0,
+      "carbs_g": 36.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Маффин Перец гриль",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Маффин Перец гриль"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "babl_ti_ananas_lemongrass",
+      "name": "Бабл-ти Ананас-лемонграсс",
+      "grams": null,
+      "kcal": 166.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 41.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Бабл-ти Ананас-лемонграсс",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Бабл-ти Ананас-лемонграсс"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "sanraiz_dolche_mango",
+      "name": "Санрайз Дольче манго",
+      "grams": null,
+      "kcal": 187.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 38.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Санрайз Дольче манго",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Санрайз Дольче манго"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "pirozhnoe_yagodnyi_kosmos",
+      "name": "Пирожное «Ягодный космос»",
+      "grams": 95.0,
+      "kcal": 360.0,
+      "protein_g": 3.3,
+      "fat_g": 15.0,
+      "carbs_g": 52.0,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Пирожное «Ягодный космос»",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Пирожное «Ягодный космос»"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "sous_chili_laim_pikador",
+      "name": "Соус Чили-лайм PIKADOR",
+      "grams": 25.0,
+      "kcal": 40.0,
+      "protein_g": 0.6,
+      "fat_g": 0.1,
+      "carbs_g": 9.2,
+      "fiber_g": 0.0,
+      "source_name": "Вкусно — и точка official nutrition API",
+      "source_url": "https://vkusnoitochka.ru/api/nutrition/search?q=Соус Чили-лайм PIKADOR",
+      "source_confidence": "official_api",
+      "image_url": null,
+      "aliases": [
+        "Вкусно и точка Соус Чили-лайм PIKADOR"
+      ]
+    }
+  ],
+  "renames": [
+    {
+      "prefix": "rostics",
+      "key": "kartofel_fri_malyi",
+      "name": "Картофель фри малый",
+      "aliases": [
+        "картошка фри малая ростикс"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofel_fri_standartnyi",
+      "name": "Картофель фри средний",
+      "aliases": [
+        "картофель фри стандартный",
+        "картошка фри средняя ростикс"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofel_fri_basket",
+      "name": "Картофель фри баскет",
+      "aliases": [
+        "картошка фри баскет",
+        "картофель фри большой ростикс"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofel_po_derevenski_malyi",
+      "name": "Картофель по-деревенски малый",
+      "aliases": [
+        "картошка по-деревенски малая ростикс"
+      ]
+    },
+    {
+      "prefix": "rostics",
+      "key": "kartofel_po_derevenski",
+      "name": "Картофель по-деревенски средний",
+      "aliases": [
+        "картофель по-деревенски стандартный",
+        "картошка по-деревенски средняя ростикс"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_fri_dvoynoy",
+      "name": "Картофель фри двойной",
+      "aliases": [
+        "картошка фри двойная вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "vit",
+      "key": "kartofel_po_derevenski_dvoynoy",
+      "name": "Картофель по-деревенски двойной",
+      "aliases": [
+        "картошка по-деревенски двойная вкусно и точка"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_bolshoi",
+      "name": "Кинг Фри Большой",
+      "aliases": [
+        "кинг фри xl",
+        "фри xl",
+        "картошка фри большая бк"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_malyi",
+      "name": "Кинг Фри Малый",
+      "aliases": [
+        "картошка фри малая бк"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_standartnyi",
+      "name": "Кинг Фри Стандартный",
+      "aliases": [
+        "кинг фри средний",
+        "картошка фри средняя бк"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kola_bez_sahara",
+      "name": "Кола Без Сахара Джуниор 0,3 Л"
+    },
+    {
+      "prefix": "bk",
+      "key": "kola_bez_sahara_2",
+      "name": "Кола Без Сахара Малый 0,4 Л"
+    },
+    {
+      "prefix": "bk",
+      "key": "kola_bez_sahara_3",
+      "name": "Кола Без Сахара Стандартный 0,5 Л"
+    },
+    {
+      "prefix": "bk",
+      "key": "kola_bez_sahara_4",
+      "name": "Кола Без Сахара Большой 0,8 Л"
+    },
+    {
+      "prefix": "bk",
+      "key": "sheik_plombir_malyi_0_3",
+      "name": "Шейк «Пломбир» Малый 0,3"
+    },
+    {
+      "prefix": "bk",
+      "key": "einsiedler_weissbier_ainzindler_vaisbir",
+      "name": "Пиво «Einsiedler Weissbier» («Айнзиндлер Вайсбир»)"
+    }
+  ],
+  "archives": [
+    {
+      "prefix": "vit",
+      "key": "ais_de_lyuks_ananas_pitahaiya",
+      "reason": "duplicate without nutrition"
+    },
+    {
+      "prefix": "vit",
+      "key": "ais_matcha_kokos",
+      "reason": "duplicate without nutrition"
+    },
+    {
+      "prefix": "vit",
+      "key": "molochnyi_kokteil_chereshnya",
+      "reason": "duplicate without nutrition"
+    },
+    {
+      "prefix": "vit",
+      "key": "morozhenoe_marakuiya_s_kostochkoi",
+      "reason": "duplicate without nutrition"
+    },
+    {
+      "prefix": "vit",
+      "key": "pirozhok_lesnye_yagody_kremchiz",
+      "reason": "duplicate without nutrition"
+    },
+    {
+      "prefix": "vit",
+      "key": "kidz_kombo_bliny_s_igrushkoi",
+      "reason": "combo without fixed contents"
+    },
+    {
+      "prefix": "vit",
+      "key": "kombo_olesi_ivanchenko",
+      "reason": "combo without fixed contents"
+    },
+    {
+      "prefix": "vit",
+      "key": "kombo_olesi_ivanchenko_2",
+      "reason": "combo without fixed contents"
+    },
+    {
+      "prefix": "vit",
+      "key": "kombo_yuriya_stoyanova",
+      "reason": "combo without fixed contents"
+    },
+    {
+      "prefix": "vit",
+      "key": "kombo_yuriya_stoyanova_2",
+      "reason": "combo without fixed contents"
+    },
+    {
+      "prefix": "vit",
+      "key": "dvoynoy_espresso_1",
+      "reason": "exact duplicate"
+    },
+    {
+      "prefix": "vit",
+      "key": "malinovyy_muss_1",
+      "reason": "exact duplicate"
+    },
+    {
+      "prefix": "mc",
+      "key": "fries_m",
+      "reason": "US McDonald's values; Vkusno sizes now listed"
+    },
+    {
+      "prefix": "bk",
+      "key": "chikenburger_2",
+      "reason": "duplicate of Острый Чикенбургер"
+    },
+    {
+      "prefix": "bk",
+      "key": "krylyshki_6_sht_2",
+      "reason": "duplicate of Крылышки (6 Шт)"
+    },
+    {
+      "prefix": "bk",
+      "key_contains": "_priprava",
+      "reason": "portion + seasoning duplicate"
+    }
+  ]
+}

@@ -29,6 +29,8 @@ RESTAURANT_PREFIXES = {"bk", "rostics", "vit"}
 OFFICIAL_IMAGE_HOSTS = {
     "www.bk.com",
     "cdn.prod.website-files.com",
+    # Burger King's own storefront on Yandex Eda; burgerkingrus.ru blocks bots.
+    "eda.yandex.ru",
     "rostics.ru",
     "s82079.cdn.ngenix.net",
     "vkusnoitochka.ru",
@@ -50,9 +52,7 @@ BK_WHOPPER_IMAGE = (
     "65947c9a2edd7ddb328fd61f_Whopper.png"
 )
 BK_NUGGETS_FAMILY = re.compile(r"(?iu)^наггетсы\s*\(\d+\s*шт\.?\)")
-BK_ONION_RINGS_FAMILY = re.compile(
-    r"(?iu)^луковые\s+кольца\s*\(\d+\s*шт\.?\)"
-)
+BK_ONION_RINGS_FAMILY = re.compile(r"(?iu)^луковые\s+кольца\s*\(\d+\s*шт\.?\)")
 BK_STANDALONE_WHOPPER = re.compile(r"(?iu)(^|\s)воппер($|\s)")
 
 
@@ -260,9 +260,7 @@ def _source_for_pattern(
             and normalized_name.startswith("сырные палочки с клюквенным соусом")
             and quantity is not None
         ):
-            menu_source = rostics_images.get(
-                f"сырные палочки {quantity.group(1)} шт"
-            )
+            menu_source = rostics_images.get(f"сырные палочки {quantity.group(1)} шт")
         if (
             menu_source is None
             and normalized_name == "байтсы из куриного филе с соусом терияки"
@@ -312,11 +310,14 @@ def cache_images(
     timeout = httpx.Timeout(25.0, connect=10.0)
     headers = {"User-Agent": "Glucotracker restaurant image cache/1.0"}
 
-    with get_session_factory()() as session, httpx.Client(
-        follow_redirects=True,
-        timeout=timeout,
-        headers=headers,
-    ) as client:
+    with (
+        get_session_factory()() as session,
+        httpx.Client(
+            follow_redirects=True,
+            timeout=timeout,
+            headers=headers,
+        ) as client,
+    ):
         rostics_images: dict[str, str] = {}
         if "rostics" in selected_prefixes:
             try:

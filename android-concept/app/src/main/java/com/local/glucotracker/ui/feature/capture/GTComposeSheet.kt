@@ -106,6 +106,7 @@ import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.ui.format.foodIcon
 import com.local.glucotracker.ui.format.formatGrams
 import com.local.glucotracker.ui.format.formatKcal
+import com.local.glucotracker.ui.format.formatLiters
 import com.local.glucotracker.ui.stock.MealPrepPhotoButton
 import com.local.glucotracker.ui.stock.StockTag
 import com.local.glucotracker.ui.image.photoContentScale
@@ -632,7 +633,15 @@ private fun ManualSuggestionRow(
                     maxLines = 1,
                 )
                 Text(
-                    text = stringResource(R.string.manual_entry_kcal_unit),
+                    // Restaurant dishes and templates carry the kcal of one
+                    // portion; only products are counted per 100 g.
+                    text = stringResource(
+                        if (item is ComposeSuggestion.ProductSuggestion) {
+                            R.string.manual_entry_kcal_unit
+                        } else {
+                            R.string.manual_entry_kcal_portion_unit
+                        },
+                    ),
                     color = GT.colors.muted,
                     style = GT.type.kicker,
                     maxLines = 1,
@@ -1128,8 +1137,13 @@ private fun RestaurantVariantPicker(
     onSubmit: (Template) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val sizes = group.sizeOptions
     val initialVariant = remember(group.id) {
-        group.variants.maxWithOrNull(
+        // Nothing eaten from this family yet: start on the everyday portion,
+        // the medium one, rather than whichever size sorts first.
+        sizes.takeIf { group.variants.all { it.usageCount == 0 } }
+            ?.let { options -> options.firstOrNull { restaurantSize(it.name)?.rank == 2 } ?: options[options.size / 2] }
+            ?: group.variants.maxWithOrNull(
             compareBy<Template> { it.usageCount }
                 .thenByDescending { restaurantQuantity(it.name) ?: Int.MAX_VALUE },
         ) ?: group.variants.first()
@@ -1246,6 +1260,12 @@ private fun RestaurantVariantPicker(
                     )
                 }
             }
+        } else if (group.hasSizeSlider) {
+            RestaurantSizeSlider(
+                sizes = sizes,
+                selected = selectedVariant,
+                onSelect = { selectedVariant = it },
+            )
         } else {
             Text(
                 text = stringResource(R.string.restaurant_variant_choose_kind),
@@ -1316,6 +1336,88 @@ private fun RestaurantVariantPicker(
                 .fillMaxWidth()
                 .padding(top = 14.dp, bottom = 18.dp),
         )
+    }
+}
+
+/**
+ * The size ruler: "Малый · Стандартный · Большой" for one restaurant's fries,
+ * the same steps for its drinks. The header names the size in the
+ * restaurant's own word; the ticks are numbers — litres when every step is a
+ * drink with a volume, grams otherwise.
+ */
+@Composable
+private fun RestaurantSizeSlider(
+    sizes: List<Template>,
+    selected: Template,
+    onSelect: (Template) -> Unit,
+) {
+    val selectedIndex = sizes.indexOfFirst { it.id == selected.id }.coerceAtLeast(0)
+    val parsed = sizes.map { restaurantSize(it.name) }
+    val byLiters = parsed.all { it?.liters != null }
+    val byGrams = !byLiters &&
+        sizes.all { it.defaultGrams != null } &&
+        sizes.map { it.defaultGrams }.distinct().size == sizes.size
+
+    @Composable
+    fun tick(index: Int): String {
+        val size = parsed[index]
+        val grams = sizes[index].defaultGrams
+        return when {
+            byLiters -> stringResource(R.string.restaurant_variant_size_liters, formatLiters(size!!.liters!!))
+            byGrams && grams != null -> stringResource(R.string.restaurant_variant_size_grams, formatGrams(grams))
+            else -> size?.word.orEmpty()
+        }
+    }
+
+    Text(
+        text = stringResource(R.string.restaurant_variant_choose_size),
+        color = GT.colors.muted,
+        style = GT.type.kicker,
+    )
+    Row(
+        modifier = Modifier.padding(top = 4.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        parsed[selectedIndex]?.word?.let { word ->
+            Text(
+                text = word,
+                color = GT.colors.ink,
+                style = GT.type.sansLabel,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = tick(selectedIndex),
+            color = GT.colors.ink,
+            style = GT.type.monoNumber,
+        )
+    }
+    Slider(
+        value = selectedIndex.toFloat(),
+        onValueChange = { value -> onSelect(sizes[value.roundToInt().coerceIn(sizes.indices)]) },
+        valueRange = 0f..sizes.lastIndex.toFloat(),
+        steps = (sizes.size - 2).coerceAtLeast(0),
+        colors = SliderDefaults.colors(
+            thumbColor = GT.colors.ink,
+            activeTrackColor = GT.colors.ink,
+            inactiveTrackColor = GT.colors.hairline2,
+        ),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        sizes.indices.forEach { index ->
+            Text(
+                text = tick(index),
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clickable { onSelect(sizes[index]) }
+                    .padding(vertical = 4.dp),
+                color = if (index == selectedIndex) GT.colors.ink else GT.colors.muted,
+                style = GT.type.monoLabel,
+            )
+        }
     }
 }
 

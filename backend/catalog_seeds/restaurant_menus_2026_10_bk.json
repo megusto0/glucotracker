@@ -1,0 +1,2102 @@
+{
+  "fetched_at": "2026-10-04",
+  "sources": [
+    "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz"
+  ],
+  "upserts": [
+    {
+      "prefix": "bk",
+      "key": "king_fri_bolshoi",
+      "name": "Кинг Фри большой",
+      "grams": 154.0,
+      "kcal": 309.5,
+      "protein_g": 6.2,
+      "fat_g": 9.2,
+      "carbs_g": 49.3,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543169",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15231005/cc11394b191f389e823d9e7c86905558-400x400.jpeg",
+      "aliases": [
+        "БК Кинг Фри большой",
+        "Бургер Кинг Кинг Фри большой"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "chizburger",
+      "name": "Чизбургер",
+      "grams": 114.0,
+      "kcal": 339.7,
+      "protein_g": 13.7,
+      "fat_g": 17.1,
+      "carbs_g": 31.9,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542769",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14549513/eb03e31e87f3d52f160dded542452459-400x400.jpeg",
+      "aliases": [
+        "БК Чизбургер",
+        "Бургер Кинг Чизбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "big_king_novyy",
+      "name": "Биг Кинг Новый",
+      "grams": 201.0,
+      "kcal": 609.0,
+      "protein_g": 24.1,
+      "fat_g": 40.2,
+      "carbs_g": 34.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3032483907",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/b93884f38bec3df59f2e2f7387a814ba-400x400.jpeg",
+      "aliases": [
+        "БК Биг Кинг Новый",
+        "Бургер Кинг Биг Кинг Новый"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kartofel_derevenskii_standartnyi",
+      "name": "Картофель Деревенский стандартный",
+      "grams": 153.0,
+      "kcal": 269.3,
+      "protein_g": 4.6,
+      "fat_g": 9.2,
+      "carbs_g": 44.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543184",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/bed92e745eed284e941ce59a0ae920e8-400x400.jpeg",
+      "aliases": [
+        "БК Картофель Деревенский стандартный",
+        "Бургер Кинг Картофель Деревенский стандартный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_standartnyi",
+      "name": "Кинг Фри стандартный",
+      "grams": 100.0,
+      "kcal": 200.0,
+      "protein_g": 4.0,
+      "fat_g": 7.0,
+      "carbs_g": 32.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543174",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Кинг Фри стандартный",
+        "Бургер Кинг Кинг Фри стандартный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "naggetsy_6_sht",
+      "name": "Наггетсы (6 шт.)",
+      "grams": 82.0,
+      "kcal": 240.3,
+      "protein_g": 13.1,
+      "fat_g": 13.9,
+      "carbs_g": 16.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543249",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3508185/0f1f8aa2973433ae80093e73449541f3-400x400.jpeg",
+      "aliases": [
+        "БК Наггетсы (6 шт.)",
+        "Бургер Кинг Наггетсы (6 шт.)"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "chikenburger",
+      "name": "Чикенбургер",
+      "grams": 134.0,
+      "kcal": 321.6,
+      "protein_g": 12.1,
+      "fat_g": 13.4,
+      "carbs_g": 37.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542834",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/13802765/3a555374c55bfdc5e303504b281b2bdc-400x400.jpeg",
+      "aliases": [
+        "БК Чикенбургер",
+        "Бургер Кинг Чикенбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "vopper_roll",
+      "name": "Воппер Ролл",
+      "grams": 193.0,
+      "kcal": 540.4,
+      "protein_g": 21.2,
+      "fat_g": 36.7,
+      "carbs_g": 34.7,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696891",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18916937/b3df3078f63a407517010cd3a85cf13e-400x400.jpeg",
+      "aliases": [
+        "БК Воппер Ролл",
+        "Бургер Кинг Воппер Ролл"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "dvoinoi_vopper_s_syrom",
+      "name": "Двойной Воппер с сыром",
+      "grams": 388.0,
+      "kcal": 1121.3,
+      "protein_g": 50.4,
+      "fat_g": 77.6,
+      "carbs_g": 58.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696893",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20260744/4169af295e7108334300ae5092780823-400x400.jpeg",
+      "aliases": [
+        "БК Двойной Воппер с сыром",
+        "Бургер Кинг Двойной Воппер с сыром"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "whopper_cheese",
+      "name": "Воппер с сыром",
+      "grams": 295.0,
+      "kcal": 790.6,
+      "protein_g": 32.5,
+      "fat_g": 50.1,
+      "carbs_g": 53.1,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696892",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/13190335/f6698f75f244c905fe45993822eec6c1-400x400.jpeg",
+      "aliases": [
+        "БК Воппер с сыром",
+        "Бургер Кинг Воппер с сыром"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "whopper",
+      "name": "Воппер",
+      "grams": 274.0,
+      "kcal": 720.6,
+      "protein_g": 27.4,
+      "fat_g": 43.8,
+      "carbs_g": 52.1,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696890",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14904645/1582fb053915af1fc02132391b92db5b-400x400.jpeg",
+      "aliases": [
+        "БК Воппер",
+        "Бургер Кинг Воппер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "dvoinoi_vopper",
+      "name": "Двойной Воппер",
+      "grams": 367.0,
+      "kcal": 1049.6,
+      "protein_g": 47.7,
+      "fat_g": 69.7,
+      "carbs_g": 58.7,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696894",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20260744/b3501fa7a4188ae33fbe3a770e62bbf5-400x400.jpeg",
+      "aliases": [
+        "БК Двойной Воппер",
+        "Бургер Кинг Двойной Воппер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "troinoi_vopper",
+      "name": "Тройной Воппер",
+      "grams": 460.0,
+      "kcal": 1380.0,
+      "protein_g": 64.4,
+      "fat_g": 96.6,
+      "carbs_g": 59.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035696895",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20193126/0425bfd7a7c9b75c8478f9a3f97a6641-400x400.jpeg",
+      "aliases": [
+        "БК Тройной Воппер",
+        "Бургер Кинг Тройной Воппер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_4_syra",
+      "name": "Ангус 4 Сыра",
+      "grams": 337.0,
+      "kcal": 1071.7,
+      "protein_g": 43.8,
+      "fat_g": 77.5,
+      "carbs_g": 50.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096388",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20808583/0cac1ebc7ec6866de1cf7cb3d5ddb1cf-400x400.jpeg",
+      "aliases": [
+        "БК Ангус 4 Сыра",
+        "Бургер Кинг Ангус 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "bekonayzer_dvoynoy",
+      "name": "Беконайзер Двойной",
+      "grams": 345.0,
+      "kcal": 1190.2,
+      "protein_g": 58.6,
+      "fat_g": 79.3,
+      "carbs_g": 58.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037838955",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20410873/f8d2ab654830f7022a475b1e215744a2-400x400.jpeg",
+      "aliases": [
+        "БК Беконайзер Двойной",
+        "Бургер Кинг Беконайзер Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "royal_naggetsy_fri_xxl",
+      "name": "Роял Наггетсы Фри XXL",
+      "grams": 321.0,
+      "kcal": 609.9,
+      "protein_g": 22.5,
+      "fat_g": 22.5,
+      "carbs_g": 83.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037838953",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18473941/cd09620e3da5d81645b2ed352b70abef-400x400.jpeg",
+      "aliases": [
+        "БК Роял Наггетсы Фри XXL",
+        "Бургер Кинг Роял Наггетсы Фри XXL"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_inektsiya_titana",
+      "name": "Соус «Инъекция Титана»",
+      "grams": 28.0,
+      "kcal": 36.4,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 9.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3039161408",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20637206/ed8ea389e78a7d7d5a2075c5646e9c69-400x400.jpeg",
+      "aliases": [
+        "БК Соус «Инъекция Титана»",
+        "Бургер Кинг Соус «Инъекция Титана»"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_pita_4_syra",
+      "name": "Ангус Пита 4 Сыра",
+      "grams": 275.0,
+      "kcal": 940.5,
+      "protein_g": 38.5,
+      "fat_g": 68.8,
+      "carbs_g": 41.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096386",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20260744/245bd1db6fe8457cbb640c0e75dbb7a0-400x400.jpeg",
+      "aliases": [
+        "БК Ангус Пита 4 Сыра",
+        "Бургер Кинг Ангус Пита 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "bekonayzer",
+      "name": "Беконайзер",
+      "grams": 230.0,
+      "kcal": 788.9,
+      "protein_g": 32.2,
+      "fat_g": 48.3,
+      "carbs_g": 55.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037838952",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20410873/341aaac4a825f0a793498d797252eacd-400x400.jpeg",
+      "aliases": [
+        "БК Беконайзер",
+        "Бургер Кинг Беконайзер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "priprava_drozh_zemli",
+      "name": "Приправа Дрожь Земли",
+      "grams": 5.0,
+      "kcal": 13.5,
+      "protein_g": 0.4,
+      "fat_g": 0.2,
+      "carbs_g": 2.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3039161409",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/21597040/6bb4b376cf031e14bcb5f626037da49b-400x400.jpeg",
+      "aliases": [
+        "БК Приправа Дрожь Земли",
+        "Бургер Кинг Приправа Дрожь Земли"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "pirozhok_malina_so_slivkami",
+      "name": "Пирожок Малина со сливками",
+      "grams": 73.0,
+      "kcal": 170.1,
+      "protein_g": 2.2,
+      "fat_g": 6.6,
+      "carbs_g": 24.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3039161405",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20690009/3f4cbfca247e13c64c749ceb4981d696-400x400.jpeg",
+      "aliases": [
+        "БК Пирожок Малина со сливками",
+        "Бургер Кинг Пирожок Малина со сливками"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_royal_naggetsy_fri_xxl",
+      "name": "Острый Роял Наггетсы Фри XXL",
+      "grams": 321.0,
+      "kcal": 609.9,
+      "protein_g": 22.5,
+      "fat_g": 22.5,
+      "carbs_g": 83.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037838954",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20412437/f9b29ae1dc183470c639bcc3fe039992-400x400.jpeg",
+      "aliases": [
+        "БК Острый Роял Наггетсы Фри XXL",
+        "Бургер Кинг Острый Роял Наггетсы Фри XXL"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sok_j7_apelsin_mandarin_0_2_l",
+      "name": "Сок J7 Апельсин-Мандарин 0,2 л",
+      "grams": 200.0,
+      "kcal": 46.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 12.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740504",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/19925171/399bd7e618d24b12aca11e17d1354996-400x400.jpeg",
+      "aliases": [
+        "БК Сок J7 Апельсин-Мандарин 0,2 л",
+        "Бургер Кинг Сок J7 Апельсин-Мандарин 0,2 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "lipton_limon_v_butylke_0_5_l",
+      "name": "Липтон Лимон в бутылке 0,5 л",
+      "grams": 500.0,
+      "kcal": 150.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740495",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/4456e6bc6d4d1728fed34786b8815cae-400x400.jpeg",
+      "aliases": [
+        "БК Липтон Лимон в бутылке 0,5 л",
+        "Бургер Кинг Липтон Лимон в бутылке 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "evervess_kola_vanil_v_butylke_0_5_l",
+      "name": "Эвервесс Кола Ваниль в бутылке 0,5 л",
+      "grams": 500.0,
+      "kcal": 5.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 5.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740499",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/f7f57b074a62ed603e4b028362d763cd-400x400.jpeg",
+      "aliases": [
+        "БК Эвервесс Кола Ваниль в бутылке 0,5 л",
+        "Бургер Кинг Эвервесс Кола Ваниль в бутылке 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "evervess_kola_bez_sakhara_v_butylke_0_5_l",
+      "name": "Эвервесс Кола без сахара в бутылке 0,5 л",
+      "grams": 500.0,
+      "kcal": 5.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 5.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740494",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17773786/f549b648681792eaac4c91b0cd8e63aa-400x400.jpeg",
+      "aliases": [
+        "БК Эвервесс Кола без сахара в бутылке 0,5 л",
+        "Бургер Кинг Эвервесс Кола без сахара в бутылке 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "frustayl_apelsin_v_butylke_0_5_l",
+      "name": "Фрустайл Апельсин в бутылке 0,5 л",
+      "grams": 500.0,
+      "kcal": 175.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 45.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740497",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3583862/3f3267206a8298fe4f11a3e54fd7cc2d-400x400.jpeg",
+      "aliases": [
+        "БК Фрустайл Апельсин в бутылке 0,5 л",
+        "Бургер Кинг Фрустайл Апельсин в бутылке 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sok_j7_yablochnyy_0_2_l",
+      "name": "Сок J7 Яблочный 0,2 л",
+      "grams": 200.0,
+      "kcal": 100.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 24.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740503",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14440961/61ce3e07e5b73da86357054cb7176918-400x400.jpeg",
+      "aliases": [
+        "БК Сок J7 Яблочный 0,2 л",
+        "Бургер Кинг Сок J7 Яблочный 0,2 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "frustayl_limon_laym_v_butylke_0_5_l",
+      "name": "Фрустайл Лимон Лайм в бутылке 0,5 л",
+      "grams": 500.0,
+      "kcal": 145.0,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740498",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3583862/06b0033c2b0453a8203f2379c8dc5288-400x400.jpeg",
+      "aliases": [
+        "БК Фрустайл Лимон Лайм в бутылке 0,5 л",
+        "Бургер Кинг Фрустайл Лимон Лайм в бутылке 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "baltika_0_bezalkogolnoe_greypfrut",
+      "name": "Балтика №0 Безалкогольное Грейпфрут",
+      "grams": 330.0,
+      "kcal": 115.5,
+      "protein_g": 0.0,
+      "fat_g": 0.0,
+      "carbs_g": 26.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038740511",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16473711/2ce96c1a65c89a825a47eadad0230cc7-400x400.jpeg",
+      "aliases": [
+        "БК Балтика №0 Безалкогольное Грейпфрут",
+        "Бургер Кинг Балтика №0 Безалкогольное Грейпфрут"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_angus_4_syra_dvoynoy",
+      "name": "Острый Ангус 4 Сыра Двойной",
+      "grams": 472.0,
+      "kcal": 1538.7,
+      "protein_g": 70.8,
+      "fat_g": 113.3,
+      "carbs_g": 56.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096396",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17763632/7c000eaa1e787a475d47390b47439f8f-400x400.jpeg",
+      "aliases": [
+        "БК Острый Ангус 4 Сыра Двойной",
+        "Бургер Кинг Острый Ангус 4 Сыра Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "big_king_4_syra",
+      "name": "Биг Кинг 4 Сыра",
+      "grams": 187.0,
+      "kcal": 579.7,
+      "protein_g": 24.3,
+      "fat_g": 39.3,
+      "carbs_g": 31.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096392",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17763632/9141280230a79ee1ec1750560475b188-400x400.jpeg",
+      "aliases": [
+        "БК Биг Кинг 4 Сыра",
+        "Бургер Кинг Биг Кинг 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "vopper_dzhunior",
+      "name": "Воппер Джуниор",
+      "grams": 143.0,
+      "kcal": 370.4,
+      "protein_g": 12.9,
+      "fat_g": 21.4,
+      "carbs_g": 32.9,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542674",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14440961/edbd28fb5d2bea43f4f5043b3ddeabca-400x400.jpeg",
+      "aliases": [
+        "БК Воппер Джуниор",
+        "Бургер Кинг Воппер Джуниор"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "dvoinoi_chizburger",
+      "name": "Двойной Чизбургер",
+      "grams": 160.0,
+      "kcal": 416.0,
+      "protein_g": 19.2,
+      "fat_g": 22.4,
+      "carbs_g": 33.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542774",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18531941/b7143d4adc73670cd4c95d103944255d-400x400.jpeg",
+      "aliases": [
+        "БК Двойной Чизбургер",
+        "Бургер Кинг Двойной Чизбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_4_syra_dvoynoy",
+      "name": "Ангус 4 Сыра Двойной",
+      "grams": 458.0,
+      "kcal": 1520.6,
+      "protein_g": 68.7,
+      "fat_g": 114.5,
+      "carbs_g": 50.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096394",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/99d63719e06a5bd2966b59b7a2955ac8-400x400.jpeg",
+      "aliases": [
+        "БК Ангус 4 Сыра Двойной",
+        "Бургер Кинг Ангус 4 Сыра Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_parmedzhano",
+      "name": "Острый Ангус Пармеджано",
+      "grams": 320.0,
+      "kcal": 908.8,
+      "protein_g": 38.4,
+      "fat_g": 57.6,
+      "carbs_g": 64.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3031310845",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/19855951/cdcb41386c9227d34bfc1cde18c6cdc5-400x400.jpeg",
+      "aliases": [
+        "БК Острый Ангус Пармеджано",
+        "Бургер Кинг Острый Ангус Пармеджано"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "chizburger_tri_syra",
+      "name": "Чизбургер Три Сыра",
+      "grams": 119.0,
+      "kcal": 399.8,
+      "protein_g": 15.5,
+      "fat_g": 23.8,
+      "carbs_g": 28.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037324485",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20808583/0e194dba6749d279e7f4ba9824ac0c6f-400x400.jpeg",
+      "aliases": [
+        "БК Чизбургер Три Сыра",
+        "Бургер Кинг Чизбургер Три Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_parmedzhano_dvoinoi",
+      "name": "Ангус Пармеджано Двойной",
+      "grams": 425.0,
+      "kcal": 1300.5,
+      "protein_g": 63.8,
+      "fat_g": 89.2,
+      "carbs_g": 59.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3001391531",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20814981/85e5ce70a400e6f1931cdc79a488478f-400x400.jpeg",
+      "aliases": [
+        "БК Ангус Пармеджано Двойной",
+        "Бургер Кинг Ангус Пармеджано Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_parmedzhano",
+      "name": "Ангус Пармеджано",
+      "grams": 320.0,
+      "kcal": 899.2,
+      "protein_g": 38.4,
+      "fat_g": 57.6,
+      "carbs_g": 57.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3001391530",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/19396445/50a9c95e5cc3077c82db1fe7e5e9e99c-400x400.jpeg",
+      "aliases": [
+        "БК Ангус Пармеджано",
+        "Бургер Кинг Ангус Пармеджано"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_chizburger_tri_syra",
+      "name": "Острый Чизбургер Три Сыра",
+      "grams": 129.0,
+      "kcal": 410.2,
+      "protein_g": 15.5,
+      "fat_g": 24.5,
+      "carbs_g": 32.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037324486",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20412437/dad14e39e56dbe7de00834553ca128d4-400x400.jpeg",
+      "aliases": [
+        "БК Острый Чизбургер Три Сыра",
+        "Бургер Кинг Острый Чизбургер Три Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_chizburger",
+      "name": "Острый Чизбургер",
+      "grams": 118.0,
+      "kcal": 359.9,
+      "protein_g": 15.3,
+      "fat_g": 17.7,
+      "carbs_g": 34.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542654",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14904645/ffb1aa8427384eb32db08291f6061a09-400x400.jpeg",
+      "aliases": [
+        "БК Острый Чизбургер",
+        "Бургер Кинг Острый Чизбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "gamburger",
+      "name": "Гамбургер",
+      "grams": 108.0,
+      "kcal": 248.4,
+      "protein_g": 10.8,
+      "fat_g": 8.6,
+      "carbs_g": 32.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542764",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/10503578/3530c98bccf974c0d85623435effb9f7-400x400.jpeg",
+      "aliases": [
+        "БК Гамбургер",
+        "Бургер Кинг Гамбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_gamburger",
+      "name": "Острый Гамбургер",
+      "grams": 108.0,
+      "kcal": 319.7,
+      "protein_g": 13.0,
+      "fat_g": 15.1,
+      "carbs_g": 33.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3031310844",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3508185/69300e95410d4fda9848ac72cb7b237d-400x400.jpeg",
+      "aliases": [
+        "БК Острый Гамбургер",
+        "Бургер Кинг Острый Гамбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "xxl_sous_chili_chiz",
+      "name": "XXL соус Чили Чиз",
+      "grams": 45.0,
+      "kcal": 139.5,
+      "protein_g": 0.5,
+      "fat_g": 13.5,
+      "carbs_g": 4.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3026374527",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18644967/e6cb77d0c93c26fa4c0198b71dc68b2b-400x400.jpeg",
+      "aliases": [
+        "БК XXL соус Чили Чиз",
+        "Бургер Кинг XXL соус Чили Чиз"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_parmedzhano_dvoinoi",
+      "name": "Острый Ангус Пармеджано Двойной",
+      "grams": 439.0,
+      "kcal": 1308.2,
+      "protein_g": 61.5,
+      "fat_g": 92.2,
+      "carbs_g": 65.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3031310847",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18753459/9b750712d522245ecfcda1b8d5956a93-400x400.jpeg",
+      "aliases": [
+        "БК Острый Ангус Пармеджано Двойной",
+        "Бургер Кинг Острый Ангус Пармеджано Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_vopper_dzhunior",
+      "name": "Острый Воппер Джуниор",
+      "grams": 143.0,
+      "kcal": 370.4,
+      "protein_g": 12.9,
+      "fat_g": 21.4,
+      "carbs_g": 32.9,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3031310843",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15441079/2a7b24f97487d69952330f2f71849ba7-400x400.jpeg",
+      "aliases": [
+        "БК Острый Воппер Джуниор",
+        "Бургер Кинг Острый Воппер Джуниор"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_angus_4_syra",
+      "name": "Острый Ангус 4 Сыра",
+      "grams": 351.0,
+      "kcal": 1091.6,
+      "protein_g": 45.6,
+      "fat_g": 77.2,
+      "carbs_g": 52.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096395",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/6ada05e909731f2292bf5b16fd0eff39-400x400.jpeg",
+      "aliases": [
+        "БК Острый Ангус 4 Сыра",
+        "Бургер Кинг Острый Ангус 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "chiken_parmezan",
+      "name": "Чикен Пармезан",
+      "grams": 188.0,
+      "kcal": 439.9,
+      "protein_g": 18.8,
+      "fat_g": 22.6,
+      "carbs_g": 41.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035892767",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20814981/4e309d43430aa684bfcd08424865563e-400x400.jpeg",
+      "aliases": [
+        "БК Чикен Пармезан",
+        "Бургер Кинг Чикен Пармезан"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_chiken_parmezan",
+      "name": "Острый Чикен Пармезан",
+      "grams": 198.0,
+      "kcal": 449.5,
+      "protein_g": 19.8,
+      "fat_g": 21.8,
+      "carbs_g": 45.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3035892768",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20410873/4d2848c55751104d9bfe939f565d541c-400x400.jpeg",
+      "aliases": [
+        "БК Острый Чикен Пармезан",
+        "Бургер Кинг Острый Чикен Пармезан"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_chikenburger",
+      "name": "Острый Чикенбургер",
+      "grams": 137.0,
+      "kcal": 379.5,
+      "protein_g": 12.3,
+      "fat_g": 17.8,
+      "carbs_g": 42.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542869",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/13439948/e52cc9c29804c58856e5b4ed90ef95c7-400x400.jpeg",
+      "aliases": [
+        "БК Острый Чикенбургер",
+        "Бургер Кинг Острый Чикенбургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "chikenburger_tri_syra",
+      "name": "Чикенбургер Три Сыра",
+      "grams": 144.0,
+      "kcal": 370.1,
+      "protein_g": 14.4,
+      "fat_g": 18.7,
+      "carbs_g": 37.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037324481",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20380622/0e38d7792da096d649e5854d89ecc42c-400x400.jpeg",
+      "aliases": [
+        "БК Чикенбургер Три Сыра",
+        "Бургер Кинг Чикенбургер Три Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_chikenburger_tri_syra",
+      "name": "Острый Чикенбургер Три Сыра",
+      "grams": 144.0,
+      "kcal": 370.1,
+      "protein_g": 14.4,
+      "fat_g": 18.7,
+      "carbs_g": 38.9,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3037324482",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20814981/e77458d73f5f2ab646bc4f3322e810e3-400x400.jpeg",
+      "aliases": [
+        "БК Острый Чикенбургер Три Сыра",
+        "Бургер Кинг Острый Чикенбургер Три Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "fish_burger_dvoinoi",
+      "name": "Фиш Бургер Двойной",
+      "grams": 245.0,
+      "kcal": 590.5,
+      "protein_g": 22.1,
+      "fat_g": 29.4,
+      "carbs_g": 56.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2053409275",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17768400/b6798aab239509db508593aee1d66fe5-400x400.jpeg",
+      "aliases": [
+        "БК Фиш Бургер Двойной",
+        "Бургер Кинг Фиш Бургер Двойной"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "fish_burger",
+      "name": "Фиш Бургер",
+      "grams": 168.0,
+      "kcal": 409.9,
+      "protein_g": 13.4,
+      "fat_g": 20.2,
+      "carbs_g": 43.7,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2053409271",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/19855951/50daa05a2dc1e953224ed1bf6dbe489f-400x400.jpeg",
+      "aliases": [
+        "БК Фиш Бургер",
+        "Бургер Кинг Фиш Бургер"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "salat_tsezar_s_krevetkami",
+      "name": "Салат Цезарь с креветками",
+      "grams": 155.0,
+      "kcal": 319.3,
+      "protein_g": 9.3,
+      "fat_g": 20.1,
+      "carbs_g": 26.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3011279860",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16321539/abe3cc364be8711e8277633a4fc1995d-400x400.jpeg",
+      "aliases": [
+        "БК Салат Цезарь с креветками",
+        "Бургер Кинг Салат Цезарь с креветками"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "shrimp_roll",
+      "name": "Шримп Ролл",
+      "grams": 148.0,
+      "kcal": 399.6,
+      "protein_g": 13.3,
+      "fat_g": 16.3,
+      "carbs_g": 50.3,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3006105320",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/19396445/e5e8ce2f4899796cdbc3acf4b2f2e816-400x400.jpeg",
+      "aliases": [
+        "БК Шримп Ролл",
+        "Бургер Кинг Шримп Ролл"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "tsezar_roll_so_stripsami",
+      "name": "Цезарь Ролл со стрипсами",
+      "grams": 183.0,
+      "kcal": 430.1,
+      "protein_g": 16.5,
+      "fat_g": 22.0,
+      "carbs_g": 40.3,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542959",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14921544/a1e3d3cdb45672513c542c58a8070903-400x400.jpeg",
+      "aliases": [
+        "БК Цезарь Ролл со стрипсами",
+        "Бургер Кинг Цезарь Ролл со стрипсами"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_pita_parmedzhano",
+      "name": "Ангус Пита Пармеджано",
+      "grams": 252.0,
+      "kcal": 771.1,
+      "protein_g": 32.8,
+      "fat_g": 52.9,
+      "carbs_g": 37.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3032483895",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18772141/44c21d4ccaa1216904873a34f2c81882-400x400.jpeg",
+      "aliases": [
+        "БК Ангус Пита Пармеджано",
+        "Бургер Кинг Ангус Пита Пармеджано"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "fish_roll",
+      "name": "Фиш Ролл",
+      "grams": 164.0,
+      "kcal": 400.2,
+      "protein_g": 14.8,
+      "fat_g": 19.7,
+      "carbs_g": 44.3,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2052410423",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20410873/5a962c61295cf00d0b485f56e381f9d0-400x400.jpeg",
+      "aliases": [
+        "БК Фиш Ролл",
+        "Бургер Кинг Фиш Ролл"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_tsezar_roll_so_stipsami",
+      "name": "Острый Цезарь Ролл Со Стрипсами",
+      "grams": 214.0,
+      "kcal": 490.1,
+      "protein_g": 23.5,
+      "fat_g": 23.5,
+      "carbs_g": 47.1,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023542974",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/13802765/8728ec578b1fdb53d3937cc771da3b71-400x400.jpeg",
+      "aliases": [
+        "БК Острый Цезарь Ролл Со Стрипсами",
+        "Бургер Кинг Острый Цезарь Ролл Со Стрипсами"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_syrnyi",
+      "name": "Соус Сырный",
+      "grams": 25.0,
+      "kcal": 67.5,
+      "protein_g": 0.2,
+      "fat_g": 6.8,
+      "carbs_g": 0.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543084",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/1473782/7d4bb703b764f8ef610b3c5023d004da-400x400.jpeg",
+      "aliases": [
+        "БК Соус Сырный",
+        "Бургер Кинг Соус Сырный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "xxl_sous_4_syra",
+      "name": "XXL соус 4 Сыра",
+      "grams": 45.0,
+      "kcal": 180.0,
+      "protein_g": 0.5,
+      "fat_g": 18.0,
+      "carbs_g": 4.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3009543192",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16066946/3f1ae1e16bb10ab22275ae4c8df7c139-400x400.jpeg",
+      "aliases": [
+        "БК XXL соус 4 Сыра",
+        "Бургер Кинг XXL соус 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_barbekyu",
+      "name": "Соус Барбекю",
+      "grams": 25.0,
+      "kcal": 32.5,
+      "protein_g": 0.2,
+      "fat_g": 0.2,
+      "carbs_g": 7.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543124",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/2415806/f6d66820d38b52c09e7243a2f26ff199-400x400.jpeg",
+      "aliases": [
+        "БК Соус Барбекю",
+        "Бургер Кинг Соус Барбекю"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "2_kislo_sladkikh_sousa",
+      "name": "2 кисло-сладких соуса",
+      "grams": 50.0,
+      "kcal": 90.0,
+      "protein_g": 0.5,
+      "fat_g": 0.0,
+      "carbs_g": 22.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3013165534",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/1473782/99317cc9a58d17b56cbd09c688663fe6-400x400.jpeg",
+      "aliases": [
+        "БК 2 кисло-сладких соуса",
+        "Бургер Кинг 2 кисло-сладких соуса"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_parmedzhano",
+      "name": "Соус Пармеджано",
+      "grams": 25.0,
+      "kcal": 92.5,
+      "protein_g": 0.5,
+      "fat_g": 9.5,
+      "carbs_g": 1.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543089",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3581687/d668b8bccf797db049b0cc9ef7e3ad27-400x400.jpeg",
+      "aliases": [
+        "БК Соус Пармеджано",
+        "Бургер Кинг Соус Пармеджано"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_karri",
+      "name": "Соус Карри",
+      "grams": 25.0,
+      "kcal": 85.0,
+      "protein_g": 0.2,
+      "fat_g": 7.5,
+      "carbs_g": 4.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543109",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3521394/5f643d6c61eb7e3ddbcbca4e99d1bfc4-400x400.jpeg",
+      "aliases": [
+        "БК Соус Карри",
+        "Бургер Кинг Соус Карри"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_kislo_sladkii",
+      "name": "Соус Кисло-сладкий",
+      "grams": 25.0,
+      "kcal": 32.5,
+      "protein_g": 0.2,
+      "fat_g": 0.0,
+      "carbs_g": 7.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543104",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3702558/b2f6c71d19b5ad839da1a46298bfcaec-400x400.jpeg",
+      "aliases": [
+        "БК Соус Кисло-сладкий",
+        "Бургер Кинг Соус Кисло-сладкий"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "syrnyy_i_kislo_sladkiy_sousy",
+      "name": "Сырный и Кисло-сладкий соусы",
+      "grams": 50.0,
+      "kcal": 112.0,
+      "protein_g": 9.5,
+      "fat_g": 8.0,
+      "carbs_g": 0.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543139",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3377781/8063eec92118b586e1dba67a0af84fee-400x400.jpeg",
+      "aliases": [
+        "БК Сырный и Кисло-сладкий соусы",
+        "Бургер Кинг Сырный и Кисло-сладкий соусы"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_chesnochnyi",
+      "name": "Соус Чесночный",
+      "grams": 25.0,
+      "kcal": 82.5,
+      "protein_g": 0.2,
+      "fat_g": 7.8,
+      "carbs_g": 3.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2051433578",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3581687/53a4cdfb3fdf5b63b998e1a4f650b695-400x400.jpeg",
+      "aliases": [
+        "БК Соус Чесночный",
+        "Бургер Кинг Соус Чесночный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_gorchichnyi",
+      "name": "Соус Горчичный",
+      "grams": 25.0,
+      "kcal": 67.5,
+      "protein_g": 0.2,
+      "fat_g": 5.0,
+      "carbs_g": 5.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543114",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3521394/c3bc97f69ac5995a8362513f388abd16-400x400.jpeg",
+      "aliases": [
+        "БК Соус Горчичный",
+        "Бургер Кинг Соус Горчичный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_1000_ostrovov",
+      "name": "Соус 1000 островов",
+      "grams": 25.0,
+      "kcal": 77.5,
+      "protein_g": 0.2,
+      "fat_g": 7.2,
+      "carbs_g": 3.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543129",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3559865/2103bb07d7e723dba0d82aefaf127f20-400x400.jpeg",
+      "aliases": [
+        "БК Соус 1000 островов",
+        "Бургер Кинг Соус 1000 островов"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "2_syrnykh_sousa",
+      "name": "2 сырных соуса",
+      "grams": 50.0,
+      "kcal": 220.0,
+      "protein_g": 1.0,
+      "fat_g": 22.0,
+      "carbs_g": 6.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543144",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/2394388/c4e835b2e6266bb53150b7d286dc19d1-400x400.jpeg",
+      "aliases": [
+        "БК 2 сырных соуса",
+        "Бургер Кинг 2 сырных соуса"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "sous_tsezar",
+      "name": "Соус Цезарь",
+      "grams": 25.0,
+      "kcal": 120.0,
+      "protein_g": 0.2,
+      "fat_g": 12.0,
+      "carbs_g": 2.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543094",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/1473782/4fdb61006da4aee6ff37e4125bab216e-400x400.jpeg",
+      "aliases": [
+        "БК Соус Цезарь",
+        "Бургер Кинг Соус Цезарь"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ketchup",
+      "name": "Кетчуп",
+      "grams": 25.0,
+      "kcal": 27.5,
+      "protein_g": 0.2,
+      "fat_g": 0.0,
+      "carbs_g": 6.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543134",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/2415806/73edaa0e01c8d771c4f462704773589a-400x400.jpeg",
+      "aliases": [
+        "БК Кетчуп",
+        "Бургер Кинг Кетчуп"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_tomatnyi_sous",
+      "name": "Острый Томатный соус",
+      "grams": 25.0,
+      "kcal": 27.5,
+      "protein_g": 0.2,
+      "fat_g": 0.2,
+      "carbs_g": 6.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543099",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/2415806/bae53a9b7227e7d7d149dab9502aec22-400x400.jpeg",
+      "aliases": [
+        "БК Острый Томатный соус",
+        "Бургер Кинг Острый Томатный соус"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "royal_fri_4_syra",
+      "name": "Роял Фри 4 Сыра",
+      "grams": 274.0,
+      "kcal": 728.8,
+      "protein_g": 13.7,
+      "fat_g": 41.1,
+      "carbs_g": 74.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096390",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/6777a6989764e9dec12e2cce929a0e20-400x400.jpeg",
+      "aliases": [
+        "БК Роял Фри 4 Сыра",
+        "Бургер Кинг Роял Фри 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "priprava_ostraya_shtuka",
+      "name": "Приправа Острая Штука",
+      "grams": 7.0,
+      "kcal": 20.0,
+      "protein_g": 1.0,
+      "fat_g": 0.3,
+      "carbs_g": 3.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2031280254",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16289781/1c8e0d630de80df7534ea60d8d18b580-400x400.jpeg",
+      "aliases": [
+        "БК Приправа Острая Штука",
+        "Бургер Кинг Приправа Острая Штука"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryy_royal_fri_4_syra",
+      "name": "Острый Роял Фри 4 Сыра",
+      "grams": 274.0,
+      "kcal": 728.8,
+      "protein_g": 13.7,
+      "fat_g": 41.1,
+      "carbs_g": 74.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3036096391",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17763632/c1683161a540c3806159c1191b87ceb2-400x400.jpeg",
+      "aliases": [
+        "БК Острый Роял Фри 4 Сыра",
+        "Бургер Кинг Острый Роял Фри 4 Сыра"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "priprava_vkusnaya_shtuka_smetana_i_luk",
+      "name": "Приправа Вкусная Штука Сметана и Лук",
+      "grams": 5.0,
+      "kcal": 20.0,
+      "protein_g": 1.0,
+      "fat_g": 0.5,
+      "carbs_g": 4.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3002984275",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/14855449/bfbe09bf24b714fdbdb50d64e9894be1-400x400.jpeg",
+      "aliases": [
+        "БК Приправа Вкусная Штука Сметана и Лук",
+        "Бургер Кинг Приправа Вкусная Штука Сметана и Лук"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "naggetsy_9_sht",
+      "name": "Наггетсы (9 шт.)",
+      "grams": 124.0,
+      "kcal": 359.6,
+      "protein_g": 18.6,
+      "fat_g": 21.1,
+      "carbs_g": 23.6,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543274",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3581687/c71a2d00adf5849ba9414cef1ad81cc9-400x400.jpeg",
+      "aliases": [
+        "БК Наггетсы (9 шт.)",
+        "Бургер Кинг Наггетсы (9 шт.)"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "naggetsy_12_sht",
+      "name": "Наггетсы (12 шт.)",
+      "grams": 165.0,
+      "kcal": 480.1,
+      "protein_g": 26.4,
+      "fat_g": 28.1,
+      "carbs_g": 31.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543259",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3805444/c93359f28fcd3210623870df8c111b76-400x400.jpeg",
+      "aliases": [
+        "БК Наггетсы (12 шт.)",
+        "Бургер Кинг Наггетсы (12 шт.)"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "karamelnyi_latte_bolshoi_0_5_l",
+      "name": "Карамельный Латте большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 340.0,
+      "protein_g": 25.0,
+      "fat_g": 10.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543509",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17772865/17a41da6780e8a2b9ce8297064315f24-400x400.jpeg",
+      "aliases": [
+        "БК Карамельный Латте большой 0,5 л",
+        "Бургер Кинг Карамельный Латте большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "karamelnyi_kapuchino_bolshoi_0_5_l",
+      "name": "Карамельный Капучино большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 330.0,
+      "protein_g": 25.0,
+      "fat_g": 10.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543534",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17739317/07dc7bfe7e699a68bb4b14b7ea0e9417-400x400.jpeg",
+      "aliases": [
+        "БК Карамельный Капучино большой 0,5 л",
+        "Бургер Кинг Карамельный Капучино большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kapuchino_vishnya_v_shokolade_bolshoy_0_5_l",
+      "name": "Капучино Вишня в шоколаде большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 290.0,
+      "protein_g": 20.0,
+      "fat_g": 10.0,
+      "carbs_g": 30.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038884077",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/21114097/dd7f9c6363fcd10e6237c0314a275af8-400x400.jpeg",
+      "aliases": [
+        "БК Капучино Вишня в шоколаде большой 0,5 л",
+        "Бургер Кинг Капучино Вишня в шоколаде большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "latte_bolshoi_0_5_l",
+      "name": "Латте большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 190.0,
+      "protein_g": 10.0,
+      "fat_g": 10.0,
+      "carbs_g": 15.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543489",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17717759/1cb87faab66b33b49d7ce811cedd9c2e-400x400.jpeg",
+      "aliases": [
+        "БК Латте большой 0,5 л",
+        "Бургер Кинг Латте большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "karamelnyi_kapuchino_standartnyi",
+      "name": "Карамельный Капучино стандартный 0,3 л",
+      "grams": 300.0,
+      "kcal": 219.0,
+      "protein_g": 15.0,
+      "fat_g": 6.0,
+      "carbs_g": 27.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543529",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17717759/ba29954da598a45c26955f9f283c159a-400x400.jpeg",
+      "aliases": [
+        "БК Карамельный Капучино стандартный 0,3 л",
+        "Бургер Кинг Карамельный Капучино стандартный 0,3 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "latte_standartnyi",
+      "name": "Латте стандартный 0,3 л",
+      "grams": 300.0,
+      "kcal": 111.0,
+      "protein_g": 6.0,
+      "fat_g": 6.0,
+      "carbs_g": 9.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543459",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16489290/6c130b76c19c3f2aff2f6240720c735b-400x400.jpeg",
+      "aliases": [
+        "БК Латте стандартный 0,3 л",
+        "Бургер Кинг Латте стандартный 0,3 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kapuchino_standartnyi",
+      "name": "Капучино стандартный 0,3 л",
+      "grams": 300.0,
+      "kcal": 96.0,
+      "protein_g": 6.0,
+      "fat_g": 6.0,
+      "carbs_g": 9.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543464",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17772865/85b28efa4818af61893ebbc900161b16-400x400.jpeg",
+      "aliases": [
+        "БК Капучино стандартный 0,3 л",
+        "Бургер Кинг Капучино стандартный 0,3 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "latte_ayrish_krim_bolshoy_0_5_l",
+      "name": "Латте Айриш Крим большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 310.0,
+      "protein_g": 20.0,
+      "fat_g": 10.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3024750141",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17793655/1547a2fbbcfc27723ee09b19a513398d-400x400.jpeg",
+      "aliases": [
+        "БК Латте Айриш Крим большой 0,5 л",
+        "Бургер Кинг Латте Айриш Крим большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "karamelnyi_latte_standartnyi",
+      "name": "Карамельный Латте стандартный 0,3 л",
+      "grams": 300.0,
+      "kcal": 231.0,
+      "protein_g": 15.0,
+      "fat_g": 9.0,
+      "carbs_g": 27.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543499",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/18014981/667236239fd2abbc8e491fd187e8578b-400x400.jpeg",
+      "aliases": [
+        "БК Карамельный Латте стандартный 0,3 л",
+        "Бургер Кинг Карамельный Латте стандартный 0,3 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "latte_vishnya_v_shokolade_bolshoy_0_5_l",
+      "name": "Латте Вишня в шоколаде большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 300.0,
+      "protein_g": 20.0,
+      "fat_g": 10.0,
+      "carbs_g": 30.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3038884078",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/21084615/d808cdadc88f1d7a563dedc8b5eabcf0-400x400.jpeg",
+      "aliases": [
+        "БК Латте Вишня в шоколаде большой 0,5 л",
+        "Бургер Кинг Латте Вишня в шоколаде большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kapuchino_ayrish_krim_bolshoy_0_5_l",
+      "name": "Капучино Айриш Крим большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 310.0,
+      "protein_g": 20.0,
+      "fat_g": 10.0,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3024750143",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/16066946/9c894700d56988b938c28d15e2d03bb3-400x400.jpeg",
+      "aliases": [
+        "БК Капучино Айриш Крим большой 0,5 л",
+        "Бургер Кинг Капучино Айриш Крим большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "kapuchino_bolshoi_0_5_l",
+      "name": "Капучино большой 0,5 л",
+      "grams": 500.0,
+      "kcal": 180.0,
+      "protein_g": 10.0,
+      "fat_g": 10.0,
+      "carbs_g": 15.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543469",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/17772865/5ff9857ebeae4890659db2a7487ae1aa-400x400.jpeg",
+      "aliases": [
+        "БК Капучино большой 0,5 л",
+        "Бургер Кинг Капучино большой 0,5 л"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ais_tvist_klubnichnyi_m_m_s",
+      "name": "M&M’S Айс Твист Клубничный",
+      "grams": 160.0,
+      "kcal": 310.4,
+      "protein_g": 4.8,
+      "fat_g": 9.6,
+      "carbs_g": 51.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3021207913",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20260744/8182a3bdd02e9c916b18885306247a8f-400x400.jpeg",
+      "aliases": [
+        "БК M&M’S Айс Твист Клубничный",
+        "Бургер Кинг M&M’S Айс Твист Клубничный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ais_tvist_shokoladnyi_m_m_s",
+      "name": "M&M’S Айс Твист Шоколадный",
+      "grams": 160.0,
+      "kcal": 320.0,
+      "protein_g": 4.8,
+      "fat_g": 9.6,
+      "carbs_g": 52.8,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3021207914",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/20194341/6b053aaeaaa260b2eb2f50107343f991-400x400.jpeg",
+      "aliases": [
+        "БК M&M’S Айс Твист Шоколадный",
+        "Бургер Кинг M&M’S Айс Твист Шоколадный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "goryachii_brauni",
+      "name": "Горячий Брауни",
+      "grams": 80.0,
+      "kcal": 370.4,
+      "protein_g": 4.0,
+      "fat_g": 26.4,
+      "carbs_g": 31.2,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543574",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3521394/d9732a5fb523cd0a2958b10a89e939bb-400x400.jpeg",
+      "aliases": [
+        "БК Горячий Брауни",
+        "Бургер Кинг Горячий Брауни"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "pirozhok_s_vishnei",
+      "name": "Пирожок с вишней",
+      "grams": 73.0,
+      "kcal": 234.3,
+      "protein_g": 4.4,
+      "fat_g": 5.1,
+      "carbs_g": 43.1,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=2023543579",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/3521394/b99e3130e70dfcd3693b5442ec189a2a-400x400.jpeg",
+      "aliases": [
+        "БК Пирожок с вишней",
+        "Бургер Кинг Пирожок с вишней"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "salat_tsezar",
+      "name": "Салат Цезарь",
+      "grams": 187.0,
+      "kcal": 493.7,
+      "protein_g": 20.6,
+      "fat_g": 39.3,
+      "carbs_g": 13.1,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz#item=3011279861",
+      "source_confidence": "restaurant_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/1381342/685ddfd390dbaac936136de77a644782-400x400.jpeg",
+      "aliases": [
+        "БК Салат Цезарь",
+        "Бургер Кинг Салат Цезарь"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_malyi",
+      "name": "Кинг Фри малый",
+      "grams": 67.0,
+      "kcal": 134.0,
+      "protein_g": 2.7,
+      "fat_g": 4.7,
+      "carbs_g": 21.4,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Кинг Фри малый"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "king_fri_maxx",
+      "name": "Кинг Фри MAXX",
+      "grams": 250.0,
+      "kcal": 500.0,
+      "protein_g": 10.0,
+      "fat_g": 17.5,
+      "carbs_g": 80.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Кинг Фри MAXX",
+        "кинг фри xl",
+        "фри xl",
+        "фри макс",
+        "кинг фри макс",
+        "картошка фри maxx"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_king_fri_malyi",
+      "name": "Острый Кинг Фри малый",
+      "grams": 74,
+      "kcal": 154.0,
+      "protein_g": 3.7,
+      "fat_g": 5.0,
+      "carbs_g": 24.5,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Острый Кинг Фри малый"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_king_fri_standartnyi",
+      "name": "Острый Кинг Фри стандартный",
+      "grams": 107,
+      "kcal": 220.0,
+      "protein_g": 5.0,
+      "fat_g": 7.3,
+      "carbs_g": 35.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Острый Кинг Фри стандартный"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_king_fri_bolshoi",
+      "name": "Острый Кинг Фри большой",
+      "grams": 161,
+      "kcal": 328.0,
+      "protein_g": 7.1,
+      "fat_g": 11.1,
+      "carbs_g": 52.3,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Острый Кинг Фри большой"
+      ]
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_king_fri_maxx",
+      "name": "Острый Кинг Фри MAXX",
+      "grams": 257,
+      "kcal": 520.0,
+      "protein_g": 11.0,
+      "fat_g": 17.8,
+      "carbs_g": 83.0,
+      "source_name": "Бургер Кинг: меню ресторана в Яндекс Еде",
+      "source_url": "https://eda.yandex.ru/api/v2/menu/retrieve/burger_king_argpz",
+      "source_confidence": "derived_from_partner_menu",
+      "image_url": "https://eda.yandex.ru/images/15413107/19d70bd7f3465342b1dc1d8685ad360a-400x400.jpeg",
+      "aliases": [
+        "БК Острый Кинг Фри MAXX"
+      ]
+    }
+  ],
+  "renames": [
+    {
+      "prefix": "bk",
+      "key": "king_fri_bolshoi",
+      "name": "Кинг Фри большой",
+      "remove_aliases": [
+        "кинг фри xl",
+        "фри xl"
+      ]
+    }
+  ],
+  "archives": [
+    {
+      "prefix": "bk",
+      "key": "a4_burger",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_po_italyanski",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_po_italyanski_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_shef",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "angus_shef_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "atomik_vopper",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "atomik_vopper_s_kuritsei",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "vopper_po_italyanski",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "vopper_po_italyanski_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "grand_chiz",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "grand_chiz_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "grand_chiz_fresh",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "grand_chiz_fresh_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_po_italyanski",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_po_italyanski_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_shef",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_angus_shef_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_vopper_po_italyanski",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_vopper_po_italyanski_dvoinoi",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_grand_chiz",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_grand_chiz_fresh",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_dvoinoi_chizburger",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_pesto_chiken",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_pesto_chiken_roll",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_pesto_shrimp_roll",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "pesto_chiken",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "pesto_chiken_roll",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "pesto_shrimp_roll",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_fish_burger",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_fish_roll",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "tsezar_king",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_tsezar_king",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "chiken_tar_tar",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_chiken_tar_tar",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "shavopper",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "shavopper_s_kuritsei",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "roboks_burger",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "roboks_chikenburger",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "king_gou_derevenskii",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "royal_fri",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostryi_royal_fri",
+      "reason": "not on the current Burger King menu"
+    },
+    {
+      "prefix": "bk",
+      "key": "ostraya_shtuka",
+      "reason": "not on the current Burger King menu"
+    }
+  ]
+}
