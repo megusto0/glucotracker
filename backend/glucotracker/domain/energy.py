@@ -63,9 +63,10 @@ def keypoint_kcal_per_min(
     age_years: int,
     sex: str,
 ) -> float:
+    """Keytel et al. 2005, the model without VO2max, in kcal per minute."""
     if sex == "male":
         return (age_years * 0.2017 + weight_kg * 0.1988 + hr * 0.6309 - 55.0969) / 4.184
-    return (age_years * 0.2017 + weight_kg * 0.1293 + hr * 0.6309 - 20.4022) / 4.184
+    return (age_years * 0.074 - weight_kg * 0.1263 + hr * 0.4472 - 20.4022) / 4.184
 
 
 def steps_kcal(steps: int, weight_kg: float) -> float:
@@ -141,7 +142,19 @@ def tdee_from_profile(
     profile: UserProfile,
     activity: DailyActivity | None = None,
     now: datetime | None = None,
+    *,
+    effort_kcal: float = 0.0,
+    effort_steps: int = 0,
 ) -> float | None:
+    """Return the day's energy expenditure, from the best evidence there is.
+
+    ``effort_kcal`` is what the day's effort spans cost above resting, priced
+    from heart rate; ``effort_steps`` are the steps taken inside them. A real
+    device total or active figure already contains the effort and wins. When
+    there is none, the effort is added to a sedentary base and only the steps
+    outside it are priced as walking — pedalling counted as steps is not
+    counted twice.
+    """
     if (
         profile.weight_kg is None
         or profile.height_cm is None
@@ -158,19 +171,36 @@ def tdee_from_profile(
     )
 
     rejected_total_kcal = False
-    if activity and activity.kcal_burned > 0 and activity.source in TOTAL_KCAL_ACTIVITY_SOURCES:
+    if (
+        activity
+        and activity.kcal_burned > 0
+        and activity.source in TOTAL_KCAL_ACTIVITY_SOURCES
+    ):
         total_kcal = _current_day_projected_total_kcal(activity, base_bmr, now)
         if total_kcal >= base_bmr * MIN_TOTAL_KCAL_BMR_RATIO:
             return round(total_kcal, 1)
         rejected_total_kcal = True
 
-    if activity and activity.kcal_burned > 0 and activity.source not in TOTAL_KCAL_ACTIVITY_SOURCES:
+    if (
+        activity
+        and activity.kcal_burned > 0
+        and activity.source not in TOTAL_KCAL_ACTIVITY_SOURCES
+    ):
         return round(base_bmr + activity.kcal_burned, 1)
 
+    sedentary_tdee = base_bmr * ACTIVITY_MULTIPLIERS["sedentary"]
     if rejected_total_kcal and activity:
-        observed_active_kcal = _observed_activity_kcal(activity, profile)
-        sedentary_tdee = base_bmr * ACTIVITY_MULTIPLIERS["sedentary"]
-        return round(sedentary_tdee + observed_active_kcal, 1)
+        observed_active_kcal = _observed_activity_kcal(
+            activity,
+            profile,
+            walking_steps=max(0, activity.steps - effort_steps),
+        )
+        return round(sedentary_tdee + observed_active_kcal + effort_kcal, 1)
+
+    if effort_kcal > 0:
+        walking_steps = max(0, (activity.steps if activity else 0) - effort_steps)
+        walking_kcal = steps_kcal(walking_steps, profile.weight_kg)
+        return round(sedentary_tdee + walking_kcal + effort_kcal, 1)
 
     if activity and activity.steps > 0:
         multiplier = activity_multiplier_from_steps(activity.steps)
@@ -183,11 +213,14 @@ def tdee_from_profile(
 def _observed_activity_kcal(
     activity: DailyActivity,
     profile: UserProfile,
+    *,
+    walking_steps: int | None = None,
 ) -> float:
     if profile.weight_kg is None:
         return 0.0
 
-    observed = steps_kcal(activity.steps, profile.weight_kg) if activity.steps > 0 else 0.0
+    steps = activity.steps if walking_steps is None else walking_steps
+    observed = steps_kcal(steps, profile.weight_kg) if steps > 0 else 0.0
     observed = max(observed, activity.kcal_steps or 0.0)
     observed = max(observed, activity.kcal_hr_active or 0.0)
     observed = max(observed, (activity.kcal_no_move_hr or 0.0) * NO_MOVE_FACTOR)
@@ -214,8 +247,16 @@ def kcal_balance(
     kcal_in: float,
     profile: UserProfile,
     activity: DailyActivity | None = None,
+    *,
+    effort_kcal: float = 0.0,
+    effort_steps: int = 0,
 ) -> float | None:
-    tdee = tdee_from_profile(profile, activity)
+    tdee = tdee_from_profile(
+        profile,
+        activity,
+        effort_kcal=effort_kcal,
+        effort_steps=effort_steps,
+    )
     if tdee is None:
         return None
     return round(kcal_in - tdee, 1)

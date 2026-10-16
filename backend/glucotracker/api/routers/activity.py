@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from glucotracker.api.dependencies import CurrentUserDep, SessionDep
+from glucotracker.application.activity_energy import ActivityEnergyService
 from glucotracker.config import get_settings
 from glucotracker.domain.energy import kcal_balance, tdee_from_profile
 from glucotracker.infra.db.models import DailyActivity, UserProfile
@@ -243,6 +244,19 @@ def _format_optional(value: float | None, suffix: str) -> str:
     return f"{_format_number(value)}{suffix}"
 
 
+def _effort(
+    session: Session,
+    user_id,
+    day: date_type,
+    profile: UserProfile,
+) -> dict:
+    """Heart-rate-priced effort for the day, as TDEE keyword arguments."""
+    effort = ActivityEnergyService(session, user_id).for_day(day, profile)
+    if effort is None:
+        return {}
+    return {"effort_kcal": effort.kcal, "effort_steps": effort.steps}
+
+
 def _format_number(value: float) -> str:
     if float(value).is_integer():
         return str(int(value))
@@ -279,8 +293,9 @@ def get_kcal_balance(
     kcal_burned = activity.kcal_burned if activity else 0
     steps = activity.steps if activity else 0
     activity_source = activity.source if activity else None
-    tdee = tdee_from_profile(profile, activity)
-    net = kcal_balance(kcal_in, profile, activity)
+    effort = _effort(session, current_user.id, day, profile)
+    tdee = tdee_from_profile(profile, activity, **effort)
+    net = kcal_balance(kcal_in, profile, activity, **effort)
 
     return {
         "date": day,
@@ -330,8 +345,9 @@ def get_kcal_balance_range(
         kcal_in = total.kcal if total else 0
         steps = activity.steps if activity else 0
         activity_source = activity.source if activity else None
-        tdee = tdee_from_profile(profile, activity)
-        net = kcal_balance(kcal_in, profile, activity)
+        effort = _effort(session, current_user.id, current, profile)
+        tdee = tdee_from_profile(profile, activity, **effort)
+        net = kcal_balance(kcal_in, profile, activity, **effort)
 
         days.append(
             {

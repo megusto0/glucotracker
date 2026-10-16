@@ -79,6 +79,12 @@ MIN_ACTIVITY_SAMPLES = 3
 MIN_ACTIVITY_ABOVE_SHARE = 0.6
 # Above this an inferred effort is as good as a recorded one for reading a day.
 CONFIDENT_ACTIVITY = timedelta(minutes=20)
+# One outing with stops — lights, a shop, a puncture, a bench — is one outing.
+# Two efforts join when the pause between them is short and the heart never
+# settled back: still well above resting, the body was on the move, waiting.
+# Back on the sofa it drops to near resting, and that pause splits them.
+MAX_ACTIVITY_PAUSE = timedelta(minutes=45)
+PAUSE_ABOVE_RESTING_BPM = 15.0
 
 
 @dataclass(frozen=True)
@@ -252,11 +258,33 @@ class BodyStateService:
             ACTIVITY_RUN_GAP,
             MIN_ACTIVITY,
         )
-        return [
+        sustained = [
             (start, end)
             for start, end in runs
             if _is_sustained(samples, start, end, threshold)
         ]
+        return _join_pauses(
+            sustained,
+            samples,
+            resting + PAUSE_ABOVE_RESTING_BPM,
+        )
+
+
+def _join_pauses(
+    efforts: list[tuple[datetime, datetime]],
+    samples: list[tuple[datetime, float]],
+    pause_floor: float,
+) -> list[tuple[datetime, datetime]]:
+    """Fold efforts separated by a stop that never cooled down into one."""
+    joined: list[tuple[datetime, datetime]] = []
+    for start, end in efforts:
+        if joined and start - joined[-1][1] <= MAX_ACTIVITY_PAUSE:
+            pause = sorted(_window(samples, joined[-1][1], start)[1:-1])
+            if not pause or pause[len(pause) // 2] >= pause_floor:
+                joined[-1] = (joined[-1][0], end)
+                continue
+        joined.append((start, end))
+    return joined
 
 
 def _is_sustained(

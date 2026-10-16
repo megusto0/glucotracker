@@ -213,6 +213,65 @@ def test_a_sustained_climb_is_still_reported_as_effort(
     assert activity[0]["total_minutes"] == 40
 
 
+def test_one_ride_with_warm_stops_is_one_activity(api_client: TestClient) -> None:
+    """Stops on a ride keep the heart well above resting; it is one outing."""
+    owner_id, session_factory = _owner(api_client)
+    legs = [
+        (DAY + timedelta(hours=18), DAY + timedelta(hours=19)),
+        (DAY + timedelta(hours=19, minutes=25), DAY + timedelta(hours=20, minutes=30)),
+        (DAY + timedelta(hours=21), DAY + timedelta(hours=21, minutes=50)),
+    ]
+
+    def bpm(at: datetime) -> float:
+        if any(start <= at <= end for start, end in legs):
+            return 132
+        if legs[0][0] < at < legs[-1][1]:
+            return 92
+        return 60
+
+    with session_factory() as session:
+        _heart_rate(
+            session,
+            owner_id,
+            start=DAY - timedelta(hours=6),
+            end=DAY + timedelta(hours=23),
+            bpm_at=bpm,
+            step=timedelta(minutes=2),
+        )
+        session.commit()
+
+    states = _states(api_client, hours=23)
+    activity = [state for state in states if state["kind"] == "activity"]
+    assert len(activity) == 1
+    assert activity[0]["start_at"].endswith("18:00:00")
+    assert activity[0]["end_at"].endswith("21:50:00")
+
+
+def test_efforts_split_by_a_rest_at_resting_rate_stay_apart(
+    api_client: TestClient,
+) -> None:
+    owner_id, session_factory = _owner(api_client)
+    efforts = (
+        (DAY + timedelta(hours=10), DAY + timedelta(hours=10, minutes=30)),
+        (DAY + timedelta(hours=11), DAY + timedelta(hours=11, minutes=30)),
+    )
+    with session_factory() as session:
+        _heart_rate(
+            session,
+            owner_id,
+            start=DAY - timedelta(hours=6),
+            end=DAY + timedelta(hours=23),
+            bpm_at=lambda at: (
+                132 if any(start <= at <= end for start, end in efforts) else 60
+            ),
+            step=timedelta(minutes=2),
+        )
+        session.commit()
+
+    states = _states(api_client, hours=23)
+    assert len([state for state in states if state["kind"] == "activity"]) == 2
+
+
 def test_recorded_sleep_reads_payload_times_over_shifted_columns(
     api_client: TestClient,
 ) -> None:
