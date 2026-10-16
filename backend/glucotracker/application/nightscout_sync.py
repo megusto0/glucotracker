@@ -599,10 +599,32 @@ class NightscoutSyncService:
                 detail="Nightscout response did not include treatment id.",
             )
 
-        row = existing or NightscoutInsulinEvent(
-            owner_id=self.user_id,
-            source_key=source_key,
+        # The connection was released for the Nightscout call, and the
+        # background import can land in that gap: it fetches the treatment just
+        # created and caches it as an imported "insulin:<id>" row before this
+        # one exists. Measured 2026-10-14: 59 doses stored twice this way, the
+        # copy read-only, surviving a delete of the original and counted again
+        # in the diary. Adopt that copy instead of writing a second row.
+        echo = self.session.scalar(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.owner_id == self.user_id,
+                NightscoutInsulinEvent.nightscout_id == remote_id,
+                ~NightscoutInsulinEvent.source_key.startswith("manual_insulin:"),
+            )
         )
+        if echo is not None and existing is not None:
+            self.session.delete(echo)
+            self.session.flush()
+            echo = None
+        row = (
+            existing
+            or echo
+            or NightscoutInsulinEvent(
+                owner_id=self.user_id,
+                source_key=source_key,
+            )
+        )
+        row.source_key = source_key
         row.nightscout_id = remote_id
         row.timestamp = recorded_at
         row.insulin_units = payload.insulin_units
@@ -758,6 +780,19 @@ class NightscoutSyncService:
         nightscout = self._require_client()
         remote_id = row.nightscout_id
         assert remote_id is not None
+        # The same treatment may also be cached as an imported copy (see
+        # create_insulin_entry); it goes with the original, or the dose would
+        # outlive its own deletion in the diary and in insulin on board.
+        copies = list(
+            self.session.scalars(
+                select(NightscoutInsulinEvent).where(
+                    NightscoutInsulinEvent.owner_id == self.user_id,
+                    NightscoutInsulinEvent.nightscout_id == remote_id,
+                    NightscoutInsulinEvent.id != row.id,
+                    ~NightscoutInsulinEvent.source_key.startswith("manual_insulin:"),
+                )
+            )
+        )
         self._release_connection()
         try:
             await nightscout.delete_treatment(remote_id)
@@ -776,6 +811,8 @@ class NightscoutSyncService:
                 )
             )
         self.session.delete(row)
+        for copy in copies:
+            self.session.delete(copy)
         self.session.commit()
         return NightscoutInsulinDeleteResponse(
             id=event_id,

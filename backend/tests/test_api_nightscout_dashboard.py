@@ -1361,6 +1361,102 @@ def test_delete_nightscout_insulin_deletes_remote_then_owned_cache(
         assert session.get(NightscoutInsulinEvent, UUID(event_id)) is None
 
 
+def _imported_copy(session, owner_id, nightscout_id: str, units: float, at: datetime):
+    """The row a background import writes for a treatment it fetched."""
+    session.add(
+        NightscoutInsulinEvent(
+            owner_id=owner_id,
+            source_key=f"insulin:{nightscout_id}",
+            nightscout_id=nightscout_id,
+            timestamp=at,
+            insulin_units=units,
+            event_type="Insulin",
+            entered_by="glucotracker",
+            raw_json={"_id": nightscout_id},
+        )
+    )
+
+
+def test_delete_also_removes_an_imported_copy_of_the_same_treatment(
+    api_client: TestClient,
+) -> None:
+    """Measured 2026-10-14: 59 doses existed twice — the manual row and an
+    imported copy with the same Nightscout id. Deleting the manual row left
+    the copy, so the dose stayed in the diary after its own deletion."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-echo-delete"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 4.0,
+            "recorded_at": "2026-04-28T07:05:39Z",
+            "idempotency_key": "manual-insulin-echo-delete-key",
+        },
+    )
+    event_id = created.json()["id"]
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        _imported_copy(
+            session,
+            owner_id,
+            "manual-insulin-echo-delete",
+            4.0,
+            datetime(2026, 4, 28, 7, 5, 39),
+        )
+        session.commit()
+
+    response = api_client.delete(f"/nightscout/insulin/{event_id}")
+
+    assert response.status_code == 200
+    with session_factory() as session:
+        remaining = session.scalars(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.nightscout_id == "manual-insulin-echo-delete"
+            )
+        ).all()
+        assert remaining == []
+
+
+def test_create_adopts_a_copy_the_import_wrote_first(
+    api_client: TestClient,
+) -> None:
+    """The import can cache the new treatment before the manual row exists."""
+    fake = FakeNightscoutClient(post_response={"_id": "manual-insulin-race"})
+    app.dependency_overrides[get_nightscout_client] = lambda: fake
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    with session_factory() as session:
+        _imported_copy(
+            session,
+            owner_id,
+            "manual-insulin-race",
+            2.0,
+            datetime(2026, 4, 28, 10, 0),
+        )
+        session.commit()
+
+    created = api_client.post(
+        "/nightscout/insulin",
+        json={
+            "insulin_units": 2.0,
+            "recorded_at": "2026-04-28T10:00:00Z",
+            "idempotency_key": "manual-insulin-race-key",
+        },
+    )
+
+    assert created.status_code == 200
+    assert created.json()["editable"] is True
+    with session_factory() as session:
+        rows = session.scalars(
+            select(NightscoutInsulinEvent).where(
+                NightscoutInsulinEvent.nightscout_id == "manual-insulin-race"
+            )
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].source_key.startswith("manual_insulin:")
+
+
 def test_import_reconciles_manual_insulin_by_nightscout_id(
     api_client: TestClient,
 ) -> None:
