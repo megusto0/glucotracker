@@ -1,8 +1,9 @@
-﻿package com.local.glucotracker.ui.feature.glucose
+package com.local.glucotracker.ui.feature.glucose
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,58 +17,48 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.glucotracker.R
-import com.local.glucotracker.domain.model.GlucoseReading
+import com.local.glucotracker.domain.model.ActiveGlucoseContext
+import com.local.glucotracker.domain.model.GlucoseTirDay
 import com.local.glucotracker.domain.model.SensorSession
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.design.primitives.GTHintBox
 import com.local.glucotracker.ui.design.primitives.GTIconButton
 import com.local.glucotracker.ui.design.primitives.GTKicker
 import com.local.glucotracker.ui.design.primitives.GTOutlineButton
-import com.local.glucotracker.ui.design.primitives.GTSegmented
+import com.local.glucotracker.ui.format.formatClockDuration
+import com.local.glucotracker.ui.format.formatGrams
+import com.local.glucotracker.ui.format.formatInsulinUnits
 import com.local.glucotracker.ui.format.formatMmol
 import com.local.glucotracker.ui.format.formatPercent
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
+import com.local.glucotracker.ui.format.formatSignedMmol
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -86,7 +77,9 @@ fun GlucoseRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     GlucoseScreen(
         state = state,
-        onSelectWindow = viewModel::selectWindow,
+        onSelectWindow = viewModel::selectFocusWindow,
+        onMoveFocus = viewModel::moveFocusTo,
+        onFollowLive = viewModel::followLive,
         onFingerstickSubmit = viewModel::enqueueFingerstick,
         onOpenSensors = onOpenSensors,
     )
@@ -94,82 +87,53 @@ fun GlucoseRoute(
 
 private const val GlucoseRefreshIntervalMillis = 5 * 60 * 1_000L
 
+/** The focus chart fills whatever the screen leaves; it never shrinks below this. */
+private val FocusChartMinHeight = 240.dp
+
 @Composable
 fun GlucoseScreen(
     state: GlucoseScreenState,
-    onSelectWindow: (GlucoseWindow) -> Unit,
+    onSelectWindow: (FocusWindow) -> Unit,
+    onMoveFocus: (Instant) -> Unit,
+    onFollowLive: () -> Unit,
     onFingerstickSubmit: (Double) -> Unit,
     onOpenSensors: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var sheetVisible by remember { mutableStateOf(false) }
-    val selectedState = state.windows.firstOrNull { it.window == state.selectedWindow }
-        ?: state.windows.first()
-    val pagerState = rememberPagerState(
-        initialPage = state.windows.indexOfFirst { it.window == state.selectedWindow }.coerceAtLeast(0),
-        pageCount = { state.windows.size },
-    )
-    val scope = rememberCoroutineScope()
-    val windowOptions = state.windows.map { windowState ->
-        windowState.window to stringResource(windowState.window.labelRes())
-    }
-
-    LaunchedEffect(state.selectedWindow) {
-        val index = state.windows.indexOfFirst { it.window == state.selectedWindow }
-        if (index >= 0 && pagerState.currentPage != index) {
-            pagerState.scrollToPage(index)
-        }
-    }
-    LaunchedEffect(pagerState, state.windows) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            state.windows.getOrNull(page)?.window?.let(onSelectWindow)
-        }
-    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(GT.colors.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        GlucoseHeader(
-            state = selectedState,
-            onSheetOpen = { sheetVisible = true },
+        GlucoseHeader(state = state, onSheetOpen = { sheetVisible = true })
+        FocusControls(
+            state = state,
+            onSelectWindow = onSelectWindow,
+            onFollowLive = onFollowLive,
         )
-        GTSegmented(
-            options = windowOptions.map { it.second },
-            selected = windowOptions.firstOrNull { it.first == state.selectedWindow }?.second.orEmpty(),
-            onSelect = { selected ->
-                windowOptions
-                    .firstOrNull { it.second == selected }
-                    ?.let { (window, _) ->
-                        onSelectWindow(window)
-                        val index = state.windows.indexOfFirst { it.window == window }
-                        if (index >= 0) {
-                            scope.launch {
-                                pagerState.scrollToPage(index)
-                            }
-                        }
-                    }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 18.dp),
-        )
-        HorizontalPager(
-            state = pagerState,
-            userScrollEnabled = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 520.dp)
-                .padding(top = 14.dp),
-        ) { page ->
-            GlucoseWindowPage(
-                state = state.windows[page],
-                dayparts = state.dayparts,
+        if (state.readings.isEmpty() && state.meals.isEmpty() && state.insulin.isEmpty()) {
+            GTHintBox(text = stringResource(R.string.glucose_empty, stringResource(R.string.glucose_window_24h)))
+        } else {
+            GlucoseFocusChart(
+                state = state,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .heightIn(min = FocusChartMinHeight),
+            )
+            GlucoseOverviewChart(
+                state = state,
+                onMoveFocus = onMoveFocus,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp),
             )
         }
+        state.tirToday?.let { TirTodayLine(it) }
     }
 
     if (sheetVisible) {
@@ -188,337 +152,235 @@ fun GlucoseScreen(
     }
 }
 
+/**
+ * Two balanced columns: the value with its trend and age on the left, the
+ * server's IOB/COB right-aligned on the right. Title and the fingerstick
+ * button share the line above.
+ */
 @Composable
 private fun GlucoseHeader(
-    state: GlucoseWindowState,
+    state: GlucoseScreenState,
     onSheetOpen: () -> Unit,
 ) {
     val latest = state.latest
-    val stale = state.latestAgeMinutes != null && state.latestAgeMinutes > 15
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             GTKicker(text = stringResource(R.string.glucose_kicker))
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.Bottom,
+            Text(
+                text = stringResource(R.string.glucose_title_age, latestKicker(state)),
+                modifier = Modifier.weight(1f),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                maxLines = 1,
+            )
+            val sheetDescription = stringResource(R.string.glucose_sheet_content_description)
+            GTIconButton(
+                onClick = onSheetOpen,
+                modifier = Modifier.semantics { contentDescription = sheetDescription },
             ) {
+                FingerstickGlyph()
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = latest?.displayValueMmolL?.let(::formatMmol)
                         ?: stringResource(R.string.glucose_value_empty),
-                    color = if (stale) GT.colors.ink2 else GT.colors.ink,
-                    style = GT.type.monoNumber.copy(fontSize = 44.sp, lineHeight = 48.sp),
+                    color = if (state.isStale) GT.colors.ink2 else GT.colors.ink,
+                    style = GT.type.monoNumber.copy(fontSize = 48.sp, lineHeight = 52.sp),
                     maxLines = 1,
                 )
-                if (!stale && state.delta15Mmol != null) {
-                    Text(
-                        text = formatDelta(state.delta15Mmol),
-                        modifier = Modifier.padding(start = 10.dp, bottom = 7.dp),
-                        color = GT.colors.muted,
-                        style = GT.type.monoLabel,
-                        maxLines = 1,
-                    )
-                }
+                Text(
+                    text = trendLine(state),
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = GT.colors.ink2,
+                    style = GT.type.monoLabel.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                    maxLines = 1,
+                )
             }
-            Text(
-                text = latestKicker(state),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel,
-                maxLines = 1,
-            )
-        }
-        val sheetDescription = stringResource(R.string.glucose_sheet_content_description)
-        GTIconButton(
-            onClick = onSheetOpen,
-            modifier = Modifier.semantics { contentDescription = sheetDescription },
-        ) {
-            FingerstickGlyph()
+            state.active?.let { active ->
+                ActiveContext(active = active, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
 
+/** «−0,6 за 15 мин»; nothing to say when the reading is stale or alone. */
 @Composable
-private fun latestKicker(state: GlucoseWindowState): String =
+private fun trendLine(state: GlucoseScreenState): String {
+    val delta = state.delta15Mmol?.takeIf { !state.isStale } ?: return stringResource(R.string.glucose_value_empty)
+    return stringResource(R.string.glucose_delta_15, formatDelta(delta))
+}
+
+@Composable
+private fun latestKicker(state: GlucoseScreenState): String =
     when {
         state.latest == null -> stringResource(R.string.glucose_sensor_empty)
-        state.latestAgeMinutes != null && state.latestAgeMinutes > 15 ->
-            stringResource(R.string.glucose_last_value, state.latest.readingAt.hourMinute())
+        state.isStale -> stringResource(R.string.glucose_last_value, state.latest.readingAt.hourMinute())
         else -> stringResource(R.string.glucose_minutes_ago, state.latestAgeMinutes ?: 0)
     }
 
+/** Nightscout's IOB/COB, as two right-aligned label · value · time-left lines. */
 @Composable
-private fun GlucoseWindowPage(
-    state: GlucoseWindowState,
-    dayparts: List<GlucoseDaypartUi>,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (state.readings.isEmpty()) {
-            GTHintBox(text = stringResource(R.string.glucose_empty, stringResource(state.window.labelRes())))
-        } else {
-            if (state.hasGap) {
-                Text(
-                    text = stringResource(R.string.glucose_gap, state.readings.last().readingAt.hourMinute()),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel,
-                )
-            }
-            GlucoseChart(
-                state = state,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-            )
-            TirStrip(state = state)
-            DaypartGrid(dayparts = dayparts)
-        }
-    }
-}
-
-@Composable
-private fun GlucoseChart(
-    state: GlucoseWindowState,
-    modifier: Modifier = Modifier,
-) {
-    val chartPoints = remember(state.window, state.readings) {
-        state.readings.toChartPoints(state.window)
-    }
-    val description = chartDescription(state)
-    val surface = GT.colors.surface
-    val shape = GT.shapes.card
-    val hairline = GT.space.hairline
-    val hairlineColor = GT.colors.hairline
-    val good = GT.colors.good
-    val ink = GT.colors.ink
-    val ink2 = GT.colors.ink2
-    Canvas(
-        modifier = modifier
-            .background(surface, shape)
-            .border(hairline, hairlineColor, shape)
-            .semantics { contentDescription = description }
-            .padding(12.dp),
-    ) {
-        if (chartPoints.size < 2) return@Canvas
-        val minValue = min(3.5, chartPoints.minOf { it.valueMmol })
-        val maxValue = max(10.5, chartPoints.maxOf { it.valueMmol })
-        val range = (maxValue - minValue).takeIf { it > 0.01 } ?: 1.0
-        fun y(value: Double): Float =
-            size.height - ((value - minValue) / range * size.height).toFloat()
-        fun x(at: Instant): Float {
-            val total = state.to.toEpochMilliseconds() - state.from.toEpochMilliseconds()
-            val offset = at.toEpochMilliseconds() - state.from.toEpochMilliseconds()
-            return (offset.toDouble() / total.toDouble() * size.width).toFloat().coerceIn(0f, size.width)
-        }
-
-        val bandTop = y(10.0)
-        val bandBottom = y(4.0)
-        drawRect(
-            color = good.copy(alpha = 0.18f),
-            topLeft = Offset(0f, bandTop),
-            size = Size(size.width, bandBottom - bandTop),
-        )
-        val boundaryStroke = Stroke(
-            width = 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())),
-        )
-        drawLine(
-            color = good.copy(alpha = 0.58f),
-            start = Offset(0f, bandTop),
-            end = Offset(size.width, bandTop),
-            strokeWidth = boundaryStroke.width,
-            pathEffect = boundaryStroke.pathEffect,
-        )
-        drawLine(
-            color = good.copy(alpha = 0.58f),
-            start = Offset(0f, bandBottom),
-            end = Offset(size.width, bandBottom),
-            strokeWidth = boundaryStroke.width,
-            pathEffect = boundaryStroke.pathEffect,
-        )
-        val path = Path().apply {
-            chartPoints.forEachIndexed { index, point ->
-                val pointOffset = Offset(x(point.at), y(point.valueMmol))
-                if (index == 0) moveTo(pointOffset.x, pointOffset.y) else lineTo(pointOffset.x, pointOffset.y)
-            }
-        }
-        drawPath(
-            path = path,
-            color = ink2,
-            style = Stroke(
-                width = 2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
-        state.mealMarkers.forEach { marker ->
-            drawCircle(
-                color = ink,
-                radius = 2.4.dp.toPx(),
-                center = Offset(x(marker), 5.dp.toPx()),
-            )
-        }
-        state.latest?.let { latest ->
-            drawCircle(
-                color = surface,
-                radius = 4.5.dp.toPx(),
-                center = Offset(x(latest.readingAt), y(latest.displayValueMmolL)),
-            )
-            drawCircle(
-                color = ink,
-                radius = 4.5.dp.toPx(),
-                center = Offset(x(latest.readingAt), y(latest.displayValueMmolL)),
-                style = Stroke(width = 1.5.dp.toPx()),
-            )
-        }
-    }
-}
-
-@Composable
-private fun chartDescription(state: GlucoseWindowState): String {
-    if (state.readings.isEmpty()) return stringResource(R.string.glucose_chart_empty_description)
-    val minValue = state.readings.minOf { it.displayValueMmolL }
-    val maxValue = state.readings.maxOf { it.displayValueMmolL }
-    val trend = state.delta15Mmol?.let(::formatDelta) ?: stringResource(R.string.glucose_value_empty)
-    return stringResource(
-        R.string.glucose_chart_description,
-        formatMmol(minValue),
-        formatMmol(maxValue),
-        trend,
-    )
-}
-
-@Composable
-private fun TirStrip(state: GlucoseWindowState) {
-    val emptyValue = stringResource(R.string.glucose_value_empty)
+private fun ActiveContext(active: ActiveGlucoseContext, modifier: Modifier = Modifier) {
+    val units = stringResource(R.string.glucose_unit_insulin_suffix)
+    val grams = stringResource(R.string.glucose_unit_grams_suffix)
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .padding(14.dp),
+        modifier = modifier,
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GTKicker(text = stringResource(R.string.glucose_tir_title))
-            Spacer(Modifier.weight(1f))
-            if (state.tirFetchedAt != null && state.latestAgeMinutes != null && state.latestAgeMinutes > 15) {
-                Text(
-                    text = stringResource(R.string.glucose_tir_cached_at, state.tirFetchedAt.hourMinute()),
-                    color = GT.colors.muted,
-                    style = GT.type.monoLabel,
-                )
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .padding(top = 6.dp)
-                .background(GT.colors.hairline),
-        ) {
-            val knownTotal = state.tirSegments.sumOf { it.percent ?: 0 }
-            state.tirSegments.forEach { segment ->
-                val percent = segment.percent ?: 0
-                if (knownTotal > 0 && percent > 0) {
-                    Box(
-                        modifier = Modifier
-                            .weight(percent.toFloat())
-                            .height(10.dp)
-                            .background(segment.bucket.color()),
-                    )
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            state.tirSegments.forEach { segment ->
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = segment.bucket.label(),
-                        color = GT.colors.muted,
-                        style = GT.type.kicker,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = segment.percent?.let { formatPercent(it.toDouble()) } ?: emptyValue,
-                        color = GT.colors.ink,
-                        style = GT.type.monoLabel,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DaypartGrid(dayparts: List<GlucoseDaypartUi>) {
-    Column {
-        GTKicker(text = stringResource(R.string.glucose_dayparts_title))
-        dayparts.chunked(2).forEachIndexed { index, row ->
-            Row(
-                modifier = Modifier.padding(top = if (index == 0) 8.dp else 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { daypart ->
-                    DaypartCard(
-                        daypart = daypart,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DaypartCard(
-    daypart: GlucoseDaypartUi,
-    modifier: Modifier = Modifier,
-) {
-    val emptyValue = stringResource(R.string.glucose_value_empty)
-    val value = daypart.valueMmol?.let(::formatMmol) ?: emptyValue
-    val belowPercent = daypart.belowRangePercent
-    val description = if (daypart.valueMmol != null) {
-        stringResource(R.string.glucose_daypart_description, daypart.label, value)
-    } else {
-        "${daypart.label}, ${stringResource(R.string.glucose_sensor_empty)}"
-    }
-    Column(
-        modifier = modifier
-            .background(GT.colors.surface, GT.shapes.card)
-            .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
-            .semantics { contentDescription = description }
-            .padding(12.dp),
-    ) {
-        Text(
-            text = daypart.label,
-            color = GT.colors.muted,
-            style = GT.type.kicker,
-            maxLines = 1,
+        ActiveStat(
+            label = stringResource(R.string.glucose_iob_label),
+            value = formatInsulinUnits(active.iobUnits) + units,
+            minutesLeft = active.iobMinutesRemaining,
         )
+        ActiveStat(
+            label = stringResource(R.string.glucose_cob_label),
+            value = formatGrams(active.cobGrams) + grams,
+            minutesLeft = active.cobMinutesRemaining,
+        )
+    }
+}
+
+@Composable
+private fun ActiveStat(label: String, value: String, minutesLeft: Int?) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        GTKicker(text = label, modifier = Modifier.padding(bottom = 3.dp))
+        Spacer(Modifier.width(6.dp))
         Text(
-            text = if (daypart.valueMmol != null) {
-                stringResource(R.string.glucose_daypart_value, value)
-            } else {
-                value
-            },
-            modifier = Modifier.padding(top = 6.dp),
+            text = value,
             color = GT.colors.ink,
-            style = GT.type.monoLabel,
+            style = GT.type.monoLabel.copy(fontSize = 15.sp, lineHeight = 18.sp),
             maxLines = 1,
         )
-        if (belowPercent != null && belowPercent > 0) {
+        if (minutesLeft != null && minutesLeft > 0) {
             Text(
-                text = stringResource(R.string.glucose_daypart_below, belowPercent),
-                modifier = Modifier.padding(top = 4.dp),
-                color = GT.colors.warn,
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                text = stringResource(R.string.glucose_remaining, formatClockDuration(minutesLeft)),
+                modifier = Modifier.padding(start = 6.dp, bottom = 1.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
                 maxLines = 1,
             )
+        }
+    }
+}
+
+/** 3 ч / 6 ч chips, the window's time span, and a way back to now. */
+@Composable
+private fun FocusControls(
+    state: GlucoseScreenState,
+    onSelectWindow: (FocusWindow) -> Unit,
+    onFollowLive: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        FocusWindow.entries.forEach { window ->
+            WindowChip(
+                text = stringResource(window.labelRes()),
+                selected = window == state.focusWindow,
+                onClick = { onSelectWindow(window) },
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = stringResource(R.string.glucose_focus_range, state.focusFrom.hourMinute(), state.focusEnd.hourMinute()),
+            color = GT.colors.ink2,
+            style = GT.type.monoLabel.copy(fontSize = 12.sp),
+            maxLines = 1,
+        )
+        if (!state.isLive) {
+            WindowChip(
+                text = stringResource(R.string.glucose_follow_live),
+                selected = false,
+                onClick = onFollowLive,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WindowChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier = Modifier
+            .heightIn(min = GT.space.touch)
+            .clickable(role = Role.Tab, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .height(28.dp)
+                .background(if (selected) GT.colors.ink else GT.colors.surface, shape)
+                .border(GT.space.hairline, if (selected) GT.colors.ink else GT.colors.hairline2, shape)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                color = if (selected) GT.colors.surface2 else GT.colors.ink2,
+                style = GT.type.sansLabel,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** Today's time in range as the server measured it, in one line. */
+@Composable
+private fun TirTodayLine(tir: GlucoseTirDay) {
+    val low = (tir.veryLowPercent ?: 0.0) + (tir.lowPercent ?: 0.0)
+    val high = (tir.highPercent ?: 0.0) + (tir.veryHighPercent ?: 0.0)
+    val inRange = tir.inRangePercent
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = inRange?.let(::formatPercent) ?: stringResource(R.string.glucose_value_empty),
+            color = GT.colors.ink,
+            style = GT.type.monoNumber.copy(fontSize = 18.sp),
+            maxLines = 1,
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.glucose_tir_line, formatPercent(low), formatPercent(high)),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 11.sp),
+                maxLines = 1,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .height(5.dp)
+                    .background(GT.colors.hairline),
+            ) {
+                listOf(
+                    low to GT.colors.info,
+                    (inRange ?: 0.0) to GT.colors.good,
+                    high to GT.colors.warn,
+                ).forEach { (percent, color) ->
+                    if (percent > 0.0) {
+                        Box(
+                            modifier = Modifier
+                                .weight(percent.toFloat())
+                                .height(5.dp)
+                                .background(color),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -643,80 +505,16 @@ private fun FingerstickGlyph() {
     }
 }
 
-@Composable
-private fun GlucoseTirBucket.label(): String =
+private fun FocusWindow.labelRes(): Int =
     when (this) {
-        GlucoseTirBucket.VeryLow -> stringResource(R.string.glucose_tir_very_low)
-        GlucoseTirBucket.Low -> stringResource(R.string.glucose_tir_low)
-        GlucoseTirBucket.InRange -> stringResource(R.string.glucose_tir_range)
-        GlucoseTirBucket.High -> stringResource(R.string.glucose_tir_high)
-        GlucoseTirBucket.VeryHigh -> stringResource(R.string.glucose_tir_very_high)
+        FocusWindow.ThreeHours -> R.string.glucose_window_3h
+        FocusWindow.SixHours -> R.string.glucose_window_6h
     }
-
-@Composable
-private fun GlucoseTirBucket.color(): Color =
-    when (this) {
-        GlucoseTirBucket.VeryLow -> GT.colors.bad
-        GlucoseTirBucket.Low -> GT.colors.info
-        GlucoseTirBucket.InRange -> GT.colors.good
-        GlucoseTirBucket.High -> GT.colors.warn
-        GlucoseTirBucket.VeryHigh -> GT.colors.bad
-    }
-
-private fun GlucoseWindow.labelRes(): Int =
-    when (this) {
-        GlucoseWindow.ThreeHours -> R.string.glucose_window_3h
-        GlucoseWindow.SixHours -> R.string.glucose_window_6h
-        GlucoseWindow.Day -> R.string.glucose_window_24h
-        GlucoseWindow.Week -> R.string.glucose_window_7d
-    }
-
-private data class ChartPoint(
-    val at: Instant,
-    val valueMmol: Double,
-)
-
-private fun List<GlucoseReading>.toChartPoints(window: GlucoseWindow): List<ChartPoint> {
-    val bucketMinutes = when (window) {
-        GlucoseWindow.ThreeHours,
-        GlucoseWindow.SixHours,
-        -> 0
-        GlucoseWindow.Day -> 30
-        GlucoseWindow.Week -> 180
-    }
-    if (bucketMinutes == 0) {
-        return map { ChartPoint(at = it.readingAt, valueMmol = it.displayValueMmolL) }
-    }
-    return groupBy { reading ->
-        reading.readingAt.toEpochMilliseconds() / (bucketMinutes * 60_000L)
-    }.values.map { bucket ->
-        val avgTime = bucket.map { it.readingAt.toEpochMilliseconds() }.average().toLong()
-        ChartPoint(
-            at = Instant.fromEpochMilliseconds(avgTime),
-            valueMmol = bucket.map { it.displayValueMmolL }.average(),
-        )
-    }.sortedBy { it.at }
-}
-
-private fun Instant.hourMinute(): String {
-    val time = toLocalDateTime(TimeZone.currentSystemDefault()).time
-    return "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
-}
 
 private fun Instant.shortDateTime(): String {
     val local = toLocalDateTime(TimeZone.currentSystemDefault())
-    return buildString {
-        append(local.dayOfMonth.toString().padStart(2, '0'))
-        append('.')
-        append(local.monthNumber.toString().padStart(2, '0'))
-        append(" · ")
-        append(local.hour.toString().padStart(2, '0'))
-        append(':')
-        append(local.minute.toString().padStart(2, '0'))
-    }
+    return "%02d.%02d · %02d:%02d".format(local.dayOfMonth, local.monthNumber, local.hour, local.minute)
 }
 
-private fun formatDelta(delta: Double): String {
-    val sign = if (delta < 0) "в€’" else "+"
-    return "$sign${formatMmol(abs(delta))}"
-}
+/** Typographical minus via the shared helper, never a hyphen. */
+internal fun formatDelta(delta: Double): String = formatSignedMmol(delta)

@@ -76,6 +76,8 @@ object HelioBridgeClient {
                             15,
                         ),
                         lastAutoSyncAt = intent.getLongExtra("last_auto_sync_at", -1L),
+                        lastCompleteAt = intent.getLongExtra("last_complete_at", -1L),
+                        dataThroughAt = intent.getLongExtra("data_through_at", -1L),
                     ),
                 )
             }
@@ -109,6 +111,10 @@ data class HelioBridgeStatus(
     val autoSyncEnabled: Boolean = false,
     val autoSyncIntervalMinutes: Int = 15,
     val lastAutoSyncAt: Long = -1L,
+    /** Last finished Bridge → Health Connect transfer; -1 from older Bridge builds. */
+    val lastCompleteAt: Long = -1L,
+    /** Newest strap sample on the phone; -1 from older Bridge builds. */
+    val dataThroughAt: Long = -1L,
 ) {
     val isBusy: Boolean
         get() = phase in setOf("connecting", "device_sync", "health_connect", "syncing")

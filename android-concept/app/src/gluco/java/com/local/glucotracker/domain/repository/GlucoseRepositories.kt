@@ -1,8 +1,13 @@
 package com.local.glucotracker.domain.repository
 
+import com.local.glucotracker.domain.model.ActiveGlucoseContext
+import com.local.glucotracker.domain.model.BodySpan
 import com.local.glucotracker.domain.model.CachedView
 import com.local.glucotracker.domain.model.FingerstickReading
+import com.local.glucotracker.domain.model.GlucoseEpisodeMark
 import com.local.glucotracker.domain.model.GlucoseRange
+import com.local.glucotracker.domain.model.GlucoseTirDay
+import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.NightscoutDayStatus
 import com.local.glucotracker.domain.model.NightscoutStatus
 import com.local.glucotracker.domain.model.SensorQuality
@@ -31,4 +36,18 @@ interface SensorRepository {
     suspend fun refreshSensorCodes()
     suspend fun refreshFingersticks(from: Instant, to: Instant)
     suspend fun sensorQuality(sensorId: String): SensorQuality
+}
+
+/**
+ * What happened around the glucose curve: insulin, sleep and effort, and the
+ * server's current IOB/COB and day TIR. Insulin is local-first (Room); the rest
+ * is read from the server on refresh and simply absent offline.
+ */
+interface GlucoseContextRepository {
+    fun observeInsulin(from: Instant, to: Instant): Flow<List<InsulinEvent>>
+    suspend fun refreshInsulin(from: Instant, to: Instant)
+    suspend fun bodySpans(from: Instant, to: Instant): List<BodySpan>
+    suspend fun episodes(from: Instant, to: Instant): List<GlucoseEpisodeMark>
+    suspend fun activeContext(now: Instant): ActiveGlucoseContext?
+    suspend fun tirForDay(date: LocalDate): GlucoseTirDay?
 }

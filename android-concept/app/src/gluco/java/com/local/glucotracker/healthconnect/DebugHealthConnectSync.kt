@@ -15,10 +15,12 @@ import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ListenableWorker
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
@@ -269,6 +271,8 @@ object DebugHealthConnectSync {
      * Runs after Bridge has committed a fresh wearable batch to Health Connect.
      * Unique work keeps repeated completion broadcasts from starting overlapping
      * server uploads, while the network constraint preserves the run offline.
+     * A newer batch replaces a run that is waiting out a retry: with KEEP, one
+     * failed upload in backoff held back every later batch for hours.
      */
     fun enqueueBridgeSync(context: Context) {
         val constraints = Constraints.Builder()
@@ -276,10 +280,11 @@ object DebugHealthConnectSync {
             .build()
         val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
             .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, RetryBackoffMinutes, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             "health_connect_bridge_sync",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             request,
         )
     }
@@ -1048,7 +1053,9 @@ object DebugHealthConnectSync {
         val request = PeriodicWorkRequestBuilder<HealthConnectSyncWorker>(
             1,
             TimeUnit.HOURS,
-        ).setConstraints(constraints).build()
+        ).setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, RetryBackoffMinutes, TimeUnit.MINUTES)
+            .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "health_connect_raw_sync",
             ExistingPeriodicWorkPolicy.UPDATE,
@@ -1066,10 +1073,20 @@ class HealthConnectSyncWorker(
     appContext: Context,
     workerParameters: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParameters) {
-    override suspend fun doWork(): Result =
-        if (DebugHealthConnectSync.syncFromWorker(applicationContext)) {
-            Result.success()
-        } else {
-            Result.retry()
-        }
+    override suspend fun doWork(): Result = backgroundSyncResult(
+        synced = DebugHealthConnectSync.syncFromWorker(applicationContext),
+        runAttemptCount = runAttemptCount,
+    )
+}
+
+/** Short fixed wait between retries; exponential backoff grew to five hours. */
+internal const val RetryBackoffMinutes = 5L
+
+/** After this many retries a run gives up; the next Bridge batch or hourly run retries. */
+internal const val MaxBackgroundRetries = 3
+
+internal fun backgroundSyncResult(synced: Boolean, runAttemptCount: Int): ListenableWorker.Result = when {
+    synced -> ListenableWorker.Result.success()
+    runAttemptCount < MaxBackgroundRetries -> ListenableWorker.Result.retry()
+    else -> ListenableWorker.Result.success()
 }

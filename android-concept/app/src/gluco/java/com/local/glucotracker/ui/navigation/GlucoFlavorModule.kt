@@ -18,6 +18,7 @@ import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_4_5
 import com.local.glucotracker.data.local.GLUCOSE_CACHE_MIGRATION_5_6
 import com.local.glucotracker.data.local.GlucoseCacheDatabase
 import com.local.glucotracker.data.repository.GlucoseRepositoryImpl
+import com.local.glucotracker.data.repository.GlucoseContextRepositoryImpl
 import com.local.glucotracker.data.repository.MealContextProvider
 import com.local.glucotracker.data.repository.NightscoutMealContextProvider
 import com.local.glucotracker.data.repository.HistoryMealMarkerProvider
@@ -26,6 +27,7 @@ import com.local.glucotracker.data.repository.NightscoutRepositoryImpl
 import com.local.glucotracker.data.repository.SensorRepositoryImpl
 import com.local.glucotracker.data.sync.GlucoOutboxRemote
 import com.local.glucotracker.data.sync.OutboxRemote
+import com.local.glucotracker.domain.repository.GlucoseContextRepository
 import com.local.glucotracker.domain.repository.GlucoseRepository
 import com.local.glucotracker.domain.repository.NightscoutRepository
 import com.local.glucotracker.domain.repository.SensorRepository
@@ -141,6 +143,10 @@ object GlucoFlavorModule {
     @Provides
     @Singleton
     fun provideGlucoseRepository(impl: GlucoseRepositoryImpl): GlucoseRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideGlucoseContextRepository(impl: GlucoseContextRepositoryImpl): GlucoseContextRepository = impl
 
     @Provides
     @Singleton
