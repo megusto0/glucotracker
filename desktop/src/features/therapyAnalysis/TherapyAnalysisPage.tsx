@@ -31,7 +31,16 @@ const REJECTION_LABELS: Record<string, string> = {
   low_confidence: "эпизод определён неуверенно",
   dose_too_large: "доза больше 15 Ед",
   implausible: "результат вне правдоподобных границ",
+  rising_before_dose: "глюкоза росла в час перед дозой",
+  falling_before_dose: "глюкоза снижалась в час перед дозой",
+  pre_dose_missing: "нет CGM за час до дозы",
 };
+
+const PRE_DOSE_REJECTIONS = [
+  "rising_before_dose",
+  "falling_before_dose",
+  "pre_dose_missing",
+];
 type BasalMetricKey =
   | "quiet_drift_mmol_l_per_hour"
   | "elevated_hr_drift_mmol_l_per_hour"
@@ -145,13 +154,23 @@ function IsfCases({
   cases,
   rejections,
   correctionCount,
+  placeboFall,
+  placeboWindows,
 }: {
   cases: IsfCase[];
   rejections: Record<string, number>;
   correctionCount: number;
+  placeboFall: number | null;
+  placeboWindows: number;
 }) {
   const rejected = Object.entries(rejections).filter(([, count]) => count > 0);
   if (!cases.length && !rejected.length) return null;
+  // A dose given into a climb or a fall cannot be compared with anything, so
+  // when that is what rejected the corrections, say what would count.
+  const notLevel = PRE_DOSE_REJECTIONS.reduce(
+    (total, reason) => total + (rejections[reason] ?? 0),
+    0,
+  );
 
   return (
     <section className="therapy-analysis-isf-card">
@@ -162,7 +181,12 @@ function IsfCases({
             {cases.length} из {correctionCount} коррекций за период
           </span>
         </div>
-        <small>Снижение считается до минимума, а не до отметки «4 часа»</small>
+        <small>
+          Снижение считается до минимума, а не до отметки «4 часа»
+          {typeof placeboFall === "number"
+            ? `, минус ${placeboFall.toFixed(1)} — столько же «падает» без инсулина в спокойные часы (окон: ${placeboWindows})`
+            : ""}
+        </small>
       </header>
 
       {cases.length ? (
@@ -213,6 +237,12 @@ function IsfCases({
               </li>
             ))}
           </ul>
+          {notLevel > 0 ? (
+            <p>
+              ISF измеряется только по коррекции с ровного старта: час до дозы
+              без подъёма и спада, без еды за 4 ч до и после.
+            </p>
+          ) : null}
         </footer>
       ) : null}
     </section>
@@ -385,11 +415,7 @@ function chartY(value: number, scale: number) {
   return 120 - (value / scale) * 90;
 }
 
-function lineSegments(
-  slots: BasalSlot[],
-  key: BasalMetricKey,
-  scale: number,
-) {
+function lineSegments(slots: BasalSlot[], key: BasalMetricKey, scale: number) {
   const segments: string[] = [];
   let current: string[] = [];
   for (const slot of slots) {
@@ -650,25 +676,20 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
       return value == null ? [] : [Math.abs(value)];
     }),
   );
-  const scale = Math.max(
-    1,
-    Math.ceil(Math.max(0, ...values) * 2) / 2,
-  );
+  const scale = Math.max(1, Math.ceil(Math.max(0, ...values) * 2) / 2);
   const hasEvidence = values.length > 0;
   const hourlyFallback: BasalCompression = {
     projected_daily_basal_units: profile.projected_daily_basal_units,
     slots: profile.slots.map((slot) => ({
       autotuned_basal_u_per_hour:
         slot.autotuned_basal_u_per_hour ?? slot.configured_basal_u_per_hour,
-      autotuned_hour_count:
-        slot.autotuned_basal_u_per_hour == null ? 0 : 1,
+      autotuned_hour_count: slot.autotuned_basal_u_per_hour == null ? 0 : 1,
       basal_adjustment_u_per_hour: slot.basal_adjustment_u_per_hour ?? 0,
       configured_basal_u_per_hour: slot.configured_basal_u_per_hour,
       end_hour: slot.hour + 1,
       equivalent_drift_mmol_l_per_hour:
         slot.quiet_drift_mmol_l_per_hour.value ?? 0,
-      evidence_window_count:
-        slot.quiet_drift_mmol_l_per_hour.sample_count,
+      evidence_window_count: slot.quiet_drift_mmol_l_per_hour.sample_count,
       label: `${slot.label}–${(slot.hour + 1).toString().padStart(2, "0")}:00`,
       start_hour: slot.hour,
     })),
@@ -683,9 +704,7 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
       <header>
         <div>
           <strong>24 часа: фоновая стабильность</strong>
-          <span>
-            Медианный дрейф нормализованной глюкозы, ммоль/л за час
-          </span>
+          <span>Медианный дрейф нормализованной глюкозы, ммоль/л за час</span>
         </div>
         <small>
           Окно {profile.window_minutes} мин · без еды и болюса{" "}
@@ -708,7 +727,8 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
         </span>
         {profile.elevated_hr_threshold_bpm != null ? (
           <small>
-            высокий пульс от {profile.elevated_hr_threshold_bpm.toFixed(0)} уд/мин
+            высокий пульс от {profile.elevated_hr_threshold_bpm.toFixed(0)}{" "}
+            уд/мин
             {profile.resting_reference_bpm != null
               ? ` · личный фон ${profile.resting_reference_bpm.toFixed(0)}`
               : ""}
@@ -801,9 +821,13 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
                       ) : (
                         <>
                           {slot.equivalent_drift_mmol_l_per_hour > 0 ? "+" : ""}
-                          {slot.equivalent_drift_mmol_l_per_hour.toFixed(2)}{" "}
+                          {slot.equivalent_drift_mmol_l_per_hour.toFixed(
+                            2,
+                          )}{" "}
                           ммоль/л/ч
-                          <small>{slot.evidence_window_count} окон данных</small>
+                          <small>
+                            {slot.evidence_window_count} окон данных
+                          </small>
                         </>
                       )}
                     </td>
@@ -861,9 +885,7 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
               <g key={value}>
                 <line
                   className={
-                    value === 0
-                      ? "therapy-basal-zero"
-                      : "therapy-basal-grid"
+                    value === 0 ? "therapy-basal-zero" : "therapy-basal-grid"
                   }
                   x1="42"
                   x2="920"
@@ -897,11 +919,7 @@ function BasalProfileChart({ profile }: { profile: BasalProfile }) {
               <g className={series.className} key={series.key}>
                 {lineSegments(profile.slots, series.key, scale).map(
                   (points) => (
-                    <polyline
-                      fill="none"
-                      key={points}
-                      points={points}
-                    />
+                    <polyline fill="none" key={points} points={points} />
                   ),
                 )}
                 {profile.slots.map((slot) => {
@@ -1059,15 +1077,15 @@ export function TherapyAnalysisPage() {
             </section>
 
             <ConfiguredVsMeasured
-              excludedForActivity={
-                analysis.data.icr_excluded_for_activity ?? 0
-              }
+              excludedForActivity={analysis.data.icr_excluded_for_activity ?? 0}
               rows={analysis.data.icr_proposals ?? []}
             />
 
             <IsfCases
               cases={analysis.data.isf_cases ?? []}
               correctionCount={analysis.data.isf_correction_count ?? 0}
+              placeboFall={analysis.data.isf_placebo_fall_mmol_l ?? null}
+              placeboWindows={analysis.data.isf_placebo_window_count ?? 0}
               rejections={analysis.data.isf_rejections ?? {}}
             />
 

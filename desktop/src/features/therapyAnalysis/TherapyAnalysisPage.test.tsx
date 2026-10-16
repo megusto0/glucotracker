@@ -66,7 +66,16 @@ const analysis: TherapyAnalysisResponse = {
           [12, 18, 0.867, 0.867, 0, 0, 0, 0],
           [18, 24, 1, 1, 0, 0, 0, 0],
         ].map(
-          ([start, end, configured, autotuned, adjustment, drift, evidence, tuned]) => ({
+          ([
+            start,
+            end,
+            configured,
+            autotuned,
+            adjustment,
+            drift,
+            evidence,
+            tuned,
+          ]) => ({
             autotuned_basal_u_per_hour: autotuned,
             autotuned_hour_count: tuned,
             basal_adjustment_u_per_hour: adjustment,
@@ -134,7 +143,8 @@ const analysis: TherapyAnalysisResponse = {
   // Three isolated corrections against 41 boluses: an estimate, not a
   // measurement, and it must not be shown as ICR's equal.
   isf_identifiability: "thin",
-  isf_note: "Изолированных коррекций: 3 из 41. Надёжно определяется только ICR.",
+  isf_note:
+    "Изолированных коррекций: 3 из 41. Надёжно определяется только ICR.",
   isf_correction_count: 41,
   isf_cases: [
     {
@@ -149,7 +159,9 @@ const analysis: TherapyAnalysisResponse = {
       occurred_at: "2026-07-28T14:00:00",
     },
   ],
-  isf_rejections: { not_isolated: 31, not_elevated: 6 },
+  isf_rejections: { not_isolated: 31, not_elevated: 6, rising_before_dose: 3 },
+  isf_placebo_fall_mmol_l: 1.2,
+  isf_placebo_window_count: 61,
   icr_excluded_for_activity: 2,
   icr_proposals: [
     {
@@ -270,7 +282,9 @@ describe("TherapyAnalysisPage", () => {
     expect(
       screen.getByText("24 часа: фоновая стабильность"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/высокий пульс от 82 уд\/мин/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/высокий пульс от 82 уд\/мин/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("img", {
         name: "Фоновое изменение глюкозы по часам суток",
@@ -362,6 +376,24 @@ describe("TherapyAnalysisPage", () => {
     ).toBeInTheDocument();
   });
 
+  test("says what the placebo fall is and what a usable correction looks like", () => {
+    render(
+      <MemoryRouter>
+        <TherapyAnalysisPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText(/минус 1\.2 — столько же «падает» без инсулина/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/глюкоза росла в час перед дозой — 3/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/только по коррекции с ровного старта/),
+    ).toBeInTheDocument();
+  });
+
   test("switches the long-term period", () => {
     render(
       <MemoryRouter>
@@ -372,9 +404,10 @@ describe("TherapyAnalysisPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "180 дней" }));
 
     expect(mockedUseAnalysis).toHaveBeenLastCalledWith(180, 6);
-    expect(
-      screen.getByRole("button", { name: "180 дней" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "180 дней" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
 
@@ -401,10 +434,7 @@ describe("предложение базального теста", () => {
 
   const startSpy = vi.fn();
 
-  const renderWithIob = (
-    iobUnits: number | null,
-    runs: unknown[] = [],
-  ) => {
+  const renderWithIob = (iobUnits: number | null, runs: unknown[] = []) => {
     mockedUseAnalysis.mockReturnValue({
       data: {
         ...analysis,

@@ -18,6 +18,13 @@ from sqlalchemy.orm import Session
 
 from glucotracker.api.schemas import GlucoseDashboardPoint
 from glucotracker.application.body_states import BodyStateService
+from glucotracker.application.correction_protocol import (
+    PRE_DOSE_LONG,
+    PRE_DOSE_SHORT,
+    NadirPlacebo,
+    nadir_placebo,
+    pre_dose_verdict,
+)
 from glucotracker.application.episode_therapy import (
     TherapyClass,
     TherapyConfidence,
@@ -59,12 +66,15 @@ IsfSource = Literal["correction_episodes", "configured_fallback"]
 IsfIdentifiability = Literal["identified", "thin", "not_identified"]
 BasalSignal = Literal["insufficient", "stable", "rising", "falling"]
 
+# v9: a correction counts only when glucose was level for the hour before it,
+# and the fall the nadir rule reads in quiet windows without insulin is taken
+# off every correction (application/correction_protocol.py).
 # v4: ISF is measured to the trough a correction reached rather than to the
 # reading at exactly four hours, which caught the rebound and understated every
 # ratio.
 # v3: measured ratios are compared against the configured slots, episodes near
 # effort are excluded, and ISF says how thin its evidence is.
-THERAPY_ANALYSIS_MODEL_VERSION = f"retrospective-therapy-analysis-v8+{GROUPING_VERSION}"
+THERAPY_ANALYSIS_MODEL_VERSION = f"retrospective-therapy-analysis-v9+{GROUPING_VERSION}"
 # Below this many isolated corrections the ISF median is an estimate rather
 # than a measurement, and the page must say so.
 MIN_ISF_EPISODES_FOR_CONFIDENCE = 12
@@ -246,6 +256,8 @@ class IsfCase:
     glucose_at_horizon: float | None
     minutes_to_nadir: int
     isf_mmol_l_per_unit: float
+    #: Glucose change over the hour before the dose; level by construction.
+    pre_dose_change_mmol_l: float | None = None
 
 
 @dataclass(frozen=True)
@@ -293,6 +305,10 @@ class TherapyAnalysis:
     #: of why the rest were rejected.
     isf_cases: list[IsfCase] = field(default_factory=list)
     isf_rejections: dict[str, int] = field(default_factory=dict)
+    #: What start-minus-minimum reads in quiet windows with no insulin, already
+    #: subtracted from every case. None when too few windows to trust it.
+    isf_placebo_fall_mmol_l: float | None = None
+    isf_placebo_window_count: int = 0
     #: Measured against what is actually configured, on the configured slots.
     icr_proposals: list[IcrDaypartComparison] = field(default_factory=list)
     icr_excluded_for_activity: int = 0
@@ -318,6 +334,8 @@ class _Candidate:
     glucose_start: float | None
     glucose_plus_2h: float | None
     glucose_plus_4h: float | None
+    glucose_minus_30: float | None = None
+    glucose_minus_60: float | None = None
     #: Lowest reading inside the four-hour window, and when it arrived.
     glucose_nadir: float | None = None
     nadir_after_minutes: int | None = None
@@ -379,10 +397,12 @@ class TherapyAnalysisService:
             if period_start <= item.timestamp.date() <= period_end
         ]
 
+        placebo = self._nadir_placebo(points, components, period_start, period_end)
         isf_evidence, isf_cases, isf_rejections = self._isf_evidence(
             period_candidates,
             candidates,
             target_mmol_l,
+            placebo,
         )
         overall_isf = _metric([item.value for item in isf_evidence])
         params = TwinRepository(
@@ -512,6 +532,12 @@ class TherapyAnalysisService:
                 reverse=True,
             ),
             isf_rejections=isf_rejections,
+            isf_placebo_fall_mmol_l=(
+                round(placebo.fall_mmol_l, 2)
+                if placebo.fall_mmol_l is not None
+                else None
+            ),
+            isf_placebo_window_count=placebo.window_count,
             icr_proposals=icr_proposals,
             icr_excluded_for_activity=excluded_for_activity,
             slots=slots,
@@ -830,6 +856,8 @@ class TherapyAnalysisService:
     ) -> _Candidate:
         therapy = classify_episode_therapy(component, points)
         start = _nearest(points, component.start_at)
+        minus_30 = _nearest(points, component.start_at - PRE_DOSE_SHORT)
+        minus_60 = _nearest(points, component.start_at - PRE_DOSE_LONG)
         plus_2h = _nearest(
             points,
             component.start_at + timedelta(hours=2),
@@ -868,6 +896,8 @@ class TherapyAnalysisService:
             glucose_start=_point_value(start),
             glucose_plus_2h=_point_value(plus_2h),
             glucose_plus_4h=_point_value(plus_4h),
+            glucose_minus_30=_point_value(minus_30),
+            glucose_minus_60=_point_value(minus_60),
             glucose_nadir=nadir,
             nadir_after_minutes=(
                 round((nadir_at - component.start_at).total_seconds() / 60)
@@ -881,6 +911,7 @@ class TherapyAnalysisService:
         period_items: list[_Candidate],
         all_items: list[_Candidate],
         target_mmol_l: float,
+        placebo: NadirPlacebo,
     ) -> tuple[list[_Evidence], list[IsfCase], dict[str, int]]:
         """Measure each isolated correction by how far it actually pushed down.
 
@@ -920,10 +951,21 @@ class TherapyAnalysisService:
             if start < target_mmol_l + 0.8:
                 rejected["not_elevated"] += 1
                 continue
+            # A dose given into a climb is compared against a flat line the
+            # trace was never on; its fall mixes insulin with the climb.
+            verdict = pre_dose_verdict(
+                glucose_start=start,
+                glucose_minus_30=item.glucose_minus_30,
+                glucose_minus_60=item.glucose_minus_60,
+            )
+            if verdict != "level":
+                rejected[_PRE_DOSE_REJECTIONS[verdict]] += 1
+                continue
             if nadir < 3.0 or nadir >= start:
                 rejected["no_fall"] += 1
                 continue
-            value = (start - nadir) / item.insulin_units
+            placebo_fall = placebo.fall_mmol_l or 0.0
+            value = (start - nadir - placebo_fall) / item.insulin_units
             if not MIN_ISF <= value <= MAX_ISF:
                 rejected["implausible"] += 1
                 continue
@@ -941,9 +983,44 @@ class TherapyAnalysisService:
                     ),
                     minutes_to_nadir=item.nadir_after_minutes or 0,
                     isf_mmol_l_per_unit=round(value, 2),
+                    pre_dose_change_mmol_l=(
+                        round(start - item.glucose_minus_60, 1)
+                        if item.glucose_minus_60 is not None
+                        else None
+                    ),
                 )
             )
         return evidence, cases, dict(rejected)
+
+    def _nadir_placebo(
+        self,
+        points: list[GlucoseDashboardPoint],
+        components: list[EpisodeComponent],
+        period_start: date,
+        period_end: date,
+    ) -> NadirPlacebo:
+        """What the nadir rule reads in this period where no insulin was given."""
+        series = [
+            (point.timestamp, value)
+            for point in points
+            if period_start <= point.timestamp.date() <= period_end
+            and (value := _point_value(point)) is not None
+        ]
+        return nadir_placebo(
+            series,
+            meal_times=[
+                meal.eaten_at
+                for component in components
+                for meal in component.meals
+                if float(meal.total_carbs_g or 0) > 0
+            ],
+            insulin_times=[
+                _local_wall_time(event.timestamp)
+                for component in components
+                for event in component.insulin
+                if event.insulin_units
+            ],
+        )
 
     def _icr_evidence(
         self,
@@ -1081,6 +1158,13 @@ def _configured_icr(daypart: Daypart, params) -> float | None:
     }[daypart]
 
 
+_PRE_DOSE_REJECTIONS = {
+    "rising": "rising_before_dose",
+    "falling": "falling_before_dose",
+    "missing": "pre_dose_missing",
+}
+
+
 def _isf_identifiability(
     *,
     isolated: int,
@@ -1133,7 +1217,7 @@ def _points_near(
     return [
         point
         for point in points
-        if timestamp - timedelta(minutes=30)
+        if timestamp - PRE_DOSE_LONG - timedelta(minutes=15)
         <= point.timestamp
         <= timestamp + timedelta(hours=4, minutes=15)
     ]
@@ -1273,14 +1357,10 @@ def _basal_test_suggestion(
     start_hour = best[0].hour
     end_hour = (best[-1].hour + 1) % 24
     fasting_hours = len(best) + 2 * FASTING_TEST_MARGIN_HOURS
-    test_start_minutes = (
-        start_hour - FASTING_TEST_MARGIN_HOURS
-    ) * 60 % (24 * 60)
+    test_start_minutes = (start_hour - FASTING_TEST_MARGIN_HOURS) * 60 % (24 * 60)
     test_end_minutes = (test_start_minutes + fasting_hours * 60) % (24 * 60)
     last_bolus_minutes = (test_start_minutes - dia_minutes) % (24 * 60)
-    last_meal_minutes = (test_start_minutes - carb_duration_minutes) % (
-        24 * 60
-    )
+    last_meal_minutes = (test_start_minutes - carb_duration_minutes) % (24 * 60)
     preparation_start_minutes = (
         last_bolus_minutes
         if dia_minutes >= carb_duration_minutes

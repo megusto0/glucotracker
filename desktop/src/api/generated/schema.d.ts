@@ -820,11 +820,12 @@ export interface paths {
      *     reconstruct. [exclude_insulin_id] identifies that dose so it cannot appear
      *     inside the IOB used to explain itself.
      *
-     *     Two terms do not travel backwards and the response says so through its own
-     *     fields: `projection_source` degrades to "none" once the stored forecast for
-     *     that moment has aged out, and ICR/ISF are read from the owner's *current*
-     *     parameters, so a figure recomputed after a refit will not reproduce what was
-     *     displayed at the time.
+     *     The answer is the smaller of the carb/IOB balance and a history model
+     *     (`limited_by` says which). Direction comes from the last 30 minutes of the
+     *     trace (`projection_source` "linear_trend", or "none" without a reading
+     *     then); the stored forecast is not consulted. ICR/ISF are read from the
+     *     owner's *current* parameters, so a figure recomputed after a refit will not
+     *     reproduce what was displayed at the time.
      */
     get: operations["getTopUpDose"];
     put?: never;
@@ -5518,6 +5519,8 @@ export interface components {
        * Format: date-time
        */
       occurred_at: string;
+      /** Pre Dose Change Mmol L */
+      pre_dose_change_mmol_l?: number | null;
     };
     /**
      * IssuedTokensResponse
@@ -8533,6 +8536,13 @@ export interface components {
        * @default
        */
       isf_note: string;
+      /** Isf Placebo Fall Mmol L */
+      isf_placebo_fall_mmol_l?: number | null;
+      /**
+       * Isf Placebo Window Count
+       * @default 0
+       */
+      isf_placebo_window_count: number;
       /** Isf Rejections */
       isf_rejections?: {
         [key: string]: number;
@@ -8975,6 +8985,8 @@ export interface components {
      * @description Follow-up bolus during a rise, with every term that produced it.
      */
     TopUpDoseResponse: {
+      /** Balance Units */
+      balance_units?: number | null;
       /** Carb Units */
       carb_units?: number | null;
       /** Cob G */
@@ -8995,6 +9007,12 @@ export interface components {
       isf_mmol_l_per_unit?: number | null;
       /** Isf Source */
       isf_source?: ("manual" | "fitted" | "default") | null;
+      /** Limited By */
+      limited_by?: ("balance" | "model") | null;
+      /** Method Version */
+      method_version?: string | null;
+      /** Model Units */
+      model_units?: number | null;
       /** Note */
       note?: string | null;
       /** Projected Glucose Mmol L */
@@ -9017,6 +9035,8 @@ export interface components {
         | "icr_unavailable";
       /** Target Mmol L */
       target_mmol_l?: number | null;
+      /** Trend Mmol L Per 30 Min */
+      trend_mmol_l_per_30_min?: number | null;
       /** Units */
       units?: number | null;
     };

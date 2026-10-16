@@ -81,6 +81,12 @@ def _glucose(session, owner_id, at: datetime, value: float) -> None:
     )
 
 
+def _level_before(session, owner_id, at: datetime, value: float) -> None:
+    """The level hour the correction protocol asks for before a dose."""
+    for minutes in (60, 30):
+        _glucose(session, owner_id, at - timedelta(minutes=minutes), value)
+
+
 def _heart_rate(
     session,
     owner_id,
@@ -146,6 +152,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
         )
 
         _insulin(session, owner_id, correction_at, 1)
+        _level_before(session, owner_id, correction_at, 9.0)
         _glucose(session, owner_id, correction_at, 9.0)
         _glucose(
             session,
@@ -232,7 +239,7 @@ def test_analysis_reports_time_slots_and_isolates_owner_data(
     # cut the correction evidence short (ADR-019 §2.4).
     assert body["isf_horizon_minutes"] == 270
     assert body["bin_hours"] == 4
-    assert body["model_version"].startswith("retrospective-therapy-analysis-v8")
+    assert body["model_version"].startswith("retrospective-therapy-analysis-v9")
     assert body["overall_icr_g_per_unit"] == {
         "value": 10.0,
         "q1": 10.0,
@@ -352,6 +359,7 @@ def test_isf_says_how_thin_its_evidence_is_next_to_a_solid_icr(
     correction_at = datetime(2026, 7, 10, 18)
     with session_factory() as session:
         _insulin(session, owner_id, correction_at, 1)
+        _level_before(session, owner_id, correction_at, 9.0)
         _glucose(session, owner_id, correction_at, 9.0)
         _glucose(session, owner_id, correction_at + timedelta(hours=4), 6.5)
         session.commit()
@@ -387,6 +395,7 @@ def test_isf_measures_the_fall_a_correction_caused_not_the_rebound(
     correction_at = datetime(2026, 7, 10, 14)
     with session_factory() as session:
         _insulin(session, owner_id, correction_at, 1)
+        _level_before(session, owner_id, correction_at, 11.0)
         # 11.0 down to 7.0 at +2h30, drifting back to 8.6 by the horizon.
         for minutes, value in (
             (0, 11.0),
@@ -542,3 +551,40 @@ def test_one_extreme_night_does_not_become_a_test_suggestion() -> None:
 
     assert slots[4].discrepancy_confident is False
     assert _basal_test_suggestion(slots, isf=3.6) is None
+
+
+def test_a_correction_given_into_a_climb_does_not_measure_isf(
+    api_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Measured 2026-10-01: the half hour before a dose rose by a median 0.4
+    mmol/L, and the climb that prompted it keeps going after it. Read as ISF,
+    that fall is part insulin, part whatever was still pushing glucose up."""
+    monkeypatch.setattr(
+        "glucotracker.application.therapy_analysis.local_now",
+        lambda: datetime(2026, 7, 31, 12),
+    )
+    owner_id = UUID(str(api_client.app_state["current_user_id"]))
+    session_factory = api_client.app_state["session_factory"]
+    rising_at = datetime(2026, 7, 10, 14)
+    falling_at = datetime(2026, 7, 12, 14)
+    with session_factory() as session:
+        _insulin(session, owner_id, rising_at, 1)
+        for minutes, value in ((-60, 7.4), (-30, 8.2), (0, 9.0), (150, 6.5)):
+            _glucose(session, owner_id, rising_at + timedelta(minutes=minutes), value)
+        _insulin(session, owner_id, falling_at, 1)
+        for minutes, value in ((-60, 11.0), (-30, 10.0), (0, 9.0), (150, 6.5)):
+            _glucose(session, owner_id, falling_at + timedelta(minutes=minutes), value)
+        session.commit()
+
+    body = api_client.get(
+        "/glucose/therapy-analysis",
+        params={"period_days": 30, "target_mmol_l": 6},
+    ).json()
+
+    assert body["isf_cases"] == []
+    assert body["isf_rejections"]["rising_before_dose"] == 1
+    assert body["isf_rejections"]["falling_before_dose"] == 1
+    assert body["isf_source"] == "configured_fallback"
+    # Too little quiet trace to measure the placebo fall: nothing subtracted.
+    assert body["isf_placebo_fall_mmol_l"] is None

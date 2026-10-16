@@ -38,6 +38,7 @@ changes.
 | [ADR-018 - Client API environments and hosted cutover](ADR-018-client-environments-and-cutover.md) | proposed | Client endpoint/cutover plan; not implemented. |
 | [ADR-019 - Episode grouping](ADR-019-episode-grouping.md) | accepted | One engine for what belongs together: sitting span, insulin coverage, outcome horizons. |
 | [ADR-020 - Episode breakdown](ADR-020-episode-breakdown.md) | accepted | Six blocks per episode for every class, and a carbohydrate correction read from its trough rather than its slope. |
+| [ADR-021 - ISF from level-start corrections](ADR-021-correction-isf-protocol.md) | accepted | Correction must start level; trough fall minus a measured quiet-window placebo. |
 
 ## Known Numbering Notes
 

@@ -7407,6 +7407,17 @@
             "format": "date-time",
             "title": "Occurred At",
             "type": "string"
+          },
+          "pre_dose_change_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pre Dose Change Mmol L"
           }
         },
         "required": [
@@ -14503,6 +14514,22 @@
             "title": "Isf Note",
             "type": "string"
           },
+          "isf_placebo_fall_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isf Placebo Fall Mmol L"
+          },
+          "isf_placebo_window_count": {
+            "default": 0,
+            "title": "Isf Placebo Window Count",
+            "type": "integer"
+          },
           "isf_rejections": {
             "additionalProperties": {
               "type": "integer"
@@ -15545,6 +15572,17 @@
       "TopUpDoseResponse": {
         "description": "Follow-up bolus during a rise, with every term that produced it.",
         "properties": {
+          "balance_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Units"
+          },
           "carb_units": {
             "anyOf": [
               {
@@ -15656,6 +15694,40 @@
             ],
             "title": "Isf Source"
           },
+          "limited_by": {
+            "anyOf": [
+              {
+                "enum": ["balance", "model"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limited By"
+          },
+          "method_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Version"
+          },
+          "model_units": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Units"
+          },
           "note": {
             "anyOf": [
               {
@@ -15705,6 +15777,17 @@
               }
             ],
             "title": "Target Mmol L"
+          },
+          "trend_mmol_l_per_30_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend Mmol L Per 30 Min"
           },
           "units": {
             "anyOf": [
@@ -20316,7 +20399,7 @@
     },
     "/glucose/top-up-dose": {
       "get": {
-        "description": "Return the follow-up bolus implied by carbs left, IOB and the target.\n\n[at] is app-local wall time and defaults to now. Passing a past moment\nanswers \"what did this arithmetic say when that dose was given\", which is\nthe question a chasing bolus raises and the one the diary cannot otherwise\nreconstruct. [exclude_insulin_id] identifies that dose so it cannot appear\ninside the IOB used to explain itself.\n\nTwo terms do not travel backwards and the response says so through its own\nfields: `projection_source` degrades to \"none\" once the stored forecast for\nthat moment has aged out, and ICR/ISF are read from the owner's *current*\nparameters, so a figure recomputed after a refit will not reproduce what was\ndisplayed at the time.",
+        "description": "Return the follow-up bolus implied by carbs left, IOB and the target.\n\n[at] is app-local wall time and defaults to now. Passing a past moment\nanswers \"what did this arithmetic say when that dose was given\", which is\nthe question a chasing bolus raises and the one the diary cannot otherwise\nreconstruct. [exclude_insulin_id] identifies that dose so it cannot appear\ninside the IOB used to explain itself.\n\nThe answer is the smaller of the carb/IOB balance and a history model\n(`limited_by` says which). Direction comes from the last 30 minutes of the\ntrace (`projection_source` \"linear_trend\", or \"none\" without a reading\nthen); the stored forecast is not consulted. ICR/ISF are read from the\nowner's *current* parameters, so a figure recomputed after a refit will not\nreproduce what was displayed at the time.",
         "operationId": "getTopUpDose",
         "parameters": [
           {

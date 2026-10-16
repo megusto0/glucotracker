@@ -693,6 +693,7 @@ class IsfCaseResponse(BaseModel):
     glucose_at_horizon: float | None = None
     minutes_to_nadir: int
     isf_mmol_l_per_unit: float
+    pre_dose_change_mmol_l: float | None = None
 
 
 class IcrDaypartComparisonResponse(BaseModel):
@@ -737,6 +738,10 @@ class TherapyAnalysisResponse(BaseModel):
     isf_correction_count: int = 0
     isf_cases: list[IsfCaseResponse] = Field(default_factory=list)
     isf_rejections: dict[str, int] = Field(default_factory=dict)
+    # The fall start-minus-minimum reads in quiet windows with no insulin; it is
+    # already subtracted from every ISF case.
+    isf_placebo_fall_mmol_l: float | None = None
+    isf_placebo_window_count: int = 0
     icr_proposals: list[IcrDaypartComparisonResponse] = Field(default_factory=list)
     icr_excluded_for_activity: int = 0
     notes: list[str] = Field(default_factory=list)
@@ -2547,6 +2552,12 @@ class TopUpDoseResponse(BaseModel):
     isf_mmol_l_per_unit: float | None = None
     isf_source: Literal["manual", "fitted", "default"] | None = None
     note: str | None = None
+    method_version: str | None = None
+    trend_mmol_l_per_30_min: float | None = None
+    # The answer is the smaller of the carb/IOB balance and the history model.
+    balance_units: float | None = None
+    model_units: float | None = None
+    limited_by: Literal["balance", "model"] | None = None
 
 
 class GlucoseDashboardResponse(BaseModel):

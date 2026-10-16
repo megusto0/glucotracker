@@ -5174,6 +5174,11 @@ components:
           format: date-time
           title: Occurred At
           type: string
+        pre_dose_change_mmol_l:
+          anyOf:
+            - type: number
+            - type: "null"
+          title: Pre Dose Change Mmol L
       required:
         - occurred_at
         - insulin_units
@@ -9761,6 +9766,15 @@ components:
           default: ""
           title: Isf Note
           type: string
+        isf_placebo_fall_mmol_l:
+          anyOf:
+            - type: number
+            - type: "null"
+          title: Isf Placebo Fall Mmol L
+        isf_placebo_window_count:
+          default: 0
+          title: Isf Placebo Window Count
+          type: integer
         isf_rejections:
           additionalProperties:
             type: integer
@@ -10498,6 +10512,11 @@ components:
     TopUpDoseResponse:
       description: Follow-up bolus during a rise, with every term that produced it.
       properties:
+        balance_units:
+          anyOf:
+            - type: number
+            - type: "null"
+          title: Balance Units
         carb_units:
           anyOf:
             - type: number
@@ -10552,6 +10571,24 @@ components:
               type: string
             - type: "null"
           title: Isf Source
+        limited_by:
+          anyOf:
+            - enum:
+                - balance
+                - model
+              type: string
+            - type: "null"
+          title: Limited By
+        method_version:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Method Version
+        model_units:
+          anyOf:
+            - type: number
+            - type: "null"
+          title: Model Units
         note:
           anyOf:
             - type: string
@@ -10584,6 +10621,11 @@ components:
             - type: number
             - type: "null"
           title: Target Mmol L
+        trend_mmol_l_per_30_min:
+          anyOf:
+            - type: number
+            - type: "null"
+          title: Trend Mmol L Per 30 Min
         units:
           anyOf:
             - type: number
@@ -13497,15 +13539,17 @@ paths:
         inside the IOB used to explain itself.
 
 
-        Two terms do not travel backwards and the response says so through its own
+        The answer is the smaller of the carb/IOB balance and a history model
 
-        fields: `projection_source` degrades to "none" once the stored forecast for
+        (`limited_by` says which). Direction comes from the last 30 minutes of the
 
-        that moment has aged out, and ICR/ISF are read from the owner''s *current*
+        trace (`projection_source` "linear_trend", or "none" without a reading
 
-        parameters, so a figure recomputed after a refit will not reproduce what was
+        then); the stored forecast is not consulted. ICR/ISF are read from the
 
-        displayed at the time.'
+        owner''s *current* parameters, so a figure recomputed after a refit will not
+
+        reproduce what was displayed at the time.'
       operationId: getTopUpDose
       parameters:
         - in: query
