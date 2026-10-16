@@ -74,4 +74,76 @@ class BolusCalculationMappingTest {
         assertEquals(true, result.icrAfterSleep)
         assertFalse(result.projectionStale)
     }
+
+    @Test
+    fun aFollowUpFromTheHistoryModelDoesNotListBalanceTerms() {
+        val response = TopUpDoseResponse(
+            status = TopUpDoseResponse.Status.READY,
+            glucoseMmolL = BigDecimal("9.8"),
+            targetMmolL = BigDecimal("6.0"),
+            units = BigDecimal("1.1"),
+            carbUnits = BigDecimal("6.0"),
+            correctionUnits = BigDecimal("1.46"),
+            iobUnits = BigDecimal("3.2"),
+            cobG = BigDecimal("56"),
+            icrGPerUnit = BigDecimal("9.3"),
+            isfMmolLPerUnit = BigDecimal("2.6"),
+            balanceUnits = BigDecimal("4.26"),
+            modelUnits = BigDecimal("1.1"),
+            limitedBy = TopUpDoseResponse.LimitedBy.MODEL,
+            projectionSource = TopUpDoseResponse.ProjectionSource.LINEAR_TREND,
+        )
+
+        val calc = response.toBolusCalcUi()
+        assertEquals(emptyList(), calc.terms)
+        assertEquals(4.26, calc.modelBalanceUnits)
+        assertEquals(1.1, calc.suggestedUnits)
+
+        val panel = response.toTopUpUi()
+        assertEquals(TopUpStatusUi.Ready, panel.status)
+        assertNull(panel.carbUnits)
+        assertEquals(4.26, panel.modelBalanceUnits)
+    }
+
+    @Test
+    fun aFollowUpFromTheBalanceKeepsItsTerms() {
+        val response = TopUpDoseResponse(
+            status = TopUpDoseResponse.Status.READY,
+            units = BigDecimal("1.5"),
+            carbUnits = BigDecimal("5.6"),
+            correctionUnits = BigDecimal("1.6"),
+            iobUnits = BigDecimal("5.7"),
+            glucoseMmolL = BigDecimal("10.3"),
+            targetMmolL = BigDecimal("6.0"),
+            isfMmolLPerUnit = BigDecimal("2.6"),
+            cobG = BigDecimal("52"),
+            icrGPerUnit = BigDecimal("9.3"),
+            limitedBy = TopUpDoseResponse.LimitedBy.BALANCE,
+        )
+
+        assertEquals(3, response.toBolusCalcUi().terms.size)
+        assertNull(response.toBolusCalcUi().modelBalanceUnits)
+        assertEquals(5.6, response.toTopUpUi().carbUnits)
+    }
+
+    @Test
+    fun mealCalculationReadsCarbohydrateFromEarlierMealsOnly() {
+        val response = InsulinRecommendationResponse(
+            status = InsulinRecommendationResponse.Status.READY,
+            mealIds = emptyList(),
+            targetCarbsG = BigDecimal("82"),
+            targetKcal = BigDecimal("600"),
+            recommendedUnits = BigDecimal("12.6"),
+            rangeLowUnits = BigDecimal("11"),
+            rangeHighUnits = BigDecimal("14"),
+            confidence = InsulinRecommendationResponse.Confidence.LOW,
+            matchedEpisodeCount = 0,
+            matches = emptyList(),
+            methodVersion = "historical-episode-median-v3",
+            correctionStatus = InsulinRecommendationResponse.CorrectionStatus.READY,
+            correctionPriorCobG = BigDecimal("0"),
+        )
+
+        assertEquals(true, response.toMealBolusCalcUi().state.cobIsPrior)
+    }
 }

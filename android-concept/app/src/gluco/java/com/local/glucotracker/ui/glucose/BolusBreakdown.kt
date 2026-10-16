@@ -1,6 +1,14 @@
 package com.local.glucotracker.ui.glucose
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,7 +26,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,6 +41,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.local.glucotracker.R
+import com.local.glucotracker.ui.feature.insulin.InsulinManagementSheet
+import com.local.glucotracker.ui.design.primitives.GTOutlineButton
 import com.local.glucotracker.data.api.GlucoseApi
 import com.local.glucotracker.domain.model.InsulinEvent
 import com.local.glucotracker.domain.model.InsulinEventType
@@ -72,6 +81,8 @@ internal data class BolusStateUi(
     val icr: Double?,
     val isf: Double?,
     val target: Double?,
+    /** Meal calculations read carbohydrate from *earlier* meals only. */
+    val cobIsPrior: Boolean = false,
 )
 
 internal data class BolusTermUi(
@@ -91,7 +102,38 @@ internal data class BolusCalcUi(
     val configuredIcr: Double? = null,
     val icrAfterSleep: Boolean = false,
     val projectionStale: Boolean,
+    /** Set when a follow-up came from the history model, below the balance. */
+    val modelBalanceUnits: Double? = null,
 )
+
+/** What the lower half of the sheet explains: the meal's doses, or one top-up. */
+internal sealed interface BolusSelection {
+    data object Meal : BolusSelection
+    data class Dose(val index: Int) : BolusSelection
+}
+
+/** Doses given for the food: boluses up to an hour after the meal. */
+internal fun mealDoseIndices(doses: List<InsulinEvent>, mealAt: Instant?): Set<Int> {
+    if (mealAt == null) return emptySet()
+    val cutoff = mealAt + MEAL_DOSE_WINDOW
+    return doses.indices.filter { index ->
+        val dose = doses[index]
+        dose.eventType == InsulinEventType.Bolus && dose.timestamp <= cutoff
+    }.toSet()
+}
+
+internal fun defaultBolusSelection(
+    doses: List<InsulinEvent>,
+    mealAt: Instant?,
+    hasMeal: Boolean,
+): BolusSelection =
+    if (hasMeal && mealDoseIndices(doses, mealAt).isNotEmpty()) {
+        BolusSelection.Meal
+    } else {
+        BolusSelection.Dose(doses.lastIndex)
+    }
+
+private val MEAL_DOSE_WINDOW = kotlin.time.Duration.parse("60m")
 
 internal enum class BolusUnavailableReason {
     Glucose,
@@ -118,12 +160,16 @@ class BolusBreakdownViewModel @Inject constructor(
     private val _loadFailed = MutableStateFlow(false)
     internal val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
-    fun load(event: InsulinEvent, mealIds: List<String>) {
+    /**
+     * [forMeal] asks for the meal calculation at [event] — the first dose of the
+     * series — and anything else asks what "Сколько добавить?" said then.
+     */
+    fun load(event: InsulinEvent, mealIds: List<String>, forMeal: Boolean) {
         _calc.value = null
         _loadFailed.value = false
         viewModelScope.launch {
             val loaded = runCatching {
-                if (event.eventType == InsulinEventType.Bolus && mealIds.isNotEmpty()) {
+                if (forMeal && mealIds.isNotEmpty()) {
                     glucoseApi.insulinRecommendation(
                         mealIds.distinct().map(java.util.UUID::fromString),
                         calculationAt = event.timestamp,
@@ -165,6 +211,7 @@ internal fun InsulinRecommendationResponse.toMealBolusCalcUi(): BolusCalcUi {
             icr = effectiveIcr,
             isf = correctionIsfMmolLPerUnit?.toDouble(),
             target = correctionTargetMmolL?.toDouble(),
+            cobIsPrior = true,
         ),
         terms = buildList {
             mealUnits?.let {
@@ -225,7 +272,10 @@ internal fun TopUpDoseResponse.toBolusCalcUi(): BolusCalcUi {
     val carb = carbUnits?.toDouble()
     val correction = correctionUnits?.toDouble()
 
-    val terms = buildList {
+    // When the history model is the smaller of the two, the balance terms do
+    // not add up to the answer, so they are not listed as if they did.
+    val fromModel = limitedBy == TopUpDoseResponse.LimitedBy.MODEL
+    val terms = if (fromModel) emptyList() else buildList {
         if (correction != null && glucose != null && target != null && isf != null) {
             add(
                 BolusTermUi(
@@ -264,6 +314,7 @@ internal fun TopUpDoseResponse.toBolusCalcUi(): BolusCalcUi {
         // glucose or ICR is absent there is no fallback arithmetic to qualify.
         projectionStale = units != null &&
             projectionSource == TopUpDoseResponse.ProjectionSource.NONE,
+        modelBalanceUnits = balanceUnits?.toDouble()?.takeIf { fromModel },
     )
 }
 
@@ -277,13 +328,22 @@ fun BolusBreakdownSheet(
 ) {
     val ordered = remember(events) { events.sortedBy { it.timestamp } }
     if (ordered.isEmpty()) return
-    var selected by remember(ordered.map { it.id }) { mutableIntStateOf(ordered.lastIndex) }
+    var selection by remember(ordered.map { it.id }, mealAt) {
+        mutableStateOf(defaultBolusSelection(ordered, mealAt, hasMeal = mealIds.isNotEmpty()))
+    }
     val viewModel: BolusBreakdownViewModel = hiltViewModel()
-    LaunchedEffect(ordered[selected].id, mealIds) {
-        viewModel.load(ordered[selected], mealIds)
+    LaunchedEffect(selection, mealIds) {
+        when (val chosen = selection) {
+            BolusSelection.Meal -> {
+                val first = mealDoseIndices(ordered, mealAt).min()
+                viewModel.load(ordered[first], mealIds, forMeal = true)
+            }
+            is BolusSelection.Dose -> viewModel.load(ordered[chosen.index], mealIds, forMeal = false)
+        }
     }
     val calc by viewModel.calc.collectAsStateWithLifecycle()
     val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
+    var managed by remember { mutableStateOf<InsulinEvent?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -293,32 +353,45 @@ fun BolusBreakdownSheet(
         BolusBreakdownContent(
             doses = ordered,
             mealAt = mealAt,
-            selectedIndex = selected,
+            selection = selection,
             calc = calc,
             loadFailed = loadFailed,
-            onSelect = { selected = it },
+            onSelect = { selection = it },
+            onManage = { managed = it },
         )
+    }
+    managed?.let { event ->
+        InsulinManagementSheet(event = event, onDismiss = { managed = null })
     }
 }
 
 /**
  * The sheet without its loading, so a golden can render it.
  *
- * The snapshot suite draws a fake for every glucose surface, so anything that
- * only exists inside its own loader is invisible to a diff.
+ * The doses of one sitting are a series, not separate decisions: the meal's
+ * share was split across several entries and is judged once, against the
+ * calculation at the first of them. Comparing a single split entry with the
+ * whole meal's calculation produced "you entered −7,9" for a dose that was a
+ * third of the plan. A follow-up after the meal is its own decision and is
+ * judged against what "Сколько добавить?" said at that moment.
  */
 @Composable
 internal fun BolusBreakdownContent(
     doses: List<InsulinEvent>,
     mealAt: Instant?,
-    selectedIndex: Int,
+    selection: BolusSelection,
     calc: BolusCalcUi?,
     loadFailed: Boolean = false,
-    onSelect: (Int) -> Unit,
+    onSelect: (BolusSelection) -> Unit,
+    onManage: (InsulinEvent) -> Unit = {},
 ) {
     val zone = TimeZone.currentSystemDefault()
-    val chosen = doses[selectedIndex]
+    val mealDoses = remember(doses, mealAt) { mealDoseIndices(doses, mealAt) }
     val total = doses.sumOf { it.doseUnits }
+    val anchor = when (selection) {
+        BolusSelection.Meal -> doses[mealDoses.min()]
+        is BolusSelection.Dose -> doses[selection.index]
+    }
 
     Column(
         modifier = Modifier
@@ -328,52 +401,49 @@ internal fun BolusBreakdownContent(
     ) {
         Text(
             text = stringResource(R.string.bolus_breakdown_doses, units(total)),
-            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 6.dp),
+            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 4.dp),
             color = GT.colors.muted,
             style = GT.type.kicker,
         )
-        // Every dose of the sitting, each saying what it was for. Stepping
-        // between them is the point: a chasing bolus only means anything next
-        // to the one it was chasing.
-        doses.forEachIndexed { index, event ->
-            DoseRow(
-                event = event,
-                mealAt = mealAt,
-                zone = zone,
-                selected = index == selectedIndex,
-                onClick = { onSelect(index) },
-            )
+        DoseTimeline(
+            doses = doses,
+            mealAt = mealAt,
+            zone = zone,
+            mealDoses = mealDoses,
+            selection = selection,
+            onSelect = onSelect,
+        )
+
+        // A dose entered by mistake is fixed from here too. Only Glucotracker's
+        // own entries are offered; Nightscout imports stay read-only.
+        val selectedDoses = when (selection) {
+            BolusSelection.Meal -> mealDoses.sorted().map { doses[it] }
+            is BolusSelection.Dose -> listOf(anchor)
+        }.filter { !it.isReadOnly && !it.isPending }
+        if (selectedDoses.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.bolus_edit_doses),
+                    color = GT.colors.muted,
+                    style = GT.type.kicker,
+                )
+                selectedDoses.forEach { dose ->
+                    GTOutlineButton(
+                        text = stringResource(R.string.topup_units, units(dose.doseUnits)),
+                        onClick = { onManage(dose) },
+                    )
+                }
+            }
         }
 
         GTHairlineDivider(modifier = Modifier.padding(horizontal = 20.dp))
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Text(
-                text = stringResource(
-                    R.string.bolus_breakdown_of,
-                    selectedIndex + 1,
-                    doses.size,
-                ) + " · " + clock(chosen.timestamp, zone),
-                color = GT.colors.muted,
-                style = GT.type.kicker,
-            )
-            Text(
-                text = stringResource(R.string.bolus_entered, units(chosen.doseUnits)) +
-                    (
-                        calc?.suggestedUnits
-                            ?.let { " · " + stringResource(R.string.bolus_calc_was, units(it)) }
-                            ?: ""
-                        ),
-                color = GT.colors.ink,
-                style = GT.type.serifSection,
-            )
-        }
 
         if (calc == null) {
             if (loadFailed) {
@@ -397,7 +467,16 @@ internal fun BolusBreakdownContent(
                 state = calc.state,
                 terms = calc.terms,
                 total = calc.suggestedUnits,
-                at = clock(chosen.timestamp, zone),
+                at = clock(anchor.timestamp, zone),
+            )
+        }
+
+        calc.modelBalanceUnits?.let { balance ->
+            Text(
+                text = stringResource(R.string.bolus_topup_model, units(balance)),
+                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 6.dp),
+                color = GT.colors.muted,
+                style = GT.type.monoLabel.copy(fontSize = 10.sp),
             )
         }
 
@@ -448,26 +527,23 @@ internal fun BolusBreakdownContent(
             )
         }
 
+        // One neutral line: what went in against what was calculated. The
+        // difference is left to the reader rather than worded as a verdict.
         calc.suggestedUnits?.let { suggested ->
-            val delta = chosen.doseUnits - suggested
+            val given = when (selection) {
+                BolusSelection.Meal -> mealDoses.sumOf { doses[it].doseUnits }
+                is BolusSelection.Dose -> anchor.doseUnits
+            }
             Text(
-                text = when {
-                    abs(delta) < 0.05 -> stringResource(R.string.bolus_delta_equal)
-                    delta > 0 -> stringResource(R.string.bolus_delta_over, units(delta))
-                    else -> stringResource(R.string.bolus_delta_under, units(-delta))
+                text = when (selection) {
+                    BolusSelection.Meal ->
+                        stringResource(R.string.bolus_meal_given_of, units(given), units(suggested))
+                    is BolusSelection.Dose ->
+                        stringResource(R.string.bolus_topup_given, units(given), units(suggested))
                 },
                 modifier = Modifier.padding(horizontal = 20.dp).padding(top = 12.dp),
-                color = GT.colors.ink2,
-                style = GT.type.sansLabel,
-            )
-        }
-
-        if (calc.projectionStale) {
-            Text(
-                text = stringResource(R.string.bolus_caveats),
-                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
-                color = GT.colors.muted,
-                style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                color = GT.colors.ink,
+                style = GT.type.monoLabel,
             )
         }
     }
@@ -512,43 +588,83 @@ internal fun BolusCalculationBlock(
     }
 }
 
+/**
+ * The sitting's doses on one line, each under its offset from the meal.
+ *
+ * Four rows of "За 20 мин до еды / За 12 мин до еды / …" said the same thing
+ * four times; the offset is a number and reads as one. The meal's doses are
+ * selected together because they are judged together.
+ */
 @Composable
-private fun DoseRow(
-    event: InsulinEvent,
+private fun DoseTimeline(
+    doses: List<InsulinEvent>,
     mealAt: Instant?,
     zone: TimeZone,
-    selected: Boolean,
-    onClick: () -> Unit,
+    mealDoses: Set<Int>,
+    selection: BolusSelection,
+    onSelect: (BolusSelection) -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 14.dp)
+            .padding(bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = units(event.doseUnits),
-            color = if (selected) GT.colors.ink else GT.colors.ink2,
-            style = GT.type.monoNumber,
-            maxLines = 1,
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = bolusReason(event, mealAt),
-            modifier = Modifier.weight(1f),
-            color = if (selected) GT.colors.ink2 else GT.colors.muted,
-            style = GT.type.sansLabel,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = clock(event.timestamp, zone),
-            color = GT.colors.muted,
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-        )
+        doses.forEachIndexed { index, event ->
+            val isMealDose = index in mealDoses
+            val selected = when (selection) {
+                BolusSelection.Meal -> isMealDose
+                is BolusSelection.Dose -> selection.index == index
+            }
+            val reason = bolusReason(event, mealAt)
+            val label = stringResource(R.string.bolus_dose_semantics, units(event.doseUnits), reason)
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 56.dp)
+                    .heightIn(min = 44.dp)
+                    .clickable(role = Role.Button) {
+                        onSelect(if (isMealDose) BolusSelection.Meal else BolusSelection.Dose(index))
+                    }
+                    .semantics { contentDescription = label; this.selected = selected }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = doseOffset(event, mealAt, zone),
+                    color = GT.colors.muted,
+                    style = GT.type.monoLabel.copy(fontSize = 10.sp),
+                    maxLines = 1,
+                )
+                Text(
+                    text = units(event.doseUnits),
+                    color = if (selected) GT.colors.ink else GT.colors.muted,
+                    style = GT.type.monoNumber,
+                    maxLines = 1,
+                )
+                // Selection is drawn, not only coloured: an underline under
+                // every dose the lower half is explaining.
+                Box(
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .width(24.dp)
+                        .height(2.dp)
+                        .background(if (selected) GT.colors.ink else GT.colors.surface),
+                )
+            }
+        }
+    }
+}
+
+/** "−20", "0", "+50" minutes from the meal; the clock time without one. */
+private fun doseOffset(event: InsulinEvent, mealAt: Instant?, zone: TimeZone): String {
+    if (mealAt == null) return clock(event.timestamp, zone)
+    val minutes = ((event.timestamp - mealAt).inWholeSeconds / 60.0).roundToInt()
+    return when {
+        abs(minutes) <= 2 -> "0"
+        minutes < 0 -> "−${-minutes}"
+        else -> "+$minutes"
     }
 }
 
@@ -565,7 +681,11 @@ private fun BolusStateBlock(state: BolusStateUi, at: String, horizontalPadding: 
     val cells = listOfNotNull(
         state.glucose?.let { stringResource(R.string.bolus_state_glucose) to mmol(it) },
         state.iob?.let { stringResource(R.string.bolus_state_iob) to units(it) },
-        state.cob?.let { stringResource(R.string.bolus_state_cob) to grams(it) },
+        state.cob?.let {
+            stringResource(
+                if (state.cobIsPrior) R.string.bolus_state_cob_prior else R.string.bolus_state_cob,
+            ) to grams(it)
+        },
         state.icr?.let { stringResource(R.string.bolus_state_icr) to mmol(it) },
         state.isf?.let { stringResource(R.string.bolus_state_isf) to mmol(it) },
         state.target?.let { stringResource(R.string.bolus_state_target) to mmol(it) },

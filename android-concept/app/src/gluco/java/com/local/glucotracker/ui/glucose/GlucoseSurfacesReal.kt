@@ -1064,8 +1064,8 @@ private fun BodyStateRow(
             text = stringResource(
                 R.string.body_state_span,
                 formatBodyStateDuration(state.totalMinutes),
-                state.startAt.timeText(),
-                state.endAt.timeText(),
+                state.wholeStartAt.timeText(),
+                state.wholeEndAt.timeText(),
             ),
             color = GT.colors.muted,
             style = GT.type.monoLabel.copy(fontSize = 11.sp),
@@ -1078,14 +1078,14 @@ private fun BodyStateRow(
  * Two totals under the day's numbers: how long slept, how long worked hard.
  *
  * Sums rather than intervals — the spans themselves sit in the list at the hour
- * they happened, and repeating them here would say twice what the day was. A
+ * they happened, and repeating them here would say twice what the day was. Each
+ * state counts on the day it ends (see [dayBodyStateTotals]). A
  * kind with nothing recorded is omitted rather than shown as a zero: no data
  * and none of it are different facts, and a diabetes screen must not blur them.
  */
 @Composable
 private fun TodayBodyStateTotals(states: List<BodyState>, modifier: Modifier = Modifier) {
-    val slept = states.filter { it.kind == BodyState.Kind.Sleep }.sumOf { it.totalMinutes }
-    val worked = states.filter { it.kind == BodyState.Kind.Activity }.sumOf { it.totalMinutes }
+    val (slept, worked) = dayBodyStateTotals(states)
     if (slept == 0 && worked == 0) return
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (slept > 0) {
@@ -1777,28 +1777,62 @@ internal fun OrphanInsulinRow(
 @Composable
 private fun InsulinMetaRow(events: List<InsulinEvent>) {
     val unit = stringResource(R.string.insulin_units_short)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(R.string.stack_meta_insulin),
-            color = GT.colors.muted,
-            style = GT.type.kicker.copy(fontSize = 8.sp),
-            maxLines = 1,
-        )
-        Text(
-            text = events.joinToString("; ") { event ->
-                "${formatInsulinDose(event.doseUnits)} $unit · ${event.timestamp.timeText()}"
-            },
-            modifier = Modifier.padding(start = 10.dp),
-            color = GT.colors.ink2,
-            style = GT.type.monoLabel.copy(fontSize = 10.sp),
-            maxLines = 1,
-        )
+    // Each dose is its own target: the row used to be one line of text, so a
+    // dose entered by mistake could be seen on the card and not removed there.
+    var managed by remember { mutableStateOf<InsulinEvent?>(null) }
+    var explained by remember { mutableStateOf<InsulinEvent?>(null) }
+    LaunchedEffect(explained) {
+        if (explained != null) {
+            delay(1_500)
+            explained = null
+        }
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.stack_meta_insulin),
+                color = GT.colors.muted,
+                style = GT.type.kicker.copy(fontSize = 8.sp),
+                maxLines = 1,
+            )
+            Row(
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                events.forEach { event ->
+                    val editable = !event.isReadOnly && !event.isPending
+                    Text(
+                        text = "${formatInsulinDose(event.doseUnits)} $unit · ${event.timestamp.timeText()}",
+                        modifier = Modifier
+                            .heightIn(min = 44.dp)
+                            .clickable(role = Role.Button) {
+                                if (editable) managed = event else explained = event
+                            }
+                            .padding(vertical = 14.dp),
+                        color = GT.colors.ink2,
+                        style = GT.type.monoLabel.copy(
+                            fontSize = 10.sp,
+                            textDecoration = if (editable) {
+                                androidx.compose.ui.text.style.TextDecoration.Underline
+                            } else {
+                                null
+                            },
+                        ),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        explained?.let { InsulinTooltip(event = it) }
+    }
+    managed?.let { event ->
+        InsulinManagementSheet(event = event, onDismiss = { managed = null })
     }
 }
 
@@ -2248,46 +2282,55 @@ private fun MiniGlucoseSurface(
     viewModel: MiniGlucoseViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(88.dp)
             .background(GT.colors.surface, GT.shapes.card)
             .border(GT.space.hairline, GT.colors.hairline, GT.shapes.card)
             .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        when (val mini = state) {
-            MiniGlucoseUiState.Empty -> {
-                Text(
-                    text = stringResource(R.string.today_glucose_no_fresh),
-                    color = GT.colors.muted,
-                    style = GT.type.sansBody,
-                )
-            }
-            is MiniGlucoseUiState.Reading -> {
-                Column(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            when (val mini = state) {
+                MiniGlucoseUiState.Empty -> {
                     Text(
-                        text = formatMmol(mini.valueMmol),
-                        color = GT.colors.ink,
-                        style = GT.type.monoNumber,
-                    )
-                    Text(
-                        text = if (mini.minutesAgo > 10) {
-                            stringResource(R.string.today_glucose_stale, mini.minutesAgo)
-                        } else {
-                            mini.deltaMmol?.let { formatGlucoseDelta(it) }.orEmpty()
-                        },
+                        text = stringResource(R.string.today_glucose_no_fresh),
                         color = GT.colors.muted,
-                        style = GT.type.monoLabel,
+                        style = GT.type.sansBody,
                     )
                 }
-                Sparkline(
-                    points = mini.points,
-                    modifier = Modifier.size(width = 112.dp, height = 42.dp),
-                    color = GT.colors.info,
-                )
+                is MiniGlucoseUiState.Reading -> {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = formatMmol(mini.valueMmol),
+                            color = GT.colors.ink,
+                            style = GT.type.monoNumber,
+                        )
+                        Text(
+                            text = if (mini.minutesAgo > 10) {
+                                stringResource(R.string.today_glucose_stale, mini.minutesAgo)
+                            } else {
+                                mini.deltaMmol?.let { formatGlucoseDelta(it) }.orEmpty()
+                            },
+                            color = GT.colors.muted,
+                            style = GT.type.monoLabel,
+                        )
+                    }
+                    Sparkline(
+                        points = mini.points,
+                        modifier = Modifier.size(width = 112.dp, height = 42.dp),
+                        color = GT.colors.info,
+                    )
+                }
             }
+        }
+        // A follow-up only means something against a live reading; with a stale
+        // one the button would answer for a moment that has passed.
+        val reading = state as? MiniGlucoseUiState.Reading
+        if (reading != null && reading.minutesAgo <= 10) {
+            TopUpPanel(modifier = Modifier.padding(top = 10.dp))
         }
     }
 }

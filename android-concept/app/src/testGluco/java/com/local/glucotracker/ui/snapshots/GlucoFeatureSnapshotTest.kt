@@ -2,10 +2,18 @@ package com.local.glucotracker.ui.snapshots
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.local.glucotracker.ui.design.GT
 import com.local.glucotracker.ui.glucose.BolusBreakdownContent
+import com.local.glucotracker.ui.glucose.BolusSelection
+import com.local.glucotracker.ui.glucose.TopUpContent
 import com.local.glucotracker.ui.glucose.EpisodeBreakdownContent
 import com.local.glucotracker.ui.glucose.EpisodeInsulinFooter
 import com.local.glucotracker.ui.glucose.LocalGlucoseSurfaces
@@ -219,10 +227,43 @@ class GlucoFeatureSnapshotTest {
         BolusBreakdownContent(
             doses = sittingBoluses(),
             mealAt = sittingMealAt(),
-            selectedIndex = 3,
+            selection = BolusSelection.Dose(3),
             calc = chasingBolusCalc(),
             onSelect = {},
         )
+    }
+
+    /** The meal's entries judged once, against the calculation at the first. */
+    @Test fun bolusBreakdownMealSeries() = glucoSnapshot("gluco_bolus_breakdown_meal") {
+        BolusBreakdownContent(
+            doses = sittingBoluses(),
+            mealAt = sittingMealAt(),
+            selection = BolusSelection.Meal,
+            calc = mealSeriesCalc(),
+            onSelect = {},
+        )
+    }
+
+    @Test fun topUpPanelFromModel() = glucoSnapshot("gluco_top_up_model") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(GT.colors.surface)
+                .padding(14.dp),
+        ) {
+            TopUpContent(state = topUpFromModel(), onRequest = {})
+        }
+    }
+
+    @Test fun topUpPanelFromBalance() = glucoSnapshot("gluco_top_up_balance") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(GT.colors.surface)
+                .padding(14.dp),
+        ) {
+            TopUpContent(state = topUpFromBalance(), onRequest = {})
+        }
     }
 
     private fun glucoSnapshot(name: String, content: @Composable () -> Unit) {
