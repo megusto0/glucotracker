@@ -149,8 +149,10 @@ def tdee_from_profile(
     """Return the day's energy expenditure, from the best evidence there is.
 
     ``effort_kcal`` is what the day's effort spans cost above resting, priced
-    from heart rate; ``effort_steps`` are the steps taken inside them. A real
-    device total or active figure already contains the effort and wins. When
+    from heart rate; ``effort_steps`` are the steps taken inside them. A
+    plausible device total is kept unless the effort-based estimate (sedentary
+    base + walking outside the efforts + effort) is higher; an active figure
+    already contains the effort and wins. When
     there is none, the effort is added to a sedentary base and only the steps
     outside it are priced as walking — pedalling counted as steps is not
     counted twice.
@@ -178,6 +180,18 @@ def tdee_from_profile(
     ):
         total_kcal = _current_day_projected_total_kcal(activity, base_bmr, now)
         if total_kcal >= base_bmr * MIN_TOTAL_KCAL_BMR_RATIO:
+            # A total that only just clears the basal check is usually Health
+            # Connect's basal fill plus a sliver from some other app, not a
+            # device that saw the ride. Never let it erase heart-rate effort:
+            # take whichever of the two says more energy was spent.
+            walking_steps = max(0, (activity.steps or 0) - effort_steps)
+            effort_tdee = (
+                base_bmr * ACTIVITY_MULTIPLIERS["sedentary"]
+                + steps_kcal(walking_steps, profile.weight_kg)
+                + effort_kcal
+            )
+            if effort_kcal > 0 and effort_tdee > total_kcal:
+                return round(effort_tdee, 1)
             return round(total_kcal, 1)
         rejected_total_kcal = True
 

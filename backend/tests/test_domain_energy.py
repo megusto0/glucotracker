@@ -160,7 +160,48 @@ def test_a_real_device_total_already_contains_the_effort() -> None:
         source="health_connect_total",
     )
 
-    assert tdee_from_profile(_profile(), activity, effort_kcal=1500) == 3400
+    # Sedentary base (~1978) + 1000 effort is below the device's 3400.
+    assert tdee_from_profile(_profile(), activity, effort_kcal=1000) == 3400
+
+
+def test_a_basal_plus_sliver_total_does_not_erase_a_ride() -> None:
+    """29–31.10: a total just above 0.9×BMR used to win and drop a 4-hour ride."""
+    profile = _profile()
+    bmr = bmr_mifflin_st_jeor(70, 175, 30, "male")
+    activity = DailyActivity(
+        owner_id=uuid4(),
+        date=date(2026, 5, 5),
+        kcal_burned=round(bmr * 0.95, 1),
+        steps=6000,
+        source="health_connect_total",
+    )
+    walking = 70 * (1000 * 0.72 / 1000) * 0.6
+
+    assert tdee_from_profile(
+        profile,
+        activity,
+        now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
+        effort_kcal=2000,
+        effort_steps=5000,
+    ) == round(bmr * 1.2 + walking + 2000, 1)
+
+
+def test_a_plausible_total_without_effort_is_still_used_as_is() -> None:
+    profile = _profile()
+    bmr = bmr_mifflin_st_jeor(70, 175, 30, "male")
+    activity = DailyActivity(
+        owner_id=uuid4(),
+        date=date(2026, 5, 5),
+        kcal_burned=round(bmr * 0.95, 1),
+        steps=6000,
+        source="health_connect_total",
+    )
+
+    assert tdee_from_profile(
+        profile,
+        activity,
+        now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
+    ) == round(bmr * 0.95, 1)
 
 
 def test_keytel_female_equation_uses_its_own_coefficients() -> None:
